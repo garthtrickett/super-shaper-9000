@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import rhino3dm from "rhino3dm";
-// @ts-ignore - Vite handles this ?url import natively
+// @ts-expect-error - Vite handles this ?url import natively
 import rhinoWasmUrl from "rhino3dm/rhino3dm.wasm?url";
 
 // We use `any` for RhinoModule here to avoid heavy type imports,
@@ -17,7 +17,7 @@ export const getRhino = (): Promise<RhinoModule> => {
   if (rhinoInstance) return Promise.resolve(rhinoInstance);
   
   if (!initPromise) {
-    // @ts-ignore - rhino3dm types do not declare the Emscripten module configuration argument
+    // @ts-expect-error - rhino3dm types do not declare the Emscripten module configuration argument
     initPromise = rhino3dm({
       locateFile: (file: string) => {
         if (file === "rhino3dm.wasm") {
