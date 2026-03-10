@@ -39,15 +39,23 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   
   let tailW = W * 0.3;
   if (model.tailType === "pintail") tailW = 0; // Pintails converge to a perfect point at the center
-  if (model.tailType === "round") tailW = W * 0.2;
   if (model.tailType === "swallow") tailW = W * 0.35;
 
   const ptsOutline = new rhino.Point3dList();
   ptsOutline.add(0, 0, -L/2);
   ptsOutline.add(W/2, 0, -L/4);
   ptsOutline.add(W/2, 0, 0);
-  ptsOutline.add(W/2 * 0.8, 0, L/4);
-  ptsOutline.add(tailW, 0, L/2);
+  
+  if (model.tailType === "round") {
+      ptsOutline.add(W/2 * 0.7, 0, L/4);
+      ptsOutline.add(W/2 * 0.25, 0, L/2); // Tangent control point for a perfectly rounded tail
+      ptsOutline.add(0, 0, L/2);
+  } else {
+      let cp4X = W/2 * 0.8;
+      if (model.tailType === "pintail") cp4X = W/2 * 0.6;
+      ptsOutline.add(cp4X, 0, L/4);
+      ptsOutline.add(tailW, 0, L/2);
+  }
 
   const crvOutline = rhino.NurbsCurve.create(false, 3, ptsOutline);
 
