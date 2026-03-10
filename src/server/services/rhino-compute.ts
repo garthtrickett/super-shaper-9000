@@ -59,16 +59,22 @@ export const computeBoardMesh = async (params: BoardParams): Promise<{ mesh: str
       throw new Error(`Rhino Compute failed: ${response.statusText}`);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = (await response.json()) as any;
+    interface ComputeValue {
+      ParamName: string;
+      InnerTree: Record<string, Array<{ data: string }>>;
+    }
+
+    interface ComputeResponse {
+      values: ComputeValue[];
+    }
+
+    const result = (await response.json()) as ComputeResponse;
     
     // Extract the base64 mesh or standard format returned by the GH script
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const meshOutput = result.values.find((v: any) => v.ParamName === "Mesh");
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const meshData = meshOutput?.InnerTree["{0;0}"]?.[0]?.data || "NO_MESH_FOUND";
+    const meshOutput = result.values?.find((v) => v.ParamName === "Mesh");
+    const meshData = meshOutput?.InnerTree?.["{0;0}"]?.[0]?.data ?? "NO_MESH_FOUND";
 
-    return { mesh: meshData as string };
+    return { mesh: String(meshData) };
   } catch (error) {
     console.error("[Rhino Compute] Error calling compute server:", error);
     throw error;

@@ -11,7 +11,7 @@ export const app = new Elysia()
       try {
         const result = await computeBoardMesh(body);
         return { status: "success", data: result };
-      } catch (error) {
+      } catch  {
         set.status = 500;
         return { status: "error", message: "Compute failed" };
       }
