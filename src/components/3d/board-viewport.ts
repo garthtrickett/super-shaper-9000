@@ -100,23 +100,42 @@ export class BoardViewport extends LitElement {
 
     if (this.boardState.meshData) {
         if (this.boardState.meshData === "MOCK_BASE64_MESH_DATA") {
-            // Mock geometry to represent the solid board
-            const geom = new THREE.CapsuleGeometry(
-              (this.boardState.width / 2) * scale, 
-              (this.boardState.length - this.boardState.width) * scale, 
-              16, 
-              32
-            );
+            // Build a much better mock geometry using the actual outline curves
+            const shape = new THREE.Shape();
+            
+            // Draw right side
+            curves.outline.forEach((p, i) => {
+                if (i === 0) shape.moveTo(p[0] * scale, p[2] * scale);
+                else shape.lineTo(p[0] * scale, p[2] * scale);
+            });
+            
+            // Draw left side (mirrored)
+            for (let i = curves.outline.length - 1; i >= 0; i--) {
+                const p = curves.outline[i];
+                shape.lineTo(-p[0] * scale, p[2] * scale);
+            }
+
+            // Extrude the 2D shape to give it thickness
+            const geom = new THREE.ExtrudeGeometry(shape, {
+                depth: this.boardState.thickness * scale,
+                bevelEnabled: true,
+                bevelThickness: 0.05,
+                bevelSize: 0.05,
+                bevelSegments: 3,
+                curveSegments: 12
+            });
+
+            // ExtrudeGeometry builds along Z. Rotate to lie flat on the X-Z plane.
             geom.rotateX(Math.PI / 2);
-            // Squash the capsule to match thickness
-            geom.scale(1, this.boardState.thickness / this.boardState.width, 1);
+            // Center the thickness on the Y axis
+            geom.translate(0, (this.boardState.thickness * scale) / 2, 0);
             
             const mat = new THREE.MeshStandardMaterial({ 
                 color: 0xeeeeee, 
                 roughness: 0.2, 
                 metalness: 0.1,
                 transparent: true,
-                opacity: 0.9
+                opacity: 0.8
             });
             const mesh = new THREE.Mesh(geom, mat);
             this.solidGroup.add(mesh);
