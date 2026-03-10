@@ -1,5 +1,6 @@
 import { expect } from "@open-wc/testing";
 import { generateBoardCurves, deps } from "./board-curves";
+import type { BoardModel } from "../../../components/pages/board-builder-page.logic";
 
 describe("Board Curves Generator", () => {
   const originalGetRhino = deps.getRhino;
@@ -48,21 +49,21 @@ describe("Board Curves Generator", () => {
     });
     
     // Pintail (5% of width)
-    let model = { length: 72, width: 20, thickness: 2.5, tailType: "pintail" as const };
+    let model: BoardModel = { length: 72, width: 20, thickness: 2.5, tailType: "pintail" };
     let result = await generateBoardCurves(model);
-    let tailPoint = result.outline[result.outline.length - 1];
+    let tailPoint = result.outline[result.outline.length - 1]!;
     expect(tailPoint[0]).to.equal(20 * 0.05);
 
     // Squash (30% of width)
     model = { ...model, tailType: "squash" };
     result = await generateBoardCurves(model);
-    tailPoint = result.outline[result.outline.length - 1];
+    tailPoint = result.outline[result.outline.length - 1]!;
     expect(tailPoint[0]).to.equal(20 * 0.3);
 
     // Swallow (35% of width)
     model = { ...model, tailType: "swallow" };
     result = await generateBoardCurves(model);
-    tailPoint = result.outline[result.outline.length - 1];
+    tailPoint = result.outline[result.outline.length - 1]!;
     expect(tailPoint[0]).to.equal(20 * 0.35);
   });
 });
