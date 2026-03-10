@@ -133,21 +133,6 @@ export class BoardViewport extends LitElement {
             
             // Deform the flat extrusion to follow the rocker curves
             const pos = geom.attributes.position;
-            
-            // Helper to find the Y height of a rocker curve at a specific Z length
-            const getRockerY = (zInches: number, isTop: boolean) => {
-                const pts = isTop ? curves.rockerTop : curves.rockerBottom;
-                for (let i = 0; i < pts.length - 1; i++) {
-                    const z1 = pts[i][2];
-                    const z2 = pts[i+1][2];
-                    if (zInches >= z1 && zInches <= z2) {
-                        const tCurve = (zInches - z1) / (z2 - z1);
-                        return pts[i][1] + tCurve * (pts[i+1][1] - pts[i][1]);
-                    }
-                }
-                // Fallback for bevels that slightly overhang the exact length
-                return zInches <= pts[0][2] ? pts[0][1] : pts[pts.length - 1][1];
-            };
 
             for (let i = 0; i < pos.count; i++) {
                 const y = pos.getY(i);
