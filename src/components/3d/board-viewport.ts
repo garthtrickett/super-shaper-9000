@@ -69,22 +69,48 @@ export class BoardViewport extends LitElement {
 
     const scale = 1 / 12; // Inches to Feet for Three.js coordinates
 
-    const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, mirrorX = false) => {
+    // Helper to find the Y height of a rocker curve at a specific Z length
+    const getRockerY = (zInches: number, isTop: boolean) => {
+        const pts = isTop ? curves.rockerTop : curves.rockerBottom;
+        for (let i = 0; i < pts.length - 1; i++) {
+            const z1 = pts[i][2];
+            const z2 = pts[i+1][2];
+            if (zInches >= z1 && zInches <= z2) {
+                const tCurve = (zInches - z1) / (z2 - z1);
+                return pts[i][1] + tCurve * (pts[i+1][1] - pts[i][1]);
+            }
+        }
+        // Fallback for bevels that slightly overhang the exact length
+        return zInches <= pts[0][2] ? pts[0][1] : pts[pts.length - 1][1];
+    };
+
+    const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, mirrorX = false, followRocker = false) => {
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => {
+            const zInches = p[2];
             vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
-            vertices[i*3+1] = p[1] * scale;
-            vertices[i*3+2] = p[2] * scale;
+            
+            if (followRocker) {
+                // Wrap the 2D outline along the rail profile (center of thickness)
+                const topY = getRockerY(zInches, true);
+                const bottomY = getRockerY(zInches, false);
+                vertices[i*3+1] = ((topY + bottomY) / 2) * scale;
+            } else {
+                vertices[i*3+1] = p[1] * scale;
+            }
+            
+            vertices[i*3+2] = zInches * scale;
         });
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
         return new THREE.Line(geometry, mat);
     };
 
-    this.wireframeGroup.add(buildLine(curves.outline, matOutline, false));
-    this.wireframeGroup.add(buildLine(curves.outline, matOutline, true)); 
-    this.wireframeGroup.add(buildLine(curves.rockerTop, matRocker, false));
-    this.wireframeGroup.add(buildLine(curves.rockerBottom, matRocker, false));
+    // Render outline wrapping the rails, and rocker staying normal
+    this.wireframeGroup.add(buildLine(curves.outline, matOutline, false, true));
+    this.wireframeGroup.add(buildLine(curves.outline, matOutline, true, true)); 
+    this.wireframeGroup.add(buildLine(curves.rockerTop, matRocker, false, false));
+    this.wireframeGroup.add(buildLine(curves.rockerBottom, matRocker, false, false));
 
     // Handle Solid Mesh Rendering
     while (this.solidGroup.children.length > 0) {
