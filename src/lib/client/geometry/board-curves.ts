@@ -63,19 +63,19 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   ptsRockerBottom.add(0, 2, L/2);
   const crvRockerBottom = rhino.NurbsCurve.create(false, 2, ptsRockerBottom);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const sampleCurve = (crv: any, steps = 50) => {
       const pts: [number, number, number][] =[];
       if (!crv) return pts;
       
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+       
       const domain = crv.domain;
       for (let i = 0; i <= steps; i++) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+           
           const t = domain[0] + (domain[1] - domain[0]) * (i / steps);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+           
           const p = crv.pointAt(t);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+           
           pts.push([p[0], p[1], p[2]]);
       }
       return pts;
