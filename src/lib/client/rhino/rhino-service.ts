@@ -17,6 +17,7 @@ export const getRhino = (): Promise<RhinoModule> => {
   if (rhinoInstance) return Promise.resolve(rhinoInstance);
   
   if (!initPromise) {
+    // @ts-ignore - rhino3dm types do not declare the Emscripten module configuration argument
     initPromise = rhino3dm({
       locateFile: (file: string) => {
         if (file === "rhino3dm.wasm") {

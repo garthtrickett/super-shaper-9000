@@ -3,9 +3,6 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [tailwindcss()],
-  optimizeDeps: {
-    exclude:["rhino3dm"],
-  },
   server: {
     host: "127.0.0.1",
     allowedHosts: true,
