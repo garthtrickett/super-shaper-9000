@@ -1,16 +1,68 @@
 import { expect } from "@open-wc/testing";
-import { generateBoardCurves } from "./board-curves";
+import { generateBoardCurves, deps } from "./board-curves";
 
 describe("Board Curves Generator", () => {
-  it("should generate outline and rocker points without crashing", async () => {
+  const originalGetRhino = deps.getRhino;
+
+  afterEach(() => {
+    // Restore original unmocked dependency
+    deps.getRhino = originalGetRhino;
+  });
+
+  it("should use fallback math if rhino fails to load", async () => {
+    deps.getRhino = () => Promise.reject(new Error("WASM block"));
+    
     const model = { length: 72, width: 20, thickness: 2.5, tailType: "squash" as const };
     const result = await generateBoardCurves(model);
-
-    expect(result.outline).to.be.an("array");
-    expect(result.rockerTop).to.be.an("array");
-    expect(result.rockerBottom).to.be.an("array");
     
-    // We expect points, regardless of whether it used the real WASM or the fallback mock
-    expect(result.outline.length).to.be.greaterThan(0);
+    // Verify fallback points derived from L, W, T
+    expect(result.outline[0]).to.deep.equal([0, 0, -36]); // Nose
+    expect(result.outline[1]).to.deep.equal([10, 0, 0]);  // Center wide point
+    expect(result.outline[2]).to.deep.equal([0, 0, 36]);  // Tail
+    
+    expect(result.rockerTop[0]).to.deep.equal([0, 1.25, -36]);
+    expect(result.rockerBottom[0]).to.deep.equal([0, -1.25, -36]);
+  });
+
+  it("should calculate correct tail widths for different tail types using Rhino math", async () => {
+    // Stub Rhino behavior to just return the control points passed to it
+    deps.getRhino = () => Promise.resolve({
+      Point3dList: class {
+        points: number[][] =[];
+        add(x: number, y: number, z: number) { this.points.push([x, y, z]); }
+        delete() {}
+      },
+      NurbsCurve: {
+        create: (_periodic: boolean, _degree: number, ptsList: any) => {
+          return {
+            domain:[0, ptsList.points.length - 1],
+            pointAt: (t: number) => {
+              // Mock evaluation by simply returning the control points 
+              const idx = Math.min(Math.floor(t), ptsList.points.length - 1);
+              return ptsList.points[idx];
+            },
+            delete: () => {}
+          };
+        }
+      }
+    });
+    
+    // Pintail (5% of width)
+    let model = { length: 72, width: 20, thickness: 2.5, tailType: "pintail" as const };
+    let result = await generateBoardCurves(model);
+    let tailPoint = result.outline[result.outline.length - 1];
+    expect(tailPoint[0]).to.equal(20 * 0.05);
+
+    // Squash (30% of width)
+    model = { ...model, tailType: "squash" };
+    result = await generateBoardCurves(model);
+    tailPoint = result.outline[result.outline.length - 1];
+    expect(tailPoint[0]).to.equal(20 * 0.3);
+
+    // Swallow (35% of width)
+    model = { ...model, tailType: "swallow" };
+    result = await generateBoardCurves(model);
+    tailPoint = result.outline[result.outline.length - 1];
+    expect(tailPoint[0]).to.equal(20 * 0.35);
   });
 });
