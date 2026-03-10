@@ -1,0 +1,32 @@
+File: ./.gitignore
+------------------------
+current_response.json
+node_modules
+a.txt
+.env
+.vite
+/nbproject/
+/.idea/*
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+bedrock-6d04a-firebase-adminsdk-fbsvc-38ae97cff1.json
+test_results.txt
+
+# Build output
+dist/
+coverage/
+test-results/
+
+signing_key.jks
+
+# Cache files
+.eslintcache
+
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.backup
+infra/**/*.tfvars
+.terraform.lock.hcl

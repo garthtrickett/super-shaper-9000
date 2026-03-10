@@ -1,0 +1,30 @@
+{
+  "name": "super-shaper-9000",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"bun run --watch src/server/index.ts\"",
+    "build": "tsc && vite build",
+    "start": "bun run src/server/index.ts"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.87.12",
+    "@effect/platform-browser": "^0.67.12",
+    "@effect/platform-bun": "^0.72.17",
+    "@elysiajs/cors": "^1.4.0",
+    "@elysiajs/static": "^1.4.7",
+    "@preact/signals-core": "^1.11.0",
+    "effect": "^3.16.12",
+    "elysia": "^1.4.18",
+    "lit": "^3.3.1",
+    "three": "^0.162.0",
+    "rhino3dm": "^8.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@tailwindcss/vite": "^4.1.11",
+    "concurrently": "^9.2.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.6.3",
+    "vite": "^7.0.4"
+  }
+}

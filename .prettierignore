@@ -1,0 +1,13 @@
+# Build artifacts and dependencies
+/dist
+/node_modules
+/g.txt
+.eslintcache
+bun.lockb
+
+# Environment files
+.env*
+
+# Generated types
+/types/generated
+
