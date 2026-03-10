@@ -15,6 +15,7 @@ export const computeBoardMesh = async (params: BoardParams): Promise<{ mesh: str
   // Mock implementation for CI/CD or local dev without Rhino.Compute
   if (!computeUrl) {
     console.info("[Rhino Compute] No RHINO_COMPUTE_URL provided. Using mock data.");
+    await new Promise(resolve => setTimeout(resolve, 500));
     return { mesh: "MOCK_BASE64_MESH_DATA" };
   }
 
