@@ -5,7 +5,6 @@ import {
   Scope,
   Cause
 } from "effect";
-import { clientLog } from "./clientLog";
 import { LocationLive, LocationService } from "./LocationService";
 
 export type FullClientContext = LocationService;
@@ -19,7 +18,7 @@ export const AppRuntime = Effect.runSync(
 );
 
 export const clientRuntime: Runtime.Runtime<FullClientContext> =
-  AppRuntime as Runtime.Runtime<FullClientContext>;
+  AppRuntime;
 
 const withGlobalErrorReporting = <A, E, R>(effect: Effect.Effect<A, E, R>) => {
   return effect.pipe(

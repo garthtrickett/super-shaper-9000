@@ -6,7 +6,7 @@ export const app = new Elysia()
   .use(cors())
   // Placeholder route for Rhino.Compute interaction
   .post("/api/compute/board", ({ body }) => {
-      console.log("[Server] Received compute request:", body);
+      console.info("[Server] Received compute request:", body);
       return { status: "success", mesh: "MOCK_MESH_DATA_SOON" };
   })
   .use(
@@ -18,6 +18,6 @@ export const app = new Elysia()
   .get("*", () => Bun.file("./dist/index.html"));
 
 app.listen(42069);
-console.log(`\n🏄‍♂️ Super Shaper API running at http://${app.server?.hostname}:${app.server?.port}\n`);
+console.info(`\n🏄‍♂️ Super Shaper API running at http://${app.server?.hostname}:${app.server?.port}\n`);
 
 export type App = typeof app;
