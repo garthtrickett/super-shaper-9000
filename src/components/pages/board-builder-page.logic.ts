@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
 import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
 
@@ -9,6 +9,8 @@ export interface BoardModel {
   width: number;
   thickness: number;
   tailType: TailType;
+  isComputing: boolean;
+  meshData: string | null;
 }
 
 export const INITIAL_STATE: BoardModel = {
@@ -16,11 +18,17 @@ export const INITIAL_STATE: BoardModel = {
   width: 19.5,
   thickness: 2.5,
   tailType: "squash",
+  isComputing: false,
+  meshData: null,
 };
 
 export type BoardAction =
   | { type: "UPDATE_DIMENSION"; dimension: "length" | "width" | "thickness"; value: number }
-  | { type: "UPDATE_TAIL"; tailType: TailType };
+  | { type: "UPDATE_TAIL"; tailType: TailType }
+  | { type: "TRIGGER_COMPUTE" }
+  | { type: "COMPUTE_START" }
+  | { type: "COMPUTE_SUCCESS"; meshData: string }
+  | { type: "COMPUTE_FAILURE"; error: string };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -28,16 +36,71 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       return { ...state, [action.dimension]: action.value };
     case "UPDATE_TAIL":
       return { ...state, tailType: action.tailType };
+    case "COMPUTE_START":
+      return { ...state, isComputing: true };
+    case "COMPUTE_SUCCESS":
+      return { ...state, isComputing: false, meshData: action.meshData };
+    case "COMPUTE_FAILURE":
+      return { ...state, isComputing: false };
     default:
       return state;
   }
 };
 
+let computeFiber: Fiber.RuntimeFiber<void, unknown> | null = null;
+
 export const handleAction = (
   action: BoardAction,
-  _state: BoardModel,
-  _dispatch: (a: BoardAction) => void,
+  state: BoardModel,
+  dispatch: (a: BoardAction) => void,
 ): Effect.Effect<void, never, FullClientContext> =>
   Effect.gen(function* () {
     yield* clientLog("debug", "[BoardBuilder] State Action processed", action);
+
+    if (
+      action.type === "UPDATE_DIMENSION" ||
+      action.type === "UPDATE_TAIL" ||
+      action.type === "TRIGGER_COMPUTE"
+    ) {
+      if (computeFiber) {
+        yield* Fiber.interrupt(computeFiber);
+        computeFiber = null;
+      }
+
+      const task = Effect.gen(function* () {
+        if (action.type !== "TRIGGER_COMPUTE") {
+          yield* Effect.sleep("300 millis");
+        }
+
+        yield* Effect.sync(() => dispatch({ type: "COMPUTE_START" }));
+
+        const response = (yield* Effect.tryPromise({
+          try: () =>
+            fetch("/api/compute/board", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                length: state.length,
+                width: state.width,
+                thickness: state.thickness,
+                tailType: state.tailType,
+              }),
+            }).then((res) => res.json()),
+          catch: (err) => String(err),
+        })) as { status: string; data?: { mesh: string } };
+
+        const mesh = response.data?.mesh;
+        if (response.status === "success" && typeof mesh === "string") {
+          yield* Effect.sync(() => dispatch({ type: "COMPUTE_SUCCESS", meshData: mesh }));
+        } else {
+          yield* Effect.sync(() => dispatch({ type: "COMPUTE_FAILURE", error: "Invalid response from server" }));
+        }
+      }).pipe(
+        Effect.catchAll((err) =>
+          Effect.sync(() => dispatch({ type: "COMPUTE_FAILURE", error: String(err) }))
+        )
+      );
+
+      computeFiber = yield* Effect.fork(task);
+    }
   });

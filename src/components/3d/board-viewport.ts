@@ -35,6 +35,7 @@ export class BoardViewport extends LitElement {
   private animationId: number = 0;
   private resizeObserver!: ResizeObserver;
   private wireframeGroup = new THREE.Group();
+  private solidGroup = new THREE.Group();
 
   override firstUpdated() {
     this.initThree();
@@ -84,6 +85,45 @@ export class BoardViewport extends LitElement {
     this.wireframeGroup.add(buildLine(curves.outline, matOutline, true)); 
     this.wireframeGroup.add(buildLine(curves.rockerTop, matRocker, false));
     this.wireframeGroup.add(buildLine(curves.rockerBottom, matRocker, false));
+
+    // Handle Solid Mesh Rendering
+    while (this.solidGroup.children.length > 0) {
+        const child = this.solidGroup.children[0] as THREE.Mesh;
+        child.geometry.dispose();
+        if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+        } else {
+            child.material.dispose();
+        }
+        this.solidGroup.remove(child);
+    }
+
+    if (this.boardState.meshData) {
+        if (this.boardState.meshData === "MOCK_BASE64_MESH_DATA") {
+            // Mock geometry to represent the solid board
+            const geom = new THREE.CapsuleGeometry(
+              (this.boardState.width / 2) * scale, 
+              (this.boardState.length - this.boardState.width) * scale, 
+              16, 
+              32
+            );
+            geom.rotateX(Math.PI / 2);
+            // Squash the capsule to match thickness
+            geom.scale(1, this.boardState.thickness / this.boardState.width, 1);
+            
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: 0xeeeeee, 
+                roughness: 0.2, 
+                metalness: 0.1,
+                transparent: true,
+                opacity: 0.9
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            this.solidGroup.add(mesh);
+        } else {
+            // TODO: Decode genuine base64 Rhino 3DM mesh data here.
+        }
+    }
   }
 
   override disconnectedCallback() {
@@ -131,6 +171,7 @@ export class BoardViewport extends LitElement {
 
     // 6. Wireframe Group for Real-time Curves
     this.scene.add(this.wireframeGroup);
+    this.scene.add(this.solidGroup);
 
     // Grid helper for scale reference
     const gridHelper = new THREE.GridHelper(10, 10, 0x27272a, 0x18181b);
@@ -161,6 +202,16 @@ export class BoardViewport extends LitElement {
   };
 
   override render() {
-    return html`<canvas></canvas>`;
+    return html`
+      <canvas></canvas>
+      ${this.boardState?.isComputing ? html`
+        <div class="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm flex items-center justify-center z-10 transition-all duration-300">
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div class="text-blue-400 font-bold tracking-widest uppercase text-sm">Shaping...</div>
+          </div>
+        </div>
+      ` : ""}
+    `;
   }
 }

@@ -15,6 +15,10 @@ export class BoardBuilderPage extends LitElement {
   );
 
   protected override createRenderRoot() { return this; }
+
+  override firstUpdated() {
+    this.ctrl.propose({ type: "TRIGGER_COMPUTE" });
+  }
   
   override render() {
     const state = this.ctrl.model;
