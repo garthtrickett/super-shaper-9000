@@ -19,8 +19,8 @@
       "es2022",
       "DOM"
     ],
-    "types": [
-      "bun-types",
+    "types":[
+      "@types/bun",
       "vite/client",
       "mocha"
     ]
