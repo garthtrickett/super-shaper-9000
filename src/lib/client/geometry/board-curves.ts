@@ -38,8 +38,16 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   }
   
   let tailW = W * 0.3;
-  if (model.tailType === "pintail") tailW = 0; // Pintails converge to a perfect point at the center
-  if (model.tailType === "swallow") tailW = W * 0.35;
+  let cornerZ = L/2;
+
+  if (model.tailType === "pintail") {
+      tailW = 0; // Pintails converge to a perfect point at the center
+  } else if (model.tailType === "swallow") {
+      tailW = W * 0.35;
+  } else if (model.tailType === "squash") {
+      tailW = W * 0.28;
+      cornerZ = L/2 - 0.75; // Stop the rail curve early to form the squash tail block
+  }
 
   const ptsOutline = new rhino.Point3dList();
   ptsOutline.add(0, 0, -L/2);
@@ -54,7 +62,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       let cp4X = W/2 * 0.8;
       if (model.tailType === "pintail") cp4X = W/2 * 0.6;
       ptsOutline.add(cp4X, 0, L/4);
-      ptsOutline.add(tailW, 0, L/2);
+      ptsOutline.add(tailW, 0, cornerZ);
   }
 
   const crvOutline = rhino.NurbsCurve.create(false, 3, ptsOutline);
