@@ -38,7 +38,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   }
   
   let tailW = W * 0.3;
-  if (model.tailType === "pintail") tailW = W * 0.05;
+  if (model.tailType === "pintail") tailW = 0; // Pintails converge to a perfect point at the center
   if (model.tailType === "round") tailW = W * 0.2;
   if (model.tailType === "swallow") tailW = W * 0.35;
 
