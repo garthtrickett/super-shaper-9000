@@ -14,7 +14,7 @@ describe("Board Curves Generator", () => {
     deps.getRhino = () => Promise.reject(new Error("WASM block"));
     
     const model = { length: 72, width: 20, thickness: 2.5, tailType: "squash" as const };
-    const result = await generateBoardCurves(model);
+    const result = await generateBoardCurves({ ...model, isComputing: false, meshData: null } as BoardModel);
     
     // Verify fallback points derived from L, W, T
     expect(result.outline[0]).to.deep.equal([0, 0, -36]); // Nose
@@ -49,7 +49,7 @@ describe("Board Curves Generator", () => {
     });
     
     // Pintail (5% of width)
-    let model: BoardModel = { length: 72, width: 20, thickness: 2.5, tailType: "pintail" };
+    let model: BoardModel = { length: 72, width: 20, thickness: 2.5, tailType: "pintail", isComputing: false, meshData: null };
     let result = await generateBoardCurves(model);
     let tailPoint = result.outline[result.outline.length - 1]!;
     expect(tailPoint[0]).to.equal(20 * 0.05);
