@@ -7,6 +7,7 @@
     "start": "bun run src/server/index.ts",
     "test:unit": "web-test-runner",
     "test:e2e": "playwright test",
+    "test:server": "bun test src/server",
     "lint": "eslint . --cache --fix",
     "check-types": "bun install && tsc --noEmit"
   },

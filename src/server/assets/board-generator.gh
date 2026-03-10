@@ -1,0 +1,2 @@
+This is a placeholder for the actual Grasshopper definition (board-generator.gh).
+In a real implementation, this file contains the visual node definition that takes Length, Width, Thickness, and TailType parameters and lofts them into a 3D Mesh, returning it via an output named 'Mesh'.

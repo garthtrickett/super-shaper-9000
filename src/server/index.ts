@@ -1,13 +1,27 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
+import { computeBoardMesh } from "./services/rhino-compute";
 
 export const app = new Elysia()
   .use(cors())
-  // Placeholder route for Rhino.Compute interaction
-  .post("/api/compute/board", ({ body }) => {
+  // Connects to Rhino.Compute to generate the 3D board mesh
+  .post("/api/compute/board", async ({ body, set }) => {
       console.info("[Server] Received compute request:", body);
-      return { status: "success", mesh: "MOCK_MESH_DATA_SOON" };
+      try {
+        const result = await computeBoardMesh(body);
+        return { status: "success", data: result };
+      } catch (error) {
+        set.status = 500;
+        return { status: "error", message: "Compute failed" };
+      }
+  }, {
+    body: t.Object({
+      length: t.Number(),
+      width: t.Number(),
+      thickness: t.Number(),
+      tailType: t.String()
+    })
   })
   .use(
     staticPlugin({
