@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import rhino3dm from "rhino3dm";
 
 // We use `any` for RhinoModule here to avoid heavy type imports,
 // as the WASM module types can be complex and are primarily needed internally.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RhinoModule = any;
 
 let rhinoInstance: RhinoModule | null = null;
