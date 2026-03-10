@@ -1,10 +1,14 @@
 import { LitElement, html, css } from "lit";
-import { customElement, query } from "lit/decorators.js";
+import { customElement, property, query } from "lit/decorators.js";
+import type { PropertyValues } from "lit";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import type { BoardModel } from "../pages/board-builder-page.logic";
+import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
+  @property({ type: Object }) boardState?: BoardModel;
   static override styles = css`
     :host {
       display: block;
@@ -30,9 +34,56 @@ export class BoardViewport extends LitElement {
   private controls!: OrbitControls;
   private animationId: number = 0;
   private resizeObserver!: ResizeObserver;
+  private wireframeGroup = new THREE.Group();
 
   override firstUpdated() {
     this.initThree();
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    if (changedProperties.has("boardState") && this.boardState) {
+      void this._updateGeometry();
+    }
+  }
+
+  private async _updateGeometry() {
+    if (!this.boardState) return;
+    
+    const curves = await generateBoardCurves(this.boardState);
+    
+    // clear old geometry properly
+    while (this.wireframeGroup.children.length > 0) {
+        const child = this.wireframeGroup.children[0] as THREE.Line;
+        child.geometry.dispose();
+        if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+        } else {
+            child.material.dispose();
+        }
+        this.wireframeGroup.remove(child);
+    }
+
+    const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6 });
+    const matRocker = new THREE.LineBasicMaterial({ color: 0x10b981 });
+
+    const scale = 1 / 12; // Inches to Feet for Three.js coordinates
+
+    const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, mirrorX = false) => {
+        const geometry = new THREE.BufferGeometry();
+        const vertices = new Float32Array(pts.length * 3);
+        pts.forEach((p, i) => {
+            vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
+            vertices[i*3+1] = p[1] * scale;
+            vertices[i*3+2] = p[2] * scale;
+        });
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        return new THREE.Line(geometry, mat);
+    };
+
+    this.wireframeGroup.add(buildLine(curves.outline, matOutline, false));
+    this.wireframeGroup.add(buildLine(curves.outline, matOutline, true)); 
+    this.wireframeGroup.add(buildLine(curves.rockerTop, matRocker, false));
+    this.wireframeGroup.add(buildLine(curves.rockerBottom, matRocker, false));
   }
 
   override disconnectedCallback() {
@@ -78,16 +129,8 @@ export class BoardViewport extends LitElement {
     dirLight.position.set(5, 10, 5);
     this.scene.add(dirLight);
 
-    // 6. Placeholder Blank (A stretched box resembling a shortboard blank)
-    // Generic units: Length(Z)=6, Width(X)=1.6, Thickness(Y)=0.2
-    const geometry = new THREE.BoxGeometry(1.6, 0.2, 6);
-    const material = new THREE.MeshStandardMaterial({
-      color: 0xeeeeee,
-      roughness: 0.3,
-      metalness: 0.1,
-    });
-    const blank = new THREE.Mesh(geometry, material);
-    this.scene.add(blank);
+    // 6. Wireframe Group for Real-time Curves
+    this.scene.add(this.wireframeGroup);
 
     // Grid helper for scale reference
     const gridHelper = new THREE.GridHelper(10, 10, 0x27272a, 0x18181b);

@@ -33,7 +33,10 @@ export class BoardBuilderPage extends LitElement {
         ></board-controls>
 
         <!-- Render the 3D scene taking up the full remaining area -->
-        <board-viewport class="flex-1 w-full h-full relative z-0"></board-viewport>
+        <board-viewport 
+          class="flex-1 w-full h-full relative z-0"
+          .boardState=${state}
+        ></board-viewport>
       </div>
     `;
   }
