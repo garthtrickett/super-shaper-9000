@@ -72,16 +72,22 @@ export class BoardViewport extends LitElement {
     // Helper to find the Y height of a rocker curve at a specific Z length
     const getRockerY = (zInches: number, isTop: boolean) => {
         const pts = isTop ? curves.rockerTop : curves.rockerBottom;
+        if (!pts.length) return 0;
+        
         for (let i = 0; i < pts.length - 1; i++) {
-            const z1 = pts[i][2];
-            const z2 = pts[i+1][2];
+            const p1 = pts[i]!;
+            const p2 = pts[i+1]!;
+            const z1 = p1[2];
+            const z2 = p2[2];
             if (zInches >= z1 && zInches <= z2) {
                 const tCurve = (zInches - z1) / (z2 - z1);
-                return pts[i][1] + tCurve * (pts[i+1][1] - pts[i][1]);
+                return p1[1] + tCurve * (p2[1] - p1[1]);
             }
         }
         // Fallback for bevels that slightly overhang the exact length
-        return zInches <= pts[0][2] ? pts[0][1] : pts[pts.length - 1][1];
+        const first = pts[0]!;
+        const last = pts[pts.length - 1]!;
+        return zInches <= first[2] ? first[1] : last[1];
     };
 
     const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, mirrorX = false, followRocker = false) => {
