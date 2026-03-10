@@ -14,6 +14,7 @@ a.txt
 *.sublime-project
 bedrock-6d04a-firebase-adminsdk-fbsvc-38ae97cff1.json
 test_results.txt
+playwright-report/
 
 # Build output
 dist/
