@@ -104,6 +104,17 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       // Add a sharp V cut for the swallow tail returning to the center line
       const swallowDepth = W * 0.2; // roughly 3.5 to 4.5 inches deep depending on board width
       outline.push([0, 0, L/2 - swallowDepth]);
+  } else if (model.tailType === "squash") {
+      // Generate a smooth rounded curve for the squash tail block
+      const steps = 8;
+      for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          const invT = 1 - t;
+          // Quadratic bezier: P0=(tailW, cornerZ), P1=(tailW*0.95, L/2), P2=(0, L/2)
+          const px = invT * invT * tailW + 2 * invT * t * (tailW * 0.95) + t * t * 0;
+          const pz = invT * invT * cornerZ + 2 * invT * t * (L/2) + t * t * (L/2);
+          outline.push([px, 0, pz]);
+      }
   }
 
   return { outline, rockerTop, rockerBottom };
