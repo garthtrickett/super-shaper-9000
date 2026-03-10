@@ -5,7 +5,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
-  static styles = css`
+  static override styles = css`
     :host {
       display: block;
       width: 100%;
@@ -31,11 +31,11 @@ export class BoardViewport extends LitElement {
   private animationId: number = 0;
   private resizeObserver!: ResizeObserver;
 
-  firstUpdated() {
+  override firstUpdated() {
     this.initThree();
   }
 
-  disconnectedCallback() {
+  override disconnectedCallback() {
     super.disconnectedCallback();
     cancelAnimationFrame(this.animationId);
     if (this.resizeObserver) this.resizeObserver.disconnect();
@@ -98,7 +98,7 @@ export class BoardViewport extends LitElement {
     this.resizeObserver.observe(this);
 
     // 8. Start Loop
-    this.animate();
+    this.renderLoop();
   }
 
   private onResize() {
