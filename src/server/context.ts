@@ -180,14 +180,5 @@ export const userContext = (app: Elysia) => app.derive(
         } else if (user && !isPlatformAdmin && !userDb) {
              currentRole = "GUEST";
         }
-
-        return { 
-            user, 
-            userDb, 
-            tenant: tenant || null,
-            requestedSubdomain,
-            currentRole,
-            isPlatformAdmin
-        };
-    },
-);
+// Scaffolding removed for Phase 1
+export {};

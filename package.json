@@ -34,6 +34,7 @@
     "@types/mocha": "^10.0.0",
     "@web/dev-server-esbuild": "^1.0.4",
     "@web/test-runner": "^0.18.2",
+    "@types/three": "^0.162.0",
     "@web/test-runner-playwright": "^0.11.0",
     "concurrently": "^9.2.0",
     "tailwindcss": "^4.1.11",

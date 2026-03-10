@@ -111,13 +111,13 @@ export class BoardViewport extends LitElement {
     this.renderer.setSize(width, height);
   }
 
-  private animate = () => {
-    this.animationId = requestAnimationFrame(this.animate);
+  private renderLoop = () => {
+    this.animationId = requestAnimationFrame(this.renderLoop);
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   };
 
-  render() {
+  override render() {
     return html`<canvas></canvas>`;
   }
 }

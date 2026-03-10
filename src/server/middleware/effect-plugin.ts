@@ -62,12 +62,5 @@ export const effectPlugin = (app: Elysia) => app.derive(
             ),
           ),
         );
-
-        return serverRuntime.runPromise(
-          // Cast to never dependencies because the runtime provides them
-          instrumentedEffect as unknown as Effect.Effect<A, E, never>,
-        );
-      },
-    };
-  },
-);
+// Scaffolding removed for Phase 1
+export {};
