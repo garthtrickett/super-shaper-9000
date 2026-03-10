@@ -116,11 +116,12 @@ export class BoardViewport extends LitElement {
             }
 
             // Extrude the 2D shape to give it thickness
+            const depth = this.boardState.thickness * scale;
             const geom = new THREE.ExtrudeGeometry(shape, {
-                depth: this.boardState.thickness * scale,
+                depth: depth,
                 bevelEnabled: true,
-                bevelThickness: 0.05,
-                bevelSize: 0.05,
+                bevelThickness: 0.015, // Made bevels smaller so they don't look weird when stretched
+                bevelSize: 0.015,
                 bevelSegments: 3,
                 curveSegments: 12
             });
@@ -128,8 +129,52 @@ export class BoardViewport extends LitElement {
             // ExtrudeGeometry builds along Z. Rotate to lie flat on the X-Z plane.
             geom.rotateX(Math.PI / 2);
             // Center the thickness on the Y axis
-            geom.translate(0, (this.boardState.thickness * scale) / 2, 0);
+            geom.translate(0, depth / 2, 0);
             
+            // Deform the flat extrusion to follow the rocker curves
+            const pos = geom.attributes.position;
+            
+            // Helper to find the Y height of a rocker curve at a specific Z length
+            const getRockerY = (zInches: number, isTop: boolean) => {
+                const pts = isTop ? curves.rockerTop : curves.rockerBottom;
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const z1 = pts[i][2];
+                    const z2 = pts[i+1][2];
+                    if (zInches >= z1 && zInches <= z2) {
+                        const tCurve = (zInches - z1) / (z2 - z1);
+                        return pts[i][1] + tCurve * (pts[i+1][1] - pts[i][1]);
+                    }
+                }
+                // Fallback for bevels that slightly overhang the exact length
+                return zInches <= pts[0][2] ? pts[0][1] : pts[pts.length - 1][1];
+            };
+
+            for (let i = 0; i < pos.count; i++) {
+                const y = pos.getY(i);
+                const z = pos.getZ(i);
+
+                const zInches = z / scale;
+                
+                // Map original Y (-depth/2 to depth/2) to t (0 to 1). 
+                // Do not clamp, allowing bevels to extrapolate naturally past the pure curve!
+                const t = (y + depth / 2) / depth;
+                
+                const bottomY = getRockerY(zInches, false) * scale;
+                let topY = getRockerY(zInches, true) * scale;
+                
+                // Prevent degenerate triangles at the nose/tail where top and bottom meet to 0 thickness
+                if (topY - bottomY < 0.001) {
+                    topY = bottomY + 0.001;
+                }
+                
+                // Interpolate new Y based on position between top and bottom rocker
+                const newY = bottomY + t * (topY - bottomY);
+                pos.setY(i, newY);
+            }
+            
+            // Re-calculate how light bounces off the shape since we completely warped the vertices
+            geom.computeVertexNormals();
+
             const mat = new THREE.MeshStandardMaterial({ 
                 color: 0xeeeeee, 
                 roughness: 0.2, 
