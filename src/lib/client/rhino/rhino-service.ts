@@ -3,7 +3,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
 import rhino3dm from "rhino3dm";
-// @ts-expect-error - Vite handles this ?url import natively
 import rhinoWasmUrl from "rhino3dm/rhino3dm.wasm?url";
 
 // We use `any` for RhinoModule here to avoid heavy type imports,
