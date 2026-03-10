@@ -100,5 +100,11 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   ptsRockerBottom.delete();
   if (crvRockerBottom) crvRockerBottom.delete();
 
+  if (model.tailType === "swallow") {
+      // Add a sharp V cut for the swallow tail returning to the center line
+      const swallowDepth = W * 0.2; // roughly 3.5 to 4.5 inches deep depending on board width
+      outline.push([0, 0, L/2 - swallowDepth]);
+  }
+
   return { outline, rockerTop, rockerBottom };
 };
