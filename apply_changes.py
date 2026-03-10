@@ -233,9 +233,8 @@ def apply_diffs(json_str):
         data = json.loads(clean_json.strip())
     except json.JSONDecodeError as e:
         print(f"❌ Failed to decode JSON: {e}")
-        print("--- Attempted to parse: ---")
-        print(clean_json[:500] + ("..." if len(clean_json) > 500 else ""))
-        return False
+        # Return 2 instead of False to indicate a syntax/parsing error
+        sys.exit(2)
 
     print(f"🤖 Summary: {data.get('summary', 'No summary provided')}")
     planned_updates = {}

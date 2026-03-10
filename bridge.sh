@@ -18,25 +18,20 @@ inotifywait -m -e close_write -e moved_to --format '%f' "$WATCH_DIR" | while rea
             echo "$PYTHON_OUT"
 
             if [ $EXIT_CODE -eq 0 ]; then
-                # SUCCESS CASE
                 SUMMARY=$(echo "$PYTHON_OUT" | grep "🤖 Summary:" | sed 's/🤖 Summary: //')
-
-                # --- ADDED: Show the diff before staging ---
                 echo -e "\n🔍 Reviewing changes:"
                 git diff --color=always | sed 's/^/  /'
                 echo -e "\n"
-                # -------------------------------------------
-
                 git add .
                 git commit -m "${SUMMARY:-Gemini Update}"
-
-                echo "📜 Files Changed:"
-                git show --name-only --format="" HEAD | sed 's/^/  📄 /'
                 notify-send "Gemini Success" "All changes applied and committed."
+            elif
+                [ $EXIT_CODE -eq 2 ]
+            then
+                echo "⛔ TRANSACTION FAILED: Invalid JSON format (possibly truncated)."
+                notify-send -u critical "Gemini Failed" "Incomplete or malformed JSON received."
             else
-                # FAILURE CASE
                 echo "⛔ TRANSACTION FAILED: One or more blocks did not match."
-                echo "No files were modified. Re-sync your codebase in Gemini and try again."
                 notify-send -u critical "Gemini Failed" "Search blocks mismatch. No changes applied."
             fi
 

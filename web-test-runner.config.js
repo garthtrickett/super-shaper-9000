@@ -7,8 +7,13 @@ export default {
   nodeResolve: {
     exportConditions: ['browser', 'development'],
   },
-  browsers: [
-    playwrightLauncher({ product: 'chromium' }),
+  browsers:[
+    playwrightLauncher({ 
+      product: 'chromium',
+      launchOptions: {
+        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      }
+    }),
   ],
   testFramework: {
     config: {

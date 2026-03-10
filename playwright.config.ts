@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+if (process.env.NIX_CC && !process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+    console.warn("⚠️ Running in NixOS but PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH is missing!");
+    console.warn("Ensure you are inside the `nix develop` shell or `direnv` is loaded.");
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -10,11 +14,17 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
+    launchOptions: {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    },
   },
   projects:[
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        channel: undefined
+      },
     },
   ],
   webServer: {
