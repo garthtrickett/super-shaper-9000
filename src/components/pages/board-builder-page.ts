@@ -1,7 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
 import { ReactiveSamController } from "../../lib/client/reactive-sam-controller";
-import { INITIAL_STATE, update, handleAction, type BoardModel, type BoardAction } from "./board-builder-page.logic";
+import { INITIAL_STATE, update, handleAction, type BoardModel, type BoardAction, type TailType } from "./board-builder-page.logic";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 
@@ -28,8 +28,8 @@ export class BoardBuilderPage extends LitElement {
           .width=${state.width}
           .thickness=${state.thickness}
           .tailType=${state.tailType}
-          @dimension-changed=${(e: CustomEvent) => this.ctrl.propose({ type: "UPDATE_DIMENSION", dimension: e.detail.dimension, value: e.detail.value })}
-          @tail-changed=${(e: CustomEvent) => this.ctrl.propose({ type: "UPDATE_TAIL", tailType: e.detail.value })}
+          @dimension-changed=${(e: CustomEvent<{ dimension: "length" | "width" | "thickness"; value: number }>) => this.ctrl.propose({ type: "UPDATE_DIMENSION", dimension: e.detail.dimension, value: e.detail.value })}
+          @tail-changed=${(e: CustomEvent<{ value: TailType }>) => this.ctrl.propose({ type: "UPDATE_TAIL", tailType: e.detail.value })}
         ></board-controls>
 
         <!-- Render the 3D scene taking up the full remaining area -->

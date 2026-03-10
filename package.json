@@ -9,8 +9,6 @@
     "test:e2e": "playwright test",
     "lint": "eslint . --cache --fix",
     "check-types": "bun install && tsc --noEmit"
-
-
   },
   "dependencies": {
     "@effect/platform": "^0.87.12",
@@ -25,6 +23,7 @@
     "elysia": "^1.4.18",
     "lit": "^3.3.1",
     "rhino3dm": "^8.4.0",
+    "sinon": "^21.0.2",
     "three": "^0.162.0"
   },
   "devDependencies": {
