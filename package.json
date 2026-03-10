@@ -8,7 +8,7 @@
     "test:unit": "web-test-runner",
     "test:e2e": "playwright test",
     "lint": "eslint . --ext .ts,.js --cache --fix",
-    "check-types": "tsc --noEmit"
+    "check-types": "bun install && tsc --noEmit"
 
 
   },

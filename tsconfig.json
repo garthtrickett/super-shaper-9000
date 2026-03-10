@@ -20,7 +20,7 @@
       "DOM"
     ],
     "types":[
-      "@types/bun",
+      "bun",
       "vite/client",
       "mocha"
     ]
