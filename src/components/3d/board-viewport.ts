@@ -138,7 +138,7 @@ export class BoardViewport extends LitElement {
             // Draw left side (mirrored)
             for (let i = curves.outline.length - 1; i >= 0; i--) {
                 const p = curves.outline[i];
-                shape.lineTo(-p[0] * scale, p[2] * scale);
+                if (p) shape.lineTo(-p[0] * scale, p[2] * scale);
             }
 
             // Extrude the 2D shape to give it thickness
@@ -160,27 +160,29 @@ export class BoardViewport extends LitElement {
             // Deform the flat extrusion to follow the rocker curves
             const pos = geom.attributes.position;
 
-            for (let i = 0; i < pos.count; i++) {
-                const y = pos.getY(i);
-                const z = pos.getZ(i);
+            if (pos) {
+                for (let i = 0; i < pos.count; i++) {
+                    const y = pos.getY(i);
+                    const z = pos.getZ(i);
 
-                const zInches = z / scale;
-                
-                // Map original Y (-depth/2 to depth/2) to t (0 to 1). 
-                // Do not clamp, allowing bevels to extrapolate naturally past the pure curve!
-                const t = (y + depth / 2) / depth;
-                
-                const bottomY = getRockerY(zInches, false) * scale;
-                let topY = getRockerY(zInches, true) * scale;
-                
-                // Prevent degenerate triangles at the nose/tail where top and bottom meet to 0 thickness
-                if (topY - bottomY < 0.001) {
-                    topY = bottomY + 0.001;
+                    const zInches = z / scale;
+                    
+                    // Map original Y (-depth/2 to depth/2) to t (0 to 1). 
+                    // Do not clamp, allowing bevels to extrapolate naturally past the pure curve!
+                    const t = (y + depth / 2) / depth;
+                    
+                    const bottomY = getRockerY(zInches, false) * scale;
+                    let topY = getRockerY(zInches, true) * scale;
+                    
+                    // Prevent degenerate triangles at the nose/tail where top and bottom meet to 0 thickness
+                    if (topY - bottomY < 0.001) {
+                        topY = bottomY + 0.001;
+                    }
+                    
+                    // Interpolate new Y based on position between top and bottom rocker
+                    const newY = bottomY + t * (topY - bottomY);
+                    pos.setY(i, newY);
                 }
-                
-                // Interpolate new Y based on position between top and bottom rocker
-                const newY = bottomY + t * (topY - bottomY);
-                pos.setY(i, newY);
             }
             
             // Re-calculate how light bounces off the shape since we completely warped the vertices
