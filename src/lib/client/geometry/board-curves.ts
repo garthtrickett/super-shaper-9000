@@ -59,11 +59,11 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   let noseTailW = 0;
 
   if (model.noseShape === "torpedo" || model.noseShape === "clipped") {
-      noseCornerZ = -L/2 + Math.min(model.bluntNoseLength, 15.0);
+      noseCornerZ = -L/2 + Math.min(model.bluntNoseLength, 11.5);
       
       // Dynamically scale the width of the blunt nose cap based on how far back it is cut.
       // This prevents S-curves/pinching by ensuring the NURBS curve has a natural starting tangent.
-      const t = Math.min(model.bluntNoseLength / 15.0, 1.0);
+      const t = Math.min(model.bluntNoseLength / 12.0, 1.0);
       const baseRatio = model.noseShape === "torpedo" ? 0.85 : 0.75;
       const dynamicRatio = baseRatio + (1.0 - baseRatio) * Math.pow(t, 0.6);
       
