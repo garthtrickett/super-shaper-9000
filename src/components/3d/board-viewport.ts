@@ -276,13 +276,31 @@ export class BoardViewport extends LitElement {
             const apexY = botY + thickness * dynamicRailApexRatio;
 
             // --- Bottom Contour Z-Blends (Calculated once per cross-section) ---
-            const blendVee = Math.max(0, 1 - nz / 0.3);
-            const blendConcave = nz > 0.3 && nz < 0.7 ? (1 - Math.abs(nz - 0.5) / 0.2) : 0;
-            const blendChannels = nz > 0.7 && nz < 1.0 ? Math.sin((nz - 0.7) / 0.3 * Math.PI) : 0;
+            const smoothStep = (edge0: number, edge1: number, x: number) => {
+                const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+                return t * t * (3 - 2 * t);
+            };
+
+            const blendVee = 1 - smoothStep(0.05, 0.35, nz);
+            
+            let blendConcave = 0;
+            if (nz > 0.2 && nz < 0.8) {
+                blendConcave = smoothStep(0.2, 0.4, nz) * (1 - smoothStep(0.6, 0.8, nz));
+            }
+            
+            const blendChannels = nz > 0.65 ? smoothStep(0.65, 0.8, nz) : 0;
+            
+            // Smoothly fade contours near the tips to prevent sharp creases (C1 discontinuities)
+            const smoothFade = (dist: number, fadeLength: number) => {
+                if (dist >= fadeLength) return 1;
+                if (dist <= 0) return 0;
+                const t = dist / fadeLength;
+                return t * t * (3 - 2 * t);
+            };
             
             const tailDist = Math.max(0, maxZ - zInches);
             const noseDist = Math.max(0, zInches - minZ);
-            const fadeTailNose = Math.min(1, tailDist / 12) * Math.min(1, noseDist / 12);
+            const fadeTailNose = smoothFade(tailDist, 18) * smoothFade(noseDist, 18);
 
             for (let j = 0; j <= segmentsRadial; j++) {
                 const angle = (j / segmentsRadial) * Math.PI * 2;
@@ -303,12 +321,12 @@ export class BoardViewport extends LitElement {
                 } else {
                     // Shape the Bottom and Rail Tuck
                     py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
-                    
-                    if (halfWidth > 0.1) {
+                        
+                    if (halfWidth > 0.001) {
                         const nx = px / halfWidth;
                         const abs_nx = Math.abs(nx);
                         let contourOffset = 0;
-                        
+                            
                         if (bottomContour === "vee_to_quad_channels") {
                             // Front 30%: Vee
                             const veeOffset = 0.4 * abs_nx * blendVee;
@@ -332,6 +350,11 @@ export class BoardViewport extends LitElement {
                         } else if (bottomContour === "single") {
                             contourOffset = 0.35 * (1 - nx * nx) * fadeTailNose;
                         }
+
+                        // GUARANTEE MESH CONTINUITY AT APEX (cy = 0)
+                        // This ensures that whatever bottom contour is applied, it smoothly
+                        // fades to 0 right at the rail edge to prevent tearing/notches in the mesh.
+                        contourOffset *= Math.abs(cy);
 
                         py += contourOffset;
                     }

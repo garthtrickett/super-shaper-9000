@@ -118,7 +118,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   const crvRockerBottom = rhino.NurbsCurve.create(false, 3, ptsRockerBottom);
 
    
-  const sampleCurve = (crv: any, steps = 50) => {
+  const sampleCurve = (crv: any, steps = 150) => {
       const pts: [number, number, number][] =[];
       if (!crv) return pts;
       
