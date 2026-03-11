@@ -469,8 +469,18 @@ export class BoardViewport extends LitElement {
                 depth: 0.2 * scale, bevelEnabled: true, 
                 bevelThickness: 0.02 * scale, bevelSize: 0.02 * scale, bevelSegments: 2 
             });
-            geom.center();
-            const mat = new THREE.MeshPhysicalMaterial({ color: 0x111111, roughness: 0.3 });
+            
+            // Center the fin's base horizontally, but leave Y at 0 so it mounts flush to the hull
+            geom.translate(-base / 2, 0, -0.1 * scale);
+            
+            // Bright frosted fiberglass material to pop against the dark background
+            const mat = new THREE.MeshPhysicalMaterial({ 
+                color: 0xffffff, 
+                roughness: 0.1, 
+                transmission: 0.8, // Glass-like transparency
+                thickness: 0.2,
+                ior: 1.5
+            });
             const finMesh = new THREE.Mesh(geom, mat);
             
             // Orient flat and pointing down relative to bottom
