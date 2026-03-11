@@ -18,7 +18,9 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) tailThickness = 1.35;
   @property({ type: Number }) rockerFlatSpotLength = 20.0;
   @property({ type: Number }) deckDome = 0.65;
-  @property({ type: String }) railProfile = "variable_sharp_tail";
+  @property({ type: Number }) apexRatio = 0.35;
+  @property({ type: Number }) railFullness = 0.65;
+  @property({ type: Number }) hardEdgeLength = 18.0;
   @property({ type: String }) bottomContour = "vee_to_quad_channels";
 
   protected override createRenderRoot() { 
@@ -91,6 +93,50 @@ export class BoardControls extends LitElement {
     `;
   }
 
+  // Real-time declarative SVG cross-section generator
+  private _renderSliceSVG(label: string, w: number, t: number, apex: number, isHard: boolean) {
+    const scale = 3.5;
+    const cx = 50;
+    const cy = 25;
+    const topY = t / 2;
+    const botY = -t / 2;
+    const apexY = botY + (t * apex);
+    
+    let d = "";
+    for (let i = 0; i <= 40; i++) {
+        const angle = (i / 40) * Math.PI * 2;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const px = Math.pow(Math.abs(cosA), this.railFullness) * (w / 2) * Math.sign(cosA);
+        
+        let py = 0;
+        if (sinA >= 0) {
+            py = apexY + Math.pow(Math.abs(sinA), this.deckDome) * (topY - apexY);
+        } else {
+            py = apexY - Math.pow(Math.abs(sinA), isHard ? 0.05 : 0.5) * (apexY - botY);
+        }
+        
+        const sx = cx + px * scale;
+        const sy = cy - py * scale;
+        if (i === 0) d += `M ${sx} ${sy} `;
+        else d += `L ${sx} ${sy} `;
+    }
+    d += "Z";
+
+    // Apex reference line
+    const apexLineY = cy - apexY * scale;
+
+    return html`
+      <div class="flex flex-col items-center">
+        <span class="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">${label}</span>
+        <svg viewBox="0 0 100 50" class="w-full h-12 overflow-visible">
+          <path d="${d}" class="stroke-blue-500 fill-blue-500/10" stroke-width="1" stroke-linejoin="round" />
+          <line x1="0" y1="${apexLineY}" x2="100" y2="${apexLineY}" stroke="#52525b" stroke-width="0.5" stroke-dasharray="2 2" />
+        </svg>
+      </div>
+    `;
+  }
+
   private _renderAccordion(title: string, content: unknown, open = false) {
     return html`
       <details class="group mb-2" ?open=${open}>
@@ -142,12 +188,18 @@ export class BoardControls extends LitElement {
           ${this._renderSlider("Deck Dome", "deckDome", 0.4, 0.9, 0.05, this.deckDome, "")}
         `, false)}
 
+        ${this._renderAccordion("Rails & Cross-Sections", html`
+          <div class="grid grid-cols-3 gap-2 mb-6 bg-zinc-950 p-2 rounded-lg border border-zinc-800">
+            ${this._renderSliceSVG("N12", this.noseWidth, this.noseThickness, this.apexRatio, false)}
+            ${this._renderSliceSVG("Center", this.width, this.thickness, this.apexRatio, false)}
+            ${this._renderSliceSVG("T12", this.tailWidth, this.tailThickness, 0.05, this.hardEdgeLength >= 12)}
+          </div>
+          ${this._renderSlider("Rail Apex Height", "apexRatio", 0.2, 0.6, 0.02, this.apexRatio, "%")}
+          ${this._renderSlider("Rail Fullness (Pinch)", "railFullness", 0.5, 0.9, 0.05, this.railFullness, "")}
+          ${this._renderSlider("Hard Edge Starts At", "hardEdgeLength", 0, 36.0, 1.0, this.hardEdgeLength)}
+        `, true)}
+
         ${this._renderAccordion("Bottom Contours", html`
-          ${this._renderSelect("Rail Profile", "railProfile",[
-            {value: "soft", label: "Soft & Forgiving"}, 
-            {value: "boxy", label: "Boxy Performance"}, 
-            {value: "variable_sharp_tail", label: "Slab-Hunter (Soft to Sharp)"}
-          ], this.railProfile)}
           ${this._renderSelect("Bottom Contours", "bottomContour",[
             {value: "flat", label: "Flat"},
             {value: "single", label: "Single Concave"},

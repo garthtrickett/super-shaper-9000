@@ -145,22 +145,29 @@ export class BoardViewport extends LitElement {
 
     const scale = 1 / 12; // Inches to Feet for Three.js coordinates
     
-    const railProfile = this.boardState.railProfile;
     const bottomContour = this.boardState.bottomContour;
+    const { apexRatio, hardEdgeLength, railFullness } = this.boardState;
 
-    // Helper to compute dynamic apex ratio based on selected rail profile
-    const getApexRatio = (nz: number) => {
-        let apex = 0.4; // Default standard tuck
-        if (railProfile === "variable_sharp_tail" && nz > 0.6) {
-            const tailFactor = (nz - 0.6) / 0.4;
-            // Drops aggressively to the bottom edge (0.02) near tail for release
-            apex = 0.4 - 0.38 * Math.pow(tailFactor, 2);
-        } else if (railProfile === "boxy") {
-            apex = 0.35; // Lower apex, fuller rail
-        } else if (railProfile === "soft") {
-            apex = 0.5; // Center apex, 50/50 rail
+    // Helper to compute dynamic apex ratio based on precise CAD parameters
+    const getApexRatio = (zInches: number) => {
+        const maxZ = curves.outline[curves.outline.length-1][2];
+        const distFromTail = maxZ - zInches;
+        
+        let currentApex = apexRatio;
+        
+        // Drop apex to the bottom edge if within the hardEdgeLength
+        if (distFromTail < hardEdgeLength) {
+            const blendZone = 6.0; // Blend from soft to hard over 6 inches
+            const blendEnd = Math.max(0, hardEdgeLength - blendZone);
+            
+            if (distFromTail <= blendEnd) {
+                currentApex = 0.02; // Hard sharp tucked edge
+            } else {
+                const t = (distFromTail - blendEnd) / blendZone;
+                currentApex = 0.02 + t * (apexRatio - 0.02);
+            }
         }
-        return apex;
+        return currentApex;
     };
 
     // Helper to find the Y height of a rocker curve at a specific Z length
@@ -201,7 +208,7 @@ export class BoardViewport extends LitElement {
                 const maxZ = curves.outline[curves.outline.length-1][2];
                 const nz = (zInches - minZ) / (maxZ - minZ);
                 
-                const dynamicRailApexRatio = getApexRatio(nz);
+                const dynamicRailApexRatio = getApexRatio(zInches);
                 const apexY = bottomY + thickness * dynamicRailApexRatio;
                 vertices[i*3+1] = apexY * scale;
             } else {
@@ -255,13 +262,8 @@ export class BoardViewport extends LitElement {
             const zInches = p[2];
             const nz = (zInches - minZ) / totalZ; // 0 (Nose) to 1 (Tail)
             
-            // Base rail curve shape (fullness)
-            let railCurve = 0.75; // Standard
-            if (railProfile === "boxy") railCurve = 0.85;
-            else if (railProfile === "soft") railCurve = 0.6;
-            else if (railProfile === "variable_sharp_tail") {
-                railCurve = 0.65 + 0.2 * nz; // Soft up front, sharper in tail
-            }
+            // Apply exact user-defined rail fullness
+            const railCurve = railFullness;
 
             let topY = getRockerY(zInches, true);
             let botY = getRockerY(zInches, false);
@@ -272,7 +274,7 @@ export class BoardViewport extends LitElement {
             }
 
             const thickness = topY - botY;
-            const dynamicRailApexRatio = getApexRatio(nz);
+            const dynamicRailApexRatio = getApexRatio(zInches);
             const apexY = botY + thickness * dynamicRailApexRatio;
 
             // --- Bottom Contour Z-Blends (Calculated once per cross-section) ---

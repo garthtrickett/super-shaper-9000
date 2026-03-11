@@ -4,7 +4,6 @@ import type { FullClientContext } from "../../lib/client/runtime";
 
 export type TailType = "squash" | "pintail" | "swallow" | "round";
 export type NoseShape = "pointy" | "torpedo" | "clipped";
-export type RailProfile = "soft" | "boxy" | "variable_sharp_tail";
 export type BottomContour = "flat" | "single" | "single_to_double" | "vee_to_quad_channels";
 
 export interface BoardModel {
@@ -23,7 +22,9 @@ export interface BoardModel {
   tailThickness: number; // T12 Foil
   rockerFlatSpotLength: number; // Staging belly
   deckDome: number;
-  railProfile: RailProfile;
+  apexRatio: number;
+  railFullness: number;
+  hardEdgeLength: number;
   bottomContour: BottomContour;
 }
 
@@ -44,7 +45,9 @@ export const INITIAL_STATE: BoardModel = {
   tailThickness: 1.35, // Taper out the back for bite
   rockerFlatSpotLength: 20.0, // Massive 20" flat spot under the chest
   deckDome: 0.65,
-  railProfile: "variable_sharp_tail",
+  apexRatio: 0.30, // 30% up from bottom (Low apex for knife hold)
+  railFullness: 0.65, // Pinched, sloped profile for 65kg surfer
+  hardEdgeLength: 20.0, // Sharp edge starts 20" from tail (right ahead of fins)
   bottomContour: "vee_to_quad_channels",
 };
 

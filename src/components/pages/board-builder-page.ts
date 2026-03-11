@@ -39,7 +39,9 @@ export class BoardBuilderPage extends LitElement {
           .tailThickness=${state.tailThickness}
           .rockerFlatSpotLength=${state.rockerFlatSpotLength}
           .deckDome=${state.deckDome}
-          .railProfile=${state.railProfile}
+          .apexRatio=${state.apexRatio}
+          .railFullness=${state.railFullness}
+          .hardEdgeLength=${state.hardEdgeLength}
           .bottomContour=${state.bottomContour}
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
