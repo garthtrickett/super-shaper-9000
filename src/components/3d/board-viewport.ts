@@ -3,6 +3,7 @@ import { customElement, property, query } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { BoardModel } from "../pages/board-builder-page.logic";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 
@@ -36,6 +37,65 @@ export class BoardViewport extends LitElement {
   private resizeObserver!: ResizeObserver;
   private wireframeGroup = new THREE.Group();
   private solidGroup = new THREE.Group();
+  
+  private _boardTexture: THREE.CanvasTexture | null = null;
+  private _bumpTexture: THREE.CanvasTexture | null = null;
+
+  private getBoardTextures() {
+    if (this._boardTexture && this._bumpTexture) return { map: this._boardTexture, bumpMap: this._bumpTexture };
+
+    // 1. Color & Stringer Map
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d')!;
+
+    // Warm white foam core
+    ctx.fillStyle = '#fdfcf8';
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Dark wood stringer (U=0.25 and U=0.75 mappings)
+    ctx.fillStyle = '#4a3320';
+    ctx.fillRect(256 - 3, 0, 6, 1024);
+    ctx.fillRect(768 - 3, 0, 6, 1024);
+
+    // Subtle brushed lines (foam cell texture direction)
+    ctx.fillStyle = 'rgba(0,0,0,0.02)';
+    for (let i = 0; i < 1024; i += 4) {
+      ctx.fillRect(0, i, 1024, 1 + Math.random() * 2);
+    }
+
+    this._boardTexture = new THREE.CanvasTexture(canvas);
+    this._boardTexture.wrapS = THREE.RepeatWrapping;
+    this._boardTexture.wrapT = THREE.RepeatWrapping;
+    this._boardTexture.colorSpace = THREE.SRGBColorSpace;
+
+    // 2. Bump Map (Micro Foam Cells)
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = 512;
+    bumpCanvas.height = 512;
+    const bCtx = bumpCanvas.getContext('2d')!;
+    
+    bCtx.fillStyle = '#808080';
+    bCtx.fillRect(0, 0, 512, 512);
+
+    const imgData = bCtx.getImageData(0, 0, 512, 512);
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      const noise = (Math.random() - 0.5) * 40;
+      const val = Math.min(255, Math.max(0, 128 + noise));
+      imgData.data[i] = val;
+      imgData.data[i + 1] = val;
+      imgData.data[i + 2] = val;
+      imgData.data[i + 3] = 255;
+    }
+    bCtx.putImageData(imgData, 0, 0);
+
+    this._bumpTexture = new THREE.CanvasTexture(bumpCanvas);
+    this._bumpTexture.wrapS = THREE.RepeatWrapping;
+    this._bumpTexture.wrapT = THREE.RepeatWrapping;
+
+    return { map: this._boardTexture, bumpMap: this._bumpTexture };
+  }
 
   override firstUpdated() {
     this.initThree();
@@ -64,8 +124,8 @@ export class BoardViewport extends LitElement {
         this.wireframeGroup.remove(child);
     }
 
-    const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6 });
-    const matRocker = new THREE.LineBasicMaterial({ color: 0x10b981 });
+    const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.15 });
+    const matRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
 
     const scale = 1 / 12; // Inches to Feet for Three.js coordinates
 
@@ -162,7 +222,7 @@ export class BoardViewport extends LitElement {
             const thickness = topY - botY;
             const apexY = botY + thickness * railApexRatio;
 
-            for (let j = 0; j < segmentsRadial; j++) {
+            for (let j = 0; j <= segmentsRadial; j++) {
                 const angle = (j / segmentsRadial) * Math.PI * 2;
                 const cx = Math.cos(angle);
                 const cy = Math.sin(angle);
@@ -205,10 +265,10 @@ export class BoardViewport extends LitElement {
         // Generate Triangle Indices
         for (let i = 0; i < segmentsZ - 1; i++) {
             for (let j = 0; j < segmentsRadial; j++) {
-                const a = i * segmentsRadial + j;
-                const b = i * segmentsRadial + ((j + 1) % segmentsRadial);
-                const c = (i + 1) * segmentsRadial + j;
-                const d = (i + 1) * segmentsRadial + ((j + 1) % segmentsRadial);
+                const a = i * (segmentsRadial + 1) + j;
+                const b = i * (segmentsRadial + 1) + (j + 1);
+                const c = (i + 1) * (segmentsRadial + 1) + j;
+                const d = (i + 1) * (segmentsRadial + 1) + (j + 1);
 
                 indices.push(a, b, d);
                 indices.push(a, d, c);
@@ -221,13 +281,23 @@ export class BoardViewport extends LitElement {
         geom.setIndex(indices);
         geom.computeVertexNormals();
 
-        const mat = new THREE.MeshStandardMaterial({ 
-            color: 0xf8f9fa, // Zinc-50 Foam White
-            roughness: 0.8, 
-            metalness: 0.05,
+        const { map, bumpMap } = this.getBoardTextures();
+
+        const mat = new THREE.MeshPhysicalMaterial({ 
+            map: map,
+            bumpMap: bumpMap,
+            bumpScale: 0.005,
+            roughness: 0.4, // Foam core is rough under the resin
+            metalness: 0.0,
+            clearcoat: 1.0, // High-gloss resin shell
+            clearcoatRoughness: 0.05, // Flawlessly sanded finish
+            ior: 1.5, // Refractive index of epoxy resin
             side: THREE.DoubleSide
         });
+
         const mesh = new THREE.Mesh(geom, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         this.solidGroup.add(mesh);
     }
   }
@@ -258,32 +328,61 @@ export class BoardViewport extends LitElement {
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
+      powerPreference: "high-performance"
     });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(this.clientWidth, this.clientHeight);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // 4. Controls
+    // 4. Environment & Lighting
+    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    pmremGenerator.compileEquirectangularShader();
+    this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    this.scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(3, 8, -5);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 0.1;
+    dirLight.shadow.camera.far = 50;
+    dirLight.shadow.camera.left = -5;
+    dirLight.shadow.camera.right = 5;
+    dirLight.shadow.camera.top = 5;
+    dirLight.shadow.camera.bottom = -5;
+    dirLight.shadow.bias = -0.001;
+    this.scene.add(dirLight);
+
+    // 5. Shadow Catcher Floor
+    const floorGeo = new THREE.PlaneGeometry(50, 50);
+    const floorMat = new THREE.ShadowMaterial({ opacity: 0.5 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.0; // Place floor roughly 12 inches below origin to catch shadows without clipping rails
+    floor.receiveShadow = true;
+    this.scene.add(floor);
+
+    // 6. Controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
+    this.controls.target.set(0, 0, 0);
 
-    // 5. Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    this.scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(5, 10, 5);
-    this.scene.add(dirLight);
-
-    // 6. Wireframe Group for Real-time Curves
+    // 7. Groups & Grid
     this.scene.add(this.wireframeGroup);
     this.scene.add(this.solidGroup);
 
-    // Grid helper for scale reference
     const gridHelper = new THREE.GridHelper(10, 10, 0x27272a, 0x18181b);
+    gridHelper.position.y = -0.99; // Offset slightly above the shadow floor to prevent Z-fighting
     this.scene.add(gridHelper);
 
-    // 7. Handle Resize
+    // 8. Handle Resize
     this.resizeObserver = new ResizeObserver(() => this.onResize());
     this.resizeObserver.observe(this);
 
