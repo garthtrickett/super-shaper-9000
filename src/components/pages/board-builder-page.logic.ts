@@ -25,6 +25,10 @@ export interface BoardModel {
   apexRatio: number;
   railFullness: number;
   hardEdgeLength: number;
+  veeDepth: number;
+  concaveDepth: number;
+  channelDepth: number;
+  channelLength: number;
   bottomContour: BottomContour;
 }
 
@@ -48,6 +52,10 @@ export const INITIAL_STATE: BoardModel = {
   apexRatio: 0.30, // 30% up from bottom (Low apex for knife hold)
   railFullness: 0.65, // Pinched, sloped profile for 65kg surfer
   hardEdgeLength: 20.0, // Sharp edge starts 20" from tail (right ahead of fins)
+  veeDepth: 0.15, // Slight entry vee to split water
+  concaveDepth: 0.25, // 1/4" Deep single concave engine
+  channelDepth: 0.1875, // 3/16" Deep channels for bite
+  channelLength: 18.0, // Channels start 18" from tail
   bottomContour: "vee_to_quad_channels",
 };
 

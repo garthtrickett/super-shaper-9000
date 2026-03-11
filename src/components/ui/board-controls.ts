@@ -21,6 +21,10 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) apexRatio = 0.35;
   @property({ type: Number }) railFullness = 0.65;
   @property({ type: Number }) hardEdgeLength = 18.0;
+  @property({ type: Number }) veeDepth = 0.15;
+  @property({ type: Number }) concaveDepth = 0.25;
+  @property({ type: Number }) channelDepth = 0.1875;
+  @property({ type: Number }) channelLength = 18.0;
   @property({ type: String }) bottomContour = "vee_to_quad_channels";
 
   protected override createRenderRoot() { 
@@ -200,12 +204,17 @@ export class BoardControls extends LitElement {
         `, true)}
 
         ${this._renderAccordion("Bottom Contours", html`
-          ${this._renderSelect("Bottom Contours", "bottomContour",[
+          ${this._renderSelect("Contour Flow", "bottomContour",[
             {value: "flat", label: "Flat"},
             {value: "single", label: "Single Concave"},
             {value: "single_to_double", label: "Single to Double"},
-            {value: "vee_to_quad_channels", label: "Vee to Quad Channels"}
+            {value: "vee_to_quad_channels", label: "Vee -> Quad-Inside-Single"}
           ], this.bottomContour)}
+          <div class="h-px bg-zinc-800 my-4"></div>
+          ${this._renderSlider("Entry Vee Depth", "veeDepth", 0, 0.5, 0.0625, this.veeDepth)}
+          ${this._renderSlider("Single Concave Depth", "concaveDepth", 0, 0.5, 0.0625, this.concaveDepth)}
+          ${this._renderSlider("Channel Depth", "channelDepth", 0, 0.5, 0.0625, this.channelDepth)}
+          ${this._renderSlider("Channel Length (from tail)", "channelLength", 0, 36.0, 1.0, this.channelLength)}
         `, false)}
       </div>
     `;

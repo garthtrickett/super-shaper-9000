@@ -145,8 +145,10 @@ export class BoardViewport extends LitElement {
 
     const scale = 1 / 12; // Inches to Feet for Three.js coordinates
     
-    const bottomContour = this.boardState.bottomContour;
-    const { apexRatio, hardEdgeLength, railFullness } = this.boardState;
+    const { 
+        bottomContour, apexRatio, hardEdgeLength, railFullness,
+        veeDepth, concaveDepth, channelDepth, channelLength 
+    } = this.boardState;
 
     // Helper to compute dynamic apex ratio based on precise CAD parameters
     const getApexRatio = (zInches: number) => {
@@ -277,32 +279,35 @@ export class BoardViewport extends LitElement {
             const dynamicRailApexRatio = getApexRatio(zInches);
             const apexY = botY + thickness * dynamicRailApexRatio;
 
-            // --- Bottom Contour Z-Blends (Calculated once per cross-section) ---
+            // --- Exact CAD Contour Z-Blends (Calculated once per cross-section) ---
             const smoothStep = (edge0: number, edge1: number, x: number) => {
                 const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
                 return t * t * (3 - 2 * t);
             };
 
-            const blendVee = 1 - smoothStep(0.05, 0.35, nz);
+            const tailDist = Math.max(0, maxZ - zInches);
+            const noseDist = Math.max(0, zInches - minZ);
+
+            // Entry Vee: Fades out completely by the wide point
+            const blendVee = 1 - smoothStep(0.05, 0.4, nz);
             
-            let blendConcave = 0;
-            if (nz > 0.2 && nz < 0.8) {
-                blendConcave = smoothStep(0.2, 0.4, nz) * (1 - smoothStep(0.6, 0.8, nz));
+            // Single Concave: Starts after the Vee, runs ALL the way out the tail (Quad-Inside-Single)
+            const blendConcave = smoothStep(0.15, 0.3, nz);
+            
+            // Channels: Precise start based on channelLength (fade in over 6 inches)
+            let blendChannels = 0;
+            if (tailDist <= channelLength + 6.0) {
+                blendChannels = 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist);
             }
             
-            const blendChannels = nz > 0.65 ? smoothStep(0.65, 0.8, nz) : 0;
-            
-            // Smoothly fade contours near the tips to prevent sharp creases (C1 discontinuities)
+            // Prevent sharp creases at the absolute tips
             const smoothFade = (dist: number, fadeLength: number) => {
                 if (dist >= fadeLength) return 1;
                 if (dist <= 0) return 0;
                 const t = dist / fadeLength;
                 return t * t * (3 - 2 * t);
             };
-            
-            const tailDist = Math.max(0, maxZ - zInches);
-            const noseDist = Math.max(0, zInches - minZ);
-            const fadeTailNose = smoothFade(tailDist, 18) * smoothFade(noseDist, 18);
+            const fadeTailNose = smoothFade(tailDist, 12) * smoothFade(noseDist, 18);
 
             for (let j = 0; j <= segmentsRadial; j++) {
                 const angle = (j / segmentsRadial) * Math.PI * 2;
@@ -330,27 +335,26 @@ export class BoardViewport extends LitElement {
                         let contourOffset = 0;
                             
                         if (bottomContour === "vee_to_quad_channels") {
-                            // Front 30%: Vee
-                            const veeOffset = 0.4 * abs_nx * blendVee;
+                            // Precise Depth Injection
+                            const veeOffset = veeDepth * abs_nx * blendVee;
+                            const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
 
-                            // Middle 40%: Single Concave
-                            const concaveOffset = 0.35 * (1 - nx * nx) * blendConcave;
-
-                            // Back 30%: Quad Channels (4 distinct waves)
                             let channelProfile = 0;
+                            // Channels sit inside the concave (0.2 to 0.8 rail fraction)
                             if (abs_nx >= 0.2 && abs_nx <= 0.8) {
                                 const u = (abs_nx - 0.2) / 0.6;
                                 channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
                             }
-                            const channelOffset = 0.25 * channelProfile * blendChannels;
+                            // Channels carve upwards (into the board)
+                            const channelOffset = channelDepth * channelProfile * blendChannels;
 
                             contourOffset = (veeOffset + concaveOffset + channelOffset) * fadeTailNose;
                         } else if (bottomContour === "single_to_double") {
-                            const single = 0.35 * (1 - nx * nx);
-                            const double = 0.25 * Math.pow(Math.sin(abs_nx * Math.PI), 2);
+                            const single = concaveDepth * (1 - nx * nx);
+                            const double = concaveDepth * 0.8 * Math.pow(Math.sin(abs_nx * Math.PI), 2);
                             contourOffset = (single * (1 - nz) + double * nz) * fadeTailNose;
                         } else if (bottomContour === "single") {
-                            contourOffset = 0.35 * (1 - nx * nx) * fadeTailNose;
+                            contourOffset = concaveDepth * (1 - nx * nx) * fadeTailNose;
                         }
 
                         // GUARANTEE MESH CONTINUITY AT APEX (cy = 0)
