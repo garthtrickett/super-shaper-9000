@@ -217,9 +217,9 @@ export class BoardControls extends LitElement {
           ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
             ${this._renderSlider("Nose Tip Width", "noseTipWidth", 1.0, 10.0, 0.25, this.noseTipWidth)}
-            ${this._renderSlider("Tip Blend Length", "noseTipCurveZ", 0.1, 8.0, 0.25, this.noseTipCurveZ)}
+            ${this.noseShape === 'torpedo' ? this._renderSlider("Tip Blend Length", "noseTipCurveZ", 0.1, 8.0, 0.25, this.noseTipCurveZ) : ''}
           ` : ''}
-          ${this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth)}
+          ${this.noseShape !== 'clipped' ? this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth) : ''}
           ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset)}
           ${this._renderSlider("Tail Fullness (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth)}
           ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType)}
@@ -248,7 +248,7 @@ export class BoardControls extends LitElement {
 
         ${this._renderAccordion("Rails & Cross-Sections", html`
           <div class="grid grid-cols-3 gap-2 mb-6 bg-zinc-950 p-2 rounded-lg border border-zinc-800">
-            ${this._renderSliceSVG("Shoulder", this.noseWidth, this.noseThickness, this.apexRatio, false)}
+            ${this._renderSliceSVG("Shoulder", this.noseShape === 'clipped' ? 16.0 : this.noseWidth, this.noseThickness, this.apexRatio, false)}
             ${this._renderSliceSVG("Center", this.width, this.thickness, this.apexRatio, false)}
             ${this._renderSliceSVG("Hip", this.tailWidth, this.tailThickness, 0.05, this.hardEdgeLength >= 12)}
           </div>

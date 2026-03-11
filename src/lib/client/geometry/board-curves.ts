@@ -52,18 +52,17 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // By placing control points slightly behind the tip, we force the NURBS engine 
   // to draw a smooth, rounded nose that perfectly wraps into the center point.
   if (model.noseShape === "clipped") {
-      // Tomo style: Tight, fast corner to create a "chopped" look that is mathematically closed.
-      // We use a fraction of the slider for the sharpest corner, then the full slider to hold the width back.
-      cp.push([model.noseTipWidth / 2, 0, -L/2 + Math.max(0.1, model.noseTipCurveZ * 0.15)]); 
-      cp.push([model.noseTipWidth / 2, 0, -L/2 + model.noseTipCurveZ]); 
+      // Tomo style: Hardcoded to 0.1 for a fast, tight chopped corner
+      cp.push([model.noseTipWidth / 2, 0, -L/2 + 0.1]); 
   } else if (model.noseShape === "torpedo") {
       // Sweeping, perfect semi-circle bullet nose driven by the blend slider
       cp.push([model.noseTipWidth / 2, 0, -L/2 + model.noseTipCurveZ]); 
   }
 
   // --- B. NOSE FULLNESS (N12 area) ---
+  // A Tomo demands parallel rails, so we force the N12 control point to 16.0" wide
   const zNoseCtrl = -L/2 + (wpZ - (-L/2)) * 0.4;
-  const wNoseCtrl = model.noseWidth / 2;
+  const wNoseCtrl = (model.noseShape === "clipped" ? 16.0 : model.noseWidth) / 2;
 
   if (model.noseShape === "torpedo") {
       cp.push([wNoseCtrl * 1.15, 0, zNoseCtrl]); // Bulge out for torpedo look
