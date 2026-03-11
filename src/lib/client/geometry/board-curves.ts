@@ -58,13 +58,16 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   let noseCornerZ = -L/2;
   let noseTailW = 0;
 
-  if (model.noseShape === "torpedo") {
+  if (model.noseShape === "torpedo" || model.noseShape === "clipped") {
       noseCornerZ = -L/2 + Math.min(model.bluntNoseLength, 11.5);
-      noseTailW = model.noseWidth / 2 * 0.85;
-      ptsOutline.add(noseTailW, 0, noseCornerZ);
-  } else if (model.noseShape === "clipped") {
-      noseCornerZ = -L/2 + Math.min(model.bluntNoseLength, 11.5);
-      noseTailW = model.noseWidth / 2 * 0.75;
+      
+      // Dynamically scale the width of the blunt nose cap based on how far back it is cut.
+      // This prevents S-curves/pinching by ensuring the NURBS curve has a natural starting tangent.
+      const t = Math.min(model.bluntNoseLength / 12.0, 1.0);
+      const baseRatio = model.noseShape === "torpedo" ? 0.85 : 0.75;
+      const dynamicRatio = baseRatio + (1.0 - baseRatio) * Math.pow(t, 0.6);
+      
+      noseTailW = (model.noseWidth / 2) * dynamicRatio;
       ptsOutline.add(noseTailW, 0, noseCornerZ);
   } else {
       ptsOutline.add(0, 0, -L/2);
@@ -76,7 +79,10 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   }
 
   // --- 2. N12 (Nose Width at 12" from tip) ---
-  ptsOutline.add(model.noseWidth / 2, 0, n12Z);
+  // Prevent NURBS control points from bunching up if the blunt nose extends too far
+  if (noseCornerZ <= n12Z - 3.0) {
+      ptsOutline.add(model.noseWidth / 2, 0, n12Z);
+  }
 
   // Mid-Nose smoothing (ONLY for pointy to preserve fullness. Clipped/Torpedo rely on natural NURBS spline)
   if (wpFront > n12Z && model.noseShape === "pointy") {
@@ -191,13 +197,6 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   const rockerTop = sampleCurve(crvRockerTop);
   const rockerBottom = sampleCurve(crvRockerBottom);
 
-  ptsOutline.delete();
-  if (crvOutline) crvOutline.delete();
-  ptsRockerTop.delete();
-  if (crvRockerTop) crvRockerTop.delete();
-  ptsRockerBottom.delete();
-  if (crvRockerBottom) crvRockerBottom.delete();
-
   // --- PREPEND NOSE CAPS ---
   if (model.noseShape === "torpedo" || model.noseShape === "clipped") {
       const steps = 15;
@@ -206,16 +205,52 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       // Absolute tip to close the mesh hole
       cap.push([0, 0, -L/2]); 
       
+      // Sample NURBS curve to get the exact starting tangent for C1 continuity
+      const domain = crvOutline.domain;
+      const dSpan = domain[1] - domain[0];
+      const pA = crvOutline.pointAt(domain[0]);
+      const pB = crvOutline.pointAt(domain[0] + dSpan * 0.01);
+      const dirX = pB[0] - pA[0];
+      const dirZ = pB[2] - pA[2];
+      const len = Math.sqrt(dirX * dirX + dirZ * dirZ);
+      const normX = dirX / len;
+      const normZ = dirZ / len;
+
+      // Align P2 with the NURBS tangent to ensure a perfectly smooth join
+      const zSpan = noseCornerZ - (-L/2);
+      const tension = zSpan * 0.33;
+      const p2x = noseTailW - normX * tension;
+      const p2z = noseCornerZ - normZ * tension;
+      const P2 = [p2x, 0, p2z];
+
+      // Cubic Bezier Control Points
+      const P0 = [0, 0, -L/2];
+      const P3 = [noseTailW, 0, noseCornerZ];
+      
+      let p1x = noseTailW;
+      if (model.noseShape === "clipped") p1x = noseTailW * 0.9;
+      
+      // SAFEGUARD: Prevent reflex S-curves (pinching) by ensuring P1 is narrower than P2
+      if (p1x >= p2x) {
+          p1x = Math.max(0, p2x * 0.85);
+      }
+      const P1 = [p1x, 0, -L/2];
+      
       for (let i = 1; i < steps; i++) { 
           const t = i / steps;
           const invT = 1 - t;
           
-          let p1x = noseTailW;
-          if (model.noseShape === "clipped") p1x = noseTailW * 0.9;
-          
-          // Quadratic Bezier: P0=(0, -L/2), P1=(horizontal pull), P2=(NURBS start)
-          const px = invT * invT * 0 + 2 * invT * t * p1x + t * t * noseTailW;
-          const pz = invT * invT * (-L/2) + 2 * invT * t * (-L/2) + t * t * noseCornerZ;
+          // Cubic Bezier formula
+          const px = invT * invT * invT * P0[0] + 
+                     3 * invT * invT * t * P1[0] + 
+                     3 * invT * t * t * P2[0] + 
+                     t * t * t * P3[0];
+                     
+          const pz = invT * invT * invT * P0[2] + 
+                     3 * invT * invT * t * P1[2] + 
+                     3 * invT * t * t * P2[2] + 
+                     t * t * t * P3[2];
+                     
           cap.push([px, 0, pz]);
       }
       outline.unshift(...cap);
@@ -226,24 +261,57 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       outline.push([0, 0, L/2 - model.swallowDepth]);
   } else if (model.tailType === "squash" || model.tailType === "torpedo") {
       const steps = 15;
+      
+      // Sample NURBS curve to get the exact ending tangent for C1 continuity
+      const domain = crvOutline.domain;
+      const dSpan = domain[1] - domain[0];
+      const pY = crvOutline.pointAt(domain[1] - dSpan * 0.01);
+      const pZ = crvOutline.pointAt(domain[1]);
+      const dirX = pZ[0] - pY[0];
+      const dirZ = pZ[2] - pY[2];
+      const len = Math.sqrt(dirX * dirX + dirZ * dirZ);
+      const normX = dirX / len;
+      const normZ = dirZ / len;
+
+      const P0 = [tailW, 0, cornerZ];
+      
+      let endX = 0;
+      if (model.tailType === "squash") endX = tailW * 0.45;
+      const P3 = [endX, 0, L/2];
+
+      // Align P1 with the NURBS end tangent
+      const zSpan = L/2 - cornerZ;
+      const tension = zSpan * 0.33;
+      const P1 = [
+          P0[0] + normX * tension,
+          0,
+          P0[2] + normZ * tension
+      ];
+
+      let p2x = tailW;
+      if (model.tailType === "squash" || model.tailType === "torpedo") p2x = tailW * 0.95;
+      
+      // SAFEGUARD: Prevent reflex S-curves (bump) by ensuring P2 is narrower than P1
+      if (p2x >= P1[0]) {
+          p2x = Math.max(0, P1[0] * 0.95);
+      }
+      const P2 = [p2x, 0, L/2];
+
       for (let i = 1; i <= steps; i++) {
           const t = i / steps;
           const invT = 1 - t;
           
-          let p1x = tailW;
-          let p2x = 0;
-          let p1z = L/2;
-          let p2z = L/2;
-          
-          if (model.tailType === "squash") {
-              p1x = tailW * 0.95;
-              p2x = tailW * 0.45; // Flat squash block
-          } else if (model.tailType === "torpedo") {
-              p1x = tailW * 0.95; // Stays wider longer, horizontal tangency at tip
-          }
-          
-          const px = invT * invT * tailW + 2 * invT * t * p1x + t * t * p2x;
-          const pz = invT * invT * cornerZ + 2 * invT * t * p1z + t * t * p2z;
+          // Cubic Bezier formula
+          const px = invT * invT * invT * P0[0] + 
+                     3 * invT * invT * t * P1[0] + 
+                     3 * invT * t * t * P2[0] + 
+                     t * t * t * P3[0];
+                     
+          const pz = invT * invT * invT * P0[2] + 
+                     3 * invT * invT * t * P1[2] + 
+                     3 * invT * t * t * P2[2] + 
+                     t * t * t * P3[2];
+                     
           outline.push([px, 0, pz]);
       }
       
@@ -258,6 +326,14 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
           outline.push([0, 0, L/2]);
       }
   }
+
+  // Memory cleanup for WASM references
+  ptsOutline.delete();
+  if (crvOutline) crvOutline.delete();
+  ptsRockerTop.delete();
+  if (crvRockerTop) crvRockerTop.delete();
+  ptsRockerBottom.delete();
+  if (crvRockerBottom) crvRockerBottom.delete();
 
   return { outline, rockerTop, rockerBottom };
 };
