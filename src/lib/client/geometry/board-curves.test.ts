@@ -2,6 +2,7 @@ import { expect } from "@open-wc/testing";
 import { generateBoardCurves, deps } from "./board-curves";
 import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
 import sinon from "sinon";
+import type { BoardModel } from "../../../components/pages/board-builder-page.logic";
 
 describe("Board Curves Engine", () => {
   let getRhinoStub: sinon.SinonStub;
@@ -28,9 +29,6 @@ describe("Board Curves Engine", () => {
     expect(wpZ).to.equal(0);
   });
 });
-import { expect } from "@open-wc/testing";
-import { generateBoardCurves, deps } from "./board-curves";
-import type { BoardModel } from "../../../components/pages/board-builder-page.logic";
 
 describe("Board Curves Generator", () => {
   const originalGetRhino = deps.getRhino;

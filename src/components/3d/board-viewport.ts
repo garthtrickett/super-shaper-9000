@@ -128,6 +128,7 @@ export class BoardViewport extends LitElement {
     if (!this.boardState) return;
     
     const curves = await generateBoardCurves(this.boardState);
+    if (!curves.outline || curves.outline.length === 0) return;
     
     // clear old geometry properly
     while (this.wireframeGroup.children.length > 0) {
@@ -153,7 +154,7 @@ export class BoardViewport extends LitElement {
 
     // Helper to compute dynamic apex ratio based on precise CAD parameters
     const getApexRatio = (zInches: number) => {
-        const maxZ = curves.outline[curves.outline.length-1][2];
+        const maxZ = curves.outline[curves.outline.length-1]![2];
         const distFromTail = maxZ - zInches;
         
         let currentApex = apexRatio;
@@ -207,9 +208,8 @@ export class BoardViewport extends LitElement {
                 const bottomY = getRockerY(zInches, false);
                 const thickness = topY - bottomY;
                 
-                const minZ = curves.outline[0][2];
-                const maxZ = curves.outline[curves.outline.length-1][2];
-                const nz = (zInches - minZ) / (maxZ - minZ);
+                const minZ = curves.outline[0]![2];
+                const maxZ = curves.outline[curves.outline.length-1]![2];
                 
                 const dynamicRailApexRatio = getApexRatio(zInches);
                 const apexY = bottomY + thickness * dynamicRailApexRatio;
@@ -257,12 +257,12 @@ export class BoardViewport extends LitElement {
         const deckCurve = this.boardState.deckDome; // Dynamic deck dome from slider
         const bottomCurve = 0.5; // Flattish bottom
 
-        const minZ = curves.outline[0][2];
-        const maxZ = curves.outline[segmentsZ-1][2];
+        const minZ = curves.outline[0]![2];
+        const maxZ = curves.outline[segmentsZ-1]![2];
         const totalZ = maxZ - minZ;
 
         for (let i = 0; i < segmentsZ; i++) {
-            const p = curves.outline[i];
+            const p = curves.outline[i]!;
             const halfWidth = p[0];
             const zInches = p[2];
             const nz = (zInches - minZ) / totalZ; // 0 (Nose) to 1 (Tail)
@@ -404,9 +404,9 @@ export class BoardViewport extends LitElement {
 
         // --- STEP 5: Real-Time Volume Calculation ---
         let volumeCubicFeet = 0;
-        const posAttr = geom.attributes.position;
+        const posAttr = geom.attributes.position as THREE.BufferAttribute;
         const idxAttr = geom.index;
-        if (idxAttr) {
+        if (posAttr && idxAttr) {
             const p1 = new THREE.Vector3();
             const p2 = new THREE.Vector3();
             const p3 = new THREE.Vector3();
@@ -525,8 +525,8 @@ export class BoardViewport extends LitElement {
         };
 
         const getBottomY = (xInches: number, zInches: number) => {
-            const minZ = curves.outline[0][2];
-            const maxZ = curves.outline[curves.outline.length-1][2];
+            const minZ = curves.outline[0]![2];
+            const maxZ = curves.outline[curves.outline.length-1]![2];
             const totalZ = maxZ - minZ;
             const nz = (zInches - minZ) / totalZ;
             

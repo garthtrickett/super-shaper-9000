@@ -68,6 +68,11 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       ptsOutline.add(noseTailW, 0, noseCornerZ);
   } else {
       ptsOutline.add(0, 0, -L/2);
+      if (model.noseShape === "pointy") {
+          // Add a control point at N6 (6" from nose) to increase tip fullness
+          const n6Z = -L/2 + 6.0;
+          ptsOutline.add((model.noseWidth / 2) * 0.68, 0, n6Z);
+      }
   }
 
   // --- 2. N12 (Nose Width at 12" from tip) ---
@@ -76,7 +81,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // Mid-Nose smoothing (ONLY for pointy to preserve fullness. Clipped/Torpedo rely on natural NURBS spline)
   if (wpFront > n12Z && model.noseShape === "pointy") {
       const midNoseZ = (n12Z + wpFront) / 2;
-      let midNoseW = (model.noseWidth/2 + model.width/2) / 2 * 1.02; // Standard slight outward bulge
+      let midNoseW = (model.noseWidth/2 + model.width/2) / 2 * 1.05; // Standard slight outward bulge (increased to 1.05 for fuller nose)
       ptsOutline.add(midNoseW, 0, midNoseZ);
   }
 
@@ -109,8 +114,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   let cornerZ = L/2;
 
   if (model.tailType === "pintail") {
-      tailW = 0;
-      ptsOutline.add(tailW, 0, cornerZ);
+      ptsOutline.add(0, 0, L/2);
+      tailW = 0; // bypassed bezier caps
+      cornerZ = L/2;
   } else if (model.tailType === "swallow") {
       tailW = model.tailWidth / 2 * 0.6;
       ptsOutline.add(tailW, 0, cornerZ);
@@ -119,10 +125,13 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       cornerZ = L/2 - model.squashCornerRadius;
       ptsOutline.add(tailW, 0, cornerZ);
   } else if (model.tailType === "round") {
-      tailW = model.tailWidth / 2 * 0.6;
-      cornerZ = L/2 - 2.5;
-      ptsOutline.add(tailW, 0, cornerZ);
+      // Classic rounded pin: Fluid native NURBS curve directly to the sharp point
+      ptsOutline.add(model.tailWidth / 2 * 0.45, 0, L/2 - 3.0);
+      ptsOutline.add(0, 0, L/2);
+      tailW = 0; // bypassed bezier caps
+      cornerZ = L/2;
   } else if (model.tailType === "torpedo") {
+      // Wider base for a symmetrical blunt pill
       tailW = model.tailWidth / 2 * 0.85;
       cornerZ = L/2 - 3.5;
       ptsOutline.add(tailW, 0, cornerZ);
@@ -215,7 +224,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // --- APPEND TAIL CAPS ---
   if (model.tailType === "swallow") {
       outline.push([0, 0, L/2 - model.swallowDepth]);
-  } else if (model.tailType === "squash" || model.tailType === "round" || model.tailType === "torpedo") {
+  } else if (model.tailType === "squash" || model.tailType === "torpedo") {
       const steps = 15;
       for (let i = 1; i <= steps; i++) {
           const t = i / steps;
@@ -223,21 +232,29 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
           
           let p1x = tailW;
           let p2x = 0;
+          let p1z = L/2;
+          let p2z = L/2;
           
           if (model.tailType === "squash") {
               p1x = tailW * 0.95;
               p2x = tailW * 0.45; // Flat squash block
-          } else if (model.tailType === "round") {
-              p1x = tailW * 0.85;
+          } else if (model.tailType === "torpedo") {
+              p1x = tailW * 0.95; // Stays wider longer, horizontal tangency at tip
           }
           
           const px = invT * invT * tailW + 2 * invT * t * p1x + t * t * p2x;
-          const pz = invT * invT * cornerZ + 2 * invT * t * (L/2) + t * t * (L/2);
+          const pz = invT * invT * cornerZ + 2 * invT * t * p1z + t * t * p2z;
           outline.push([px, 0, pz]);
       }
       
       // Critical Mesh Closing: Forces the lofting engine to map the open tail directly to the stringer
       if (model.tailType === "squash") {
+          outline.push([0, 0, L/2]);
+      }
+  } else if (model.tailType === "round" || model.tailType === "pintail") {
+      // Ensure the mesh is absolutely clamped to 0 on the Z-axis line for perfect lofting
+      const lastP = outline[outline.length - 1];
+      if (lastP && (lastP[2] < L/2 - 0.001 || Math.abs(lastP[0]) > 0.001)) {
           outline.push([0, 0, L/2]);
       }
   }

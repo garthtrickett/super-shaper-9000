@@ -25,8 +25,6 @@ describe("Board Builder Logic", () => {
     expect(state.meshData).to.equal("MESH_DATA");
   });
 });
-import { expect } from "@open-wc/testing";
-import { update, INITIAL_STATE, type BoardAction } from "./board-builder-page.logic";
 
 describe("BoardBuilder Logic", () => {
   it("should correctly update a dimension", () => {
