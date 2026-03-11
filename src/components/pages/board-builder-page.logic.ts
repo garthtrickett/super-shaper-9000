@@ -101,6 +101,8 @@ export const handleAction = (
       }
 
       const task = Effect.gen(function* () {
+        yield* Effect.sync(() => dispatch({ type: "COMPUTE_START" }));
+        yield* Effect.sleep("250 millis");
         // 🚀 Instant 100% frontend native generation
         yield* Effect.sync(() => dispatch({ type: "COMPUTE_SUCCESS", meshData: "NATIVE_GENERATION" }));
       });
