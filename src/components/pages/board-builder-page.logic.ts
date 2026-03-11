@@ -40,11 +40,11 @@ export const INITIAL_STATE: BoardModel = {
   bottomContour: "vee_to_quad_channels",
   isComputing: false,
   meshData: null,
-};
-
 export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
+  | { type: "UPDATE_DIMENSION"; param?: any; dimension?: any; payload?: any; value?: any }
+  | { type: "UPDATE_TAIL"; tailType?: any; value?: any; param?: any; payload?: any }
   | { type: "TRIGGER_COMPUTE" }
   | { type: "COMPUTE_START" }
   | { type: "COMPUTE_SUCCESS"; meshData: string }
@@ -53,8 +53,19 @@ export type BoardAction =
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
     case "UPDATE_NUMBER":
-    case "UPDATE_STRING":
+    case "UPDATE_STRING": {
       return { ...state, [action.param]: action.value };
+    }
+    case "UPDATE_DIMENSION": {
+      const payload = (action as any).payload || action;
+      const p = payload.param || payload.dimension;
+      return { ...state, [p]: payload.value };
+    }
+    case "UPDATE_TAIL": {
+      const payload = (action as any).payload || action;
+      const t = payload.tailType || payload.value || payload.param;
+      return { ...state, tailType: t };
+    }
     case "COMPUTE_START":
       return { ...state, isComputing: true };
     case "COMPUTE_SUCCESS":
@@ -65,7 +76,6 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       return state;
   }
 };
-
 let computeFiber: Fiber.RuntimeFiber<void, unknown> | null = null;
 
 export const handleAction = (
