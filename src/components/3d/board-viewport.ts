@@ -131,81 +131,104 @@ export class BoardViewport extends LitElement {
     }
 
     if (this.boardState.meshData) {
-        if (this.boardState.meshData === "MOCK_BASE64_MESH_DATA") {
-            // Build a much better mock geometry using the actual outline curves
-            const shape = new THREE.Shape();
+        // 🚀 100% Native Frontend Procedural Surfboard Mesh Generation
+        const segmentsZ = curves.outline.length;
+        const segmentsRadial = 36;
+        
+        const vertices =[];
+        const indices = [];
+        const uvs =[];
+        
+        // Shaper specific tuning parameters
+        const railApexRatio = 0.35; // Rails tucked under slightly
+        const railCurve = 0.75; // Boxy rails
+        const deckCurve = 0.6; // Flattish deck dome
+        const bottomCurve = 0.5; // Flattish bottom
+        const concaveDepth = 0.18; // Inches of single concave
+
+        for (let i = 0; i < segmentsZ; i++) {
+            const p = curves.outline[i];
+            const halfWidth = p[0];
+            const zInches = p[2];
+
+            let topY = getRockerY(zInches, true);
+            let botY = getRockerY(zInches, false);
             
-            // Draw right side
-            curves.outline.forEach((p, i) => {
-                if (i === 0) shape.moveTo(p[0] * scale, p[2] * scale);
-                else shape.lineTo(p[0] * scale, p[2] * scale);
-            });
-            
-            // Draw left side (mirrored)
-            for (let i = curves.outline.length - 1; i >= 0; i--) {
-                const p = curves.outline[i];
-                if (p) shape.lineTo(-p[0] * scale, p[2] * scale);
+            // Prevent degenerate pinch at the absolute tips
+            if (topY - botY < 0.01) {
+                topY = botY + 0.01;
             }
 
-            // Extrude the 2D shape to give it thickness
-            const depth = this.boardState.thickness * scale;
-            const geom = new THREE.ExtrudeGeometry(shape, {
-                depth: depth,
-                bevelEnabled: true,
-                bevelThickness: 0.015, // Made bevels smaller so they don't look weird when stretched
-                bevelSize: 0.015,
-                bevelSegments: 3,
-                curveSegments: 12
-            });
+            const thickness = topY - botY;
+            const apexY = botY + thickness * railApexRatio;
 
-            // ExtrudeGeometry builds along Z. Rotate to lie flat on the X-Z plane.
-            geom.rotateX(Math.PI / 2);
-            // Center the thickness on the Y axis
-            geom.translate(0, depth / 2, 0);
-            
-            // Deform the flat extrusion to follow the rocker curves
-            const pos = geom.attributes.position;
+            for (let j = 0; j < segmentsRadial; j++) {
+                const angle = (j / segmentsRadial) * Math.PI * 2;
+                const cx = Math.cos(angle);
+                const cy = Math.sin(angle);
+                
+                const abs_cx = Math.abs(cx);
+                const abs_cy = Math.abs(cy);
+                const signX = cx < 0 ? -1 : 1;
 
-            if (pos) {
-                for (let i = 0; i < pos.count; i++) {
-                    const y = pos.getY(i);
-                    const z = pos.getZ(i);
+                // Shape the X cross-section (rail fullness)
+                const px = signX * Math.pow(abs_cx, railCurve) * halfWidth;
 
-                    const zInches = z / scale;
+                let py = 0;
+                if (cy >= 0) {
+                    // Shape the Top Deck
+                    py = apexY + Math.pow(abs_cy, deckCurve) * (topY - apexY);
+                } else {
+                    // Shape the Bottom and Rail Tuck
+                    py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
                     
-                    // Map original Y (-depth/2 to depth/2) to t (0 to 1). 
-                    // Do not clamp, allowing bevels to extrapolate naturally past the pure curve!
-                    const t = (y + depth / 2) / depth;
-                    
-                    const bottomY = getRockerY(zInches, false) * scale;
-                    let topY = getRockerY(zInches, true) * scale;
-                    
-                    // Prevent degenerate triangles at the nose/tail where top and bottom meet to 0 thickness
-                    if (topY - bottomY < 0.001) {
-                        topY = bottomY + 0.001;
+                    // Apply Single Concave (peaks at stringer, fades to rail)
+                    if (halfWidth > 0.1) {
+                        const nx = px / halfWidth;
+                        const concave = concaveDepth * (1 - nx * nx);
+                        
+                        // Fade concave out at the nose and tail tips (last 12 inches)
+                        const tailDist = Math.max(0, curves.outline[segmentsZ-1][2] - zInches);
+                        const noseDist = Math.max(0, zInches - curves.outline[0][2]);
+                        const tailFade = Math.min(1, tailDist / 12);
+                        const noseFade = Math.min(1, noseDist / 12);
+                        
+                        py += concave * tailFade * noseFade;
                     }
-                    
-                    // Interpolate new Y based on position between top and bottom rocker
-                    const newY = bottomY + t * (topY - bottomY);
-                    pos.setY(i, newY);
                 }
-            }
-            
-            // Re-calculate how light bounces off the shape since we completely warped the vertices
-            geom.computeVertexNormals();
 
-            const mat = new THREE.MeshStandardMaterial({ 
-                color: 0xeeeeee, 
-                roughness: 0.2, 
-                metalness: 0.1,
-                transparent: true,
-                opacity: 0.8
-            });
-            const mesh = new THREE.Mesh(geom, mat);
-            this.solidGroup.add(mesh);
-        } else {
-            // TODO: Decode genuine base64 Rhino 3DM mesh data here.
+                vertices.push(px * scale, py * scale, zInches * scale);
+                uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
+            }
         }
+
+        // Generate Triangle Indices
+        for (let i = 0; i < segmentsZ - 1; i++) {
+            for (let j = 0; j < segmentsRadial; j++) {
+                const a = i * segmentsRadial + j;
+                const b = i * segmentsRadial + ((j + 1) % segmentsRadial);
+                const c = (i + 1) * segmentsRadial + j;
+                const d = (i + 1) * segmentsRadial + ((j + 1) % segmentsRadial);
+
+                indices.push(a, b, d);
+                indices.push(a, d, c);
+            }
+        }
+
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geom.setIndex(indices);
+        geom.computeVertexNormals();
+
+        const mat = new THREE.MeshStandardMaterial({ 
+            color: 0xf8f9fa, // Zinc-50 Foam White
+            roughness: 0.8, 
+            metalness: 0.05,
+            side: THREE.DoubleSide
+        });
+        const mesh = new THREE.Mesh(geom, mat);
+        this.solidGroup.add(mesh);
     }
   }
 
