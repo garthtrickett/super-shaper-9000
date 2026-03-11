@@ -470,23 +470,21 @@ export class BoardViewport extends LitElement {
                 bevelThickness: 0.02 * scale, bevelSize: 0.02 * scale, bevelSegments: 2 
             });
             
-            // Center the fin's base horizontally, but leave Y at 0 so it mounts flush to the hull
+            // Center the fin's base horizontally and thickness, leave Y at 0 for flush mounting
             geom.translate(-base / 2, 0, -0.1 * scale);
             
-            // Bright frosted fiberglass material to pop against the dark background
             const mat = new THREE.MeshPhysicalMaterial({ 
                 color: 0xffffff, 
                 roughness: 0.1, 
-                transmission: 0.8, // Glass-like transparency
+                transmission: 0.8,
                 thickness: 0.2,
                 ior: 1.5
             });
             const finMesh = new THREE.Mesh(geom, mat);
-            
-            // Orient flat and pointing down relative to bottom
-            finMesh.rotation.y = -Math.PI / 2;
-            finMesh.rotation.x = Math.PI;
             finMesh.castShadow = true;
+            
+            // Local orientation: Flip upside down (X=180) and point leading edge towards nose (Y=90)
+            finMesh.rotation.set(Math.PI, Math.PI / 2, 0);
             return finMesh;
         };
 
@@ -503,23 +501,33 @@ export class BoardViewport extends LitElement {
         };
 
         const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
-            const fin = createFinMesh(isSmall);
+            // 1. Create the perfectly oriented local fin mesh
+            const finMesh = createFinMesh(isSmall);
+            
+            // 2. Wrap it in a container so Toe and Cant rotations don't conflict
+            const finContainer = new THREE.Group();
+            finContainer.add(finMesh);
+
+            // 3. Position the container on the board
             const zLoc = (this.boardState!.length / 2) - zFromTail;
             const halfWidth = getOutlineWidthAtZ(zLoc);
-            
             const xPos = isCenter ? 0 : (halfWidth - railOffset);
             const yPos = getRockerY(zLoc, false);
 
-            fin.position.set(isRight ? xPos * scale : -xPos * scale, yPos * scale, zLoc * scale);
+            finContainer.position.set(isRight ? xPos * scale : -xPos * scale, yPos * scale, zLoc * scale);
             
+            // 4. Apply Toe and Cant to the container
             if (!isCenter) {
-                // Apply Cant (Tilt outward) and Toe (Point towards nose)
                 const cantRad = this.boardState!.cantAngle * Math.PI / 180;
                 const toeRad = this.boardState!.toeAngle * Math.PI / 180;
-                fin.rotation.z += isRight ? -cantRad : cantRad;
-                fin.rotation.y += isRight ? toeRad : -toeRad;
+                
+                // Cant: Tilt outward around Z axis
+                finContainer.rotation.z = isRight ? -cantRad : cantRad;
+                // Toe: Angle inward around Y axis
+                finContainer.rotation.y = isRight ? toeRad : -toeRad;
             }
-            this.finGroup.add(fin);
+            
+            this.finGroup.add(finContainer);
         };
 
         // Mount Front Fins
