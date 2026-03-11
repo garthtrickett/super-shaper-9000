@@ -494,7 +494,7 @@ export class BoardViewport extends LitElement {
 
         const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
             const fin = createFinMesh(isSmall);
-            const zLoc = L/2 - zFromTail;
+            const zLoc = (this.boardState!.length / 2) - zFromTail;
             const halfWidth = getOutlineWidthAtZ(zLoc);
             
             const xPos = isCenter ? 0 : (halfWidth - railOffset);
