@@ -47,6 +47,15 @@ export class BoardBuilderPage extends LitElement {
           .channelDepth=${state.channelDepth}
           .channelLength=${state.channelLength}
           .bottomContour=${state.bottomContour}
+          .finSetup=${state.finSetup}
+          .frontFinZ=${state.frontFinZ}
+          .frontFinX=${state.frontFinX}
+          .rearFinZ=${state.rearFinZ}
+          .rearFinX=${state.rearFinX}
+          .toeAngle=${state.toeAngle}
+          .cantAngle=${state.cantAngle}
+          .coreMaterial=${state.coreMaterial}
+          .glassingSchedule=${state.glassingSchedule}
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
         ></board-controls>

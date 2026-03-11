@@ -5,6 +5,9 @@ import type { FullClientContext } from "../../lib/client/runtime";
 export type TailType = "squash" | "pintail" | "swallow" | "round";
 export type NoseShape = "pointy" | "torpedo" | "clipped";
 export type BottomContour = "flat" | "single" | "single_to_double" | "vee_to_quad_channels";
+export type FinSetup = "thruster" | "quad" | "twin";
+export type CoreMaterial = "pu" | "eps";
+export type GlassingSchedule = "light" | "standard" | "heavy";
 
 export interface BoardModel {
   length: number;
@@ -30,6 +33,15 @@ export interface BoardModel {
   channelDepth: number;
   channelLength: number;
   bottomContour: BottomContour;
+  finSetup: FinSetup;
+  frontFinZ: number;
+  frontFinX: number;
+  rearFinZ: number;
+  rearFinX: number;
+  toeAngle: number;
+  cantAngle: number;
+  coreMaterial: CoreMaterial;
+  glassingSchedule: GlassingSchedule;
 }
 
 export const INITIAL_STATE: BoardModel = {
@@ -57,6 +69,15 @@ export const INITIAL_STATE: BoardModel = {
   channelDepth: 0.1875, // 3/16" Deep channels for bite
   channelLength: 18.0, // Channels start 18" from tail
   bottomContour: "vee_to_quad_channels",
+  finSetup: "quad",
+  frontFinZ: 11.0, // 11" from tail
+  frontFinX: 1.25, // 1.25" off rail
+  rearFinZ: 5.5, // 5.5" from tail (Clustered tightly to fronts)
+  rearFinX: 1.75, // 1.75" off rail (Pulled in for hold)
+  toeAngle: 3.0, // 3 degrees toe-in toward nose
+  cantAngle: 6.0, // 6 degrees splay outward
+  coreMaterial: "pu",
+  glassingSchedule: "heavy", // 6+4/6oz to add momentum for weak paddler
 };
 
 export type BoardAction =

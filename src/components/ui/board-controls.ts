@@ -26,6 +26,25 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) channelDepth = 0.1875;
   @property({ type: Number }) channelLength = 18.0;
   @property({ type: String }) bottomContour = "vee_to_quad_channels";
+  @property({ type: String }) finSetup = "quad";
+  @property({ type: Number }) frontFinZ = 11.0;
+  @property({ type: Number }) frontFinX = 1.25;
+  @property({ type: Number }) rearFinZ = 5.5;
+  @property({ type: Number }) rearFinX = 1.75;
+  @property({ type: Number }) toeAngle = 3.0;
+  @property({ type: Number }) cantAngle = 6.0;
+  @property({ type: String }) coreMaterial = "pu";
+  @property({ type: String }) glassingSchedule = "heavy";
+
+  // Physics Engine: Calculate weight based on volume, core density, and glassing weight
+  get estimatedWeight() {
+    const baseFoam = this.coreMaterial === 'eps' ? 1.5 : 2.5; // lbs per cubic ft
+    const cubicFt = this.volume / 28.3168;
+    const foamWeight = cubicFt * baseFoam;
+    const glassWeight = this.glassingSchedule === 'heavy' ? 3.5 : this.glassingSchedule === 'standard' ? 2.5 : 1.8;
+    const stringerWeight = 0.5;
+    return (foamWeight + glassWeight + stringerWeight) * 0.453592; // Convert lbs to kg
+  }
 
   protected override createRenderRoot() { 
     return this; // Light DOM for Tailwind 
@@ -160,11 +179,20 @@ export class BoardControls extends LitElement {
   override render() {
     return html`
       <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar">
-        <!-- Top HUD Panel -->
-        <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 flex flex-col items-center justify-center shadow-inner">
-          <span class="text-xs text-zinc-500 uppercase tracking-widest font-semibold mb-1">Estimated Volume</span>
-          <div class="text-3xl font-black text-blue-500 tracking-tighter">
-            ${this.volume.toFixed(1)}<span class="text-lg text-zinc-400 ml-1">L</span>
+        <!-- Top HUD Panel (Volume & Weight) -->
+        <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 flex items-center justify-around shadow-inner">
+          <div class="flex flex-col items-center">
+            <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Est. Volume</span>
+            <div class="text-2xl font-black text-blue-500 tracking-tighter">
+              ${this.volume.toFixed(1)}<span class="text-sm text-zinc-400 ml-1">L</span>
+            </div>
+          </div>
+          <div class="w-px h-8 bg-zinc-800"></div>
+          <div class="flex flex-col items-center">
+            <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Est. Weight</span>
+            <div class="text-2xl font-black text-emerald-500 tracking-tighter">
+              ${this.estimatedWeight.toFixed(1)}<span class="text-sm text-zinc-400 ml-1">kg</span>
+            </div>
           </div>
         </div>
 
@@ -215,6 +243,37 @@ export class BoardControls extends LitElement {
           ${this._renderSlider("Single Concave Depth", "concaveDepth", 0, 0.5, 0.0625, this.concaveDepth)}
           ${this._renderSlider("Channel Depth", "channelDepth", 0, 0.5, 0.0625, this.channelDepth)}
           ${this._renderSlider("Channel Length (from tail)", "channelLength", 0, 36.0, 1.0, this.channelLength)}
+        `, false)}
+
+        ${this._renderAccordion("Fins & Placement", html`
+          ${this._renderSelect("Setup", "finSetup",[
+            {value: "quad", label: "Quad (4 Fins)"},
+            {value: "thruster", label: "Thruster (3 Fins)"},
+            {value: "twin", label: "Twin (2 Fins)"}
+          ], this.finSetup)}
+          <div class="h-px bg-zinc-800 my-4"></div>
+          ${this._renderSlider("Front Fin from Tail", "frontFinZ", 8.0, 16.0, 0.25, this.frontFinZ)}
+          ${this._renderSlider("Front Fin off Rail", "frontFinX", 0.75, 2.0, 0.125, this.frontFinX)}
+          ${this.finSetup === 'quad' || this.finSetup === 'thruster' ? html`
+            <div class="h-px bg-zinc-800 my-4"></div>
+            ${this._renderSlider("Rear Fin from Tail", "rearFinZ", 2.0, 8.0, 0.25, this.rearFinZ)}
+            ${this.finSetup === 'quad' ? this._renderSlider("Rear Fin off Rail", "rearFinX", 0.75, 2.5, 0.125, this.rearFinX) : ''}
+          ` : ''}
+          <div class="h-px bg-zinc-800 my-4"></div>
+          ${this._renderSlider("Toe-In Angle", "toeAngle", 0, 8.0, 0.5, this.toeAngle, "°")}
+          ${this._renderSlider("Cant Angle", "cantAngle", 0, 10.0, 1.0, this.cantAngle, "°")}
+        `, false)}
+
+        ${this._renderAccordion("Construction & Glassing", html`
+          ${this._renderSelect("Core Material", "coreMaterial",[
+            {value: "pu", label: "Polyurethane (PU) - Heavier/Damp"},
+            {value: "eps", label: "EPS Epoxy - Lighter/Buoyant"}
+          ], this.coreMaterial)}
+          ${this._renderSelect("Glass Schedule", "glassingSchedule",[
+            {value: "heavy", label: "Heavy (6oz+4oz Deck / 6oz Bottom)"},
+            {value: "standard", label: "Standard (4oz+4oz Deck / 4oz Bottom)"},
+            {value: "light", label: "Light Pro (4oz Deck / 4oz Bottom)"}
+          ], this.glassingSchedule)}
         `, false)}
       </div>
     `;

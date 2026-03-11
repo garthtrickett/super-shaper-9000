@@ -37,6 +37,7 @@ export class BoardViewport extends LitElement {
   private resizeObserver!: ResizeObserver;
   private wireframeGroup = new THREE.Group();
   private solidGroup = new THREE.Group();
+  private finGroup = new THREE.Group();
   
   private _boardTexture: THREE.CanvasTexture | null = null;
   private _bumpTexture: THREE.CanvasTexture | null = null;
@@ -442,6 +443,84 @@ export class BoardViewport extends LitElement {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.solidGroup.add(mesh);
+
+        // --- STEP 6: Fin Placement & Rendering ---
+        while (this.finGroup.children.length > 0) {
+            const child = this.finGroup.children[0] as THREE.Mesh;
+            child.geometry.dispose();
+            (child.material as THREE.Material).dispose();
+            this.finGroup.remove(child);
+        }
+
+        const createFinMesh = (isSmall: boolean = false) => {
+            const shape = new THREE.Shape();
+            const base = isSmall ? 3.5 * scale : 4.5 * scale;
+            const height = isSmall ? 3.75 * scale : 4.5 * scale;
+            const rake = 2.0 * scale;
+            
+            shape.moveTo(0, 0); // Trailing base
+            shape.quadraticCurveTo(0, height * 0.2, rake, height); // Tip
+            shape.quadraticCurveTo(base * 0.8, height * 0.5, base, 0); // Leading base
+            shape.lineTo(0, 0);
+
+            const geom = new THREE.ExtrudeGeometry(shape, { 
+                depth: 0.2 * scale, bevelEnabled: true, 
+                bevelThickness: 0.02 * scale, bevelSize: 0.02 * scale, bevelSegments: 2 
+            });
+            geom.center();
+            const mat = new THREE.MeshPhysicalMaterial({ color: 0x111111, roughness: 0.3 });
+            const finMesh = new THREE.Mesh(geom, mat);
+            
+            // Orient flat and pointing down relative to bottom
+            finMesh.rotation.y = -Math.PI / 2;
+            finMesh.rotation.x = Math.PI;
+            finMesh.castShadow = true;
+            return finMesh;
+        };
+
+        const getOutlineWidthAtZ = (zInches: number) => {
+            for (let i = 0; i < curves.outline.length - 1; i++) {
+                const p1 = curves.outline[i]!;
+                const p2 = curves.outline[i+1]!;
+                if (zInches >= p1[2] && zInches <= p2[2]) {
+                    const t = (zInches - p1[2]) / (p2[2] - p1[2]);
+                    return p1[0] + t * (p2[0] - p1[0]);
+                }
+            }
+            return 0;
+        };
+
+        const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
+            const fin = createFinMesh(isSmall);
+            const zLoc = L/2 - zFromTail;
+            const halfWidth = getOutlineWidthAtZ(zLoc);
+            
+            const xPos = isCenter ? 0 : (halfWidth - railOffset);
+            const yPos = getRockerY(zLoc, false);
+
+            fin.position.set(isRight ? xPos * scale : -xPos * scale, yPos * scale, zLoc * scale);
+            
+            if (!isCenter) {
+                // Apply Cant (Tilt outward) and Toe (Point towards nose)
+                const cantRad = this.boardState!.cantAngle * Math.PI / 180;
+                const toeRad = this.boardState!.toeAngle * Math.PI / 180;
+                fin.rotation.z += isRight ? -cantRad : cantRad;
+                fin.rotation.y += isRight ? toeRad : -toeRad;
+            }
+            this.finGroup.add(fin);
+        };
+
+        // Mount Front Fins
+        mountFin(this.boardState.frontFinZ, this.boardState.frontFinX, true, false, false);
+        mountFin(this.boardState.frontFinZ, this.boardState.frontFinX, false, false, false);
+
+        // Mount Rear Fins
+        if (this.boardState.finSetup === "quad") {
+            mountFin(this.boardState.rearFinZ, this.boardState.rearFinX, true, false, true);
+            mountFin(this.boardState.rearFinZ, this.boardState.rearFinX, false, false, true);
+        } else if (this.boardState.finSetup === "thruster") {
+            mountFin(this.boardState.rearFinZ, 0, true, true, false);
+        }
     }
   }
 
@@ -520,6 +599,7 @@ export class BoardViewport extends LitElement {
 
     // 7. Groups & Grid
     this.scene.add(this.wireframeGroup);
+    this.solidGroup.add(this.finGroup);
     this.scene.add(this.solidGroup);
 
     const gridHelper = new THREE.GridHelper(10, 10, 0x27272a, 0x18181b);
