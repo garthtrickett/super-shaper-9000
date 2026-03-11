@@ -85,7 +85,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       tailW = model.tailWidth / 2 * 0.6; // Scale tail block based on T12
   } else if (model.tailType === "squash") {
       tailW = model.tailWidth / 2 * 0.5;
-      cornerZ = L/2 - 0.75; // Stop curve early to form squash corners
+      cornerZ = L/2 - model.squashCornerRadius; // Dynamic squash corner tuning
   }
 
   if (model.tailType === "round") {
@@ -155,8 +155,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   if (model.tailType === "swallow") {
       // Add a sharp V cut for the swallow tail returning to the center line
-      const swallowDepth = W * 0.2; // roughly 3.5 to 4.5 inches deep depending on board width
-      outline.push([0, 0, L/2 - swallowDepth]);
+      outline.push([0, 0, L/2 - model.swallowDepth]);
   } else if (model.tailType === "squash") {
       // Generate a smooth rounded curve for the squash tail block
       const steps = 8;
