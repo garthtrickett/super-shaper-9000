@@ -457,34 +457,46 @@ export class BoardViewport extends LitElement {
         const createFinMesh = (isSmall: boolean = false) => {
             const shape = new THREE.Shape();
             const base = isSmall ? 3.5 * scale : 4.5 * scale;
-            const height = isSmall ? 3.75 * scale : 4.5 * scale;
-            const rake = 2.0 * scale;
+            const height = isSmall ? 4.0 * scale : 4.75 * scale;
+            const sweep = isSmall ? 2.0 * scale : 2.5 * scale; 
             
-            shape.moveTo(0, 0); // Trailing base
-            shape.quadraticCurveTo(0, height * 0.2, rake, height); // Tip
-            shape.quadraticCurveTo(base * 0.8, height * 0.5, base, 0); // Leading base
-            shape.lineTo(0, 0);
+            // Draw realistic Swept Fin Profile
+            const leadX = base / 2;
+            const trailX = -base / 2;
+            const tipX = trailX + sweep; // Sweep back towards tail
+            
+            shape.moveTo(trailX, 0); // Trailing edge base
+            // Trailing edge curve (sweeping back and up to tip)
+            shape.quadraticCurveTo(trailX + sweep * 0.8, height * 0.4, tipX, height);
+            // Leading edge curve (sweeping from tip down to leading base)
+            shape.quadraticCurveTo(leadX + sweep * 0.2, height * 0.5, leadX, 0);
+            shape.lineTo(trailX, 0); // Close base
 
+            // Extrude with thin core and bevel to create an aerodynamic foil
             const geom = new THREE.ExtrudeGeometry(shape, { 
-                depth: 0.2 * scale, bevelEnabled: true, 
-                bevelThickness: 0.02 * scale, bevelSize: 0.02 * scale, bevelSegments: 2 
+                depth: 0.05 * scale, 
+                bevelEnabled: true, 
+                bevelThickness: 0.08 * scale, 
+                bevelSize: 0.05 * scale, 
+                bevelSegments: 4 
             });
             
-            // Center the fin's base horizontally and thickness, leave Y at 0 for flush mounting
-            geom.translate(-base / 2, 0, -0.1 * scale);
+            // Center the thickness perfectly
+            geom.translate(0, 0, -0.025 * scale);
             
             const mat = new THREE.MeshPhysicalMaterial({ 
-                color: 0xffffff, 
-                roughness: 0.1, 
-                transmission: 0.8,
+                color: 0xf8fafc, 
+                roughness: 0.15, 
+                transmission: 0.9, // Clear frosted fiberglass
                 thickness: 0.2,
                 ior: 1.5
             });
             const finMesh = new THREE.Mesh(geom, mat);
             finMesh.castShadow = true;
             
-            // Local orientation: Flip upside down (X=180) and point leading edge towards nose (Y=90)
-            finMesh.rotation.set(Math.PI, Math.PI / 2, 0);
+            // 1. Flip upside down so tip points down into the water (-Y)
+            // 2. Rotate 90deg so leading edge (+X in shape) points towards the board's nose (-Z)
+            finMesh.rotation.set(Math.PI, -Math.PI / 2, 0);
             return finMesh;
         };
 
@@ -521,9 +533,9 @@ export class BoardViewport extends LitElement {
                 const cantRad = this.boardState!.cantAngle * Math.PI / 180;
                 const toeRad = this.boardState!.toeAngle * Math.PI / 180;
                 
-                // Cant: Tilt outward around Z axis
-                finContainer.rotation.z = isRight ? -cantRad : cantRad;
-                // Toe: Angle inward around Y axis
+                // Cant: Tilt outward around Z axis (Tip moves away from stringer)
+                finContainer.rotation.z = isRight ? cantRad : -cantRad;
+                // Toe: Angle inward around Y axis (Leading edge points toward stringer)
                 finContainer.rotation.y = isRight ? toeRad : -toeRad;
             }
             
