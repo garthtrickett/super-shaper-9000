@@ -92,15 +92,20 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   const ptsRockerTop = new rhino.Point3dList();
   // Using noseRocker for the vertical rise
   ptsRockerTop.add(0, T/2 + model.noseRocker, -L/2);
-  ptsRockerTop.add(0, T/2, wpZ); // Flatten exactly at the wide point
+  // Flatten center control points to create a fast "belly"
+  ptsRockerTop.add(0, T/2, -L/4 + wpZ); 
+  ptsRockerTop.add(0, T/2, wpZ);
+  ptsRockerTop.add(0, T/2, L/4 + wpZ);
   ptsRockerTop.add(0, T/2 + model.tailRocker, L/2);
-  const crvRockerTop = rhino.NurbsCurve.create(false, 2, ptsRockerTop);
+  const crvRockerTop = rhino.NurbsCurve.create(false, 3, ptsRockerTop);
 
   const ptsRockerBottom = new rhino.Point3dList();
   ptsRockerBottom.add(0, model.noseRocker, -L/2);
+  ptsRockerBottom.add(0, -T/2, -L/4 + wpZ);
   ptsRockerBottom.add(0, -T/2, wpZ);
+  ptsRockerBottom.add(0, -T/2, L/4 + wpZ);
   ptsRockerBottom.add(0, model.tailRocker, L/2);
-  const crvRockerBottom = rhino.NurbsCurve.create(false, 2, ptsRockerBottom);
+  const crvRockerBottom = rhino.NurbsCurve.create(false, 3, ptsRockerBottom);
 
    
   const sampleCurve = (crv: any, steps = 50) => {

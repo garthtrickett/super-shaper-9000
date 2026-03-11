@@ -202,7 +202,7 @@ export class BoardViewport extends LitElement {
         // Shaper specific tuning parameters
         const railApexRatio = 0.35; // Rails tucked under slightly
         const railCurve = 0.75; // Boxy rails
-        const deckCurve = 0.6; // Flattish deck dome
+        const deckCurve = this.boardState.deckDome; // Dynamic deck dome from slider
         const bottomCurve = 0.5; // Flattish bottom
         const concaveDepth = 0.18; // Inches of single concave
 
