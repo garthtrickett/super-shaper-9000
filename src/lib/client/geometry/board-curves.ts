@@ -44,9 +44,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   // --- 1. Nose Tip & Nose Curve Entry ---
   if (model.noseShape === "clipped") {
-      // Blunt / Chopped Tomo nose
-      ptsOutline.add(model.noseWidth * 0.38, 0, -L/2);
-      ptsOutline.add(model.noseWidth * 0.42, 0, -L/2 + 2.0); // Keep it wide right at the tip
+      // True MPH (Modern Planing Hull) / Tomo nose - Extremely wide and blunt
+      ptsOutline.add(model.noseWidth * 0.46, 0, -L/2);
+      ptsOutline.add(model.noseWidth * 0.49, 0, -L/2 + 1.5); 
   } else if (model.noseShape === "torpedo") {
       ptsOutline.add(0, 0, -L/2);
       ptsOutline.add(model.noseWidth/2 * 0.7, 0, -L/2 + 2.0); 
@@ -60,16 +60,32 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   // Mid-Nose smoothing (between N12 and Wide Point) to maintain volume forward
   const midNoseZ = (-L/2 + 12 + wpZ) / 2;
-  const midNoseW = (model.noseWidth/2 + model.width/2) / 2 * 1.02; // slight outward bulge
+  let midNoseW = (model.noseWidth/2 + model.width/2) / 2 * 1.02; // slight outward bulge
+  if (model.noseShape === "clipped") {
+      // Push the rail out to create a straighter, parallel line from N12 to Wide Point
+      midNoseW = model.noseWidth/2 + (model.width/2 - model.noseWidth/2) * 0.85; 
+  }
   ptsOutline.add(midNoseW, 0, midNoseZ);
 
   // --- 3. Wide Point ---
-  ptsOutline.add(model.width / 2, 0, wpZ);
+  if (model.noseShape === "clipped") {
+      // Dual wide points to create a dead-straight parallel rail section in the center
+      const flatSpan = Math.min(8.0, L * 0.12);
+      ptsOutline.add(model.width / 2, 0, wpZ - flatSpan);
+      ptsOutline.add(model.width / 2, 0, wpZ + flatSpan);
+  } else {
+      ptsOutline.add(model.width / 2, 0, wpZ);
+  }
 
   // Mid-Tail smoothing (between Wide Point and T12)
   const midTailZ = (wpZ + L/2 - 12) / 2;
   let midTailW = (model.width/2 + model.tailWidth/2) / 2 * 1.02;
-  if (model.tailType === "pintail") midTailW *= 0.95; // pull it in more for pints
+  if (model.noseShape === "clipped" && model.tailType !== "pintail") {
+      // Hold the parallel line deep into the tail
+      midTailW = model.tailWidth/2 + (model.width/2 - model.tailWidth/2) * 0.85;
+  } else if (model.tailType === "pintail") {
+      midTailW *= 0.95; // pull it in more for pints
+  }
   ptsOutline.add(midTailW, 0, midTailZ);
   
   // --- 4. T12 (Tail Width at 12" from tail) ---
