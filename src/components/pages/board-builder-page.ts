@@ -28,6 +28,8 @@ export class BoardBuilderPage extends LitElement {
           .width=${state.width}
           .thickness=${state.thickness}
           .volume=${state.volume}
+          .noseWidth=${state.noseWidth}
+          .tailWidth=${state.tailWidth}
           .noseShape=${state.noseShape}
           .tailType=${state.tailType}
           .widePointOffset=${state.widePointOffset}

@@ -3,7 +3,7 @@ import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
 
 export type TailType = "squash" | "pintail" | "swallow" | "round";
-export type NoseShape = "pointy" | "torpedo";
+export type NoseShape = "pointy" | "torpedo" | "clipped";
 export type RailProfile = "soft" | "boxy" | "variable_sharp_tail";
 export type BottomContour = "flat" | "single" | "single_to_double" | "vee_to_quad_channels";
 
@@ -12,6 +12,8 @@ export interface BoardModel {
   width: number;
   thickness: number;
   volume: number;
+  noseWidth: number; // N12 (12" from nose)
+  tailWidth: number; // T12 (12" from tail)
   noseShape: NoseShape;
   tailType: TailType;
   widePointOffset: number;
@@ -23,16 +25,18 @@ export interface BoardModel {
 }
 
 export const INITIAL_STATE: BoardModel = {
-  // Traditional High-Performance Shortboard Defaults
+  // 65kg Slab-Hunter Specs
   length: 70, // 5'10"
   width: 18.75,
   thickness: 2.5,
-  volume: 30.5, // Estimated placeholder until Step 5
-  noseShape: "pointy",
-  tailType: "squash",
-  widePointOffset: -1.0, // 1" Back from center for standard HPSB
-  noseRocker: 5.2,
-  tailRocker: 1.6,
+  volume: 30.5, 
+  noseWidth: 13.5, // N12: Wide enough to paddle, but chopped
+  tailWidth: 14.0, // T12: Ultra-narrow rounded pin for hold
+  noseShape: "clipped",
+  tailType: "round",
+  widePointOffset: 2.0, // 2" Forward of center for paddle engine
+  noseRocker: 5.2, // Slightly lower entry
+  tailRocker: 1.6, // Flat exit for paddle speed
   deckDome: 0.65,
   railProfile: "variable_sharp_tail",
   bottomContour: "vee_to_quad_channels",

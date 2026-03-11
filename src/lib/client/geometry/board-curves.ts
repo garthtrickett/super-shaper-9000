@@ -37,56 +37,59 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       };
   }
   
-  let tailW = W * 0.3;
+  const ptsOutline = new rhino.Point3dList();
+  
+  // Wide Point Shift (Negative Z is nose direction)
+  const wpZ = -model.widePointOffset; 
+
+  // --- 1. Nose Tip & Nose Curve Entry ---
+  if (model.noseShape === "clipped") {
+      // Blunt / Chopped Tomo nose
+      ptsOutline.add(model.noseWidth * 0.38, 0, -L/2);
+      ptsOutline.add(model.noseWidth * 0.42, 0, -L/2 + 2.0); // Keep it wide right at the tip
+  } else if (model.noseShape === "torpedo") {
+      ptsOutline.add(0, 0, -L/2);
+      ptsOutline.add(model.noseWidth/2 * 0.7, 0, -L/2 + 2.0); 
+  } else {
+      // Pointy
+      ptsOutline.add(0, 0, -L/2);
+  }
+
+  // --- 2. N12 (Nose Width at 12" from tip) ---
+  ptsOutline.add(model.noseWidth / 2, 0, -L/2 + 12);
+
+  // Mid-Nose smoothing (between N12 and Wide Point) to maintain volume forward
+  const midNoseZ = (-L/2 + 12 + wpZ) / 2;
+  const midNoseW = (model.noseWidth/2 + model.width/2) / 2 * 1.02; // slight outward bulge
+  ptsOutline.add(midNoseW, 0, midNoseZ);
+
+  // --- 3. Wide Point ---
+  ptsOutline.add(model.width / 2, 0, wpZ);
+
+  // Mid-Tail smoothing (between Wide Point and T12)
+  const midTailZ = (wpZ + L/2 - 12) / 2;
+  let midTailW = (model.width/2 + model.tailWidth/2) / 2 * 1.02;
+  if (model.tailType === "pintail") midTailW *= 0.95; // pull it in more for pints
+  ptsOutline.add(midTailW, 0, midTailZ);
+  
+  // --- 4. T12 (Tail Width at 12" from tail) ---
+  ptsOutline.add(model.tailWidth / 2, 0, L/2 - 12);
+
+  // --- 5. Tail Block / Tip ---
+  let tailW = model.width * 0.3;
   let cornerZ = L/2;
 
   if (model.tailType === "pintail") {
-      tailW = 0; // Pintails converge to a perfect point at the center
+      tailW = 0;
   } else if (model.tailType === "swallow") {
-      tailW = W * 0.35;
+      tailW = model.tailWidth / 2 * 0.6; // Scale tail block based on T12
   } else if (model.tailType === "squash") {
-      tailW = W * 0.28;
-      cornerZ = L/2 - 0.75; // Stop the rail curve early to form the squash tail block
+      tailW = model.tailWidth / 2 * 0.5;
+      cornerZ = L/2 - 0.75; // Stop curve early to form squash corners
   }
-
-  const ptsOutline = new rhino.Point3dList();
-  
-  // STEP 2: Wide Point Shift (Negative Z is nose direction)
-  // A widePointOffset of +2 means shift the wide point 2 inches towards the nose (-2)
-  const wpZ = -model.widePointOffset; 
-
-  // STEP 2: Nose Logic
-  if (model.noseShape === "torpedo") {
-      // Rounded, full "bullet" or "torpedo" nose
-      ptsOutline.add(0, 0, -L/2);
-      // Progress slightly in Z to ensure smooth mesh generation and prevent interpolation errors (staggering)
-      ptsOutline.add(W/2 * 0.6, 0, -L/2 + 2.0); 
-      ptsOutline.add(W/2 * 0.85, 0, -L/4 + wpZ/2);
-  } else {
-      // Standard Pointy Nose
-      ptsOutline.add(0, 0, -L/2);
-      ptsOutline.add(W/2 * 0.6, 0, -L/4 + wpZ/2);
-  }
-
-  // The Wide Point (now dynamically placed)
-  ptsOutline.add(W/2, 0, wpZ);
-
-  let cp4X = W/2 * 0.8;
-  if (model.tailType === "pintail") cp4X = W/2 * 0.6;
-  
-  // Point halfway to the tail (Must be added before tail12Z to maintain monotonic Z-order)
-  ptsOutline.add(cp4X, 0, L/4 + wpZ/2);
-  
-  // STEP 2: Tail Pull-in (Strictly control the width at 12 inches from the tail)
-  const tail12Z = L/2 - 12;
-  const tail12W = (model.tailType === "round" || model.tailType === "pintail") 
-      ? W/2 * 0.65 // Aggressively pull in the width for hold
-      : W/2 * 0.75; // Standard pull-in for squash/swallow
-  
-  ptsOutline.add(tail12W, 0, tail12Z);
 
   if (model.tailType === "round") {
-      ptsOutline.add(W/2 * 0.25, 0, L/2 - 2); // Tight curve for the needle pin
+      ptsOutline.add(model.tailWidth / 2 * 0.4, 0, L/2 - 2); // Tight pin curve
       ptsOutline.add(0, 0, L/2);
   } else {
       ptsOutline.add(tailW, 0, cornerZ);
