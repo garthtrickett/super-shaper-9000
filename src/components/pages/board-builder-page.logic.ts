@@ -40,6 +40,8 @@ export const INITIAL_STATE: BoardModel = {
   bottomContour: "vee_to_quad_channels",
   isComputing: false,
   meshData: null,
+};
+
 export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
