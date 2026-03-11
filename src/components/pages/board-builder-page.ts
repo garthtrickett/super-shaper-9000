@@ -100,6 +100,7 @@ export class BoardBuilderPage extends LitElement {
           .tailType=${state.tailType}
           .swallowDepth=${state.swallowDepth}
           .noseTipWidth=${state.noseTipWidth}
+          .noseTipCurveZ=${state.noseTipCurveZ}
           .tailBlockWidth=${state.tailBlockWidth}
           .widePointOffset=${state.widePointOffset}
           .noseRocker=${state.noseRocker}

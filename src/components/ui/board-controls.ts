@@ -12,6 +12,7 @@ export class BoardControls extends LitElement {
   @property({ type: String }) tailType = "round";
   @property({ type: Number }) swallowDepth = 4.5;
   @property({ type: Number }) noseTipWidth = 4.0;
+  @property({ type: Number }) noseTipCurveZ = 1.5;
   @property({ type: Number }) tailBlockWidth = 6.0;
   @property({ type: String }) noseShape = "clipped";
   @property({ type: Number }) widePointOffset = 2.0;
@@ -216,6 +217,7 @@ export class BoardControls extends LitElement {
           ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
             ${this._renderSlider("Nose Tip Width", "noseTipWidth", 1.0, 10.0, 0.25, this.noseTipWidth)}
+            ${this._renderSlider("Tip Blend Length", "noseTipCurveZ", 0.1, 8.0, 0.25, this.noseTipCurveZ)}
           ` : ''}
           ${this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth)}
           ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset)}

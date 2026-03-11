@@ -52,12 +52,13 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // By placing control points slightly behind the tip, we force the NURBS engine 
   // to draw a smooth, rounded nose that perfectly wraps into the center point.
   if (model.noseShape === "clipped") {
-      // Tomo style: Tight, fast corner to create a "chopped" look that is mathematically closed
-      cp.push([model.noseTipWidth / 2, 0, -L/2 + 0.25]); 
-      cp.push([model.noseTipWidth / 2, 0, -L/2 + 2.0]); 
+      // Tomo style: Tight, fast corner to create a "chopped" look that is mathematically closed.
+      // We use a fraction of the slider for the sharpest corner, then the full slider to hold the width back.
+      cp.push([model.noseTipWidth / 2, 0, -L/2 + Math.max(0.1, model.noseTipCurveZ * 0.15)]); 
+      cp.push([model.noseTipWidth / 2, 0, -L/2 + model.noseTipCurveZ]); 
   } else if (model.noseShape === "torpedo") {
-      // Sweeping, perfect semi-circle bullet nose
-      cp.push([model.noseTipWidth / 2, 0, -L/2 + 1.5]); 
+      // Sweeping, perfect semi-circle bullet nose driven by the blend slider
+      cp.push([model.noseTipWidth / 2, 0, -L/2 + model.noseTipCurveZ]); 
   }
 
   // --- B. NOSE FULLNESS (N12 area) ---
@@ -91,7 +92,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       cp.push([model.tailBlockWidth / 2, 0, L/2]);
   } else if (model.tailType === "torpedo") {
       // Symmetrical wrap-in mirroring the nose (rounded closure)
-      cp.push([model.noseTipWidth / 2, 0, L/2 - 1.5]);
+      cp.push([model.noseTipWidth / 2, 0, L/2 - model.noseTipCurveZ]);
       cp.push([0, 0, L/2]);
   } else if (model.tailType === "round") {
       // A rounded pin needs an anchor just before the tip to hold the curve wide
