@@ -245,9 +245,9 @@ export class BoardControls extends LitElement {
 
         ${this._renderAccordion("Rails & Cross-Sections", html`
           <div class="grid grid-cols-3 gap-2 mb-6 bg-zinc-950 p-2 rounded-lg border border-zinc-800">
-            ${this._renderSliceSVG("N12", this.noseWidth, this.noseThickness, this.apexRatio, false)}
+            ${this._renderSliceSVG("Shoulder", this.noseWidth, this.noseThickness, this.apexRatio, false)}
             ${this._renderSliceSVG("Center", this.width, this.thickness, this.apexRatio, false)}
-            ${this._renderSliceSVG("T12", this.tailWidth, this.tailThickness, 0.05, this.hardEdgeLength >= 12)}
+            ${this._renderSliceSVG("Hip", this.tailWidth, this.tailThickness, 0.05, this.hardEdgeLength >= 12)}
           </div>
           ${this._renderSlider("Rail Apex Height", "apexRatio", 0.2, 0.6, 0.02, this.apexRatio, "%")}
           ${this._renderSlider("Rail Fullness (Pinch)", "railFullness", 0.5, 0.9, 0.05, this.railFullness, "")}

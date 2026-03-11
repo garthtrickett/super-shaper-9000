@@ -90,8 +90,8 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   if (model.tailType === "squash") zTailBase = L/2 - model.squashCornerRadius;
   if (model.tailType === "torpedo") zTailBase = L/2 - 3.5;
 
-  // Positioned exactly 60% of the way to the tail for perfect sweeping tension
-  const zTailCtrl = wpZ + (zTailBase - wpZ) * 0.6;
+  // Positioned dynamically between the wide point and tail base
+  const zTailCtrl = wpZ + (zTailBase - wpZ) * model.hipRatio;
   const wTailCtrl = model.tailWidth / 2;
 
   if (model.tailType === "round") {
