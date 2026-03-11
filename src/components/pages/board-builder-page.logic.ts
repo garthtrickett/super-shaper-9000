@@ -68,38 +68,9 @@ export const handleAction = (
       }
 
       const task = Effect.gen(function* () {
-        if (action.type !== "TRIGGER_COMPUTE") {
-          yield* Effect.sleep("300 millis");
-        }
-
-        yield* Effect.sync(() => dispatch({ type: "COMPUTE_START" }));
-
-        const response = (yield* Effect.tryPromise({
-          try: () =>
-            fetch("/api/compute/board", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                length: state.length,
-                width: state.width,
-                thickness: state.thickness,
-                tailType: state.tailType,
-              }),
-            }).then((res) => res.json()),
-          catch: (err) => String(err),
-        })) as { status: string; data?: { mesh: string } };
-
-        const mesh = response.data?.mesh;
-        if (response.status === "success" && typeof mesh === "string") {
-          yield* Effect.sync(() => dispatch({ type: "COMPUTE_SUCCESS", meshData: mesh }));
-        } else {
-          yield* Effect.sync(() => dispatch({ type: "COMPUTE_FAILURE", error: "Invalid response from server" }));
-        }
-      }).pipe(
-        Effect.catchAll((err) =>
-          Effect.sync(() => dispatch({ type: "COMPUTE_FAILURE", error: String(err) }))
-        )
-      );
+        // 🚀 Instant 100% frontend native generation
+        yield* Effect.sync(() => dispatch({ type: "COMPUTE_SUCCESS", meshData: "NATIVE_GENERATION" }));
+      });
 
       computeFiber = yield* Effect.fork(task);
     }

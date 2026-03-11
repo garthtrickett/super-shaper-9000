@@ -287,14 +287,6 @@ export class BoardViewport extends LitElement {
   override render() {
     return html`
       <canvas></canvas>
-      ${this.boardState?.isComputing ? html`
-        <div class="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm flex items-center justify-center z-10 transition-all duration-300">
-          <div class="flex flex-col items-center gap-4">
-            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <div class="text-blue-400 font-bold tracking-widest uppercase text-sm">Shaping...</div>
-          </div>
-        </div>
-      ` : ""}
     `;
   }
 }
