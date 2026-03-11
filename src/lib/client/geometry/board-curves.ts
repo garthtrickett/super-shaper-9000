@@ -42,10 +42,10 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // Wide Point Shift (Negative Z is nose direction)
   const wpZ = -model.widePointOffset; 
 
-  // Calculate flat section for parallel rails
+  // Calculate flat section for parallel rails (ONLY for Clipped to prevent dogboning continuous curves)
   let flatSpan = 0;
-  if (model.noseShape === "clipped" || model.noseShape === "torpedo") {
-      flatSpan = Math.min(10.0, L * 0.15); // Safely constrained to prevent Z-order inversion
+  if (model.noseShape === "clipped") {
+      flatSpan = Math.min(10.0, L * 0.15);
   }
   const wpFront = wpZ - flatSpan;
   const wpBack = wpZ + flatSpan;
@@ -54,33 +54,34 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   // --- 1. Nose Tip & Nose Curve Entry ---
   if (model.noseShape === "clipped") {
-      // True MPH (Modern Planing Hull) / Tomo nose - Extremely wide and blunt
       ptsOutline.add(model.noseWidth * 0.46, 0, -L/2);
       ptsOutline.add(model.noseWidth * 0.49, 0, -L/2 + 1.5); 
   } else if (model.noseShape === "torpedo") {
-      // Symmetrical pill nose: Use a single extreme tangent control point 
-      // to force a perfect rounded curve without dogbone wiggles
       ptsOutline.add(0, 0, -L/2);
-      ptsOutline.add(model.noseWidth/2 * 0.85, 0, -L/2 + 0.1); 
+      // Strong outward horizontal tangent to create a convex pill nose
+      ptsOutline.add(model.noseWidth/2 * 0.95, 0, -L/2); 
   } else {
-      // Pointy
       ptsOutline.add(0, 0, -L/2);
   }
 
   // --- 2. N12 (Nose Width at 12" from tip) ---
-  ptsOutline.add(model.noseWidth / 2, 0, n12Z);
+  if (model.noseShape === "torpedo") {
+      // Push control point OUTWARD by 2% to ensure the curve is taut and convex
+      ptsOutline.add(Math.min(model.noseWidth/2 * 1.02, model.width/2 * 0.99), 0, n12Z);
+  } else {
+      ptsOutline.add(model.noseWidth / 2, 0, n12Z);
+  }
 
-  // Mid-Nose smoothing (ensure Z ordering is strictly monotonic to prevent 'dogbone' ripples)
+  // Mid-Nose smoothing
   if (wpFront > n12Z) {
       const midNoseZ = (n12Z + wpFront) / 2;
       let midNoseW = (model.noseWidth/2 + model.width/2) / 2;
           
       if (model.noseShape === "clipped") {
-          // Push the rail out to create a straighter, parallel line from N12 to Wide Point
           midNoseW = model.noseWidth/2 + (model.width/2 - model.noseWidth/2) * 0.85; 
       } else if (model.noseShape === "torpedo") {
-          // Torpedo needs a smoother blend to prevent bulging
-          midNoseW = model.noseWidth/2 + (model.width/2 - model.noseWidth/2) * 0.70; 
+          // Perfect mathematical halfway point for a smooth ellipse-like flow
+          midNoseW = model.noseWidth/2 + (model.width/2 - model.noseWidth/2) * 0.60;
       } else {
           midNoseW *= 1.02; // Standard slight outward bulge
       }
@@ -95,17 +96,17 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       ptsOutline.add(model.width / 2, 0, wpZ);
   }
 
-  // Mid-Tail smoothing (ensure Z ordering is strictly monotonic)
+  // Mid-Tail smoothing
   if (wpBack < t12Z) {
       const midTailZ = (wpBack + t12Z) / 2;
       let midTailW = (model.width/2 + model.tailWidth/2) / 2;
           
       if (model.noseShape === "clipped" && model.tailType !== "pintail") {
           midTailW = model.tailWidth/2 + (model.width/2 - model.tailWidth/2) * 0.85;
-      } else if (model.noseShape === "torpedo" && model.tailType !== "pintail") {
-          midTailW = model.tailWidth/2 + (model.width/2 - model.tailWidth/2) * 0.70;
+      } else if (model.tailType === "torpedo") {
+          midTailW = model.tailWidth/2 + (model.width/2 - model.tailWidth/2) * 0.60;
       } else if (model.tailType === "pintail") {
-          midTailW *= 0.95; // pull it in more for pints
+          midTailW *= 0.95; 
       } else {
           midTailW *= 1.02;
       }
@@ -113,7 +114,12 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   }
       
   // --- 4. T12 (Tail Width at 12" from tail) ---
-  ptsOutline.add(model.tailWidth / 2, 0, t12Z);
+  if (model.tailType === "torpedo") {
+      // Push control point OUTWARD by 2% to ensure curve is taut
+      ptsOutline.add(Math.min(model.tailWidth/2 * 1.02, model.width/2 * 0.99), 0, t12Z);
+  } else {
+      ptsOutline.add(model.tailWidth / 2, 0, t12Z);
+  }
 
   // --- 5. Tail Block / Tip ---
   let tailW = model.width * 0.3;
@@ -122,18 +128,17 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   if (model.tailType === "pintail") {
       tailW = 0;
   } else if (model.tailType === "swallow") {
-      tailW = model.tailWidth / 2 * 0.6; // Scale tail block based on T12
+      tailW = model.tailWidth / 2 * 0.6;
   } else if (model.tailType === "squash") {
       tailW = model.tailWidth / 2 * 0.5;
-      cornerZ = L/2 - model.squashCornerRadius; // Dynamic squash corner tuning
+      cornerZ = L/2 - model.squashCornerRadius;
   }
 
   if (model.tailType === "round") {
-      ptsOutline.add(model.tailWidth / 2 * 0.4, 0, L/2 - 2); // Tight pin curve
+      ptsOutline.add(model.tailWidth / 2 * 0.4, 0, L/2 - 2); 
       ptsOutline.add(0, 0, L/2);
   } else if (model.tailType === "torpedo") {
-      // Symmetrical to the torpedo nose: single tangent control point
-      ptsOutline.add(model.tailWidth / 2 * 0.85, 0, L/2 - 0.1); 
+      ptsOutline.add(model.tailWidth / 2 * 0.95, 0, L/2); 
       ptsOutline.add(0, 0, L/2);
   } else {
       ptsOutline.add(tailW, 0, cornerZ);
