@@ -324,7 +324,7 @@ export class BoardViewport extends LitElement {
                             }
                             const channelOffset = 0.25 * channelProfile * blendChannels;
 
-                            contourOffset = veeOffset + concaveOffset + channelOffset;
+                            contourOffset = (veeOffset + concaveOffset + channelOffset) * fadeTailNose;
                         } else if (bottomContour === "single_to_double") {
                             const single = 0.35 * (1 - nx * nx);
                             const double = 0.25 * Math.pow(Math.sin(abs_nx * Math.PI), 2);

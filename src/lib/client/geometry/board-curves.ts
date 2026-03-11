@@ -67,6 +67,12 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   // The Wide Point (now dynamically placed)
   ptsOutline.add(W/2, 0, wpZ);
+
+  let cp4X = W/2 * 0.8;
+  if (model.tailType === "pintail") cp4X = W/2 * 0.6;
+  
+  // Point halfway to the tail (Must be added before tail12Z to maintain monotonic Z-order)
+  ptsOutline.add(cp4X, 0, L/4 + wpZ/2);
   
   // STEP 2: Tail Pull-in (Strictly control the width at 12 inches from the tail)
   const tail12Z = L/2 - 12;
@@ -80,9 +86,6 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       ptsOutline.add(W/2 * 0.25, 0, L/2 - 2); // Tight curve for the needle pin
       ptsOutline.add(0, 0, L/2);
   } else {
-      let cp4X = W/2 * 0.8;
-      if (model.tailType === "pintail") cp4X = W/2 * 0.6;
-      ptsOutline.add(cp4X, 0, L/4 + wpZ/2);
       ptsOutline.add(tailW, 0, cornerZ);
   }
 
