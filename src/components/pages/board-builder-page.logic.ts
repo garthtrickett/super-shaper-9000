@@ -19,6 +19,9 @@ export interface BoardModel {
   widePointOffset: number;
   noseRocker: number;
   tailRocker: number;
+  noseThickness: number; // N12 Foil
+  tailThickness: number; // T12 Foil
+  rockerFlatSpotLength: number; // Staging belly
   deckDome: number;
   railProfile: RailProfile;
   bottomContour: BottomContour;
@@ -37,6 +40,9 @@ export const INITIAL_STATE: BoardModel = {
   widePointOffset: 2.0, // 2" Forward of center for paddle engine
   noseRocker: 5.2, // Slightly lower entry
   tailRocker: 1.6, // Flat exit for paddle speed
+  noseThickness: 1.45, // Keep foam forward for paddle power
+  tailThickness: 1.35, // Taper out the back for bite
+  rockerFlatSpotLength: 20.0, // Massive 20" flat spot under the chest
   deckDome: 0.65,
   railProfile: "variable_sharp_tail",
   bottomContour: "vee_to_quad_channels",

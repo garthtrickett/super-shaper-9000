@@ -14,6 +14,9 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) widePointOffset = 2.0;
   @property({ type: Number }) noseRocker = 5.2;
   @property({ type: Number }) tailRocker = 1.6;
+  @property({ type: Number }) noseThickness = 1.45;
+  @property({ type: Number }) tailThickness = 1.35;
+  @property({ type: Number }) rockerFlatSpotLength = 20.0;
   @property({ type: Number }) deckDome = 0.65;
   @property({ type: String }) railProfile = "variable_sharp_tail";
   @property({ type: String }) bottomContour = "vee_to_quad_channels";
@@ -132,6 +135,10 @@ export class BoardControls extends LitElement {
         ${this._renderAccordion("Rocker & Foil", html`
           ${this._renderSlider("Nose Rocker", "noseRocker", 3.0, 7.0, 0.1, this.noseRocker)}
           ${this._renderSlider("Tail Rocker", "tailRocker", 1.0, 3.5, 0.1, this.tailRocker)}
+          ${this._renderSlider("Flat Spot Length", "rockerFlatSpotLength", 0, 36.0, 1.0, this.rockerFlatSpotLength)}
+          <div class="h-px bg-zinc-800 my-4"></div>
+          ${this._renderSlider("Nose Thickness (N12)", "noseThickness", 0.75, 2.5, 0.0625, this.noseThickness)}
+          ${this._renderSlider("Tail Thickness (T12)", "tailThickness", 0.75, 2.5, 0.0625, this.tailThickness)}
           ${this._renderSlider("Deck Dome", "deckDome", 0.4, 0.9, 0.05, this.deckDome, "")}
         `, false)}
 

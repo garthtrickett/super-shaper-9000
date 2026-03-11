@@ -35,6 +35,9 @@ export class BoardBuilderPage extends LitElement {
           .widePointOffset=${state.widePointOffset}
           .noseRocker=${state.noseRocker}
           .tailRocker=${state.tailRocker}
+          .noseThickness=${state.noseThickness}
+          .tailThickness=${state.tailThickness}
+          .rockerFlatSpotLength=${state.rockerFlatSpotLength}
           .deckDome=${state.deckDome}
           .railProfile=${state.railProfile}
           .bottomContour=${state.bottomContour}

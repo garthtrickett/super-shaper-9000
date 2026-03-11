@@ -100,23 +100,27 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // STEP 3: Dynamic Rocker Curves & Foil (Thickness Distribution)
   const tipThickness = 0.15; // Real surfboards taper to ~0.15" at the tips
   const bottomPlane = -T / 2; // Physical rocker is measured from the lowest point of the belly
+  const flatHalf = model.rockerFlatSpotLength / 2;
 
+  // Top Curve (Foil Thickness)
   const ptsRockerTop = new rhino.Point3dList();
-  // Nose: Foil tapers down cleanly to meet the rocker
-  ptsRockerTop.add(0, bottomPlane + model.noseRocker + tipThickness, -L/2);
-  // Flatten center control points to create a fast "belly"
-  ptsRockerTop.add(0, T/2, -L/4 + wpZ); 
-  ptsRockerTop.add(0, T/2, wpZ);
-  ptsRockerTop.add(0, T/2, L/4 + wpZ);
-  // Tail: Foil tapers down to meet the tail rocker
-  ptsRockerTop.add(0, bottomPlane + model.tailRocker + tipThickness, L/2);
+  ptsRockerTop.add(0, bottomPlane + model.noseRocker + tipThickness, -L/2); // Nose Tip
+  ptsRockerTop.add(0, bottomPlane + model.noseRocker * 0.25 + model.noseThickness, -L/2 + 12); // N12 Foil Thickness
+  ptsRockerTop.add(0, T/2, wpZ - flatHalf); // Center Deck Flat Front
+  ptsRockerTop.add(0, T/2, wpZ); // Center Deck
+  ptsRockerTop.add(0, T/2, wpZ + flatHalf); // Center Deck Flat Back
+  ptsRockerTop.add(0, bottomPlane + model.tailRocker * 0.25 + model.tailThickness, L/2 - 12); // T12 Foil Thickness
+  ptsRockerTop.add(0, bottomPlane + model.tailRocker + tipThickness, L/2); // Tail Tip
   const crvRockerTop = rhino.NurbsCurve.create(false, 3, ptsRockerTop);
 
+  // Bottom Curve (Rocker)
   const ptsRockerBottom = new rhino.Point3dList();
   ptsRockerBottom.add(0, bottomPlane + model.noseRocker, -L/2);
-  ptsRockerBottom.add(0, bottomPlane, -L/4 + wpZ);
+  ptsRockerBottom.add(0, bottomPlane + model.noseRocker * 0.25, -L/2 + 12);
+  ptsRockerBottom.add(0, bottomPlane, wpZ - flatHalf); // Staged Belly Start
   ptsRockerBottom.add(0, bottomPlane, wpZ);
-  ptsRockerBottom.add(0, bottomPlane, L/4 + wpZ);
+  ptsRockerBottom.add(0, bottomPlane, wpZ + flatHalf); // Staged Belly End
+  ptsRockerBottom.add(0, bottomPlane + model.tailRocker * 0.25, L/2 - 12);
   ptsRockerBottom.add(0, bottomPlane + model.tailRocker, L/2);
   const crvRockerBottom = rhino.NurbsCurve.create(false, 3, ptsRockerBottom);
 
