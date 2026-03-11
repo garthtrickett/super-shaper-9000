@@ -103,6 +103,22 @@ export class BoardViewport extends LitElement {
 
   override updated(changedProperties: PropertyValues<this>) {
     if (changedProperties.has("boardState") && this.boardState) {
+      const oldState = changedProperties.get("boardState") as BoardModel | undefined;
+      
+      // Prevent infinite loops and lag: If ONLY the volume changed, do not rebuild the 3D mesh.
+      if (oldState) {
+        let onlyVolumeChanged = true;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const key in this.boardState) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (key !== "volume" && (this.boardState as any)[key] !== (oldState as any)[key]) {
+            onlyVolumeChanged = false;
+            break;
+          }
+        }
+        if (onlyVolumeChanged) return;
+      }
+
       void this._updateGeometry();
     }
   }
@@ -342,12 +358,15 @@ export class BoardViewport extends LitElement {
             const p1 = new THREE.Vector3();
             const p2 = new THREE.Vector3();
             const p3 = new THREE.Vector3();
+            const pCross = new THREE.Vector3();
+            
             for (let i = 0; i < idxAttr.count; i += 3) {
                 p1.fromBufferAttribute(posAttr, idxAttr.getX(i));
                 p2.fromBufferAttribute(posAttr, idxAttr.getX(i+1));
                 p3.fromBufferAttribute(posAttr, idxAttr.getX(i+2));
                 // Signed volume of tetrahedron from origin
-                volumeCubicFeet += p1.dot(p2.cross(p3)) / 6.0;
+                pCross.crossVectors(p2, p3);
+                volumeCubicFeet += p1.dot(pCross) / 6.0;
             }
         }
         
@@ -356,11 +375,14 @@ export class BoardViewport extends LitElement {
         const volumeCubicInches = Math.abs(volumeCubicFeet) * 1728; 
         const volumeLiters = isNaN(volumeCubicInches) ? 0 : volumeCubicInches * 0.0163871;
 
-        this.dispatchEvent(new CustomEvent("volume-calculated", {
-            detail: { volume: volumeLiters },
-            bubbles: true,
-            composed: true
-        }));
+        // Secondary safety net: Only dispatch if volume changed significantly
+        if (Math.abs(this.boardState.volume - volumeLiters) > 0.05) {
+            this.dispatchEvent(new CustomEvent("volume-calculated", {
+                detail: { volume: volumeLiters },
+                bubbles: true,
+                composed: true
+            }));
+        }
 
         const { map, bumpMap } = this.getBoardTextures();
 
