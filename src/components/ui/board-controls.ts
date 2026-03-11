@@ -215,7 +215,7 @@ export class BoardControls extends LitElement {
           ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Torpedo"}, {value: "clipped", label: "Clipped (Tomo)"}], this.noseShape)}
           ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
-            ${this._renderSlider("Blunt Nose Length", "bluntNoseLength", 0.5, 11.0, 0.25, this.bluntNoseLength)}
+            ${this._renderSlider("Blunt Nose Length", "bluntNoseLength", 9.25, 15.0, 0.25, this.bluntNoseLength)}
           ` : ''}
           ${this._renderSlider("Nose Width (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth)}
           ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset)}

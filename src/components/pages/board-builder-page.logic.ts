@@ -96,7 +96,7 @@ export const INITIAL_STATE: BoardModel = {
   noseShape: "clipped",
   tailType: "round",
   swallowDepth: 4.5,
-  bluntNoseLength: 2.5,
+  bluntNoseLength: 9.25,
   squashCornerRadius: 0.75,
   widePointOffset: 2.0, // 2" Forward of center for paddle engine
   noseRocker: 5.2, // Slab Entry flip
