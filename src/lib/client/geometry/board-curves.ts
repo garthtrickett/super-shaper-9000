@@ -48,8 +48,10 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       ptsOutline.add(model.noseWidth * 0.46, 0, -L/2);
       ptsOutline.add(model.noseWidth * 0.49, 0, -L/2 + 1.5); 
   } else if (model.noseShape === "torpedo") {
+      // Perfectly rounded pill nose. Horizontal tangent at the tip.
       ptsOutline.add(0, 0, -L/2);
-      ptsOutline.add(model.noseWidth/2 * 0.7, 0, -L/2 + 2.0); 
+      ptsOutline.add(model.noseWidth/2 * 0.95, 0, -L/2); 
+      ptsOutline.add(model.noseWidth/2, 0, -L/2 + 4.0); 
   } else {
       // Pointy
       ptsOutline.add(0, 0, -L/2);
@@ -61,16 +63,16 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // Mid-Nose smoothing (between N12 and Wide Point) to maintain volume forward
   const midNoseZ = (-L/2 + 12 + wpZ) / 2;
   let midNoseW = (model.noseWidth/2 + model.width/2) / 2 * 1.02; // slight outward bulge
-  if (model.noseShape === "clipped") {
+  if (model.noseShape === "clipped" || model.noseShape === "torpedo") {
       // Push the rail out to create a straighter, parallel line from N12 to Wide Point
-      midNoseW = model.noseWidth/2 + (model.width/2 - model.noseWidth/2) * 0.85; 
+      midNoseW = model.noseWidth/2 + (model.width/2 - model.noseWidth/2) * 0.95; 
   }
   ptsOutline.add(midNoseW, 0, midNoseZ);
 
   // --- 3. Wide Point ---
-  if (model.noseShape === "clipped") {
+  if (model.noseShape === "clipped" || model.noseShape === "torpedo") {
       // Dual wide points to create a dead-straight parallel rail section in the center
-      const flatSpan = Math.min(8.0, L * 0.12);
+      const flatSpan = Math.min(12.0, L * 0.18);
       ptsOutline.add(model.width / 2, 0, wpZ - flatSpan);
       ptsOutline.add(model.width / 2, 0, wpZ + flatSpan);
   } else {
@@ -80,9 +82,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // Mid-Tail smoothing (between Wide Point and T12)
   const midTailZ = (wpZ + L/2 - 12) / 2;
   let midTailW = (model.width/2 + model.tailWidth/2) / 2 * 1.02;
-  if (model.noseShape === "clipped" && model.tailType !== "pintail") {
+  if ((model.noseShape === "clipped" || model.noseShape === "torpedo") && model.tailType !== "pintail") {
       // Hold the parallel line deep into the tail
-      midTailW = model.tailWidth/2 + (model.width/2 - model.tailWidth/2) * 0.85;
+      midTailW = model.tailWidth/2 + (model.width/2 - model.tailWidth/2) * 0.95;
   } else if (model.tailType === "pintail") {
       midTailW *= 0.95; // pull it in more for pints
   }
@@ -106,6 +108,11 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   if (model.tailType === "round") {
       ptsOutline.add(model.tailWidth / 2 * 0.4, 0, L/2 - 2); // Tight pin curve
+      ptsOutline.add(0, 0, L/2);
+  } else if (model.tailType === "torpedo") {
+      // Symmetrical to the torpedo nose
+      ptsOutline.add(model.tailWidth / 2, 0, L/2 - 4.0);
+      ptsOutline.add(model.tailWidth / 2 * 0.95, 0, L/2); // Horizontal tangent
       ptsOutline.add(0, 0, L/2);
   } else {
       ptsOutline.add(tailW, 0, cornerZ);
