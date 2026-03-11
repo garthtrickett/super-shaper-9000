@@ -8,7 +8,7 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) thickness = 2.5;
   @property({ type: Number }) volume = 30.5;
   @property({ type: String }) tailType = "round";
-  @property({ type: String }) noseShape = "blunt";
+  @property({ type: String }) noseShape = "pointy";
   @property({ type: Number }) widePointOffset = 2.0;
   @property({ type: Number }) noseRocker = 5.2;
   @property({ type: Number }) tailRocker = 1.6;
@@ -110,7 +110,7 @@ export class BoardControls extends LitElement {
         `, true)}
 
         ${this._renderAccordion("Outline & Tail", html`
-          ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "blunt", label: "Tomo Blunt / Clipped"}], this.noseShape)}
+          ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Torpedo"}], this.noseShape)}
           ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset)}
           ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}], this.tailType)}
         `, true)}

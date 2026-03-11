@@ -3,7 +3,7 @@ import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
 
 export type TailType = "squash" | "pintail" | "swallow" | "round";
-export type NoseShape = "pointy" | "blunt";
+export type NoseShape = "pointy" | "torpedo";
 export type RailProfile = "soft" | "boxy" | "variable_sharp_tail";
 export type BottomContour = "flat" | "single" | "single_to_double" | "vee_to_quad_channels";
 
