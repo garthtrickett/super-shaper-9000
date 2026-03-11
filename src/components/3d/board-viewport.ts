@@ -190,7 +190,7 @@ export class BoardViewport extends LitElement {
         this.solidGroup.remove(child);
     }
 
-    if (this.boardState.meshData) {
+    if (this.boardState) {
         // 🚀 100% Native Frontend Procedural Surfboard Mesh Generation
         const segmentsZ = curves.outline.length;
         const segmentsRadial = 36;

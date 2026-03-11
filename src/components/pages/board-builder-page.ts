@@ -16,10 +16,6 @@ export class BoardBuilderPage extends LitElement {
 
   protected override createRenderRoot() { return this; }
 
-  override firstUpdated() {
-    this.ctrl.propose({ type: "TRIGGER_COMPUTE" });
-  }
-  
   override render() {
     const state = this.ctrl.model;
 
@@ -45,13 +41,6 @@ export class BoardBuilderPage extends LitElement {
         ></board-controls>
 
         <!-- Render the 3D scene taking up the full remaining area -->
-        ${state.isComputing 
-          ? html`
-              <div class="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/60 backdrop-blur-sm pointer-events-none">
-                <div class="text-2xl font-black text-blue-500 tracking-widest uppercase animate-pulse">Shaping...</div>
-              </div>
-            `
-          : ""}
         <board-viewport 
           class="flex-1 w-full h-full relative z-0"
           .boardState=${state}

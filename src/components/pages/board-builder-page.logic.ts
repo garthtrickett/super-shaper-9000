@@ -1,4 +1,4 @@
-import { Effect, Fiber } from "effect";
+import { Effect } from "effect";
 import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
 
@@ -20,8 +20,6 @@ export interface BoardModel {
   deckDome: number;
   railProfile: RailProfile;
   bottomContour: BottomContour;
-  isComputing: boolean;
-  meshData: string | null;
 }
 
 export const INITIAL_STATE: BoardModel = {
@@ -38,19 +36,13 @@ export const INITIAL_STATE: BoardModel = {
   deckDome: 0.65,
   railProfile: "variable_sharp_tail",
   bottomContour: "vee_to_quad_channels",
-  isComputing: false,
-  meshData: null,
 };
 
 export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
   | { type: "UPDATE_DIMENSION"; param?: any; dimension?: any; payload?: any; value?: any }
-  | { type: "UPDATE_TAIL"; tailType?: any; value?: any; param?: any; payload?: any }
-  | { type: "TRIGGER_COMPUTE" }
-  | { type: "COMPUTE_START" }
-  | { type: "COMPUTE_SUCCESS"; meshData: string }
-  | { type: "COMPUTE_FAILURE"; error: string };
+  | { type: "UPDATE_TAIL"; tailType?: any; value?: any; param?: any; payload?: any };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -68,17 +60,10 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       const t = payload.tailType || payload.value || payload.param;
       return { ...state, tailType: t };
     }
-    case "COMPUTE_START":
-      return { ...state, isComputing: true };
-    case "COMPUTE_SUCCESS":
-      return { ...state, isComputing: false, meshData: action.meshData };
-    case "COMPUTE_FAILURE":
-      return { ...state, isComputing: false };
     default:
       return state;
   }
 };
-let computeFiber: Fiber.RuntimeFiber<void, unknown> | null = null;
 
 export const handleAction = (
   action: BoardAction,
@@ -87,26 +72,4 @@ export const handleAction = (
 ): Effect.Effect<void, never, FullClientContext> =>
   Effect.gen(function* () {
     yield* clientLog("debug", "[BoardBuilder] State Action processed", action);
-
-    if (
-      action.type === "UPDATE_NUMBER" ||
-      action.type === "UPDATE_STRING" ||
-      action.type === "UPDATE_DIMENSION" ||
-      action.type === "UPDATE_TAIL" ||
-      action.type === "TRIGGER_COMPUTE"
-    ) {
-      if (computeFiber) {
-        yield* Fiber.interrupt(computeFiber);
-        computeFiber = null;
-      }
-
-      const task = Effect.gen(function* () {
-        yield* Effect.sync(() => dispatch({ type: "COMPUTE_START" }));
-        yield* Effect.sleep("250 millis");
-        // 🚀 Instant 100% frontend native generation
-        yield* Effect.sync(() => dispatch({ type: "COMPUTE_SUCCESS", meshData: "NATIVE_GENERATION" }));
-      });
-
-      computeFiber = yield* Effect.fork(task);
-    }
   });
