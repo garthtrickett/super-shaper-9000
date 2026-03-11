@@ -30,7 +30,7 @@ export class BoardControls extends LitElement {
 
   private _dispatchString(param: string, value: string) {
     this.dispatchEvent(new CustomEvent("string-changed", { 
-      detail: { value },
+      detail: { param, value },
       bubbles: true,
       composed: true
     }));
