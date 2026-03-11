@@ -46,12 +46,18 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   const wpZ = -model.widePointOffset; 
 
   // --- A. NOSE TIP (-L/2 ALWAYS) ---
+  // Absolute tip MUST be on the stringer (X=0) for a continuous, seamless mesh closure.
+  cp.push([0, 0, -L/2]); 
+
+  // By placing control points slightly behind the tip, we force the NURBS engine 
+  // to draw a smooth, rounded nose that perfectly wraps into the center point.
   if (model.noseShape === "clipped") {
-      cp.push([model.noseTipWidth / 2, 0, -L/2]); 
+      // Tomo style: Tight, fast corner to create a "chopped" look that is mathematically closed
+      cp.push([model.noseTipWidth / 2, 0, -L/2 + 0.25]); 
+      cp.push([model.noseTipWidth / 2, 0, -L/2 + 2.0]); 
   } else if (model.noseShape === "torpedo") {
-      cp.push([model.noseTipWidth / 4, 0, -L/2]); // Slight bluntness to prevent needle point
-  } else {
-      cp.push([0, 0, -L/2]); // Pointy
+      // Sweeping, perfect semi-circle bullet nose
+      cp.push([model.noseTipWidth / 2, 0, -L/2 + 1.5]); 
   }
 
   // --- B. NOSE FULLNESS (N12 area) ---
@@ -84,8 +90,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   if (model.tailType === "squash" || model.tailType === "swallow") {
       cp.push([model.tailBlockWidth / 2, 0, L/2]);
   } else if (model.tailType === "torpedo") {
-      // Symmetrical wrap-in mirroring the nose
-      cp.push([model.noseTipWidth / 4, 0, L/2]);
+      // Symmetrical wrap-in mirroring the nose (rounded closure)
+      cp.push([model.noseTipWidth / 2, 0, L/2 - 1.5]);
+      cp.push([0, 0, L/2]);
   } else if (model.tailType === "round") {
       // A rounded pin needs an anchor just before the tip to hold the curve wide
       cp.push([model.tailWidth / 2 * 0.4, 0, L/2 - 2.5]);
@@ -159,11 +166,6 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // ====================================================================
   // 4. MESH END-CAPS
   // ====================================================================
-  
-  if (model.noseShape === "clipped" || model.noseShape === "torpedo") {
-      // Draw a straight line from the stringer to the chopped tip corner to seal the mesh hole
-      outline.unshift([0, 0, -L/2]);
-  }
   
   if (model.tailType === "swallow") {
       // Cut the swallow tail directly to the stringer
