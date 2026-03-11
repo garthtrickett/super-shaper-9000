@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema as S } from "effect";
 import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
 
@@ -8,6 +8,43 @@ export type BottomContour = "flat" | "single" | "single_to_double" | "vee_to_qua
 export type FinSetup = "thruster" | "quad" | "twin";
 export type CoreMaterial = "pu" | "eps";
 export type GlassingSchedule = "light" | "standard" | "heavy";
+
+export const BoardModelSchema = S.Struct({
+  length: S.Number,
+  width: S.Number,
+  thickness: S.Number,
+  volume: S.Number,
+  noseWidth: S.Number,
+  tailWidth: S.Number,
+  noseShape: S.Literal("pointy", "torpedo", "clipped"),
+  tailType: S.Literal("squash", "pintail", "swallow", "round"),
+  swallowDepth: S.Number,
+  squashCornerRadius: S.Number,
+  widePointOffset: S.Number,
+  noseRocker: S.Number,
+  tailRocker: S.Number,
+  noseThickness: S.Number,
+  tailThickness: S.Number,
+  rockerFlatSpotLength: S.Number,
+  deckDome: S.Number,
+  apexRatio: S.Number,
+  railFullness: S.Number,
+  hardEdgeLength: S.Number,
+  veeDepth: S.Number,
+  concaveDepth: S.Number,
+  channelDepth: S.Number,
+  channelLength: S.Number,
+  bottomContour: S.Literal("flat", "single", "single_to_double", "vee_to_quad_channels"),
+  finSetup: S.Literal("thruster", "quad", "twin"),
+  frontFinZ: S.Number,
+  frontFinX: S.Number,
+  rearFinZ: S.Number,
+  rearFinX: S.Number,
+  toeAngle: S.Number,
+  cantAngle: S.Number,
+  coreMaterial: S.Literal("pu", "eps"),
+  glassingSchedule: S.Literal("light", "standard", "heavy"),
+});
 
 export interface BoardModel {
   length: number;
@@ -89,7 +126,8 @@ export type BoardAction =
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
   | { type: "UPDATE_DIMENSION"; param?: any; dimension?: any; payload?: any; value?: any }
   | { type: "UPDATE_TAIL"; tailType?: any; value?: any; param?: any; payload?: any }
-  | { type: "UPDATE_VOLUME"; volume: number };
+  | { type: "UPDATE_VOLUME"; volume: number }
+  | { type: "LOAD_DESIGN"; state: BoardModel };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -109,6 +147,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
     }
     case "UPDATE_VOLUME":
       return { ...state, volume: action.volume };
+    case "LOAD_DESIGN":
+      return { ...action.state };
     default:
       return state;
   }

@@ -181,6 +181,12 @@ export class BoardControls extends LitElement {
   override render() {
     return html`
       <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar">
+        <!-- Import / Export Actions -->
+        <div class="flex gap-2 mb-4">
+          <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export</button>
+          <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="flex-1 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import</button>
+        </div>
+
         <!-- Top HUD Panel (Volume & Weight) -->
         <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 flex items-center justify-around shadow-inner">
           <div class="flex flex-col items-center">
