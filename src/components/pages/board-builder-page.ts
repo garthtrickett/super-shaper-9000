@@ -27,13 +27,21 @@ export class BoardBuilderPage extends LitElement {
       <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
         <!-- UI Controls Panel -->
         <board-controls
-          class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full overflow-y-auto"
+          class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full overflow-y-auto shadow-2xl"
           .length=${state.length}
           .width=${state.width}
           .thickness=${state.thickness}
+          .volume=${state.volume}
+          .noseShape=${state.noseShape}
           .tailType=${state.tailType}
-          @dimension-changed=${(e: CustomEvent<{ dimension: "length" | "width" | "thickness"; value: number }>) => this.ctrl.propose({ type: "UPDATE_DIMENSION", dimension: e.detail.dimension, value: e.detail.value })}
-          @tail-changed=${(e: CustomEvent<{ value: TailType }>) => this.ctrl.propose({ type: "UPDATE_TAIL", tailType: e.detail.value })}
+          .widePointOffset=${state.widePointOffset}
+          .noseRocker=${state.noseRocker}
+          .tailRocker=${state.tailRocker}
+          .deckDome=${state.deckDome}
+          .railProfile=${state.railProfile}
+          .bottomContour=${state.bottomContour}
+          @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
+          @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
         ></board-controls>
 
         <!-- Render the 3D scene taking up the full remaining area -->

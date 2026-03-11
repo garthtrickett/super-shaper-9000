@@ -1,6 +1,33 @@
 import { expect } from "@open-wc/testing";
 import { update, INITIAL_STATE, type BoardAction } from "./board-builder-page.logic";
 
+describe("Board Builder Logic", () => {
+  it("should correctly update a number parameter", () => {
+    const action: BoardAction = { type: "UPDATE_NUMBER", param: "length", value: 75 };
+    const newState = update(INITIAL_STATE, action);
+    expect(newState.length).to.equal(75);
+    // Ensure immutable
+    expect(INITIAL_STATE.length).to.equal(70);
+  });
+
+  it("should correctly update a string parameter", () => {
+    const action: BoardAction = { type: "UPDATE_STRING", param: "noseShape", value: "pointy" };
+    const newState = update(INITIAL_STATE, action);
+    expect(newState.noseShape).to.equal("pointy");
+  });
+
+  it("should handle compute states properly", () => {
+    let state = update(INITIAL_STATE, { type: "COMPUTE_START" });
+    expect(state.isComputing).to.be.true;
+
+    state = update(state, { type: "COMPUTE_SUCCESS", meshData: "MESH_DATA" });
+    expect(state.isComputing).to.be.false;
+    expect(state.meshData).to.equal("MESH_DATA");
+  });
+});
+import { expect } from "@open-wc/testing";
+import { update, INITIAL_STATE, type BoardAction } from "./board-builder-page.logic";
+
 describe("BoardBuilder Logic", () => {
   it("should correctly update a dimension", () => {
     const action: BoardAction = { type: "UPDATE_DIMENSION", dimension: "length", value: 80 };

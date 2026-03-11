@@ -1,5 +1,35 @@
 import { expect } from "@open-wc/testing";
 import { generateBoardCurves, deps } from "./board-curves";
+import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
+import sinon from "sinon";
+
+describe("Board Curves Engine", () => {
+  let getRhinoStub: sinon.SinonStub;
+
+  beforeEach(() => {
+    // Mock getRhino to fail safely and return the fallback geometry
+    getRhinoStub = sinon.stub(deps, "getRhino").rejects(new Error("WASM not available in test env"));
+  });
+
+  afterEach(() => {
+    getRhinoStub.restore();
+  });
+
+  it("should fall back to simple geometry if WASM fails to load", async () => {
+    const curves = await generateBoardCurves(INITIAL_STATE);
+    
+    // Verify the fallback outline triangle
+    expect(curves.outline).to.be.an("array").that.has.lengthOf(3);
+    expect(curves.rockerTop).to.be.an("array").that.has.lengthOf(3);
+    expect(curves.rockerBottom).to.be.an("array").that.has.lengthOf(3);
+
+    const wpZ = curves.outline[1]![2];
+    // The fallback center point Z should remain 0
+    expect(wpZ).to.equal(0);
+  });
+});
+import { expect } from "@open-wc/testing";
+import { generateBoardCurves, deps } from "./board-curves";
 import type { BoardModel } from "../../../components/pages/board-builder-page.logic";
 
 describe("Board Curves Generator", () => {

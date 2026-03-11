@@ -50,33 +50,56 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   }
 
   const ptsOutline = new rhino.Point3dList();
-  ptsOutline.add(0, 0, -L/2);
-  ptsOutline.add(W/2, 0, -L/4);
-  ptsOutline.add(W/2, 0, 0);
   
+  // STEP 2: Wide Point Shift (Negative Z is nose direction)
+  // A widePointOffset of +2 means shift the wide point 2 inches towards the nose (-2)
+  const wpZ = -model.widePointOffset; 
+
+  // STEP 2: Clipped Nose Logic
+  if (model.noseShape === "blunt") {
+      const bluntW = W * 0.15; // The blunt nose tip holds 30% of total width
+      ptsOutline.add(bluntW, 0, -L/2);
+      ptsOutline.add(W/2 * 0.85, 0, -L/4 + wpZ/2); // Tweak tangency for a parallel front
+  } else {
+      ptsOutline.add(0, 0, -L/2);
+      ptsOutline.add(W/2 * 0.6, 0, -L/4 + wpZ/2);
+  }
+
+  // The Wide Point (now dynamically placed)
+  ptsOutline.add(W/2, 0, wpZ);
+  
+  // STEP 2: Tail Pull-in (Strictly control the width at 12 inches from the tail)
+  const tail12Z = L/2 - 12;
+  const tail12W = (model.tailType === "round" || model.tailType === "pintail") 
+      ? W/2 * 0.65 // Aggressively pull in the width for hold
+      : W/2 * 0.75; // Standard pull-in for squash/swallow
+  
+  ptsOutline.add(tail12W, 0, tail12Z);
+
   if (model.tailType === "round") {
-      ptsOutline.add(W/2 * 0.7, 0, L/4);
-      ptsOutline.add(W/2 * 0.25, 0, L/2); // Tangent control point for a perfectly rounded tail
+      ptsOutline.add(W/2 * 0.25, 0, L/2 - 2); // Tight curve for the needle pin
       ptsOutline.add(0, 0, L/2);
   } else {
       let cp4X = W/2 * 0.8;
       if (model.tailType === "pintail") cp4X = W/2 * 0.6;
-      ptsOutline.add(cp4X, 0, L/4);
+      ptsOutline.add(cp4X, 0, L/4 + wpZ/2);
       ptsOutline.add(tailW, 0, cornerZ);
   }
 
   const crvOutline = rhino.NurbsCurve.create(false, 3, ptsOutline);
 
+  // STEP 3: Dynamic Rocker Curves
   const ptsRockerTop = new rhino.Point3dList();
-  ptsRockerTop.add(0, 5, -L/2);
-  ptsRockerTop.add(0, T/2, 0);
-  ptsRockerTop.add(0, 2, L/2);
+  // Using noseRocker for the vertical rise
+  ptsRockerTop.add(0, T/2 + model.noseRocker, -L/2);
+  ptsRockerTop.add(0, T/2, wpZ); // Flatten exactly at the wide point
+  ptsRockerTop.add(0, T/2 + model.tailRocker, L/2);
   const crvRockerTop = rhino.NurbsCurve.create(false, 2, ptsRockerTop);
 
   const ptsRockerBottom = new rhino.Point3dList();
-  ptsRockerBottom.add(0, 5, -L/2);
-  ptsRockerBottom.add(0, -T/2, 0);
-  ptsRockerBottom.add(0, 2, L/2);
+  ptsRockerBottom.add(0, model.noseRocker, -L/2);
+  ptsRockerBottom.add(0, -T/2, wpZ);
+  ptsRockerBottom.add(0, model.tailRocker, L/2);
   const crvRockerBottom = rhino.NurbsCurve.create(false, 2, ptsRockerBottom);
 
    
