@@ -53,16 +53,20 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   const t12Z = L/2 - 12;
 
   // --- 1. Nose Tip & Nose Curve Entry ---
-  if (model.noseShape === "clipped") {
-      // Blunt tip, smoothly decelerating to guarantee mathematically convex curve
-      ptsOutline.add(model.noseWidth/2 * 0.65, 0, -L/2);
-      ptsOutline.add(model.noseWidth/2 * 0.75, 0, -L/2 + 2.0); 
-  } else if (model.noseShape === "torpedo") {
-      // Smooth continuous bullet curve, properly distributed Z
-      ptsOutline.add(0, 0, -L/2);
-      ptsOutline.add(model.noseWidth/2 * 0.60, 0, -L/2 + 2.0); 
+  // For blunt boards, we stop the NURBS curve early and manually cap it later
+  // to guarantee flawless procedural geometry without lofting artifacts.
+  let noseCornerZ = -L/2;
+  let noseTailW = 0;
+
+  if (model.noseShape === "torpedo") {
+      noseCornerZ = -L/2 + 3.5;
+      noseTailW = model.noseWidth / 2 * 0.85;
+      ptsOutline.add(noseTailW, 0, noseCornerZ);
+  } else if (model.noseShape === "clipped") {
+      noseCornerZ = -L/2 + 2.0;
+      noseTailW = model.noseWidth / 2 * 0.75;
+      ptsOutline.add(noseTailW, 0, noseCornerZ);
   } else {
-      // Pointy
       ptsOutline.add(0, 0, -L/2);
   }
 
@@ -106,20 +110,22 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   if (model.tailType === "pintail") {
       tailW = 0;
+      ptsOutline.add(tailW, 0, cornerZ);
   } else if (model.tailType === "swallow") {
       tailW = model.tailWidth / 2 * 0.6;
+      ptsOutline.add(tailW, 0, cornerZ);
   } else if (model.tailType === "squash") {
       tailW = model.tailWidth / 2 * 0.5;
       cornerZ = L/2 - model.squashCornerRadius;
-  }
-
-  if (model.tailType === "round") {
-      ptsOutline.add(model.tailWidth / 2 * 0.4, 0, L/2 - 2); 
-      ptsOutline.add(0, 0, L/2);
+      ptsOutline.add(tailW, 0, cornerZ);
+  } else if (model.tailType === "round") {
+      tailW = model.tailWidth / 2 * 0.6;
+      cornerZ = L/2 - 2.5;
+      ptsOutline.add(tailW, 0, cornerZ);
   } else if (model.tailType === "torpedo") {
-      // Match the nose perfectly for a symmetrical pill
-      ptsOutline.add(model.tailWidth / 2 * 0.60, 0, L/2 - 2.0); 
-      ptsOutline.add(0, 0, L/2);
+      tailW = model.tailWidth / 2 * 0.85;
+      cornerZ = L/2 - 3.5;
+      ptsOutline.add(tailW, 0, cornerZ);
   } else {
       ptsOutline.add(tailW, 0, cornerZ);
   }
@@ -127,7 +133,8 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   const crvOutline = rhino.NurbsCurve.create(false, 3, ptsOutline);
 
   // STEP 3: Dynamic Rocker Curves & Foil (Thickness Distribution)
-  const tipThickness = 0.15; // Real surfboards taper to ~0.15" at the tips
+  // We set tipThickness to 0.0 to collapse the mesh poles perfectly into a single mathematical point, fixing the 3D crease artifact.
+  const tipThickness = 0.0; 
   const bottomPlane = -T / 2; // Physical rocker is measured from the lowest point of the belly
   const flatHalf = model.rockerFlatSpotLength / 2;
 
@@ -182,19 +189,56 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   ptsRockerBottom.delete();
   if (crvRockerBottom) crvRockerBottom.delete();
 
+  // --- PREPEND NOSE CAPS ---
+  if (model.noseShape === "torpedo" || model.noseShape === "clipped") {
+      const steps = 15;
+      const cap: [number, number, number][] = [];
+      
+      // Absolute tip to close the mesh hole
+      cap.push([0, 0, -L/2]); 
+      
+      for (let i = 1; i < steps; i++) { 
+          const t = i / steps;
+          const invT = 1 - t;
+          
+          let p1x = noseTailW;
+          if (model.noseShape === "clipped") p1x = noseTailW * 0.9;
+          
+          // Quadratic Bezier: P0=(0, -L/2), P1=(horizontal pull), P2=(NURBS start)
+          const px = invT * invT * 0 + 2 * invT * t * p1x + t * t * noseTailW;
+          const pz = invT * invT * (-L/2) + 2 * invT * t * (-L/2) + t * t * noseCornerZ;
+          cap.push([px, 0, pz]);
+      }
+      outline.unshift(...cap);
+  }
+
+  // --- APPEND TAIL CAPS ---
   if (model.tailType === "swallow") {
-      // Add a sharp V cut for the swallow tail returning to the center line
       outline.push([0, 0, L/2 - model.swallowDepth]);
-  } else if (model.tailType === "squash") {
-      // Generate a smooth rounded curve for the squash tail block
-      const steps = 8;
+  } else if (model.tailType === "squash" || model.tailType === "round" || model.tailType === "torpedo") {
+      const steps = 15;
       for (let i = 1; i <= steps; i++) {
           const t = i / steps;
           const invT = 1 - t;
-          // Quadratic bezier: P0=(tailW, cornerZ), P1=(tailW*0.95, L/2), P2=(0, L/2)
-          const px = invT * invT * tailW + 2 * invT * t * (tailW * 0.95) + t * t * 0;
+          
+          let p1x = tailW;
+          let p2x = 0;
+          
+          if (model.tailType === "squash") {
+              p1x = tailW * 0.95;
+              p2x = tailW * 0.45; // Flat squash block
+          } else if (model.tailType === "round") {
+              p1x = tailW * 0.85;
+          }
+          
+          const px = invT * invT * tailW + 2 * invT * t * p1x + t * t * p2x;
           const pz = invT * invT * cornerZ + 2 * invT * t * (L/2) + t * t * (L/2);
           outline.push([px, 0, pz]);
+      }
+      
+      // Critical Mesh Closing: Forces the lofting engine to map the open tail directly to the stringer
+      if (model.tailType === "squash") {
+          outline.push([0, 0, L/2]);
       }
   }
 

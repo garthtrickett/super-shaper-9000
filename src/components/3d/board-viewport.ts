@@ -267,18 +267,30 @@ export class BoardViewport extends LitElement {
             const zInches = p[2];
             const nz = (zInches - minZ) / totalZ; // 0 (Nose) to 1 (Tail)
             
-            // Apply exact user-defined rail fullness
-            const railCurve = railFullness;
+            const tailDist = Math.max(0, maxZ - zInches);
+            const noseDist = Math.max(0, zInches - minZ);
+
+            // Step 3: Relax the Rail Pinch at the Poles
+            // Fade to a perfect ellipse (1.0) at the extreme tips to prevent the central crease artifact
+            let currentRailFullness = railFullness;
+            let currentDeckCurve = deckCurve;
+            const relaxZone = 2.0; // Fade over 2 inches
+            if (noseDist < relaxZone) {
+                const t = noseDist / relaxZone;
+                currentRailFullness = 1.0 - t * (1.0 - railFullness);
+                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
+            } else if (tailDist < relaxZone) {
+                const t = tailDist / relaxZone;
+                currentRailFullness = 1.0 - t * (1.0 - railFullness);
+                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
+            }
+            const railCurve = currentRailFullness;
 
             let topY = getRockerY(zInches, true);
             let botY = getRockerY(zInches, false);
             
-            // Prevent degenerate pinch at the absolute tips
-            if (topY - botY < 0.01) {
-                topY = botY + 0.01;
-            }
-
-            const thickness = topY - botY;
+            // Allow perfect 0 thickness at poles to merge vertices cleanly into one point
+            const thickness = Math.max(0, topY - botY);
             const dynamicRailApexRatio = getApexRatio(zInches);
             const apexY = botY + thickness * dynamicRailApexRatio;
 
@@ -287,9 +299,6 @@ export class BoardViewport extends LitElement {
                 const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
                 return t * t * (3 - 2 * t);
             };
-
-            const tailDist = Math.max(0, maxZ - zInches);
-            const noseDist = Math.max(0, zInches - minZ);
 
             // Entry Vee: Fades out completely by the wide point
             const blendVee = 1 - smoothStep(0.05, 0.4, nz);
@@ -326,8 +335,8 @@ export class BoardViewport extends LitElement {
 
                 let py = 0;
                 if (cy >= 0) {
-                    // Shape the Top Deck
-                    py = apexY + Math.pow(abs_cy, deckCurve) * (topY - apexY);
+                    // Shape the Top Deck (using relaxed deck curve at tips)
+                    py = apexY + Math.pow(abs_cy, currentDeckCurve) * (topY - apexY);
                 } else {
                     // Shape the Bottom and Rail Tuck
                     py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
@@ -505,6 +514,9 @@ export class BoardViewport extends LitElement {
                 const p1 = curves.outline[i]!;
                 const p2 = curves.outline[i+1]!;
                 if (zInches >= p1[2] && zInches <= p2[2]) {
+                    // Safeguard against Division by Zero created by blunt cap logic
+                    if (p2[2] === p1[2]) return Math.max(p1[0], p2[0]);
+                    
                     const t = (zInches - p1[2]) / (p2[2] - p1[2]);
                     return p1[0] + t * (p2[0] - p1[0]);
                 }
@@ -523,9 +535,8 @@ export class BoardViewport extends LitElement {
 
             let topY = getRockerY(zInches, true);
             let botY = getRockerY(zInches, false);
-            if (topY - botY < 0.01) topY = botY + 0.01;
-
-            const thickness = topY - botY;
+            
+            const thickness = Math.max(0, topY - botY);
             const dynamicRailApexRatio = getApexRatio(zInches);
             const apexY = botY + thickness * dynamicRailApexRatio;
 
@@ -535,7 +546,18 @@ export class BoardViewport extends LitElement {
             let nx = Math.abs(xInches) / halfWidth;
             if (nx > 1) nx = 1;
 
-            const railCurve = railFullness;
+            // Step 3: Relax the Rail Pinch at the Poles (Fin Helper)
+            let currentRailFullness = railFullness;
+            const relaxZone = 2.0;
+            if (noseDist < relaxZone) {
+                const t = noseDist / relaxZone;
+                currentRailFullness = 1.0 - t * (1.0 - railFullness);
+            } else if (tailDist < relaxZone) {
+                const t = tailDist / relaxZone;
+                currentRailFullness = 1.0 - t * (1.0 - railFullness);
+            }
+
+            const railCurve = currentRailFullness;
             const abs_cx = Math.pow(nx, 1 / railCurve);
             const clamped_cx = Math.min(1, abs_cx);
             const abs_cy = Math.sqrt(1 - clamped_cx * clamped_cx);
