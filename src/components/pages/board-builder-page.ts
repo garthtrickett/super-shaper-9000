@@ -44,6 +44,7 @@ export class BoardBuilderPage extends LitElement {
         <board-viewport 
           class="flex-1 w-full h-full relative z-0"
           .boardState=${state}
+          @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.ctrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
         ></board-viewport>
       </div>
     `;

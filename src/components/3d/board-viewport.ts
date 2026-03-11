@@ -334,6 +334,34 @@ export class BoardViewport extends LitElement {
         geom.setIndex(indices);
         geom.computeVertexNormals();
 
+        // --- STEP 5: Real-Time Volume Calculation ---
+        let volumeCubicFeet = 0;
+        const posAttr = geom.attributes.position;
+        const idxAttr = geom.index;
+        if (idxAttr) {
+            const p1 = new THREE.Vector3();
+            const p2 = new THREE.Vector3();
+            const p3 = new THREE.Vector3();
+            for (let i = 0; i < idxAttr.count; i += 3) {
+                p1.fromBufferAttribute(posAttr, idxAttr.getX(i));
+                p2.fromBufferAttribute(posAttr, idxAttr.getX(i+1));
+                p3.fromBufferAttribute(posAttr, idxAttr.getX(i+2));
+                // Signed volume of tetrahedron from origin
+                volumeCubicFeet += p1.dot(p2.cross(p3)) / 6.0;
+            }
+        }
+        
+        // Our Three.js mesh is scaled in feet (1/12 scale). 
+        // Convert back to cubic inches (12^3), then multiply by 0.0163871 to get Liters.
+        const volumeCubicInches = Math.abs(volumeCubicFeet) * 1728; 
+        const volumeLiters = isNaN(volumeCubicInches) ? 0 : volumeCubicInches * 0.0163871;
+
+        this.dispatchEvent(new CustomEvent("volume-calculated", {
+            detail: { volume: volumeLiters },
+            bubbles: true,
+            composed: true
+        }));
+
         const { map, bumpMap } = this.getBoardTextures();
 
         const mat = new THREE.MeshPhysicalMaterial({ 

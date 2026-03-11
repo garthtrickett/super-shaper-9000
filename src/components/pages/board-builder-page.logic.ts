@@ -42,7 +42,8 @@ export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
   | { type: "UPDATE_DIMENSION"; param?: any; dimension?: any; payload?: any; value?: any }
-  | { type: "UPDATE_TAIL"; tailType?: any; value?: any; param?: any; payload?: any };
+  | { type: "UPDATE_TAIL"; tailType?: any; value?: any; param?: any; payload?: any }
+  | { type: "UPDATE_VOLUME"; volume: number };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -60,6 +61,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       const t = payload.tailType || payload.value || payload.param;
       return { ...state, tailType: t };
     }
+    case "UPDATE_VOLUME":
+      return { ...state, volume: action.volume };
     default:
       return state;
   }
