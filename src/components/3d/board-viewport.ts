@@ -325,7 +325,8 @@ export class BoardViewport extends LitElement {
       0.1,
       1000
     );
-    this.camera.position.set(5, 5, 5);
+    // Look down the Nose (-Z axis) so the front of the board is in the foreground
+    this.camera.position.set(-6, 4, -6);
 
     // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({

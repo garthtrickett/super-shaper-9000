@@ -23,14 +23,14 @@ export interface BoardModel {
 }
 
 export const INITIAL_STATE: BoardModel = {
-  // "Slab-Hunter" Defaults (65kg / Weak Paddler / Hold)
+  // Traditional High-Performance Shortboard Defaults
   length: 70, // 5'10"
   width: 18.75,
   thickness: 2.5,
   volume: 30.5, // Estimated placeholder until Step 5
-  noseShape: "blunt",
-  tailType: "round",
-  widePointOffset: 2.0, // 2" Forward of center
+  noseShape: "pointy",
+  tailType: "squash",
+  widePointOffset: -1.0, // 1" Back from center for standard HPSB
   noseRocker: 5.2,
   tailRocker: 1.6,
   deckDome: 0.65,
