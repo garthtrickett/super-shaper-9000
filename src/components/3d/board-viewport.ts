@@ -158,10 +158,13 @@ export class BoardViewport extends LitElement {
             vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
             
             if (followRocker) {
-                // Wrap the 2D outline along the rail profile (center of thickness)
+                // Wrap the 2D outline along the rail profile (matching solid mesh rail apex)
                 const topY = getRockerY(zInches, true);
                 const bottomY = getRockerY(zInches, false);
-                vertices[i*3+1] = ((topY + bottomY) / 2) * scale;
+                const thickness = topY - bottomY;
+                const railApexRatio = 0.35; // Rails tucked under slightly
+                const apexY = bottomY + thickness * railApexRatio;
+                vertices[i*3+1] = apexY * scale;
             } else {
                 vertices[i*3+1] = p[1] * scale;
             }

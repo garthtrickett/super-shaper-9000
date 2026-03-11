@@ -88,15 +88,18 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
 
   const crvOutline = rhino.NurbsCurve.create(false, 3, ptsOutline);
 
-  // STEP 3: Dynamic Rocker Curves
+  // STEP 3: Dynamic Rocker Curves & Foil (Thickness Distribution)
+  const tipThickness = 0.15; // Real surfboards taper to ~0.15" at the tips
+
   const ptsRockerTop = new rhino.Point3dList();
-  // Using noseRocker for the vertical rise
-  ptsRockerTop.add(0, T/2 + model.noseRocker, -L/2);
+  // Nose: Foil tapers down cleanly to meet the rocker
+  ptsRockerTop.add(0, model.noseRocker + tipThickness, -L/2);
   // Flatten center control points to create a fast "belly"
   ptsRockerTop.add(0, T/2, -L/4 + wpZ); 
   ptsRockerTop.add(0, T/2, wpZ);
   ptsRockerTop.add(0, T/2, L/4 + wpZ);
-  ptsRockerTop.add(0, T/2 + model.tailRocker, L/2);
+  // Tail: Foil tapers down to meet the tail rocker
+  ptsRockerTop.add(0, model.tailRocker + tipThickness, L/2);
   const crvRockerTop = rhino.NurbsCurve.create(false, 3, ptsRockerTop);
 
   const ptsRockerBottom = new rhino.Point3dList();
