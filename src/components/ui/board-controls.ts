@@ -39,11 +39,21 @@ export class BoardControls extends LitElement {
   }
 
   private _renderSlider(label: string, key: string, min: number, max: number, step: number, value: number, unit = "\"") {
+    let displayValue = `${value.toFixed(2)}${unit}`;
+    
+    // Surfboards conventionally display length in feet and inches (e.g., 5'10")
+    if (key === "length") {
+      const feet = Math.floor(value / 12);
+      const inches = value % 12;
+      const inchStr = inches % 1 === 0 ? inches.toString() : inches.toFixed(1);
+      displayValue = `${feet}'${inchStr}"`;
+    }
+
     return html`
       <div class="mb-4">
         <div class="flex justify-between items-center mb-1">
           <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">${label}</label>
-          <span class="text-xs font-mono bg-zinc-800 text-blue-400 px-1.5 py-0.5 rounded">${value.toFixed(2)}${unit}</span>
+          <span class="text-xs font-mono bg-zinc-800 text-blue-400 px-1.5 py-0.5 rounded">${displayValue}</span>
         </div>
         <input 
           type="range" 
