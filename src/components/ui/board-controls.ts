@@ -11,8 +11,8 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) tailWidth = 14.0;
   @property({ type: String }) tailType = "round";
   @property({ type: Number }) swallowDepth = 4.5;
-  @property({ type: Number }) bluntNoseLength = 2.5;
-  @property({ type: Number }) squashCornerRadius = 0.75;
+  @property({ type: Number }) noseTipWidth = 4.0;
+  @property({ type: Number }) tailBlockWidth = 6.0;
   @property({ type: String }) noseShape = "clipped";
   @property({ type: Number }) widePointOffset = 2.0;
   @property({ type: Number }) noseRocker = 5.2;
@@ -215,21 +215,22 @@ export class BoardControls extends LitElement {
           ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Torpedo"}, {value: "clipped", label: "Clipped (Tomo)"}], this.noseShape)}
           ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
-            ${this._renderSlider("Blunt Nose Length", "bluntNoseLength", 9.25, 15.0, 0.25, this.bluntNoseLength)}
+            ${this._renderSlider("Nose Tip Width", "noseTipWidth", 1.0, 10.0, 0.25, this.noseTipWidth)}
           ` : ''}
-          ${this._renderSlider("Nose Width (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth)}
+          ${this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth)}
           ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset)}
-          ${this._renderSlider("Tail Width (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth)}
-          ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType)}
+          ${this._renderSlider("Tail Fullness (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth)}
+          ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType)}
           
           ${this.tailType === 'swallow' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
             ${this._renderSlider("Swallow Depth", "swallowDepth", 2.0, 8.0, 0.25, this.swallowDepth)}
+            ${this._renderSlider("Tail Block Width", "tailBlockWidth", 4.0, 12.0, 0.25, this.tailBlockWidth)}
           ` : ''}
           
           ${this.tailType === 'squash' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
-            ${this._renderSlider("Squash Corner Radius", "squashCornerRadius", 0.1, 2.5, 0.1, this.squashCornerRadius)}
+            ${this._renderSlider("Tail Block Width", "tailBlockWidth", 2.0, 12.0, 0.25, this.tailBlockWidth)}
           ` : ''}
         `, true)}
 

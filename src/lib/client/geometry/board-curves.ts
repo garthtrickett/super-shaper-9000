@@ -45,80 +45,50 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   const cp: [number, number, number][] = [];
   const wpZ = -model.widePointOffset; 
 
-  // --- A. NOSE TIP ---
-  let zNoseTip = -L/2;
+  // --- A. NOSE TIP (-L/2 ALWAYS) ---
   if (model.noseShape === "clipped") {
-      zNoseTip = -L/2 + model.bluntNoseLength;
-      const cutRatio = model.bluntNoseLength / (L/2);
-      const wNoseTip = (model.noseWidth / 2) * (0.6 + cutRatio * 0.4); 
-      cp.push([wNoseTip, 0, zNoseTip]);
+      cp.push([model.noseTipWidth / 2, 0, -L/2]); 
   } else if (model.noseShape === "torpedo") {
-      zNoseTip = -L/2 + model.bluntNoseLength;
-      cp.push([0, 0, zNoseTip]);
+      cp.push([model.noseTipWidth / 4, 0, -L/2]); // Slight bluntness to prevent needle point
   } else {
-      cp.push([0, 0, zNoseTip]); // Pointy
+      cp.push([0, 0, -L/2]); // Pointy
   }
 
-  // --- B. NOSE CONTROL (Controls Fullness) ---
-  // Positioned exactly 40% of the way to the wide point for perfect curve tension
-  const zNoseCtrl = zNoseTip + (wpZ - zNoseTip) * 0.4;
+  // --- B. NOSE FULLNESS (N12 area) ---
+  const zNoseCtrl = -L/2 + (wpZ - (-L/2)) * 0.4;
   const wNoseCtrl = model.noseWidth / 2;
 
   if (model.noseShape === "torpedo") {
-      const zTorpedoCtrl = zNoseTip + Math.min(3.0, (wpZ - zNoseTip) * 0.2);
-      cp.push([wNoseCtrl * 1.15, 0, zTorpedoCtrl]); // Push out for bullet shape
-  } else if (model.noseShape === "pointy") {
+      cp.push([wNoseCtrl * 1.15, 0, zNoseCtrl]); // Bulge out for torpedo look
+  } else {
       cp.push([wNoseCtrl, 0, zNoseCtrl]);
-  } else if (model.noseShape === "clipped") {
-      cp.push([wNoseCtrl * 0.95, 0, zNoseCtrl]);
   }
 
   // --- C. WIDE POINT ---
-  let flatSpan = 0;
-  if (model.noseShape === "clipped" || model.noseShape === "torpedo") {
-      flatSpan = Math.min(8.0, L * 0.1);
-  }
-  if (flatSpan > 0) {
-      cp.push([model.width / 2, 0, wpZ - flatSpan]);
-      cp.push([model.width / 2, 0, wpZ + flatSpan]);
-  } else {
-      cp.push([model.width / 2, 0, wpZ]);
-  }
+  cp.push([model.width / 2, 0, wpZ]);
 
-  // --- D. TAIL CONTROL (Controls Tail Curve) ---
-  let zTailBase = L/2;
-  if (model.tailType === "squash") zTailBase = L/2 - model.squashCornerRadius;
-  if (model.tailType === "torpedo") zTailBase = L/2 - 3.5;
-
-  // Positioned dynamically between the wide point and tail base
-  const zTailCtrl = wpZ + (zTailBase - wpZ) * model.hipRatio;
+  // --- D. TAIL FULLNESS / HIP (T12 area) ---
+  const hipRatio = 0.6; // Pulls the control point back slightly for a nice hip
+  const zTailCtrl = wpZ + (L/2 - wpZ) * hipRatio;
   const wTailCtrl = model.tailWidth / 2;
 
   if (model.tailType === "round") {
-      cp.push([wTailCtrl * 1.05, 0, zTailCtrl]); // Slight bump before roundoff
+      cp.push([wTailCtrl * 1.05, 0, zTailCtrl]); // Slight hip bump before roundoff
   } else if (model.tailType === "pintail") {
       cp.push([wTailCtrl * 0.9, 0, zTailCtrl]); // Straighter taper
   } else {
       cp.push([wTailCtrl, 0, zTailCtrl]);
   }
 
-  // --- E. TAIL TIP & BLOCK SHAPING ---
-  // For blunt tails, we add points to let the NURBS engine organically wrap the corners
-  if (model.tailType === "squash") {
-      const wBlock = (model.tailWidth / 2) * 0.5;
-      cp.push([wBlock, 0, L/2 - model.squashCornerRadius]); // Corner Start
-      cp.push([wBlock * 0.5, 0, L/2]); // Wrap to stringer organically
-      cp.push([0, 0, L/2]);
-  } else if (model.tailType === "swallow") {
-      const wTip = (model.tailWidth / 2) * 0.65;
-      cp.push([wTip, 0, L/2]);
+  // --- E. TAIL TIP & BLOCK (L/2 ALWAYS) ---
+  if (model.tailType === "squash" || model.tailType === "swallow") {
+      cp.push([model.tailBlockWidth / 2, 0, L/2]);
   } else if (model.tailType === "torpedo") {
-      const wBlock = (model.tailWidth / 2) * 0.85;
-      cp.push([wBlock, 0, L/2 - 3.5]); 
-      cp.push([wBlock * 0.5, 0, L/2 - 1.0]); 
-      cp.push([0, 0, L/2]); 
+      // Symmetrical wrap-in mirroring the nose
+      cp.push([model.noseTipWidth / 4, 0, L/2]);
   } else if (model.tailType === "round") {
-      cp.push([model.tailWidth / 2 * 0.45, 0, L/2 - 3.0]);
+      // A rounded pin needs an anchor just before the tip to hold the curve wide
+      cp.push([model.tailWidth / 2 * 0.4, 0, L/2 - 2.5]);
       cp.push([0, 0, L/2]);
   } else if (model.tailType === "pintail") {
       cp.push([0, 0, L/2]);
@@ -190,10 +160,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // 4. MESH END-CAPS
   // ====================================================================
   
-  if (model.noseShape === "clipped") {
+  if (model.noseShape === "clipped" || model.noseShape === "torpedo") {
       // Draw a straight line from the stringer to the chopped tip corner to seal the mesh hole
-      const zNoseTip = -L/2 + model.bluntNoseLength;
-      outline.unshift([0, 0, zNoseTip]);
+      outline.unshift([0, 0, -L/2]);
   }
   
   if (model.tailType === "swallow") {
