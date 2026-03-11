@@ -84,41 +84,41 @@ export interface BoardModel {
 }
 
 export const INITIAL_STATE: BoardModel = {
-  // Tomo Hydronaut / Symmetrical Torpedo Specs
+  // 65kg Slab-Hunter Specs (Maximum Hold / Weak Paddler)
   length: 70, // 5'10"
-  width: 19.0, // Parallel rails
+  width: 18.75,
   thickness: 2.5,
-  volume: 32.5, 
-  noseWidth: 14.5, // N12: Wide and symmetrical
-  tailWidth: 14.5, // T12: Symmetrical to nose
-  noseShape: "torpedo",
-  tailType: "torpedo",
-  swallowDepth: 4.5, // Used only if tailType is swallow
-  squashCornerRadius: 0.75, // Used only if tailType is squash
-  widePointOffset: 0.0, // Dead center for perfect symmetry
-  noseRocker: 4.5, // Flatter entry
-  tailRocker: 2.0, // Continuous curve
-  noseThickness: 1.5, // Balanced foil
-  tailThickness: 1.5, // Balanced foil
-  rockerFlatSpotLength: 24.0, // Huge flat spot for paddle speed
-  deckDome: 0.65,
-  apexRatio: 0.35, // Forgiving apex
-  railFullness: 0.70, // Boxier rails to hold volume
-  hardEdgeLength: 18.0, // Sharp edge starts ahead of fins
-  veeDepth: 0.15, 
-  concaveDepth: 0.25, 
-  channelDepth: 0.1875, 
-  channelLength: 18.0, 
-  bottomContour: "single_to_double", // Standard high performance contour
+  volume: 30.5, 
+  noseWidth: 14.0, // N12: Wide enough to paddle, but clipped
+  tailWidth: 13.5, // T12: Ultra-narrow rounded pin for hold
+  noseShape: "clipped",
+  tailType: "round",
+  swallowDepth: 4.5,
+  squashCornerRadius: 0.75,
+  widePointOffset: 2.0, // 2" Forward of center for paddle engine
+  noseRocker: 5.2, // Slab Entry flip
+  tailRocker: 1.6, // Flat exit for paddle speed
+  noseThickness: 1.45,
+  tailThickness: 1.35,
+  rockerFlatSpotLength: 20.0, // Long flat belly under chest
+  deckDome: 0.65, // Slight dome to taper the rails
+  apexRatio: 0.30, // Low apex for knife hold
+  railFullness: 0.60, // Pinched, tapered rails for 65kg
+  hardEdgeLength: 20.0, // Sharp edge starts ahead of fins
+  veeDepth: 0.15, // Entry vee to split water
+  concaveDepth: 0.25, // Single concave engine
+  channelDepth: 0.125, // 1/8" deep channels for monorail tracking
+  channelLength: 12.0, // Running out the last 12" of the tail
+  bottomContour: "vee_to_quad_channels",
   finSetup: "quad",
   frontFinZ: 11.0, 
   frontFinX: 1.25, 
-  rearFinZ: 5.5, 
-  rearFinX: 1.75, 
+  rearFinZ: 6.0, // Clustered close to fronts
+  rearFinX: 1.5, // Pulled in slightly for tracking
   toeAngle: 3.0, 
   cantAngle: 6.0, 
-  coreMaterial: "eps", // Tomo boards are usually EPS
-  glassingSchedule: "standard", 
+  coreMaterial: "pu", // High-Density PU
+  glassingSchedule: "heavy", // 6+4/6oz to add momentum
 };
 
 export type BoardAction =
