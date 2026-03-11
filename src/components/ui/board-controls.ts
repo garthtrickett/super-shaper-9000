@@ -11,6 +11,7 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) tailWidth = 14.0;
   @property({ type: String }) tailType = "round";
   @property({ type: Number }) swallowDepth = 4.5;
+  @property({ type: Number }) bluntNoseLength = 2.5;
   @property({ type: Number }) squashCornerRadius = 0.75;
   @property({ type: String }) noseShape = "clipped";
   @property({ type: Number }) widePointOffset = 2.0;
@@ -212,6 +213,10 @@ export class BoardControls extends LitElement {
 
         ${this._renderAccordion("Outline & Tail", html`
           ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Torpedo"}, {value: "clipped", label: "Clipped (Tomo)"}], this.noseShape)}
+          ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
+            <div class="h-px bg-zinc-800 my-4"></div>
+            ${this._renderSlider("Blunt Nose Length", "bluntNoseLength", 0.5, 11.0, 0.25, this.bluntNoseLength)}
+          ` : ''}
           ${this._renderSlider("Nose Width (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth)}
           ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset)}
           ${this._renderSlider("Tail Width (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth)}

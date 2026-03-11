@@ -19,6 +19,7 @@ export const BoardModelSchema = S.Struct({
   noseShape: S.Literal("pointy", "torpedo", "clipped"),
   tailType: S.Literal("squash", "pintail", "swallow", "round", "torpedo"),
   swallowDepth: S.Number,
+  bluntNoseLength: S.Number,
   squashCornerRadius: S.Number,
   widePointOffset: S.Number,
   noseRocker: S.Number,
@@ -56,6 +57,7 @@ export interface BoardModel {
   noseShape: NoseShape;
   tailType: TailType;
   swallowDepth: number;
+  bluntNoseLength: number;
   squashCornerRadius: number;
   widePointOffset: number;
   noseRocker: number;
@@ -94,6 +96,7 @@ export const INITIAL_STATE: BoardModel = {
   noseShape: "clipped",
   tailType: "round",
   swallowDepth: 4.5,
+  bluntNoseLength: 2.5,
   squashCornerRadius: 0.75,
   widePointOffset: 2.0, // 2" Forward of center for paddle engine
   noseRocker: 5.2, // Slab Entry flip

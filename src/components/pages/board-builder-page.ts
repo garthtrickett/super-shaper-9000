@@ -99,6 +99,7 @@ export class BoardBuilderPage extends LitElement {
           .noseShape=${state.noseShape}
           .tailType=${state.tailType}
           .swallowDepth=${state.swallowDepth}
+          .bluntNoseLength=${state.bluntNoseLength}
           .squashCornerRadius=${state.squashCornerRadius}
           .widePointOffset=${state.widePointOffset}
           .noseRocker=${state.noseRocker}

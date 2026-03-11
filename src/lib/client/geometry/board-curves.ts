@@ -59,11 +59,11 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   let noseTailW = 0;
 
   if (model.noseShape === "torpedo") {
-      noseCornerZ = -L/2 + 3.5;
+      noseCornerZ = -L/2 + Math.min(model.bluntNoseLength, 11.5);
       noseTailW = model.noseWidth / 2 * 0.85;
       ptsOutline.add(noseTailW, 0, noseCornerZ);
   } else if (model.noseShape === "clipped") {
-      noseCornerZ = -L/2 + 2.0;
+      noseCornerZ = -L/2 + Math.min(model.bluntNoseLength, 11.5);
       noseTailW = model.noseWidth / 2 * 0.75;
       ptsOutline.add(noseTailW, 0, noseCornerZ);
   } else {
