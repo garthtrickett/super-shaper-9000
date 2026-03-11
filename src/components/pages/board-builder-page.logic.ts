@@ -79,6 +79,8 @@ export const handleAction = (
     if (
       action.type === "UPDATE_NUMBER" ||
       action.type === "UPDATE_STRING" ||
+      action.type === "UPDATE_DIMENSION" ||
+      action.type === "UPDATE_TAIL" ||
       action.type === "TRIGGER_COMPUTE"
     ) {
       if (computeFiber) {
