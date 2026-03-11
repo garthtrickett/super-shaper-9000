@@ -162,8 +162,20 @@ export class BoardViewport extends LitElement {
                 const topY = getRockerY(zInches, true);
                 const bottomY = getRockerY(zInches, false);
                 const thickness = topY - bottomY;
-                const railApexRatio = 0.35; // Rails tucked under slightly
-                const apexY = bottomY + thickness * railApexRatio;
+                
+                // Variable Rail Apex
+                const minZ = curves.outline[0][2];
+                const maxZ = curves.outline[curves.outline.length-1][2];
+                const nz = (zInches - minZ) / (maxZ - minZ);
+                
+                let dynamicRailApexRatio = 0.4; // Soft tucked near nose
+                if (nz > 0.6) {
+                    const tailFactor = (nz - 0.6) / 0.4;
+                    // Drops aggressively to the bottom edge (0.02) near tail for release
+                    dynamicRailApexRatio = 0.4 - 0.38 * Math.pow(tailFactor, 2);
+                }
+                
+                const apexY = bottomY + thickness * dynamicRailApexRatio;
                 vertices[i*3+1] = apexY * scale;
             } else {
                 vertices[i*3+1] = p[1] * scale;
@@ -198,21 +210,24 @@ export class BoardViewport extends LitElement {
         const segmentsZ = curves.outline.length;
         const segmentsRadial = 36;
         
-        const vertices =[];
+        const vertices = [];
         const indices = [];
         const uvs =[];
         
         // Shaper specific tuning parameters
-        const railApexRatio = 0.35; // Rails tucked under slightly
         const railCurve = 0.75; // Boxy rails
         const deckCurve = this.boardState.deckDome; // Dynamic deck dome from slider
         const bottomCurve = 0.5; // Flattish bottom
-        const concaveDepth = 0.18; // Inches of single concave
+
+        const minZ = curves.outline[0][2];
+        const maxZ = curves.outline[segmentsZ-1][2];
+        const totalZ = maxZ - minZ;
 
         for (let i = 0; i < segmentsZ; i++) {
             const p = curves.outline[i];
             const halfWidth = p[0];
             const zInches = p[2];
+            const nz = (zInches - minZ) / totalZ; // 0 (Nose) to 1 (Tail)
 
             let topY = getRockerY(zInches, true);
             let botY = getRockerY(zInches, false);
@@ -223,7 +238,24 @@ export class BoardViewport extends LitElement {
             }
 
             const thickness = topY - botY;
-            const apexY = botY + thickness * railApexRatio;
+            
+            // Variable Rail Apex
+            let dynamicRailApexRatio = 0.4; // Soft tucked near nose
+            if (nz > 0.6) {
+                const tailFactor = (nz - 0.6) / 0.4;
+                // Drops aggressively to the bottom edge (0.02) near tail
+                dynamicRailApexRatio = 0.4 - 0.38 * Math.pow(tailFactor, 2);
+            }
+            const apexY = botY + thickness * dynamicRailApexRatio;
+
+            // --- Bottom Contour Z-Blends (Calculated once per cross-section) ---
+            const blendVee = Math.max(0, 1 - nz / 0.3);
+            const blendConcave = nz > 0.3 && nz < 0.7 ? (1 - Math.abs(nz - 0.5) / 0.2) : 0;
+            const blendChannels = nz > 0.7 && nz < 1.0 ? Math.sin((nz - 0.7) / 0.3 * Math.PI) : 0;
+            
+            const tailDist = Math.max(0, maxZ - zInches);
+            const noseDist = Math.max(0, zInches - minZ);
+            const fadeTailNose = Math.min(1, tailDist / 12) * Math.min(1, noseDist / 12);
 
             for (let j = 0; j <= segmentsRadial; j++) {
                 const angle = (j / segmentsRadial) * Math.PI * 2;
@@ -245,18 +277,36 @@ export class BoardViewport extends LitElement {
                     // Shape the Bottom and Rail Tuck
                     py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
                     
-                    // Apply Single Concave (peaks at stringer, fades to rail)
                     if (halfWidth > 0.1) {
                         const nx = px / halfWidth;
-                        const concave = concaveDepth * (1 - nx * nx);
+                        const abs_nx = Math.abs(nx);
+                        let contourOffset = 0;
                         
-                        // Fade concave out at the nose and tail tips (last 12 inches)
-                        const tailDist = Math.max(0, curves.outline[segmentsZ-1][2] - zInches);
-                        const noseDist = Math.max(0, zInches - curves.outline[0][2]);
-                        const tailFade = Math.min(1, tailDist / 12);
-                        const noseFade = Math.min(1, noseDist / 12);
-                        
-                        py += concave * tailFade * noseFade;
+                        if (this.boardState.bottomContour === "vee_to_quad_channels") {
+                            // Front 30%: Vee
+                            const veeOffset = 0.25 * abs_nx * blendVee;
+
+                            // Middle 40%: Single Concave
+                            const concaveOffset = 0.25 * (1 - nx * nx) * blendConcave;
+
+                            // Back 30%: Quad Channels (4 distinct waves)
+                            let channelProfile = 0;
+                            if (abs_nx >= 0.2 && abs_nx <= 0.8) {
+                                const u = (abs_nx - 0.2) / 0.6;
+                                channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
+                            }
+                            const channelOffset = 0.125 * channelProfile * blendChannels;
+
+                            contourOffset = veeOffset + concaveOffset + channelOffset;
+                        } else if (this.boardState.bottomContour === "single_to_double") {
+                            const single = 0.2 * (1 - nx * nx);
+                            const double = 0.15 * Math.pow(Math.sin(abs_nx * Math.PI), 2);
+                            contourOffset = (single * (1 - nz) + double * nz) * fadeTailNose;
+                        } else if (this.boardState.bottomContour === "single") {
+                            contourOffset = 0.18 * (1 - nx * nx) * fadeTailNose;
+                        }
+
+                        py += contourOffset;
                     }
                 }
 
