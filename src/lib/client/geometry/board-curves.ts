@@ -59,8 +59,8 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   if (model.noseShape === "torpedo") {
       // Rounded, full "bullet" or "torpedo" nose
       ptsOutline.add(0, 0, -L/2);
-      // Force tangent perpendicular to stringer at the tip for a smooth rounded nose
-      ptsOutline.add(W/2 * 0.45, 0, -L/2); 
+      // Progress slightly in Z to ensure smooth mesh generation and prevent interpolation errors (staggering)
+      ptsOutline.add(W/2 * 0.6, 0, -L/2 + 2.0); 
       ptsOutline.add(W/2 * 0.85, 0, -L/4 + wpZ/2);
   } else {
       // Standard Pointy Nose
