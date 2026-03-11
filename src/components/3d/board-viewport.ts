@@ -512,6 +512,80 @@ export class BoardViewport extends LitElement {
             return 0;
         };
 
+        const getBottomY = (xInches: number, zInches: number) => {
+            const minZ = curves.outline[0][2];
+            const maxZ = curves.outline[curves.outline.length-1][2];
+            const totalZ = maxZ - minZ;
+            const nz = (zInches - minZ) / totalZ;
+            
+            const tailDist = Math.max(0, maxZ - zInches);
+            const noseDist = Math.max(0, zInches - minZ);
+
+            let topY = getRockerY(zInches, true);
+            let botY = getRockerY(zInches, false);
+            if (topY - botY < 0.01) topY = botY + 0.01;
+
+            const thickness = topY - botY;
+            const dynamicRailApexRatio = getApexRatio(zInches);
+            const apexY = botY + thickness * dynamicRailApexRatio;
+
+            const halfWidth = getOutlineWidthAtZ(zInches);
+            if (halfWidth <= 0.001) return botY;
+
+            let nx = Math.abs(xInches) / halfWidth;
+            if (nx > 1) nx = 1;
+
+            const railCurve = railFullness;
+            const abs_cx = Math.pow(nx, 1 / railCurve);
+            const clamped_cx = Math.min(1, abs_cx);
+            const abs_cy = Math.sqrt(1 - clamped_cx * clamped_cx);
+            
+            const bottomCurve = 0.5;
+            let py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
+
+            const smoothStep = (edge0: number, edge1: number, x: number) => {
+                const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+                return t * t * (3 - 2 * t);
+            };
+            const smoothFade = (dist: number, fadeLength: number) => {
+                if (dist >= fadeLength) return 1;
+                if (dist <= 0) return 0;
+                const t = dist / fadeLength;
+                return t * t * (3 - 2 * t);
+            };
+
+            const blendVee = 1 - smoothStep(0.05, 0.4, nz);
+            const blendConcave = smoothStep(0.15, 0.3, nz);
+            let blendChannels = 0;
+            if (tailDist <= channelLength + 6.0) {
+                blendChannels = 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist);
+            }
+            const fadeTailNose = smoothFade(tailDist, 12) * smoothFade(noseDist, 18);
+
+            let contourOffset = 0;
+            if (bottomContour === "vee_to_quad_channels") {
+                const veeOffset = veeDepth * nx * blendVee;
+                const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
+                let channelProfile = 0;
+                if (nx >= 0.2 && nx <= 0.8) {
+                    const u = (nx - 0.2) / 0.6;
+                    channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
+                }
+                const channelOffset = channelDepth * channelProfile * blendChannels;
+                contourOffset = (veeOffset + concaveOffset + channelOffset) * fadeTailNose;
+            } else if (bottomContour === "single_to_double") {
+                const single = concaveDepth * (1 - nx * nx);
+                const double = concaveDepth * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
+                contourOffset = (single * (1 - nz) + double * nz) * fadeTailNose;
+            } else if (bottomContour === "single") {
+                contourOffset = concaveDepth * (1 - nx * nx) * fadeTailNose;
+            }
+
+            contourOffset *= abs_cy;
+            
+            return py + contourOffset;
+        };
+
         const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
             // 1. Create the perfectly oriented local fin mesh
             const finMesh = createFinMesh(isSmall);
@@ -524,19 +598,36 @@ export class BoardViewport extends LitElement {
             const zLoc = (this.boardState!.length / 2) - zFromTail;
             const halfWidth = getOutlineWidthAtZ(zLoc);
             const xPos = isCenter ? 0 : (halfWidth - railOffset);
-            const yPos = getRockerY(zLoc, false);
+            const actualX = isRight ? xPos : -xPos;
+            const yPos = getBottomY(actualX, zLoc);
 
-            finContainer.position.set(isRight ? xPos * scale : -xPos * scale, yPos * scale, zLoc * scale);
+            finContainer.position.set(actualX * scale, yPos * scale, zLoc * scale);
             
-            // 4. Apply Toe and Cant to the container
+            // 4. Align to surface normal to perfectly flush-mount the base
+            const delta = 0.5;
+            const pC = new THREE.Vector3(actualX, yPos, zLoc);
+            const pF = new THREE.Vector3(actualX, getBottomY(actualX, zLoc - delta), zLoc - delta);
+            const pR = new THREE.Vector3(actualX + delta, getBottomY(actualX + delta, zLoc), zLoc);
+            
+            const vForward = new THREE.Vector3().subVectors(pF, pC).normalize();
+            const vRight = new THREE.Vector3().subVectors(pR, pC).normalize();
+            const vDown = new THREE.Vector3().crossVectors(vForward, vRight).normalize();
+            
+            const vUp = vDown.clone().negate();
+            const vBackward = vForward.clone().negate();
+            
+            const rotationMatrix = new THREE.Matrix4().makeBasis(vRight, vUp, vBackward);
+            finContainer.rotation.setFromRotationMatrix(rotationMatrix);
+            
+            // 5. Apply Toe and Cant locally to the perfectly flush container
             if (!isCenter) {
                 const cantRad = this.boardState!.cantAngle * Math.PI / 180;
                 const toeRad = this.boardState!.toeAngle * Math.PI / 180;
                 
                 // Cant: Tilt outward around Z axis (Tip moves away from stringer)
-                finContainer.rotation.z = isRight ? cantRad : -cantRad;
+                finContainer.rotateZ(isRight ? cantRad : -cantRad);
                 // Toe: Angle inward around Y axis (Leading edge points toward stringer)
-                finContainer.rotation.y = isRight ? toeRad : -toeRad;
+                finContainer.rotateY(isRight ? toeRad : -toeRad);
             }
             
             this.finGroup.add(finContainer);
