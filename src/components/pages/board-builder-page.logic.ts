@@ -18,6 +18,8 @@ export interface BoardModel {
   tailWidth: number; // T12 (12" from tail)
   noseShape: NoseShape;
   tailType: TailType;
+  swallowDepth: number;
+  squashCornerRadius: number;
   widePointOffset: number;
   noseRocker: number;
   tailRocker: number;
@@ -54,6 +56,8 @@ export const INITIAL_STATE: BoardModel = {
   tailWidth: 14.0, // T12: Ultra-narrow rounded pin for hold
   noseShape: "clipped",
   tailType: "round",
+  swallowDepth: 4.5, // Used only if tailType is swallow
+  squashCornerRadius: 0.75, // Used only if tailType is squash
   widePointOffset: 2.0, // 2" Forward of center for paddle engine
   noseRocker: 5.2, // Slightly lower entry
   tailRocker: 1.6, // Flat exit for paddle speed
