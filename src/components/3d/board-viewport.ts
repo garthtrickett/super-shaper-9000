@@ -233,11 +233,13 @@ export class BoardViewport extends LitElement {
     // Handle Solid Mesh Rendering
     while (this.solidGroup.children.length > 0) {
         const child = this.solidGroup.children[0] as THREE.Mesh;
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-            child.material.forEach(m => m.dispose());
-        } else {
-            child.material.dispose();
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+            if (Array.isArray(child.material)) {
+                child.material.forEach(m => m.dispose());
+            } else {
+                child.material.dispose();
+            }
         }
         this.solidGroup.remove(child);
     }
@@ -447,8 +449,8 @@ export class BoardViewport extends LitElement {
         // --- STEP 6: Fin Placement & Rendering ---
         while (this.finGroup.children.length > 0) {
             const child = this.finGroup.children[0] as THREE.Mesh;
-            child.geometry.dispose();
-            (child.material as THREE.Material).dispose();
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) (child.material as THREE.Material).dispose();
             this.finGroup.remove(child);
         }
 
@@ -599,8 +601,8 @@ export class BoardViewport extends LitElement {
 
     // 7. Groups & Grid
     this.scene.add(this.wireframeGroup);
-    this.solidGroup.add(this.finGroup);
     this.scene.add(this.solidGroup);
+    this.scene.add(this.finGroup);
 
     const gridHelper = new THREE.GridHelper(10, 10, 0x27272a, 0x18181b);
     gridHelper.position.y = -0.99; // Offset slightly above the shadow floor to prevent Z-fighting
