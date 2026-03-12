@@ -344,7 +344,8 @@ export class BoardViewport extends LitElement {
                             
                         if (bottomContour === "vee_to_quad_channels") {
                             // Precise Depth Injection
-                            const veeOffset = veeDepth * abs_nx * blendVee;
+                            // True Vee: Drops the stringer DOWN (-Y) into the water to split it
+                            const veeOffset = -veeDepth * (1 - abs_nx) * blendVee;
                             const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
 
                             let channelProfile = 0;
@@ -576,7 +577,8 @@ export class BoardViewport extends LitElement {
 
             let contourOffset = 0;
             if (bottomContour === "vee_to_quad_channels") {
-                const veeOffset = veeDepth * nx * blendVee;
+                // True Vee: Drops the stringer DOWN (-Y) into the water
+                const veeOffset = -veeDepth * (1 - nx) * blendVee;
                 const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
                 let channelProfile = 0;
                 if (nx >= 0.2 && nx <= 0.8) {
