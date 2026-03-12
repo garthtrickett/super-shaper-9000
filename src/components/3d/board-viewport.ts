@@ -617,18 +617,23 @@ export class BoardViewport extends LitElement {
 
             finContainer.position.set(actualX * scale, yPos * scale, zLoc * scale);
             
-            // 4. Align to surface normal to perfectly flush-mount the base
+            // 4. Align to Rocker (pitch) but ignore local Concave slope (roll) for absolute Cant control
             const delta = 0.5;
             const pC = new THREE.Vector3(actualX, yPos, zLoc);
+            
+            // Look forward along the rocker line to get the pitch
             const pF = new THREE.Vector3(actualX, getBottomY(actualX, zLoc - delta), zLoc - delta);
-            const pR = new THREE.Vector3(actualX + delta, getBottomY(actualX + delta, zLoc), zLoc);
-            
             const vForward = new THREE.Vector3().subVectors(pF, pC).normalize();
-            const vRight = new THREE.Vector3().subVectors(pR, pC).normalize();
-            const vDown = new THREE.Vector3().crossVectors(vForward, vRight).normalize();
-            
-            const vUp = vDown.clone().negate();
             const vBackward = vForward.clone().negate();
+            
+            // Assume "absolute up" relative to the board deck is the Y axis
+            const absoluteUp = new THREE.Vector3(0, 1, 0);
+            
+            // Calculate a horizontal Right vector (ignoring the concave's side-to-side slope)
+            const vRight = new THREE.Vector3().crossVectors(absoluteUp, vBackward).normalize();
+            
+            // Recalculate true local Up orthogonal to the Rocker pitch
+            const vUp = new THREE.Vector3().crossVectors(vBackward, vRight).normalize();
             
             const rotationMatrix = new THREE.Matrix4().makeBasis(vRight, vUp, vBackward);
             finContainer.rotation.setFromRotationMatrix(rotationMatrix);
