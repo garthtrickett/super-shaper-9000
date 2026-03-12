@@ -329,10 +329,13 @@ export class BoardViewport extends LitElement {
                 // Shape the X cross-section (rail fullness)
                 const px = signX * Math.pow(abs_cx, railCurve) * halfWidth;
 
+                // Pre-calculate top deck height at this cross-section to prevent self-intersection
+                const pyTop = apexY + Math.pow(abs_cy, currentDeckCurve) * (topY - apexY);
+
                 let py = 0;
                 if (cy >= 0) {
                     // Shape the Top Deck (using relaxed deck curve at tips)
-                    py = apexY + Math.pow(abs_cy, currentDeckCurve) * (topY - apexY);
+                    py = pyTop;
                 } else {
                     // Shape the Bottom and Rail Tuck
                     py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
@@ -372,6 +375,14 @@ export class BoardViewport extends LitElement {
                         contourOffset *= Math.abs(cy);
 
                         py += contourOffset;
+                    }
+
+                    // --- SELF-INTERSECTION FIX ---
+                    // If the concave is so deep that it pushes through the deck, 
+                    // clamp it just below the deck surface (leaving a minimum stringer thickness)
+                    const MIN_CORE_THICKNESS = 0.05;
+                    if (py > pyTop - MIN_CORE_THICKNESS) {
+                        py = pyTop - MIN_CORE_THICKNESS;
                     }
                 }
 
@@ -545,13 +556,16 @@ export class BoardViewport extends LitElement {
 
             // Step 3: Relax the Rail Pinch at the Poles (Fin Helper)
             let currentRailFullness = railFullness;
+            let currentDeckCurve = deckCurve;
             const relaxZone = 2.0;
             if (noseDist < relaxZone) {
                 const t = noseDist / relaxZone;
                 currentRailFullness = 1.0 - t * (1.0 - railFullness);
+                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
             } else if (tailDist < relaxZone) {
                 const t = tailDist / relaxZone;
                 currentRailFullness = 1.0 - t * (1.0 - railFullness);
+                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
             }
 
             const railCurve = currentRailFullness;
@@ -560,6 +574,7 @@ export class BoardViewport extends LitElement {
             const abs_cy = Math.sqrt(1 - clamped_cx * clamped_cx);
             
             const bottomCurve = 0.5;
+            const pyTop = apexY + Math.pow(abs_cy, currentDeckCurve) * (topY - apexY);
             let py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
 
             const smoothStep = (edge0: number, edge1: number, x: number) => {
@@ -597,7 +612,15 @@ export class BoardViewport extends LitElement {
 
             contourOffset *= abs_cy;
             
-            return py + contourOffset;
+            py += contourOffset;
+
+            // --- SELF-INTERSECTION FIX ---
+            const MIN_CORE_THICKNESS = 0.05;
+            if (py > pyTop - MIN_CORE_THICKNESS) {
+                py = pyTop - MIN_CORE_THICKNESS;
+            }
+            
+            return py;
         };
 
         const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
