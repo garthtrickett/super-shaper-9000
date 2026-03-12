@@ -271,20 +271,22 @@ export class BoardViewport extends LitElement {
             const noseDist = Math.max(0, zInches - minZ);
 
             // Step 3: Relax the Rail Pinch at the Poles
-            // Fade to a perfect ellipse (1.0) at the extreme tips to prevent the central crease artifact
-            let currentRailFullness = railFullness;
-            let currentDeckCurve = deckCurve;
+            // Fade to a perfect ellipse (exponent 1.0) at the extreme tips to prevent the central crease artifact
+            // Map UI "Rail Fullness" to math exponent: higher fullness = squarish Lamé curve (lower exponent)
+            const targetRailExp = 1.5 - railFullness; 
+            let railExp = targetRailExp;
+            let deckExp = deckCurve;
+            
             const relaxZone = 2.0; // Fade over 2 inches
             if (noseDist < relaxZone) {
                 const t = noseDist / relaxZone;
-                currentRailFullness = 1.0 - t * (1.0 - railFullness);
-                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
+                railExp = 1.0 - t * (1.0 - targetRailExp);
+                deckExp = 1.0 - t * (1.0 - deckCurve);
             } else if (tailDist < relaxZone) {
                 const t = tailDist / relaxZone;
-                currentRailFullness = 1.0 - t * (1.0 - railFullness);
-                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
+                railExp = 1.0 - t * (1.0 - targetRailExp);
+                deckExp = 1.0 - t * (1.0 - deckCurve);
             }
-            const railCurve = currentRailFullness;
 
             let topY = getRockerY(zInches, true);
             let botY = getRockerY(zInches, false);
@@ -327,10 +329,10 @@ export class BoardViewport extends LitElement {
                 const signX = cx < 0 ? -1 : 1;
 
                 // Shape the X cross-section (rail fullness)
-                const px = signX * Math.pow(abs_cx, railCurve) * halfWidth;
+                const px = signX * Math.pow(abs_cx, railExp) * halfWidth;
 
                 // Pre-calculate top deck height at this cross-section to prevent self-intersection
-                const pyTop = apexY + Math.pow(abs_cy, currentDeckCurve) * (topY - apexY);
+                const pyTop = apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
 
                 let py = 0;
                 if (cy >= 0) {
@@ -555,26 +557,27 @@ export class BoardViewport extends LitElement {
             if (nx > 1) nx = 1;
 
             // Step 3: Relax the Rail Pinch at the Poles (Fin Helper)
-            let currentRailFullness = railFullness;
-            let currentDeckCurve = deckCurve;
+            const targetRailExp = 1.5 - railFullness;
+            let railExp = targetRailExp;
+            let deckExp = deckCurve;
             const relaxZone = 2.0;
             if (noseDist < relaxZone) {
                 const t = noseDist / relaxZone;
-                currentRailFullness = 1.0 - t * (1.0 - railFullness);
-                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
+                railExp = 1.0 - t * (1.0 - targetRailExp);
+                deckExp = 1.0 - t * (1.0 - deckCurve);
             } else if (tailDist < relaxZone) {
                 const t = tailDist / relaxZone;
-                currentRailFullness = 1.0 - t * (1.0 - railFullness);
-                currentDeckCurve = 1.0 - t * (1.0 - deckCurve);
+                railExp = 1.0 - t * (1.0 - targetRailExp);
+                deckExp = 1.0 - t * (1.0 - deckCurve);
             }
 
-            const railCurve = currentRailFullness;
-            const abs_cx = Math.pow(nx, 1 / railCurve);
+            // Inverse Lamé calculation to find Y given X (nx)
+            const abs_cx = Math.pow(nx, 1 / railExp);
             const clamped_cx = Math.min(1, abs_cx);
             const abs_cy = Math.sqrt(1 - clamped_cx * clamped_cx);
             
             const bottomCurve = 0.5;
-            const pyTop = apexY + Math.pow(abs_cy, currentDeckCurve) * (topY - apexY);
+            const pyTop = apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
             let py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
 
             const smoothStep = (edge0: number, edge1: number, x: number) => {

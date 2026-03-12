@@ -134,7 +134,7 @@ export class BoardControls extends LitElement {
         const angle = (i / 40) * Math.PI * 2;
         const cosA = Math.cos(angle);
         const sinA = Math.sin(angle);
-        const px = Math.pow(Math.abs(cosA), this.railFullness) * (w / 2) * Math.sign(cosA);
+        const px = Math.pow(Math.abs(cosA), 1.5 - this.railFullness) * (w / 2) * Math.sign(cosA);
         
         let py = 0;
         if (sinA >= 0) {
@@ -248,7 +248,7 @@ export class BoardControls extends LitElement {
             ${this._renderSliceSVG("Hip", this.tailWidth, this.tailThickness, 0.05, this.hardEdgeLength >= 12)}
           </div>
           ${this._renderSlider("Rail Apex Height", "apexRatio", 0.2, 0.6, 0.02, this.apexRatio, "%")}
-          ${this._renderSlider("Rail Fullness (Pinch)", "railFullness", 0.5, 0.9, 0.05, this.railFullness, "")}
+          ${this._renderSlider("Rail Fullness", "railFullness", 0.5, 0.9, 0.05, this.railFullness, "")}
           ${this._renderSlider("Hard Edge Starts At", "hardEdgeLength", 0, 36.0, 1.0, this.hardEdgeLength)}
         `, true)}
 
