@@ -224,14 +224,9 @@ export class BoardControls extends LitElement {
           ${this._renderSlider("Tail Fullness (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth)}
           ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType)}
           
-          ${this.tailType === 'swallow' ? html`
+          ${this.tailType === 'swallow' || this.tailType === 'squash' || this.tailType === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
-            ${this._renderSlider("Swallow Depth", "swallowDepth", 2.0, 8.0, 0.25, this.swallowDepth)}
-            ${this._renderSlider("Tail Block Width", "tailBlockWidth", 4.0, 12.0, 0.25, this.tailBlockWidth)}
-          ` : ''}
-          
-          ${this.tailType === 'squash' ? html`
-            <div class="h-px bg-zinc-800 my-4"></div>
+            ${this.tailType === 'swallow' ? this._renderSlider("Swallow Depth", "swallowDepth", 2.0, 8.0, 0.25, this.swallowDepth) : ''}
             ${this._renderSlider("Tail Block Width", "tailBlockWidth", 2.0, 12.0, 0.25, this.tailBlockWidth)}
           ` : ''}
         `, true)}

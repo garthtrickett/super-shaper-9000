@@ -90,8 +90,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   if (model.tailType === "squash" || model.tailType === "swallow") {
       cp.push([model.tailBlockWidth / 2, 0, L/2]);
   } else if (model.tailType === "torpedo") {
-      // Symmetrical wrap-in mirroring the nose (rounded closure)
-      cp.push([model.noseTipWidth / 2, 0, L/2 - model.noseTipCurveZ]);
+      // Decoupled from the nose: uses its own Tail Block Width slider
+      // Uses a standard 2-inch blend length to smoothly wrap the rails into the tail block
+      cp.push([model.tailBlockWidth / 2, 0, L/2 - 2.0]);
       cp.push([0, 0, L/2]);
   } else if (model.tailType === "round") {
       // A rounded pin needs an anchor just before the tip to hold the curve wide
