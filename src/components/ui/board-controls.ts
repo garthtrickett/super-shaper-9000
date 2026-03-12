@@ -213,7 +213,7 @@ export class BoardControls extends LitElement {
         `, true)}
 
         ${this._renderAccordion("Outline & Tail", html`
-          ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Torpedo"}, {value: "clipped", label: "Clipped (Tomo)"}], this.noseShape)}
+          ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Beak"}, {value: "clipped", label: "Torpedo (Tomo)"}], this.noseShape)}
           ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
             ${this._renderSlider("Nose Tip Width", "noseTipWidth", 1.0, 10.0, 0.25, this.noseTipWidth)}

@@ -313,13 +313,9 @@ export class BoardViewport extends LitElement {
             }
             
             // Prevent sharp creases at the absolute tips
-            const smoothFade = (dist: number, fadeLength: number) => {
-                if (dist >= fadeLength) return 1;
-                if (dist <= 0) return 0;
-                const t = dist / fadeLength;
-                return t * t * (3 - 2 * t);
-            };
-            const fadeTailNose = smoothFade(tailDist, 12) * smoothFade(noseDist, 18);
+            // Fade out contours only if the board pinches to a sharp point (prevents mesh singularity spikes).
+            // If the nose/tail is wide (squash/clipped), the contour exits the block at full depth!
+            const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
 
             for (let j = 0; j <= segmentsRadial; j++) {
                 const angle = (j / segmentsRadial) * Math.PI * 2;
@@ -360,13 +356,13 @@ export class BoardViewport extends LitElement {
                             // Channels carve upwards (into the board)
                             const channelOffset = channelDepth * channelProfile * blendChannels;
 
-                            contourOffset = (veeOffset + concaveOffset + channelOffset) * fadeTailNose;
+                            contourOffset = (veeOffset + concaveOffset + channelOffset) * widthFade;
                         } else if (bottomContour === "single_to_double") {
                             const single = concaveDepth * (1 - nx * nx);
                             const double = concaveDepth * 0.8 * Math.pow(Math.sin(abs_nx * Math.PI), 2);
-                            contourOffset = (single * (1 - nz) + double * nz) * fadeTailNose;
+                            contourOffset = (single * (1 - nz) + double * nz) * widthFade;
                         } else if (bottomContour === "single") {
-                            contourOffset = concaveDepth * (1 - nx * nx) * fadeTailNose;
+                            contourOffset = concaveDepth * (1 - nx * nx) * widthFade;
                         }
 
                         // GUARANTEE MESH CONTINUITY AT APEX (cy = 0)
@@ -569,12 +565,6 @@ export class BoardViewport extends LitElement {
                 const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
                 return t * t * (3 - 2 * t);
             };
-            const smoothFade = (dist: number, fadeLength: number) => {
-                if (dist >= fadeLength) return 1;
-                if (dist <= 0) return 0;
-                const t = dist / fadeLength;
-                return t * t * (3 - 2 * t);
-            };
 
             const blendVee = 1 - smoothStep(0.05, 0.4, nz);
             const blendConcave = smoothStep(0.15, 0.3, nz);
@@ -582,7 +572,7 @@ export class BoardViewport extends LitElement {
             if (tailDist <= channelLength + 6.0) {
                 blendChannels = 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist);
             }
-            const fadeTailNose = smoothFade(tailDist, 12) * smoothFade(noseDist, 18);
+            const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
 
             let contourOffset = 0;
             if (bottomContour === "vee_to_quad_channels") {
@@ -594,13 +584,13 @@ export class BoardViewport extends LitElement {
                     channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
                 }
                 const channelOffset = channelDepth * channelProfile * blendChannels;
-                contourOffset = (veeOffset + concaveOffset + channelOffset) * fadeTailNose;
+                contourOffset = (veeOffset + concaveOffset + channelOffset) * widthFade;
             } else if (bottomContour === "single_to_double") {
                 const single = concaveDepth * (1 - nx * nx);
                 const double = concaveDepth * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
-                contourOffset = (single * (1 - nz) + double * nz) * fadeTailNose;
+                contourOffset = (single * (1 - nz) + double * nz) * widthFade;
             } else if (bottomContour === "single") {
-                contourOffset = concaveDepth * (1 - nx * nx) * fadeTailNose;
+                contourOffset = concaveDepth * (1 - nx * nx) * widthFade;
             }
 
             contourOffset *= abs_cy;
