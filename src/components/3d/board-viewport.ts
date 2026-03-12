@@ -617,13 +617,19 @@ export class BoardViewport extends LitElement {
 
             finContainer.position.set(actualX * scale, yPos * scale, zLoc * scale);
             
-            // 4. Align to Rocker (pitch) but ignore local Concave slope (roll) for absolute Cant control
+            // 4. Align to Rocker (pitch) but ignore local Concave/Channel slope for absolute Cant & Pitch control
+            // Real fin boxes are routed relative to the board's baseline rocker, not the steep local ramps of channels.
             const delta = 0.5;
             const pC = new THREE.Vector3(actualX, yPos, zLoc);
             
-            // Look forward along the rocker line to get the pitch
-            const pF = new THREE.Vector3(actualX, getBottomY(actualX, zLoc - delta), zLoc - delta);
-            const vForward = new THREE.Vector3().subVectors(pF, pC).normalize();
+            // Calculate pitch using the pure baseline Rocker, NOT getBottomY (which includes steep channel slopes)
+            const pitchYC = getRockerY(zLoc, false);
+            const pitchYF = getRockerY(zLoc - delta, false);
+            
+            const pRockerC = new THREE.Vector3(actualX, pitchYC, zLoc);
+            const pRockerF = new THREE.Vector3(actualX, pitchYF, zLoc - delta);
+            
+            const vForward = new THREE.Vector3().subVectors(pRockerF, pRockerC).normalize();
             const vBackward = vForward.clone().negate();
             
             // Assume "absolute up" relative to the board deck is the Y axis
