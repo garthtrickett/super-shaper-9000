@@ -338,11 +338,11 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
   for (let i = 0; i < segmentsZ; i++) {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
-    const tailDist = Math.max(0, maxZ - zInches);
+    // const tailDist = Math.max(0, maxZ - zInches);
 
     const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
     const { topY, botY, halfWidth } = profile;
-    const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
+    // const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
 
     let s0 = crossSections[0]!;
     let s1 = crossSections[crossSections.length - 1]!;

@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import { clientLog } from "../clientLog";
 import type { BoardModel, BezierCurveData, Point3D } from "../../../components/pages/board-builder-page.logic";
 import { generateBoardCurves, type BoardCurves } from "./board-curves";
 
@@ -88,8 +89,16 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
         const maxZSpan = P[2] - anchors[i - 1]![2];
         // Allow handle to extend up to 80% of the Z-span to prevent looping
         if (handleLen1 * dirZ > maxZSpan * 0.8) {
+            const oldLen = handleLen1;
             handleLen1 = (maxZSpan * 0.8) / dirZ;
+            if (i === anchors.length - 1) {
+                console.warn(`[fitBezierZ] Tail Handle Rescaled! dirZ: ${dirZ}, maxZSpan: ${maxZSpan}, oldLen: ${oldLen}, newLen: ${handleLen1}`);
+            }
         }
+    }
+
+    if (i === anchors.length - 1) {
+        console.log(`[fitBezierZ] Tail Math Dump`, { P, dirX, dirY, dirZ, handleLen1 });
     }
 
     if (i < anchors.length - 1 && dirZ > 0.0001) {
@@ -342,10 +351,23 @@ export const bakeToManual = (model: BoardModel): Effect.Effect<{
     break;
   }
   
+  const rockerTop = fitBezierZ(curves.rockerTop as Point3D[]);
+  const rockerBottom = fitBezierZ(curves.rockerBottom as Point3D[]);
+  const outline = fitBezierZ(cleanOutline as Point3D[]);
+  
+  yield* clientLog("debug", "[bakeToManual] Tail Conversion Diagnostics", {
+    parametricTailTop: curves.rockerTop.slice(-3),
+    bezierTailTopAnchor: rockerTop.controlPoints.slice(-1)[0],
+    bezierTailTopTangent1: rockerTop.tangents1.slice(-1)[0],
+    parametricTailBottom: curves.rockerBottom.slice(-3),
+    bezierTailBottomAnchor: rockerBottom.controlPoints.slice(-1)[0],
+    bezierTailBottomTangent1: rockerBottom.tangents1.slice(-1)[0],
+  });
+
   return {
-    outline: fitBezierZ(cleanOutline as Point3D[]),
-    rockerTop: fitBezierZ(curves.rockerTop as Point3D[]),
-    rockerBottom: fitBezierZ(curves.rockerBottom as Point3D[]),
+    outline,
+    rockerTop,
+    rockerBottom,
     crossSections: extractCrossSectionsSS9000(model, curves)
   };
 });

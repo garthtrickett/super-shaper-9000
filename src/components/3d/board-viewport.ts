@@ -123,7 +123,7 @@ export class BoardViewport extends LitElement {
       if (oldState) {
         let needsGeometryUpdate = false;
         let gizmoVisChanged = false;
-        const oldBoardState = oldState as BoardModel;
+        const oldBoardState = oldState;
          
         for (const key in this.boardState) {
           const k = key as keyof BoardModel;
