@@ -18,10 +18,10 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   if (segmentIdx >= numSegments) segmentIdx = numSegments - 1;
   const localT = scaledT - segmentIdx;
   
-  const P0 = bezier.controlPoints[segmentIdx]!;
-  const P1 = bezier.controlPoints[segmentIdx + 1]!;
-  const T0 = bezier.tangents2[segmentIdx]!;
-  const T1 = bezier.tangents1[segmentIdx + 1]!;
+  const P0 = bezier.controlPoints[segmentIdx] || ([0, 0, 0] as Point3D);
+  const P1 = bezier.controlPoints[segmentIdx + 1] || ([0, 0, 0] as Point3D);
+  const T0 = bezier.tangents2[segmentIdx] || ([0, 0, 0] as Point3D);
+  const T1 = bezier.tangents1[segmentIdx + 1] || ([0, 0, 0] as Point3D);
   
   const u = 1 - localT;
   const tt = localT * localT;
@@ -29,11 +29,11 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const uuu = uu * u;
   const ttt = tt * localT;
   
-  const p: Point3D = [0, 0, 0];
-  for (let i = 0; i < 3; i++) {
-    p[i] = uuu * P0[i] + 3 * uu * localT * T0[i] + 3 * u * tt * T1[i] + ttt * P1[i];
-  }
-  return p;
+  return [
+    uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0],
+    uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1],
+    uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2]
+  ];
 };
 
 const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): Point3D => {
