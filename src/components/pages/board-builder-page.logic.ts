@@ -130,8 +130,6 @@ export const INITIAL_STATE: BoardModel = {
 export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
-  | { type: "UPDATE_DIMENSION"; param?: any; dimension?: any; payload?: any; value?: any }
-  | { type: "UPDATE_TAIL"; tailType?: any; value?: any; param?: any; payload?: any }
   | { type: "UPDATE_VOLUME"; volume: number }
   | { type: "LOAD_DESIGN"; state: BoardModel };
 
@@ -139,17 +137,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
     case "UPDATE_NUMBER":
     case "UPDATE_STRING": {
-      return { ...state, [action.param]: action.value };
-    }
-    case "UPDATE_DIMENSION": {
-      const payload = (action as any).payload || action;
-      const p = payload.param || payload.dimension;
-      return { ...state, [p]: payload.value };
-    }
-    case "UPDATE_TAIL": {
-      const payload = (action as any).payload || action;
-      const t = payload.tailType || payload.value || payload.param;
-      return { ...state, tailType: t };
+      return { ...state, [action.param]: action.value } as unknown as BoardModel;
     }
     case "UPDATE_VOLUME":
       return { ...state, volume: action.volume };
@@ -162,8 +150,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
 
 export const handleAction = (
   action: BoardAction,
-  state: BoardModel,
-  dispatch: (a: BoardAction) => void,
+  _state: BoardModel,
+  _dispatch: (a: BoardAction) => void,
 ): Effect.Effect<void, never, FullClientContext> =>
   Effect.gen(function* () {
     yield* clientLog("debug", "[BoardBuilder] State Action processed", action);

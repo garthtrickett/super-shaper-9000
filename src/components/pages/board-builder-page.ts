@@ -56,7 +56,7 @@ export class BoardBuilderPage extends LitElement {
       } else {
         this.importError = "Invalid design parameters provided. Please check the format.";
       }
-    } catch (e) {
+    } catch (_e) {
       this.importError = "Invalid JSON format.";
     }
   }
@@ -71,7 +71,7 @@ export class BoardBuilderPage extends LitElement {
           <textarea readonly class="w-full h-64 bg-zinc-950 border border-zinc-800 text-zinc-300 p-3 rounded text-xs font-mono mb-4 focus:outline-none focus:border-blue-500 custom-scrollbar">${jsonStr}</textarea>
           <div class="flex justify-end gap-3">
             <button @click=${() => this.showExportModal = false} class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-sm font-bold text-zinc-300 rounded transition-colors cursor-pointer">Close</button>
-            <button @click=${() => { navigator.clipboard.writeText(jsonStr); this.showExportModal = false; }} class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">Copy to Clipboard</button>
+            <button @click=${() => { void navigator.clipboard.writeText(jsonStr); this.showExportModal = false; }} class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">Copy to Clipboard</button>
           </div>
         </div>
       </div>

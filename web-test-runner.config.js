@@ -9,8 +9,9 @@ export default {
   plugins:[
     {
       name: 'vite-wasm-url-mock',
+      /** @param {{ path: string }} context */
       transform(context) {
-        if (context.path.endsWith('.wasm')) {
+        if (context.path && context.path.endsWith('.wasm')) {
           return { body: 'export default "/mock-wasm-url.wasm";', type: 'js' };
         }
       }

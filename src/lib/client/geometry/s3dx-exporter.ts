@@ -205,7 +205,7 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
         return apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
       }
       
-      let py = apexY - Math.pow(abs_cy, 0.5) * (apexY - botY);
+      const py = apexY - Math.pow(abs_cy, 0.5) * (apexY - botY);
       
       let offset = 0;
       if (model.bottomContour === "vee_to_quad_channels") {

@@ -104,15 +104,16 @@ export class BoardViewport extends LitElement {
 
   override updated(changedProperties: PropertyValues<this>) {
     if (changedProperties.has("boardState") && this.boardState) {
-      const oldState = changedProperties.get("boardState") as BoardModel | undefined;
+      const oldState = changedProperties.get("boardState");
       
       // Prevent infinite loops and lag: If ONLY the volume changed, do not rebuild the 3D mesh.
       if (oldState) {
         let onlyVolumeChanged = true;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const oldBoardState = oldState as BoardModel;
+         
         for (const key in this.boardState) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if (key !== "volume" && (this.boardState as any)[key] !== (oldState as any)[key]) {
+          const k = key as keyof BoardModel;
+          if (k !== "volume" && this.boardState[k] !== oldBoardState[k]) {
             onlyVolumeChanged = false;
             break;
           }
@@ -208,9 +209,6 @@ export class BoardViewport extends LitElement {
                 const bottomY = getRockerY(zInches, false);
                 const thickness = topY - bottomY;
                 
-                const minZ = curves.outline[0]![2];
-                const maxZ = curves.outline[curves.outline.length-1]![2];
-                
                 const dynamicRailApexRatio = getApexRatio(zInches);
                 const apexY = bottomY + thickness * dynamicRailApexRatio;
                 vertices[i*3+1] = apexY * scale;
@@ -288,8 +286,8 @@ export class BoardViewport extends LitElement {
                 deckExp = 1.0 - t * (1.0 - deckCurve);
             }
 
-            let topY = getRockerY(zInches, true);
-            let botY = getRockerY(zInches, false);
+            const topY = getRockerY(zInches, true);
+            const botY = getRockerY(zInches, false);
             
             // Allow perfect 0 thickness at poles to merge vertices cleanly into one point
             const thickness = Math.max(0, topY - botY);
@@ -543,8 +541,8 @@ export class BoardViewport extends LitElement {
             const tailDist = Math.max(0, maxZ - zInches);
             const noseDist = Math.max(0, zInches - minZ);
 
-            let topY = getRockerY(zInches, true);
-            let botY = getRockerY(zInches, false);
+            const topY = getRockerY(zInches, true);
+            const botY = getRockerY(zInches, false);
             
             const thickness = Math.max(0, topY - botY);
             const dynamicRailApexRatio = getApexRatio(zInches);
@@ -646,7 +644,6 @@ export class BoardViewport extends LitElement {
             // 4. Align to Rocker (pitch) but ignore local Concave/Channel slope for absolute Cant & Pitch control
             // Real fin boxes are routed relative to the board's baseline rocker, not the steep local ramps of channels.
             const delta = 0.5;
-            const pC = new THREE.Vector3(actualX, yPos, zLoc);
             
             // Calculate pitch using the pure baseline Rocker, NOT getBottomY (which includes steep channel slopes)
             const pitchYC = getRockerY(zLoc, false);
