@@ -109,7 +109,7 @@ export class BoardViewport extends LitElement {
       // Prevent infinite loops and lag: If ONLY the volume changed, do not rebuild the 3D mesh.
       if (oldState) {
         let onlyVolumeChanged = true;
-        const oldBoardState = oldState as BoardModel;
+        const oldBoardState = oldState;
          
         for (const key in this.boardState) {
           const k = key as keyof BoardModel;

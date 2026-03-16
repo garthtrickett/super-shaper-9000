@@ -56,7 +56,7 @@ export class BoardBuilderPage extends LitElement {
       } else {
         this.importError = "Invalid design parameters provided. Please check the format.";
       }
-    } catch (_e) {
+    } catch {
       this.importError = "Invalid JSON format.";
     }
   }
