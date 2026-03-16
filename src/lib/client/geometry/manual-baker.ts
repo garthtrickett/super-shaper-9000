@@ -82,8 +82,9 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
         P[1] - dirY * handleLen,
         P[2] - dirZ * handleLen
       ];
-      // CRITICAL: Force monotonic Z so `evaluateBezierAtZ` binary search doesn't fail
-      t1[2] = Math.max(prev[2] + 0.001, Math.min(P[2], t1[2]));
+      // CRITICAL: Force monotonic Z so `evaluateBezierAtZ` binary search doesn't fail.
+      // Do not use static offsets (like 0.001), as points can be closer than that at the tail!
+      t1[2] = Math.max(prev[2], Math.min(P[2], t1[2]));
       tangents1.push(t1);
     }
 
@@ -99,8 +100,8 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
         P[1] + dirY * handleLen,
         P[2] + dirZ * handleLen
       ];
-      // CRITICAL: Force monotonic Z
-      t2[2] = Math.max(P[2], Math.min(next[2] - 0.001, t2[2]));
+      // CRITICAL: Force monotonic Z strictly inside bounds
+      t2[2] = Math.max(P[2], Math.min(next[2], t2[2]));
       tangents2.push(t2);
     }
   }

@@ -391,19 +391,23 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const sliceBot = s0.controlPoints[0]![1] + (s1.controlPoints[0]![1] - s0.controlPoints[0]![1]) * lerpFactor;
 
       const normX = rawX / sliceWidth;
-      const normY = (rawY - sliceBot) / (sliceTop - sliceBot || 1);
+            
+      // Safely normalize Y relative to the rocker without exploding if thickness approaches 0
+      const sliceThickness = sliceTop - sliceBot;
+      const currentThickness = topY - botY;
+            
+      let py = botY;
+      if (Math.abs(sliceThickness) > 0.0001) {
+          const normY = (rawY - sliceBot) / sliceThickness;
+          py = botY + normY * currentThickness;
+      } else {
+          py = botY + currentThickness / 2;
+      }
 
       const px = (isRightSide ? 1 : -1) * normX * halfWidth;
-      let py = botY + normY * (topY - botY);
 
-      // Step 5: Graceful Contour Compositing on bottom surface
-      if (j > 18 && j < 36 && halfWidth > 0.001) {
-        const nx = Math.abs(px / halfWidth);
-        let contourOffset = calculateBottomContourOffset(model, nz, tailDist, nx, widthFade);
-        const angle = (j / segmentsRadial) * Math.PI * 2;
-        contourOffset *= Math.abs(Math.sin(angle));
-        py += contourOffset;
-      }
+      // Note: We do NOT re-apply `calculateBottomContourOffset` here in manual mode!
+      // `extractCrossSectionsSS9000` already baked the bottom contours into the generated slices.
 
       vertices.push(px * scale, py * scale, zInches * scale);
       uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
