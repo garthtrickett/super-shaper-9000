@@ -161,6 +161,15 @@ export class BoardBuilderPage extends LitElement {
           class="flex-1 w-full h-full relative z-0"
           .boardState=${state}
           @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.ctrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
+          @gizmo-dragged=${(e: CustomEvent<{ userData: { type: 'anchor'|'tangent1'|'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+            this.ctrl.propose({
+              type: "UPDATE_MANUAL_NODE_POSITION",
+              curve: e.detail.userData.curve,
+              nodeType: e.detail.userData.type,
+              index: e.detail.userData.index,
+              position: e.detail.position
+            });
+          }}
         ></board-viewport>
       </div>
     `;

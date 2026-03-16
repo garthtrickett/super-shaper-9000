@@ -185,6 +185,48 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
     case "CONVERT_TO_MANUAL":
       // Handled asynchronously in the handleAction effect
       return state;
+    case "UPDATE_MANUAL_NODE_POSITION": {
+      if (state.editMode !== "manual") return state;
+      const { curve, index, nodeType, position } = action;
+      
+      let targetCurve: BezierCurveData | undefined;
+      let crossSectionIdx = -1;
+
+      if (curve === "outline") targetCurve = state.manualOutline;
+      else if (curve === "rockerTop") targetCurve = state.manualRockerTop;
+      else if (curve === "rockerBottom") targetCurve = state.manualRockerBottom;
+      else if (curve.startsWith("crossSection_")) {
+        crossSectionIdx = parseInt(curve.split("_")[1]!, 10);
+        targetCurve = state.manualCrossSections?.[crossSectionIdx];
+      }
+
+      if (!targetCurve) return state;
+
+      // Deep copy the curve to maintain immutability
+      const updatedCurve: BezierCurveData = {
+        controlPoints: [...targetCurve.controlPoints],
+        tangents1: [...targetCurve.tangents1],
+        tangents2: [...targetCurve.tangents2],
+      };
+
+      if (nodeType === "anchor" && updatedCurve.controlPoints[index]) {
+        updatedCurve.controlPoints[index] = [...position];
+      } else if (nodeType === "tangent1" && updatedCurve.tangents1[index]) {
+        updatedCurve.tangents1[index] = [...position];
+      } else if (nodeType === "tangent2" && updatedCurve.tangents2[index]) {
+        updatedCurve.tangents2[index] = [...position];
+      }
+
+      if (curve === "outline") return { ...state, manualOutline: updatedCurve };
+      if (curve === "rockerTop") return { ...state, manualRockerTop: updatedCurve };
+      if (curve === "rockerBottom") return { ...state, manualRockerBottom: updatedCurve };
+      if (crossSectionIdx !== -1 && state.manualCrossSections) {
+        const newCrossSections = [...state.manualCrossSections];
+        newCrossSections[crossSectionIdx] = updatedCurve;
+        return { ...state, manualCrossSections: newCrossSections };
+      }
+      return state;
+    }
     default:
       return state;
   }
