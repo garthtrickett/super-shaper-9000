@@ -6,6 +6,7 @@ if (process.env.NIX_CC && !process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
 
 export default defineConfig({
   testDir: './tests/e2e',
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
