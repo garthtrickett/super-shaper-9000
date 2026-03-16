@@ -148,7 +148,9 @@ export class BoardBuilderPage extends LitElement {
           .glassingSchedule=${state.glassingSchedule}
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
+          @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => this.ctrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value })}
           .editMode=${state.editMode || "parametric"}
+          .showGizmos=${state.showGizmos ?? true}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}

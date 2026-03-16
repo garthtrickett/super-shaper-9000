@@ -121,17 +121,25 @@ export class BoardViewport extends LitElement {
       
       // Prevent infinite loops and lag: If ONLY the volume changed, do not rebuild the 3D mesh.
       if (oldState) {
-        let onlyVolumeChanged = true;
-        const oldBoardState = oldState;
+        let needsGeometryUpdate = false;
+        let gizmoVisChanged = false;
+        const oldBoardState = oldState as BoardModel;
          
         for (const key in this.boardState) {
           const k = key as keyof BoardModel;
-          if (k !== "volume" && this.boardState[k] !== oldBoardState[k]) {
-            onlyVolumeChanged = false;
-            break;
+          if (this.boardState[k] !== oldBoardState[k]) {
+            if (k === "showGizmos") {
+              gizmoVisChanged = true;
+            } else if (k !== "volume") {
+              needsGeometryUpdate = true;
+            }
           }
         }
-        if (onlyVolumeChanged) return;
+        
+        if (!needsGeometryUpdate) {
+          if (gizmoVisChanged) this.updateGizmoVisibility();
+          return;
+        }
       }
 
       void this._updateGeometry();
@@ -438,6 +446,8 @@ export class BoardViewport extends LitElement {
                 });
             }
         }
+        
+        this.updateGizmoVisibility();
     }
   }
 
@@ -560,7 +570,7 @@ export class BoardViewport extends LitElement {
   }
 
   private onPointerDown = (e: PointerEvent) => {
-    if (this.boardState?.editMode !== 'manual') return;
+    if (this.boardState?.editMode !== 'manual' || this.boardState?.showGizmos === false) return;
 
     const rect = this.canvas.getBoundingClientRect();
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -698,11 +708,18 @@ export class BoardViewport extends LitElement {
   }
 
   private updateGizmoVisibility() {
+    const show = this.boardState?.showGizmos !== false;
+
     this.gizmoGroup.children.forEach(child => {
       const userData = child.userData as { curve?: string };
       const curve = userData?.curve;
       if (!curve) return;
       
+      if (!show) {
+        child.visible = false;
+        return;
+      }
+
       if (this.viewMode === 'perspective') {
         child.visible = true;
       } else if (this.viewMode === 'top') {

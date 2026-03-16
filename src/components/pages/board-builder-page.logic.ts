@@ -18,6 +18,7 @@ export const BezierCurveSchema = S.Struct({
 });
 
 export const BoardModelSchema = S.Struct({
+  showGizmos: S.optional(S.Boolean),
   editMode: S.optional(S.Literal("parametric", "manual")),
   manualOutline: S.optional(BezierCurveSchema),
   manualRockerTop: S.optional(BezierCurveSchema),
@@ -69,6 +70,7 @@ export interface BezierCurveData {
 }
 
 export interface BoardModel {
+  showGizmos?: boolean;
   editMode?: "parametric" | "manual";
   manualOutline?: BezierCurveData;
   manualRockerTop?: BezierCurveData;
@@ -113,6 +115,7 @@ export interface BoardModel {
 }
 
 export const INITIAL_STATE: BoardModel = {
+  showGizmos: true,
   editMode: "parametric",
   // 65kg Slab-Hunter Specs (Maximum Hold / Weak Paddler)
   length: 70, // 5'10"
@@ -156,6 +159,7 @@ export const INITIAL_STATE: BoardModel = {
 export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
+  | { type: "UPDATE_BOOLEAN"; param: keyof BoardModel; value: boolean }
   | { type: "UPDATE_VOLUME"; volume: number }
   | { type: "LOAD_DESIGN"; state: BoardModel }
   | { type: "SET_EDIT_MODE"; mode: "parametric" | "manual" }
@@ -166,7 +170,8 @@ export type BoardAction =
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
     case "UPDATE_NUMBER":
-    case "UPDATE_STRING": {
+    case "UPDATE_STRING":
+    case "UPDATE_BOOLEAN": {
       return { ...state, [action.param]: action.value } as unknown as BoardModel;
     }
     case "UPDATE_VOLUME":

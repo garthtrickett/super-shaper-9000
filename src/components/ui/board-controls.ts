@@ -40,6 +40,7 @@ export class BoardControls extends LitElement {
   @property({ type: String }) coreMaterial = "pu";
   @property({ type: String }) glassingSchedule = "heavy";
   @property({ type: String }) editMode = "parametric";
+  @property({ type: Boolean }) showGizmos = true;
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -65,6 +66,14 @@ export class BoardControls extends LitElement {
 
   private _dispatchString(param: string, value: string) {
     this.dispatchEvent(new CustomEvent("string-changed", { 
+      detail: { param, value },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private _dispatchBoolean(param: string, value: boolean) {
+    this.dispatchEvent(new CustomEvent("boolean-changed", { 
       detail: { param, value },
       bubbles: true,
       composed: true
@@ -201,6 +210,16 @@ export class BoardControls extends LitElement {
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
               Revert to Parametric (Destructive)
             </button>
+            
+            <label class="col-span-2 flex items-center justify-between mt-2 bg-zinc-800 p-2 rounded cursor-pointer hover:bg-zinc-700 transition">
+              <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Show Control Points</span>
+              <input 
+                type="checkbox" 
+                .checked=${this.showGizmos} 
+                @change=${(e: Event) => this._dispatchBoolean('showGizmos', (e.target as HTMLInputElement).checked)} 
+                class="w-4 h-4 accent-blue-500 rounded bg-zinc-900 border-zinc-700" 
+              />
+            </label>
           `}
         </div>
         <button @click=${() => this.dispatchEvent(new CustomEvent('export-s3dx', { bubbles: true, composed: true }))} class="w-full mb-5 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white py-2.5 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
