@@ -19,7 +19,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls).toBeVisible();
     // The volume calculates dynamically on mount based on the mesh geometry.
     // We just verify the HUD renders a valid floating point number.
-    await expect(boardControls.getByText(/\d+\.\d+/)).first().toBeVisible();
+    await expect(boardControls.getByText(/\d+\.\d+/).first()).toBeVisible();
 
     // 4. Click "Unlock Manual Sculpting"
     const unlockBtn = boardControls.getByRole('button', { name: /Unlock Manual Sculpting/i });
