@@ -79,6 +79,16 @@ describe("S3DX Exporter", () => {
       expect(xml).to.include("<Width>47.625</Width>");
       // 2.5 * 2.54 = 6.350 cm
       expect(xml).to.include("<Thickness>6.350</Thickness>");
+
+      // Verify Step 2 Curve XML Tags were injected
+      expect(xml).to.include("<Otl>");
+      expect(xml).to.include("<StrBot>");
+      expect(xml).to.include("<StrDeck>");
+      
+      // Ensure the Bezier3d tag structure is correct
+      expect(xml).to.include("<Bezier3d>");
+      expect(xml).to.include("<Tangents_1>");
+      expect(xml).to.include("<Tangents_2>");
     });
   });
 });
