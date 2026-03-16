@@ -405,8 +405,15 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
   const formatPt = (p: [number, number, number]) => 
     `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
   
-  const buildPoly = (pts: [number, number, number][]) => 
-    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${pts.length}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${tag === "Otl" ? 6 : 0}</Symmetry>\n\t\t\t\t\t\t<Plan>${plan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
+  const buildPoly = (pts: [number, number, number][], overridePlan: number = plan, overrideSymmetry: number = tag === "Otl" ? 6 : 0) => 
+    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${pts.length}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
+
+  const tangM = `\t\t\t\t<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as [number,number,number]), 0, 0)}\n\t\t\t\t</Tangents_m>`;
+  
+  const controlTypes = bezier.controlPoints.map((_, i) => 
+    `\t\t\t\t<Control_type_point_${i}> 32 </Control_type_point_${i}>\n` +
+    `\t\t\t\t<Tangent_type_point_${i}> 0 </Tangent_type_point_${i}>`
+  ).join("\n");
 
   return `\t	<${tag}>
 \t\t\t<Bezier3d>
@@ -418,6 +425,8 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
 \t\t\t\t<Control_points>\n${buildPoly(bezier.controlPoints)}\n\t\t\t\t</Control_points>
 \t\t\t\t<Tangents_1>\n${buildPoly(bezier.tangents1)}\n\t\t\t\t</Tangents_1>
 \t\t\t\t<Tangents_2>\n${buildPoly(bezier.tangents2)}\n\t\t\t\t</Tangents_2>
+${tangM}
+${controlTypes}
 \t\t\t</Bezier3d>
 \t\t</${tag}>`;
 };
