@@ -6,7 +6,21 @@ export default {
     'src/**/*.test.ts',
     '!src/server/**/*.test.ts'
   ],
-  plugins:[esbuildPlugin({ ts: true, target: 'es2022' })],
+  plugins:[
+    {
+      name: 'vite-wasm-url-mock',
+      transform(context) {
+        if (context.path.endsWith('.wasm')) {
+          return { body: 'export default "/mock-wasm-url.wasm";', type: 'js' };
+        }
+      }
+    },
+    esbuildPlugin({ 
+      ts: true, 
+      target: 'es2022',
+      tsconfig: './tsconfig.json'
+    })
+  ],
   nodeResolve: {
     exportConditions: ['browser', 'development'],
   },
