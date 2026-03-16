@@ -160,7 +160,8 @@ export type BoardAction =
   | { type: "LOAD_DESIGN"; state: BoardModel }
   | { type: "SET_EDIT_MODE"; mode: "parametric" | "manual" }
   | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; crossSections?: BezierCurveData[] }
-  | { type: "CONVERT_TO_MANUAL" };
+  | { type: "CONVERT_TO_MANUAL" }
+  | { type: "UPDATE_MANUAL_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
