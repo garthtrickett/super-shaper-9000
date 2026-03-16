@@ -523,6 +523,72 @@ export class BoardViewport extends LitElement {
     this.renderLoop();
   }
 
+  private onPointerDown(e: PointerEvent) {
+    if (this.boardState?.editMode !== 'manual') return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    
+    // Intersect only with gizmos
+    const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
+    const hit = intersects.find(i => i.object.userData?.isGizmo);
+
+    if (hit) {
+      this.draggedGizmo = hit.object as THREE.Mesh;
+      this.controls.enabled = false; // Disable camera orbit while dragging
+      
+      // Calculate a mathematical plane passing through the gizmo, facing the camera
+      const cameraDir = this.camera.getWorldDirection(new THREE.Vector3()).negate();
+      this.dragPlane.setFromNormalAndCoplanarPoint(cameraDir, this.draggedGizmo.position);
+      
+      // Calculate the exact click offset from the center of the gizmo to prevent snapping
+      if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragOffset)) {
+        this.dragOffset.sub(this.draggedGizmo.position);
+      }
+    }
+  }
+
+  private onPointerMove(e: PointerEvent) {
+    if (!this.draggedGizmo) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const target = new THREE.Vector3();
+    
+    if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
+      target.sub(this.dragOffset);
+      
+      // Update gizmo position instantly for fluid UI feedback
+      this.draggedGizmo.position.copy(target);
+      
+      // Scale coordinates back from Three.js World (Feet) to Application Logic (Inches)
+      const inInches = target.clone().multiplyScalar(12);
+      
+      // Dispatch event to SAM Controller (Step 3)
+      this.dispatchEvent(new CustomEvent('gizmo-dragged', {
+        detail: { 
+          userData: this.draggedGizmo.userData, 
+          position: [inInches.x, inInches.y, inInches.z] 
+        },
+        bubbles: true,
+        composed: true
+      }));
+    }
+  }
+
+  private onPointerUp(e: PointerEvent) {
+    if (this.draggedGizmo) {
+      this.draggedGizmo = null;
+      this.controls.enabled = true; // Re-enable camera orbit
+    }
+  }
+
   private onResize() {
     if (!this.camera || !this.renderer) return;
     const width = this.clientWidth;
