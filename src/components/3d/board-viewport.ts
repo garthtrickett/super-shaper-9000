@@ -43,6 +43,12 @@ export class BoardViewport extends LitElement {
   private finGroup = new THREE.Group();
   private gizmoGroup = new THREE.Group();
   
+  private raycaster = new THREE.Raycaster();
+  private mouse = new THREE.Vector2();
+  private draggedGizmo: THREE.Mesh | null = null;
+  private dragPlane = new THREE.Plane();
+  private dragOffset = new THREE.Vector3();
+
   private _boardTexture: THREE.CanvasTexture | null = null;
   private _bumpTexture: THREE.CanvasTexture | null = null;
 
@@ -534,7 +540,7 @@ export class BoardViewport extends LitElement {
     
     // Intersect only with gizmos
     const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
-    const hit = intersects.find(i => i.object.userData?.isGizmo);
+    const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
 
     if (hit) {
       this.draggedGizmo = hit.object as THREE.Mesh;
@@ -582,7 +588,7 @@ export class BoardViewport extends LitElement {
     }
   }
 
-  private onPointerUp(e: PointerEvent) {
+  private onPointerUp(_e: PointerEvent) {
     if (this.draggedGizmo) {
       this.draggedGizmo = null;
       this.controls.enabled = true; // Re-enable camera orbit
