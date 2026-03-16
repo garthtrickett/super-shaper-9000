@@ -406,7 +406,6 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
           px = (isRightSide ? 1 : -1) * normX * halfWidth;
       }
 
-      const sliceThickness = sliceTop - sliceBot;
       const currentThickness = topY - botY;
             
       let py = botY;

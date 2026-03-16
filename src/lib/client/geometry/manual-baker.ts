@@ -123,18 +123,23 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
   }
 
   // 4. Force stringer locks for the absolute tips ONLY if they naturally converge to 0 (Pintails/Nose)
+  // CRITICAL FIX: We must NOT zero out the X-coordinates of the tangent handles here. 
+  // Doing so forces the curve to approach the tip parallel to the stringer, creating a pinched "paper plane" flare.
+  // Instead, we just shift the anchor to 0 and shift the handles by the same amount to preserve the true entry angle.
   if (anchors.length > 0) {
     if (Math.abs(anchors[0]![0]) < 0.05) {
+      const shiftX = -anchors[0]![0];
       anchors[0]![0] = 0; 
-      tangents1[0]![0] = 0; 
-      tangents2[0]![0] = 0;
+      tangents1[0]![0] += shiftX; 
+      tangents2[0]![0] += shiftX;
     }
 
     const last = anchors.length - 1;
     if (Math.abs(anchors[last]![0]) < 0.05) {
+      const shiftX = -anchors[last]![0];
       anchors[last]![0] = 0;
-      tangents1[last]![0] = 0;
-      tangents2[last]![0] = 0;
+      tangents1[last]![0] += shiftX;
+      tangents2[last]![0] += shiftX;
     }
   }
 
