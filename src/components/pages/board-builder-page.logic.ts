@@ -221,10 +221,10 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       }
 
       // --- Math Helpers for Kinematics ---
-      const vec3Sub = (a: number[], b: number[]): Point3D => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
-      const vec3Add = (a: number[], b: number[]): Point3D => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
-      const vec3Len = (v: number[]): number => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-      const vec3Scale = (v: number[], s: number): Point3D => [v[0]*s, v[1]*s, v[2]*s];
+      const vec3Sub = (a: Point3D, b: Point3D): Point3D => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+      const vec3Add = (a: Point3D, b: Point3D): Point3D => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+      const vec3Len = (v: Point3D): number => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+      const vec3Scale = (v: Point3D, s: number): Point3D => [v[0]*s, v[1]*s, v[2]*s];
 
       const oldAnchor = targetCurve.controlPoints[index];
       const oldT1 = targetCurve.tangents1[index];
