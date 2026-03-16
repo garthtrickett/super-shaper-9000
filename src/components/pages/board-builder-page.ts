@@ -1,8 +1,12 @@
+// src/components/pages/board-builder-page.ts
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { ReactiveSamController } from "../../lib/client/reactive-sam-controller";
 import { INITIAL_STATE, update, handleAction, BoardModelSchema, type BoardModel, type BoardAction } from "./board-builder-page.logic";
+import { runClientPromise } from "../../lib/client/runtime";
+import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
+import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 

@@ -1,3 +1,4 @@
+// src/lib/client/geometry/board-curves.test.ts
 import { expect } from "@open-wc/testing";
 import { generateBoardCurves, deps } from "./board-curves";
 import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
@@ -42,7 +43,7 @@ describe("Board Curves Generator", () => {
     deps.getRhino = () => Promise.reject(new Error("WASM block"));
     
     const model = { length: 72, width: 20, thickness: 2.5, tailType: "squash" as const };
-    const result = await generateBoardCurves({ ...model, isComputing: false, meshData: null } as BoardModel);
+    const result = await generateBoardCurves({ ...model } as unknown as BoardModel);
     
     // Verify fallback points derived from L, W, T
     expect(result.outline[0]).to.deep.equal([0, 0, -36]); // Nose
