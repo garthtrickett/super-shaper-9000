@@ -5,79 +5,116 @@ import { generateBoardCurves, type BoardCurves } from "./board-curves";
 const fitBezierZ = (points: Point3D[]): BezierCurveData => {
   if (points.length === 0) return { controlPoints: [], tangents1: [], tangents2: [] };
 
-  const sorted = [...points].sort((a, b) => a[2] - b[2]);
-  const minZ = sorted[0]![2];
-  const maxZ = sorted[sorted.length - 1]![2];
+  // 1. Clean data: Remove exact duplicate Zs to prevent division by zero,
+  // but keep steep slopes (like squash tails) intact.
+  const cleanPoints: Point3D[] = [];
+  for (const p of points) {
+    if (cleanPoints.length === 0 || p[2] > cleanPoints[cleanPoints.length - 1]![2] + 0.0001) {
+      cleanPoints.push(p);
+    }
+  }
+
+  if (cleanPoints.length < 2) {
+    return { controlPoints: cleanPoints, tangents1: cleanPoints.map(p => [...p]), tangents2: cleanPoints.map(p => [...p]) };
+  }
+
+  const minZ = cleanPoints[0]![2];
+  const maxZ = cleanPoints[cleanPoints.length - 1]![2];
   const L = maxZ - minZ;
 
+  // 2. Select strategic anchor stations
   const fractions = [0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0];
   const anchors: Point3D[] = [];
-  const indices: number[] = [];
 
   for (const t of fractions) {
     const targetZ = minZ + t * L;
-    let closestIdx = 0;
+    let closestPt = cleanPoints[0]!;
     let minDist = Infinity;
-    for (let i = 0; i < sorted.length; i++) {
-      const dist = Math.abs(sorted[i]![2] - targetZ);
+    for (let i = 0; i < cleanPoints.length; i++) {
+      const dist = Math.abs(cleanPoints[i]![2] - targetZ);
       if (dist < minDist) {
         minDist = dist;
-        closestIdx = i;
+        closestPt = cleanPoints[i]!;
       }
     }
-    anchors.push(sorted[closestIdx]!);
-    indices.push(closestIdx);
+    // Prevent duplicate anchors if fractions are too close
+    if (anchors.length === 0 || Math.abs(anchors[anchors.length - 1]![2] - closestPt[2]) > 0.1) {
+      anchors.push([...closestPt]);
+    }
   }
 
   const tangents1: Point3D[] = [];
   const tangents2: Point3D[] = [];
 
+  const getDist = (a: Point3D, b: Point3D) => 
+    Math.sqrt(Math.pow(a[0]-b[0], 2) + Math.pow(a[1]-b[1], 2) + Math.pow(a[2]-b[2], 2));
+
+  // 3. Catmull-Rom style Tangent Generation (Distance-scaled, NO division by dz)
   for (let i = 0; i < anchors.length; i++) {
-    const idx = indices[i]!;
     const P = anchors[i]!;
+    
+    let dirX = 0, dirY = 0, dirZ = 1;
 
-    let dx = 0, dy = 0, dz = 0;
-    if (idx === 0) {
-      const next = sorted[idx + 1]!;
-      dx = next[0] - P[0]; dy = next[1] - P[1]; dz = next[2] - P[2];
-    } else if (idx === sorted.length - 1) {
-      const prev = sorted[idx - 1]!;
-      dx = P[0] - prev[0]; dy = P[1] - prev[1]; dz = P[2] - prev[2];
+    if (i === 0) {
+      const next = anchors[i + 1]!;
+      const d = getDist(P, next);
+      if (d > 0) { dirX = (next[0]-P[0])/d; dirY = (next[1]-P[1])/d; dirZ = (next[2]-P[2])/d; }
+    } else if (i === anchors.length - 1) {
+      const prev = anchors[i - 1]!;
+      const d = getDist(prev, P);
+      if (d > 0) { dirX = (P[0]-prev[0])/d; dirY = (P[1]-prev[1])/d; dirZ = (P[2]-prev[2])/d; }
     } else {
-      const next = sorted[idx + 1]!;
-      const prev = sorted[idx - 1]!;
-      dx = next[0] - prev[0]; dy = next[1] - prev[1]; dz = next[2] - prev[2];
+      const next = anchors[i + 1]!;
+      const prev = anchors[i - 1]!;
+      const d = getDist(prev, next);
+      if (d > 0) { dirX = (next[0]-prev[0])/d; dirY = (next[1]-prev[1])/d; dirZ = (next[2]-prev[2])/d; }
     }
 
-    let slopeX = 0, slopeY = 0;
-    if (Math.abs(dz) > 0.0001) {
-      slopeX = dx / dz;
-      slopeY = dy / dz;
-    }
-
+    // Tangent 1 (Left Handle)
     if (i === 0) {
       tangents1.push([...P]);
     } else {
-      const prevP = anchors[i - 1]!;
-      const distZ = (P[2] - prevP[2]) / 3;
-      tangents1.push([
-        P[0] - slopeX * Math.abs(distZ),
-        P[1] - slopeY * Math.abs(distZ),
-        P[2] - Math.abs(distZ)
-      ]);
+      const prev = anchors[i - 1]!;
+      const d0 = getDist(prev, P);
+      const handleLen = d0 / 3;
+      const t1: Point3D = [
+        P[0] - dirX * handleLen,
+        P[1] - dirY * handleLen,
+        P[2] - dirZ * handleLen
+      ];
+      // CRITICAL: Force monotonic Z so `evaluateBezierAtZ` binary search doesn't fail
+      t1[2] = Math.max(prev[2] + 0.001, Math.min(P[2], t1[2]));
+      tangents1.push(t1);
     }
 
+    // Tangent 2 (Right Handle)
     if (i === anchors.length - 1) {
       tangents2.push([...P]);
     } else {
-      const nextP = anchors[i + 1]!;
-      const distZ = (nextP[2] - P[2]) / 3;
-      tangents2.push([
-        P[0] + slopeX * Math.abs(distZ),
-        P[1] + slopeY * Math.abs(distZ),
-        P[2] + Math.abs(distZ)
-      ]);
+      const next = anchors[i + 1]!;
+      const d1 = getDist(P, next);
+      const handleLen = d1 / 3;
+      const t2: Point3D = [
+        P[0] + dirX * handleLen,
+        P[1] + dirY * handleLen,
+        P[2] + dirZ * handleLen
+      ];
+      // CRITICAL: Force monotonic Z
+      t2[2] = Math.max(P[2], Math.min(next[2] - 0.001, t2[2]));
+      tangents2.push(t2);
     }
+  }
+
+  // 4. Force stringer locks for the absolute tips to prevent holes in the mesh
+  if (anchors.length > 0) {
+    anchors[0]![0] = 0; 
+    tangents1[0]![0] = 0; 
+    tangents2[0]![0] = 0;
+
+    const last = anchors.length - 1;
+    anchors[last]![0] = 0;
+    tangents1[last]![0] = 0;
+    tangents2[last]![0] = 0;
   }
 
   return { controlPoints: anchors, tangents1, tangents2 };
