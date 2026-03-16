@@ -39,6 +39,7 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) cantAngle = 6.0;
   @property({ type: String }) coreMaterial = "pu";
   @property({ type: String }) glassingSchedule = "heavy";
+  @property({ type: String }) editMode = "parametric";
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -70,7 +71,7 @@ export class BoardControls extends LitElement {
     }));
   }
 
-  private _renderSlider(label: string, key: string, min: number, max: number, step: number, value: number, unit = "\"") {
+  private _renderSlider(label: string, key: string, min: number, max: number, step: number, value: number, unit = "\"", disabled = false) {
     let displayValue = `${value.toFixed(2)}${unit}`;
     
     // Surfboards conventionally display length in feet and inches (e.g., 5'10")
@@ -91,21 +92,23 @@ export class BoardControls extends LitElement {
           type="range" 
           min="${min}" max="${max}" step="${step}" 
           .value="${String(value)}"
+          ?disabled=${disabled}
           @input=${(e: Event) => this._dispatchNumber(key, parseFloat((e.target as HTMLInputElement).value))}
-          class="w-full accent-blue-500 cursor-pointer"
+          class="w-full accent-blue-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
         />
       </div>
     `;
   }
 
-  private _renderSelect(label: string, key: string, options: {value: string, label: string}[], value: string) {
+  private _renderSelect(label: string, key: string, options: {value: string, label: string}[], value: string, disabled = false) {
     return html`
         <div class="mb-4">
           <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">${label}</label>
           <div class="relative">
             <select 
-              class="text-sm w-full appearance-none bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md py-2 pl-3 pr-8 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+              class="text-sm w-full appearance-none bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md py-2 pl-3 pr-8 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               .value=${value}
+              ?disabled=${disabled}
               @change=${(e: Event) => this._dispatchString(key, (e.target as HTMLSelectElement).value)}
             >
               ${options.map(opt => html`<option value="${opt.value}" ?selected=${value === opt.value}>${opt.label}</option>`)}
@@ -187,10 +190,18 @@ export class BoardControls extends LitElement {
         <div class="grid grid-cols-2 gap-2 mb-2">
           <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import JSON</button>
           <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export JSON</button>
-          <button @click=${() => this.dispatchEvent(new CustomEvent('convert-to-manual', { bubbles: true, composed: true }))} class="col-span-2 bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
-            Convert to Manual
-          </button>
+          
+          ${this.editMode === 'parametric' ? html`
+            <button @click=${() => this.dispatchEvent(new CustomEvent('convert-to-manual', { bubbles: true, composed: true }))} class="col-span-2 bg-indigo-600 hover:bg-indigo-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+              Unlock Manual Sculpting
+            </button>
+          ` : html`
+            <button @click=${() => this.dispatchEvent(new CustomEvent('revert-to-parametric', { bubbles: true, composed: true }))} class="col-span-2 bg-rose-600 hover:bg-rose-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Revert to Parametric (Destructive)
+            </button>
+          `}
         </div>
         <button @click=${() => this.dispatchEvent(new CustomEvent('export-s3dx', { bubbles: true, composed: true }))} class="w-full mb-5 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white py-2.5 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -217,49 +228,49 @@ export class BoardControls extends LitElement {
         </div>
 
         ${this._renderAccordion("Core Dimensions", html`
-          ${this._renderSlider("Length", "length", 60, 96, 0.5, this.length)}
-          ${this._renderSlider("Width", "width", 17, 24, 0.125, this.width)}
-          ${this._renderSlider("Thickness", "thickness", 2, 3.5, 0.0625, this.thickness)}
+          ${this._renderSlider("Length", "length", 60, 96, 0.5, this.length, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Width", "width", 17, 24, 0.125, this.width, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Thickness", "thickness", 2, 3.5, 0.0625, this.thickness, "\"", this.editMode === 'manual')}
         `, true)}
 
         ${this._renderAccordion("Outline & Tail", html`
-          ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Beak"}, {value: "clipped", label: "Torpedo (Tomo)"}], this.noseShape)}
+          ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Beak"}, {value: "clipped", label: "Torpedo (Tomo)"}], this.noseShape, this.editMode === 'manual')}
           ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
-            ${this._renderSlider("Nose Tip Width", "noseTipWidth", 1.0, 10.0, 0.25, this.noseTipWidth)}
-            ${this.noseShape === 'torpedo' ? this._renderSlider("Tip Blend Length", "noseTipCurveZ", 0.1, 8.0, 0.25, this.noseTipCurveZ) : ''}
+            ${this._renderSlider("Nose Tip Width", "noseTipWidth", 1.0, 10.0, 0.25, this.noseTipWidth, "\"", this.editMode === 'manual')}
+            ${this.noseShape === 'torpedo' ? this._renderSlider("Tip Blend Length", "noseTipCurveZ", 0.1, 8.0, 0.25, this.noseTipCurveZ, "\"", this.editMode === 'manual') : ''}
           ` : ''}
-          ${this.noseShape !== 'clipped' ? this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth) : ''}
-          ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset)}
-          ${this._renderSlider("Tail Fullness (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth)}
-          ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType)}
+          ${this.noseShape !== 'clipped' ? this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth, "\"", this.editMode === 'manual') : ''}
+          ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Tail Fullness (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth, "\"", this.editMode === 'manual')}
+          ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType, this.editMode === 'manual')}
           
           ${this.tailType === 'swallow' || this.tailType === 'squash' || this.tailType === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>
-            ${this.tailType === 'swallow' ? this._renderSlider("Swallow Depth", "swallowDepth", 2.0, 8.0, 0.25, this.swallowDepth) : ''}
-            ${this._renderSlider("Tail Block Width", "tailBlockWidth", 2.0, 12.0, 0.25, this.tailBlockWidth)}
+            ${this.tailType === 'swallow' ? this._renderSlider("Swallow Depth", "swallowDepth", 2.0, 8.0, 0.25, this.swallowDepth, "\"", this.editMode === 'manual') : ''}
+            ${this._renderSlider("Tail Block Width", "tailBlockWidth", 2.0, 12.0, 0.25, this.tailBlockWidth, "\"", this.editMode === 'manual')}
           ` : ''}
         `, true)}
 
         ${this._renderAccordion("Rocker & Foil", html`
-          ${this._renderSlider("Nose Rocker", "noseRocker", 3.0, 7.0, 0.1, this.noseRocker)}
-          ${this._renderSlider("Tail Rocker", "tailRocker", 1.0, 3.5, 0.1, this.tailRocker)}
-          ${this._renderSlider("Flat Spot Length", "rockerFlatSpotLength", 0, 36.0, 1.0, this.rockerFlatSpotLength)}
+          ${this._renderSlider("Nose Rocker", "noseRocker", 3.0, 7.0, 0.1, this.noseRocker, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Tail Rocker", "tailRocker", 1.0, 3.5, 0.1, this.tailRocker, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Flat Spot Length", "rockerFlatSpotLength", 0, 36.0, 1.0, this.rockerFlatSpotLength, "\"", this.editMode === 'manual')}
           <div class="h-px bg-zinc-800 my-4"></div>
-          ${this._renderSlider("Nose Thickness (N12)", "noseThickness", 0.75, 2.5, 0.0625, this.noseThickness)}
-          ${this._renderSlider("Tail Thickness (T12)", "tailThickness", 0.75, 2.5, 0.0625, this.tailThickness)}
-          ${this._renderSlider("Deck Dome", "deckDome", 0.4, 0.9, 0.05, this.deckDome, "")}
+          ${this._renderSlider("Nose Thickness (N12)", "noseThickness", 0.75, 2.5, 0.0625, this.noseThickness, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Tail Thickness (T12)", "tailThickness", 0.75, 2.5, 0.0625, this.tailThickness, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Deck Dome", "deckDome", 0.4, 0.9, 0.05, this.deckDome, "", this.editMode === 'manual')}
         `, false)}
 
         ${this._renderAccordion("Rails & Cross-Sections", html`
-          <div class="grid grid-cols-3 gap-2 mb-6 bg-zinc-950 p-2 rounded-lg border border-zinc-800">
+          <div class="grid grid-cols-3 gap-2 mb-6 bg-zinc-950 p-2 rounded-lg border border-zinc-800 opacity-${this.editMode === 'manual' ? '50' : '100'}">
             ${this._renderSliceSVG("Shoulder", this.noseShape === 'clipped' ? 16.0 : this.noseWidth, this.noseThickness, this.apexRatio, false)}
             ${this._renderSliceSVG("Center", this.width, this.thickness, this.apexRatio, false)}
             ${this._renderSliceSVG("Hip", this.tailWidth, this.tailThickness, 0.05, this.hardEdgeLength >= 12)}
           </div>
-          ${this._renderSlider("Rail Apex Height", "apexRatio", 0.2, 0.6, 0.02, this.apexRatio, "%")}
-          ${this._renderSlider("Rail Fullness", "railFullness", 0.5, 0.9, 0.05, this.railFullness, "")}
-          ${this._renderSlider("Hard Edge Starts At", "hardEdgeLength", 0, 36.0, 1.0, this.hardEdgeLength)}
+          ${this._renderSlider("Rail Apex Height", "apexRatio", 0.2, 0.6, 0.02, this.apexRatio, "%", this.editMode === 'manual')}
+          ${this._renderSlider("Rail Fullness", "railFullness", 0.5, 0.9, 0.05, this.railFullness, "", this.editMode === 'manual')}
+          ${this._renderSlider("Hard Edge Starts At", "hardEdgeLength", 0, 36.0, 1.0, this.hardEdgeLength, "\"", this.editMode === 'manual')}
         `, true)}
 
         ${this._renderAccordion("Bottom Contours", html`

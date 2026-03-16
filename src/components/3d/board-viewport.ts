@@ -6,6 +6,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { BoardModel } from "../pages/board-builder-page.logic";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
+import { MeshGeneratorService } from "../../lib/client/geometry/mesh-generator";
 
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
@@ -147,72 +148,26 @@ export class BoardViewport extends LitElement {
     const matRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
 
     const scale = 1 / 12; // Inches to Feet for Three.js coordinates
-    
-    const { 
-        bottomContour, apexRatio, hardEdgeLength, railFullness,
-        veeDepth, concaveDepth, channelDepth, channelLength 
-    } = this.boardState;
-
-    // Helper to compute dynamic apex ratio based on precise CAD parameters
-    const getApexRatio = (zInches: number) => {
-        const maxZ = curves.outline[curves.outline.length-1]![2];
-        const distFromTail = maxZ - zInches;
-        
-        let currentApex = apexRatio;
-        
-        // Drop apex to the bottom edge if within the hardEdgeLength
-        if (distFromTail < hardEdgeLength) {
-            const blendZone = 6.0; // Blend from soft to hard over 6 inches
-            const blendEnd = Math.max(0, hardEdgeLength - blendZone);
-            
-            if (distFromTail <= blendEnd) {
-                currentApex = 0.02; // Hard sharp tucked edge
-            } else {
-                const t = (distFromTail - blendEnd) / blendZone;
-                currentApex = 0.02 + t * (apexRatio - 0.02);
-            }
-        }
-        return currentApex;
-    };
-
-    // Helper to find the Y height of a rocker curve at a specific Z length
-    const getRockerY = (zInches: number, isTop: boolean) => {
-        const pts = isTop ? curves.rockerTop : curves.rockerBottom;
-        if (!pts.length) return 0;
-        
-        for (let i = 0; i < pts.length - 1; i++) {
-            const p1 = pts[i]!;
-            const p2 = pts[i+1]!;
-            const z1 = p1[2];
-            const z2 = p2[2];
-            if (zInches >= z1 && zInches <= z2) {
-                const tCurve = (zInches - z1) / (z2 - z1);
-                return p1[1] + tCurve * (p2[1] - p1[1]);
-            }
-        }
-        // Fallback for bevels that slightly overhang the exact length
-        const first = pts[0]!;
-        const last = pts[pts.length - 1]!;
-        return zInches <= first[2] ? first[1] : last[1];
-    };
 
     const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, mirrorX = false, followRocker = false) => {
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => {
             const zInches = p[2];
+            const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zInches);
+            
             vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
+            if (this.boardState!.editMode === "manual") {
+                // In manual mode, snap wireframe directly to the evaluated outline
+                vertices[i*3] = (mirrorX ? -profile.halfWidth : profile.halfWidth) * scale;
+            }
             
             if (followRocker) {
-                // Wrap the 2D outline along the rail profile (matching solid mesh rail apex)
-                const topY = getRockerY(zInches, true);
-                const bottomY = getRockerY(zInches, false);
-                const thickness = topY - bottomY;
-                
-                const dynamicRailApexRatio = getApexRatio(zInches);
-                const apexY = bottomY + thickness * dynamicRailApexRatio;
-                vertices[i*3+1] = apexY * scale;
+                // Wrap the 2D outline along the rail profile
+                vertices[i*3+1] = profile.apexY * scale;
             } else {
+                // Rocker lines. For accurate manual preview, we could map them to topY/botY
+                // but since they are drawn flat in the Z-Y plane, we leave p[1]
                 vertices[i*3+1] = p[1] * scale;
             }
             
@@ -243,202 +198,19 @@ export class BoardViewport extends LitElement {
     }
 
     if (this.boardState) {
-        // 🚀 100% Native Frontend Procedural Surfboard Mesh Generation
-        const segmentsZ = curves.outline.length;
-        const segmentsRadial = 36;
-        
-        const vertices = [];
-        const indices = [];
-        const uvs =[];
-        
-        // Shaper specific tuning parameters
-        const deckCurve = this.boardState.deckDome; // Dynamic deck dome from slider
-        const bottomCurve = 0.5; // Flattish bottom
-
-        const minZ = curves.outline[0]![2];
-        const maxZ = curves.outline[segmentsZ-1]![2];
-        const totalZ = maxZ - minZ;
-
-        for (let i = 0; i < segmentsZ; i++) {
-            const p = curves.outline[i]!;
-            const halfWidth = p[0];
-            const zInches = p[2];
-            const nz = (zInches - minZ) / totalZ; // 0 (Nose) to 1 (Tail)
-            
-            const tailDist = Math.max(0, maxZ - zInches);
-            const noseDist = Math.max(0, zInches - minZ);
-
-            // Step 3: Relax the Rail Pinch at the Poles
-            // Fade to a perfect ellipse (exponent 1.0) at the extreme tips to prevent the central crease artifact
-            // Map UI "Rail Fullness" to math exponent: higher fullness = squarish Lamé curve (lower exponent)
-            const targetRailExp = 1.5 - railFullness; 
-            let railExp = targetRailExp;
-            let deckExp = deckCurve;
-            
-            const relaxZone = 2.0; // Fade over 2 inches
-            if (noseDist < relaxZone) {
-                const t = noseDist / relaxZone;
-                railExp = 1.0 - t * (1.0 - targetRailExp);
-                deckExp = 1.0 - t * (1.0 - deckCurve);
-            } else if (tailDist < relaxZone) {
-                const t = tailDist / relaxZone;
-                railExp = 1.0 - t * (1.0 - targetRailExp);
-                deckExp = 1.0 - t * (1.0 - deckCurve);
-            }
-
-            const topY = getRockerY(zInches, true);
-            const botY = getRockerY(zInches, false);
-            
-            // Allow perfect 0 thickness at poles to merge vertices cleanly into one point
-            const thickness = Math.max(0, topY - botY);
-            const dynamicRailApexRatio = getApexRatio(zInches);
-            const apexY = botY + thickness * dynamicRailApexRatio;
-
-            // --- Exact CAD Contour Z-Blends (Calculated once per cross-section) ---
-            const smoothStep = (edge0: number, edge1: number, x: number) => {
-                const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-                return t * t * (3 - 2 * t);
-            };
-
-            // Entry Vee: Fades out completely by the wide point
-            const blendVee = 1 - smoothStep(0.05, 0.4, nz);
-            
-            // Single Concave: Starts after the Vee, runs ALL the way out the tail (Quad-Inside-Single)
-            const blendConcave = smoothStep(0.15, 0.3, nz);
-            
-            // Channels: Precise start based on channelLength (fade in over 6 inches)
-            let blendChannels = 0;
-            if (tailDist <= channelLength + 6.0) {
-                blendChannels = 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist);
-            }
-            
-            // Prevent sharp creases at the absolute tips
-            // Fade out contours only if the board pinches to a sharp point (prevents mesh singularity spikes).
-            // If the nose/tail is wide (squash/clipped), the contour exits the block at full depth!
-            const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
-
-            for (let j = 0; j <= segmentsRadial; j++) {
-                const angle = (j / segmentsRadial) * Math.PI * 2;
-                const cx = Math.cos(angle);
-                const cy = Math.sin(angle);
-                
-                const abs_cx = Math.abs(cx);
-                const abs_cy = Math.abs(cy);
-                const signX = cx < 0 ? -1 : 1;
-
-                // Shape the X cross-section (rail fullness)
-                const px = signX * Math.pow(abs_cx, railExp) * halfWidth;
-
-                // Pre-calculate top deck height at this cross-section to prevent self-intersection
-                const pyTop = apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
-
-                let py = 0;
-                if (cy >= 0) {
-                    // Shape the Top Deck (using relaxed deck curve at tips)
-                    py = pyTop;
-                } else {
-                    // Shape the Bottom and Rail Tuck
-                    py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
-                        
-                    if (halfWidth > 0.001) {
-                        const nx = px / halfWidth;
-                        const abs_nx = Math.abs(nx);
-                        let contourOffset = 0;
-                            
-                        if (bottomContour === "vee_to_quad_channels") {
-                            // Precise Depth Injection
-                            // True Vee: Drops the stringer DOWN (-Y) into the water to split it
-                            const veeOffset = -veeDepth * (1 - abs_nx) * blendVee;
-                            const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
-
-                            let channelProfile = 0;
-                            // Channels sit inside the concave (0.2 to 0.8 rail fraction)
-                            if (abs_nx >= 0.2 && abs_nx <= 0.8) {
-                                const u = (abs_nx - 0.2) / 0.6;
-                                channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
-                            }
-                            // Channels carve upwards (into the board)
-                            const channelOffset = channelDepth * channelProfile * blendChannels;
-
-                            contourOffset = (veeOffset + concaveOffset + channelOffset) * widthFade;
-                        } else if (bottomContour === "single_to_double") {
-                            const single = concaveDepth * (1 - nx * nx);
-                            const double = concaveDepth * 0.8 * Math.pow(Math.sin(abs_nx * Math.PI), 2);
-                            contourOffset = (single * (1 - nz) + double * nz) * widthFade;
-                        } else if (bottomContour === "single") {
-                            contourOffset = concaveDepth * (1 - nx * nx) * widthFade;
-                        }
-
-                        // GUARANTEE MESH CONTINUITY AT APEX (cy = 0)
-                        // This ensures that whatever bottom contour is applied, it smoothly
-                        // fades to 0 right at the rail edge to prevent tearing/notches in the mesh.
-                        contourOffset *= Math.abs(cy);
-
-                        py += contourOffset;
-                    }
-
-                    // --- SELF-INTERSECTION FIX ---
-                    // If the concave is so deep that it pushes through the deck, 
-                    // clamp it just below the deck surface (leaving a minimum stringer thickness)
-                    const MIN_CORE_THICKNESS = 0.05;
-                    if (py > pyTop - MIN_CORE_THICKNESS) {
-                        py = pyTop - MIN_CORE_THICKNESS;
-                    }
-                }
-
-                vertices.push(px * scale, py * scale, zInches * scale);
-                uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
-            }
-        }
-
-        // Generate Triangle Indices
-        for (let i = 0; i < segmentsZ - 1; i++) {
-            for (let j = 0; j < segmentsRadial; j++) {
-                const a = i * (segmentsRadial + 1) + j;
-                const b = i * (segmentsRadial + 1) + (j + 1);
-                const c = (i + 1) * (segmentsRadial + 1) + j;
-                const d = (i + 1) * (segmentsRadial + 1) + (j + 1);
-
-                indices.push(a, b, d);
-                indices.push(a, d, c);
-            }
-        }
+        // Delegate all heavy math to the decoupled MeshGeneratorService
+        const meshData = MeshGeneratorService.generateMesh(this.boardState, curves);
 
         const geom = new THREE.BufferGeometry();
-        geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-        geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-        geom.setIndex(indices);
+        geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
+        geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
+        geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
         geom.computeVertexNormals();
 
-        // --- STEP 5: Real-Time Volume Calculation ---
-        let volumeCubicFeet = 0;
-        const posAttr = geom.attributes.position as THREE.BufferAttribute;
-        const idxAttr = geom.index;
-        if (posAttr && idxAttr) {
-            const p1 = new THREE.Vector3();
-            const p2 = new THREE.Vector3();
-            const p3 = new THREE.Vector3();
-            const pCross = new THREE.Vector3();
-            
-            for (let i = 0; i < idxAttr.count; i += 3) {
-                p1.fromBufferAttribute(posAttr, idxAttr.getX(i));
-                p2.fromBufferAttribute(posAttr, idxAttr.getX(i+1));
-                p3.fromBufferAttribute(posAttr, idxAttr.getX(i+2));
-                // Signed volume of tetrahedron from origin
-                pCross.crossVectors(p2, p3);
-                volumeCubicFeet += p1.dot(pCross) / 6.0;
-            }
-        }
-        
-        // Our Three.js mesh is scaled in feet (1/12 scale). 
-        // Convert back to cubic inches (12^3), then multiply by 0.0163871 to get Liters.
-        const volumeCubicInches = Math.abs(volumeCubicFeet) * 1728; 
-        const volumeLiters = isNaN(volumeCubicInches) ? 0 : volumeCubicInches * 0.0163871;
-
-        // Secondary safety net: Only dispatch if volume changed significantly
-        if (Math.abs(this.boardState.volume - volumeLiters) > 0.05) {
+        // Dispatch volume event safely
+        if (Math.abs(this.boardState.volume - meshData.volumeLiters) > 0.05) {
             this.dispatchEvent(new CustomEvent("volume-calculated", {
-                detail: { volume: volumeLiters },
+                detail: { volume: meshData.volumeLiters },
                 bubbles: true,
                 composed: true
             }));
@@ -517,113 +289,6 @@ export class BoardViewport extends LitElement {
             return finMesh;
         };
 
-        const getOutlineWidthAtZ = (zInches: number) => {
-            for (let i = 0; i < curves.outline.length - 1; i++) {
-                const p1 = curves.outline[i]!;
-                const p2 = curves.outline[i+1]!;
-                if (zInches >= p1[2] && zInches <= p2[2]) {
-                    // Safeguard against Division by Zero created by blunt cap logic
-                    if (p2[2] === p1[2]) return Math.max(p1[0], p2[0]);
-                    
-                    const t = (zInches - p1[2]) / (p2[2] - p1[2]);
-                    return p1[0] + t * (p2[0] - p1[0]);
-                }
-            }
-            return 0;
-        };
-
-        const getBottomY = (xInches: number, zInches: number) => {
-            const minZ = curves.outline[0]![2];
-            const maxZ = curves.outline[curves.outline.length-1]![2];
-            const totalZ = maxZ - minZ;
-            const nz = (zInches - minZ) / totalZ;
-            
-            const tailDist = Math.max(0, maxZ - zInches);
-            const noseDist = Math.max(0, zInches - minZ);
-
-            const topY = getRockerY(zInches, true);
-            const botY = getRockerY(zInches, false);
-            
-            const thickness = Math.max(0, topY - botY);
-            const dynamicRailApexRatio = getApexRatio(zInches);
-            const apexY = botY + thickness * dynamicRailApexRatio;
-
-            const halfWidth = getOutlineWidthAtZ(zInches);
-            if (halfWidth <= 0.001) return botY;
-
-            let nx = Math.abs(xInches) / halfWidth;
-            if (nx > 1) nx = 1;
-
-            // Step 3: Relax the Rail Pinch at the Poles (Fin Helper)
-            const targetRailExp = 1.5 - railFullness;
-            let railExp = targetRailExp;
-            let deckExp = deckCurve;
-            const relaxZone = 2.0;
-            if (noseDist < relaxZone) {
-                const t = noseDist / relaxZone;
-                railExp = 1.0 - t * (1.0 - targetRailExp);
-                deckExp = 1.0 - t * (1.0 - deckCurve);
-            } else if (tailDist < relaxZone) {
-                const t = tailDist / relaxZone;
-                railExp = 1.0 - t * (1.0 - targetRailExp);
-                deckExp = 1.0 - t * (1.0 - deckCurve);
-            }
-
-            // Inverse Lamé calculation to find Y given X (nx)
-            const abs_cx = Math.pow(nx, 1 / railExp);
-            const clamped_cx = Math.min(1, abs_cx);
-            const abs_cy = Math.sqrt(1 - clamped_cx * clamped_cx);
-            
-            const bottomCurve = 0.5;
-            const pyTop = apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
-            let py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
-
-            const smoothStep = (edge0: number, edge1: number, x: number) => {
-                const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-                return t * t * (3 - 2 * t);
-            };
-
-            const blendVee = 1 - smoothStep(0.05, 0.4, nz);
-            const blendConcave = smoothStep(0.15, 0.3, nz);
-            let blendChannels = 0;
-            if (tailDist <= channelLength + 6.0) {
-                blendChannels = 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist);
-            }
-            const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
-
-            let contourOffset = 0;
-            if (bottomContour === "vee_to_quad_channels") {
-                // True Vee: Drops the stringer DOWN (-Y) into the water
-                const veeOffset = -veeDepth * (1 - nx) * blendVee;
-                const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
-                let channelProfile = 0;
-                if (nx >= 0.2 && nx <= 0.8) {
-                    const u = (nx - 0.2) / 0.6;
-                    channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
-                }
-                const channelOffset = channelDepth * channelProfile * blendChannels;
-                contourOffset = (veeOffset + concaveOffset + channelOffset) * widthFade;
-            } else if (bottomContour === "single_to_double") {
-                const single = concaveDepth * (1 - nx * nx);
-                const double = concaveDepth * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
-                contourOffset = (single * (1 - nz) + double * nz) * widthFade;
-            } else if (bottomContour === "single") {
-                contourOffset = concaveDepth * (1 - nx * nx) * widthFade;
-            }
-
-            contourOffset *= abs_cy;
-            
-            py += contourOffset;
-
-            // --- SELF-INTERSECTION FIX ---
-            const MIN_CORE_THICKNESS = 0.05;
-            if (py > pyTop - MIN_CORE_THICKNESS) {
-                py = pyTop - MIN_CORE_THICKNESS;
-            }
-            
-            return py;
-        };
-
         const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
             // 1. Create the perfectly oriented local fin mesh
             const finMesh = createFinMesh(isSmall);
@@ -634,10 +299,10 @@ export class BoardViewport extends LitElement {
 
             // 3. Position the container on the board
             const zLoc = (this.boardState!.length / 2) - zFromTail;
-            const halfWidth = getOutlineWidthAtZ(zLoc);
-            const xPos = isCenter ? 0 : (halfWidth - railOffset);
+            const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zLoc);
+            const xPos = isCenter ? 0 : (profile.halfWidth - railOffset);
             const actualX = isRight ? xPos : -xPos;
-            const yPos = getBottomY(actualX, zLoc);
+            const yPos = MeshGeneratorService.getBottomYAt(this.boardState!, curves, actualX, zLoc);
 
             finContainer.position.set(actualX * scale, yPos * scale, zLoc * scale);
             
@@ -645,9 +310,8 @@ export class BoardViewport extends LitElement {
             // Real fin boxes are routed relative to the board's baseline rocker, not the steep local ramps of channels.
             const delta = 0.5;
             
-            // Calculate pitch using the pure baseline Rocker, NOT getBottomY (which includes steep channel slopes)
-            const pitchYC = getRockerY(zLoc, false);
-            const pitchYF = getRockerY(zLoc - delta, false);
+            const pitchYC = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zLoc).botY;
+            const pitchYF = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zLoc - delta).botY;
             
             const pRockerC = new THREE.Vector3(actualX, pitchYC, zLoc);
             const pRockerF = new THREE.Vector3(actualX, pitchYF, zLoc - delta);

@@ -148,10 +148,12 @@ export class BoardBuilderPage extends LitElement {
           .glassingSchedule=${state.glassingSchedule}
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
+          .editMode=${state.editMode || "parametric"}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
           @convert-to-manual=${() => this.ctrl.propose({ type: "CONVERT_TO_MANUAL" })}
+          @revert-to-parametric=${() => this.ctrl.propose({ type: "SET_EDIT_MODE", mode: "parametric" })}
         ></board-controls>
 
         <!-- Render the 3D scene taking up the full remaining area -->
