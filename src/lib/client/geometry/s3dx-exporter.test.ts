@@ -89,6 +89,11 @@ describe("S3DX Exporter", () => {
       expect(xml).to.include("<Bezier3d>");
       expect(xml).to.include("<Tangents_1>");
       expect(xml).to.include("<Tangents_2>");
+
+      // Verify Step 3 Slices were injected
+      expect(xml).to.include("<Number_of_slices>8</Number_of_slices>");
+      expect(xml).to.include("<Couples_0>");
+      expect(xml).to.include("<Couples_7>");
     });
   });
 });
