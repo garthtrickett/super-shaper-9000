@@ -4,9 +4,11 @@ import type { PropertyValues } from "lit";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import type { BoardModel } from "../pages/board-builder-page.logic";
+import type { BoardModel, BezierCurveData } from "../pages/board-builder-page.logic";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 import { MeshGeneratorService } from "../../lib/client/geometry/mesh-generator";
+import { clientLog } from "../../lib/client/clientLog";
+import { runClientUnscoped } from "../../lib/client/runtime";
 
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
@@ -39,6 +41,7 @@ export class BoardViewport extends LitElement {
   private wireframeGroup = new THREE.Group();
   private solidGroup = new THREE.Group();
   private finGroup = new THREE.Group();
+  private gizmoGroup = new THREE.Group();
   
   private _boardTexture: THREE.CanvasTexture | null = null;
   private _bumpTexture: THREE.CanvasTexture | null = null;
@@ -356,6 +359,76 @@ export class BoardViewport extends LitElement {
         } else if (this.boardState.finSetup === "thruster") {
             mountFin(this.boardState.rearFinZ, 0, true, true, false);
         }
+        
+        // --- STEP 7: Gizmos (Manual Mode Only) ---
+        while (this.gizmoGroup.children.length > 0) {
+            const child = this.gizmoGroup.children[0] as THREE.Mesh | THREE.Line;
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                else child.material.dispose();
+            }
+            this.gizmoGroup.remove(child);
+        }
+
+        if (this.boardState.editMode === "manual") {
+            runClientUnscoped(clientLog("info", "[BoardViewport] Rendering manual Bezier Gizmos"));
+
+            const anchorGeo = new THREE.SphereGeometry(0.4 * scale, 16, 16);
+            const anchorMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false }); // Blue anchors
+            const handleGeo = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
+            const handleMat = new THREE.MeshBasicMaterial({ color: 0xa1a1aa, depthTest: false }); // Gray tangent handles
+            const lineMat = new THREE.LineDashedMaterial({ color: 0x52525b, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
+
+            const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string) => {
+                if (!curve) return;
+                for (let i = 0; i < curve.controlPoints.length; i++) {
+                    const cp = curve.controlPoints[i]!;
+                    const t1 = curve.tangents1[i];
+                    const t2 = curve.tangents2[i];
+
+                    // Draw Anchor
+                    const anchorMesh = new THREE.Mesh(anchorGeo, anchorMat);
+                    anchorMesh.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
+                    anchorMesh.renderOrder = 999;
+                    anchorMesh.userData = { isGizmo: true, type: 'anchor', curve: curveName, index: i };
+                    this.gizmoGroup.add(anchorMesh);
+
+                    const drawHandle = (t: [number, number, number], handleType: string) => {
+                        // Don't draw handles if they are completely collapsed onto the anchor
+                        if (Math.abs(t[0]-cp[0]) < 0.001 && Math.abs(t[1]-cp[1]) < 0.001 && Math.abs(t[2]-cp[2]) < 0.001) return;
+
+                        const handleMesh = new THREE.Mesh(handleGeo, handleMat);
+                        handleMesh.position.set(t[0] * scale, t[1] * scale, t[2] * scale);
+                        handleMesh.renderOrder = 999;
+                        handleMesh.userData = { isGizmo: true, type: handleType, curve: curveName, index: i };
+                        this.gizmoGroup.add(handleMesh);
+
+                        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                            new THREE.Vector3(cp[0] * scale, cp[1] * scale, cp[2] * scale),
+                            new THREE.Vector3(t[0] * scale, t[1] * scale, t[2] * scale)
+                        ]);
+                        const line = new THREE.Line(lineGeo, lineMat);
+                        line.computeLineDistances();
+                        line.renderOrder = 998;
+                        this.gizmoGroup.add(line);
+                    };
+
+                    if (t1) drawHandle(t1, 'tangent1');
+                    if (t2) drawHandle(t2, 'tangent2');
+                }
+            };
+
+            drawGizmosForCurve(this.boardState.manualOutline, 'outline');
+            drawGizmosForCurve(this.boardState.manualRockerTop, 'rockerTop');
+            drawGizmosForCurve(this.boardState.manualRockerBottom, 'rockerBottom');
+            
+            if (this.boardState.manualCrossSections) {
+                this.boardState.manualCrossSections.forEach((cs, idx) => {
+                    drawGizmosForCurve(cs, `crossSection_${idx}`);
+                });
+            }
+        }
     }
   }
 
@@ -436,6 +509,7 @@ export class BoardViewport extends LitElement {
     this.scene.add(this.wireframeGroup);
     this.scene.add(this.solidGroup);
     this.scene.add(this.finGroup);
+    this.scene.add(this.gizmoGroup);
 
     const gridHelper = new THREE.GridHelper(10, 10, 0x27272a, 0x18181b);
     gridHelper.position.y = -0.99; // Offset slightly above the shadow floor to prevent Z-fighting
