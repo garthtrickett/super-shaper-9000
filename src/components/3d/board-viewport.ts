@@ -447,6 +447,14 @@ export class BoardViewport extends LitElement {
     if (this.resizeObserver) this.resizeObserver.disconnect();
     if (this.renderer) this.renderer.dispose();
     if (this.controls) this.controls.dispose();
+
+    if (this.canvas) {
+      this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+      this.canvas.removeEventListener("pointermove", this.onPointerMove);
+      this.canvas.removeEventListener("pointerup", this.onPointerUp);
+      this.canvas.removeEventListener("pointercancel", this.onPointerUp);
+      this.canvas.removeEventListener("pointerleave", this.onPointerUp);
+    }
   }
 
   private initThree() {
@@ -540,11 +548,18 @@ export class BoardViewport extends LitElement {
     this.resizeObserver = new ResizeObserver(() => this.onResize());
     this.resizeObserver.observe(this);
 
-    // 8. Start Loop
+    // 9. Event Listeners for Gizmos
+    this.canvas.addEventListener("pointerdown", this.onPointerDown);
+    this.canvas.addEventListener("pointermove", this.onPointerMove);
+    this.canvas.addEventListener("pointerup", this.onPointerUp);
+    this.canvas.addEventListener("pointercancel", this.onPointerUp);
+    this.canvas.addEventListener("pointerleave", this.onPointerUp);
+
+    // 10. Start Loop
     this.renderLoop();
   }
 
-  private onPointerDown(e: PointerEvent) {
+  private onPointerDown = (e: PointerEvent) => {
     if (this.boardState?.editMode !== 'manual') return;
 
     const rect = this.canvas.getBoundingClientRect();
@@ -572,7 +587,7 @@ export class BoardViewport extends LitElement {
     }
   }
 
-  private onPointerMove(e: PointerEvent) {
+  private onPointerMove = (e: PointerEvent) => {
     if (!this.draggedGizmo) return;
 
     const rect = this.canvas.getBoundingClientRect();
@@ -626,12 +641,12 @@ export class BoardViewport extends LitElement {
     }
   }
 
-  private onPointerUp(_e: PointerEvent) {
+  private onPointerUp = (_e: PointerEvent) => {
     if (this.draggedGizmo) {
       this.draggedGizmo = null;
       this.controls.enabled = true; // Re-enable camera orbit
     }
-  }
+  };
 
   private onResize() {
     if (!this.perspectiveCamera || !this.orthoCamera || !this.renderer) return;
