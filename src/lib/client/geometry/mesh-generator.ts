@@ -347,14 +347,28 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     let s0 = crossSections[0]!;
     let s1 = crossSections[crossSections.length - 1]!;
     let lerpFactor = 0;
-    for (let k = 0; k < crossSections.length - 1; k++) {
-      const z0 = crossSections[k]!.controlPoints[0]![2];
-      const z1 = crossSections[k + 1]!.controlPoints[0]![2];
-      if (zInches >= z0 && zInches <= z1) {
-        s0 = crossSections[k]!;
-        s1 = crossSections[k + 1]!;
-        lerpFactor = (zInches - z0) / (z1 - z0);
-        break;
+    
+    const firstZ = crossSections[0]!.controlPoints[0]![2];
+    const lastZ = crossSections[crossSections.length - 1]!.controlPoints[0]![2];
+    
+    if (zInches <= firstZ) {
+      s0 = crossSections[0]!;
+      s1 = crossSections[0]!;
+      lerpFactor = 0;
+    } else if (zInches >= lastZ) {
+      s0 = crossSections[crossSections.length - 1]!;
+      s1 = crossSections[crossSections.length - 1]!;
+      lerpFactor = 0;
+    } else {
+      for (let k = 0; k < crossSections.length - 1; k++) {
+        const z0 = crossSections[k]!.controlPoints[0]![2];
+        const z1 = crossSections[k + 1]!.controlPoints[0]![2];
+        if (zInches >= z0 && zInches <= z1) {
+          s0 = crossSections[k]!;
+          s1 = crossSections[k + 1]!;
+          lerpFactor = (zInches - z0) / (z1 - z0);
+          break;
+        }
       }
     }
 
