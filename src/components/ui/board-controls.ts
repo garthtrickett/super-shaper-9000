@@ -262,7 +262,7 @@ export class BoardControls extends LitElement {
           ${this.noseShape !== 'clipped' ? this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth, "\"", this.editMode === 'manual') : ''}
           ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset, "\"", this.editMode === 'manual')}
           ${this._renderSlider("Tail Fullness (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth, "\"", this.editMode === 'manual')}
-          ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "swallow", label: "Swallow"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType, this.editMode === 'manual')}
+          ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType, this.editMode === 'manual')}
           
           ${this.tailType === 'swallow' || this.tailType === 'squash' || this.tailType === 'torpedo' ? html`
             <div class="h-px bg-zinc-800 my-4"></div>

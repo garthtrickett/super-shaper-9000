@@ -89,10 +89,5 @@ describe("Board Curves Generator", () => {
     tailPoint = result.outline[result.outline.length - 1]!;
     expect(tailPoint[0]).to.equal(20 * 0.3);
 
-    // Swallow (35% of width)
-    model = { ...model, tailType: "swallow" };
-    result = await generateBoardCurves(model);
-    tailPoint = result.outline[result.outline.length - 1]!;
-    expect(tailPoint[0]).to.equal(20 * 0.35);
   });
 });

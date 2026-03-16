@@ -1,5 +1,37 @@
 import { expect } from "@open-wc/testing";
 import { Effect } from "effect";
+import { bakeToManual } from "./manual-baker";
+import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
+import { runClientPromise } from "../runtime";
+
+describe("manual-baker", () => {
+  it("preserves tangent angles when applying stringer locks to the tips", async () => {
+    // Generate a board with a very sharp pintail (forces a sharp entry angle to the tail)
+    const pintailState = { ...INITIAL_STATE, tailType: "pintail" as const };
+    
+    const result = await runClientPromise(bakeToManual(pintailState));
+    
+    const outline = result.outline;
+    const tailIdx = outline.controlPoints.length - 1;
+    
+    const tailAnchor = outline.controlPoints[tailIdx];
+    const tailTangent1 = outline.tangents1[tailIdx]; // Incoming handle from the rail
+
+    // 1. The anchor itself MUST be locked to X=0 (the stringer) to be watertight
+    expect(tailAnchor[0]).to.equal(0);
+
+    // 2. The tangent handle MUST NOT be zeroed out in X, otherwise it forms a corner.
+    // If it was correctly shifted rather than zeroed, it should have a non-zero X value (because of the pintail slope).
+    expect(tailTangent1[0]).to.not.equal(0);
+    
+    // 3. Ensure no coordinates became NaN during Catmull-Rom calculations
+    expect(Number.isFinite(tailTangent1[0])).to.be.true;
+    expect(Number.isFinite(tailTangent1[1])).to.be.true;
+    expect(Number.isFinite(tailTangent1[2])).to.be.true;
+  });
+});
+import { expect } from "@open-wc/testing";
+import { Effect } from "effect";
 import { bakeToManual, extractCrossSectionsSS9000 } from "./manual-baker";
 import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
 import type { BoardCurves } from "./board-curves";
