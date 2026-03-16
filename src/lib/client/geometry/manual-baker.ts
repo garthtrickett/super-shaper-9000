@@ -29,21 +29,23 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
   // 2. Select strategic anchor stations
   const fractions = [0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0];
   const anchors: Point3D[] = [];
+  const indices: number[] = [];
 
   for (const t of fractions) {
     const targetZ = minZ + t * L;
-    let closestPt = cleanPoints[0]!;
+    let closestIdx = 0;
     let minDist = Infinity;
     for (let i = 0; i < cleanPoints.length; i++) {
       const dist = Math.abs(cleanPoints[i]![2] - targetZ);
       if (dist < minDist) {
         minDist = dist;
-        closestPt = cleanPoints[i]!;
+        closestIdx = i;
       }
     }
     // Prevent duplicate anchors if fractions are too close
-    if (anchors.length === 0 || Math.abs(anchors[anchors.length - 1]![2] - closestPt[2]) > 0.1) {
-      anchors.push([...closestPt]);
+    if (anchors.length === 0 || Math.abs(anchors[anchors.length - 1]![2] - cleanPoints[closestIdx]![2]) > 0.1) {
+      anchors.push([...cleanPoints[closestIdx]!]);
+      indices.push(closestIdx);
     }
   }
 
@@ -53,42 +55,47 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
   const getDist = (a: Point3D, b: Point3D) => 
     Math.sqrt(Math.pow(a[0]-b[0], 2) + Math.pow(a[1]-b[1], 2) + Math.pow(a[2]-b[2], 2));
 
-  // 3. Catmull-Rom style Tangent Generation (Distance-scaled, NO division by dz)
+  // 3. Catmull-Rom style Tangent Generation (Using DENSE NURBS data for accurate local slope)
   for (let i = 0; i < anchors.length; i++) {
+    const idx = indices[i]!;
     const P = anchors[i]!;
-    
+        
     let dirX = 0, dirY = 0, dirZ = 1;
 
-    if (i === 0) {
-      const next = anchors[i + 1]!;
+    // Use dense points to get accurate local tangent direction, rather than coarse anchors
+    if (idx === 0) {
+      const next = cleanPoints[idx + 1]!;
       const d = getDist(P, next);
       if (d > 0) { dirX = (next[0]-P[0])/d; dirY = (next[1]-P[1])/d; dirZ = (next[2]-P[2])/d; }
-    } else if (i === anchors.length - 1) {
-      const prev = anchors[i - 1]!;
+    } else if (idx === cleanPoints.length - 1) {
+      const prev = cleanPoints[idx - 1]!;
       const d = getDist(prev, P);
       if (d > 0) { dirX = (P[0]-prev[0])/d; dirY = (P[1]-prev[1])/d; dirZ = (P[2]-prev[2])/d; }
     } else {
-      const next = anchors[i + 1]!;
-      const prev = anchors[i - 1]!;
+      // Expand neighborhood slightly if points are ultra-dense to avoid precision noise
+      const step = Math.min(3, Math.min(idx, cleanPoints.length - 1 - idx));
+      const next = cleanPoints[idx + step]!;
+      const prev = cleanPoints[idx - step]!;
       const d = getDist(prev, next);
       if (d > 0) { dirX = (next[0]-prev[0])/d; dirY = (next[1]-prev[1])/d; dirZ = (next[2]-prev[2])/d; }
     }
+
+    // Magnitude based on anchor spans, NOT dense points
+    const distToPrev = i > 0 ? getDist(anchors[i - 1]!, P) : 0;
+    const distToNext = i < anchors.length - 1 ? getDist(P, anchors[i + 1]!) : 0;
 
     // Tangent 1 (Left Handle)
     if (i === 0) {
       tangents1.push([...P]);
     } else {
-      const prev = anchors[i - 1]!;
-      const d0 = getDist(prev, P);
-      const handleLen = d0 / 3;
+      const handleLen = distToPrev / 3;
       const t1: Point3D = [
         P[0] - dirX * handleLen,
         P[1] - dirY * handleLen,
         P[2] - dirZ * handleLen
       ];
       // CRITICAL: Force monotonic Z so `evaluateBezierAtZ` binary search doesn't fail.
-      // Do not use static offsets (like 0.001), as points can be closer than that at the tail!
-      t1[2] = Math.max(prev[2], Math.min(P[2], t1[2]));
+      t1[2] = Math.max(anchors[i-1]![2], Math.min(P[2], t1[2]));
       tangents1.push(t1);
     }
 
@@ -96,16 +103,14 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
     if (i === anchors.length - 1) {
       tangents2.push([...P]);
     } else {
-      const next = anchors[i + 1]!;
-      const d1 = getDist(P, next);
-      const handleLen = d1 / 3;
+      const handleLen = distToNext / 3;
       const t2: Point3D = [
         P[0] + dirX * handleLen,
         P[1] + dirY * handleLen,
         P[2] + dirZ * handleLen
       ];
       // CRITICAL: Force monotonic Z strictly inside bounds
-      t2[2] = Math.max(P[2], Math.min(next[2], t2[2]));
+      t2[2] = Math.max(P[2], Math.min(anchors[i+1]![2], t2[2]));
       tangents2.push(t2);
     }
   }
