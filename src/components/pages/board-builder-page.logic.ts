@@ -9,7 +9,19 @@ export type FinSetup = "thruster" | "quad" | "twin";
 export type CoreMaterial = "pu" | "eps";
 export type GlassingSchedule = "light" | "standard" | "heavy";
 
+export const Point3DSchema = S.Tuple(S.Number, S.Number, S.Number);
+export const BezierCurveSchema = S.Struct({
+  controlPoints: S.Array(Point3DSchema),
+  tangents1: S.Array(Point3DSchema),
+  tangents2: S.Array(Point3DSchema),
+});
+
 export const BoardModelSchema = S.Struct({
+  editMode: S.optional(S.Literal("parametric", "manual")),
+  manualOutline: S.optional(BezierCurveSchema),
+  manualRockerTop: S.optional(BezierCurveSchema),
+  manualRockerBottom: S.optional(BezierCurveSchema),
+  manualCrossSections: S.optional(S.Array(BezierCurveSchema)),
   length: S.Number,
   width: S.Number,
   thickness: S.Number,
@@ -48,7 +60,19 @@ export const BoardModelSchema = S.Struct({
   glassingSchedule: S.Literal("light", "standard", "heavy"),
 });
 
+export type Point3D = [number, number, number];
+export interface BezierCurveData {
+  controlPoints: Point3D[];
+  tangents1: Point3D[];
+  tangents2: Point3D[];
+}
+
 export interface BoardModel {
+  editMode?: "parametric" | "manual";
+  manualOutline?: BezierCurveData;
+  manualRockerTop?: BezierCurveData;
+  manualRockerBottom?: BezierCurveData;
+  manualCrossSections?: BezierCurveData[];
   length: number;
   width: number;
   thickness: number;
@@ -88,6 +112,7 @@ export interface BoardModel {
 }
 
 export const INITIAL_STATE: BoardModel = {
+  editMode: "parametric",
   // 65kg Slab-Hunter Specs (Maximum Hold / Weak Paddler)
   length: 70, // 5'10"
   width: 18.75,
@@ -131,7 +156,9 @@ export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
   | { type: "UPDATE_VOLUME"; volume: number }
-  | { type: "LOAD_DESIGN"; state: BoardModel };
+  | { type: "LOAD_DESIGN"; state: BoardModel }
+  | { type: "SET_EDIT_MODE"; mode: "parametric" | "manual" }
+  | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; crossSections?: BezierCurveData[] };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -143,6 +170,16 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       return { ...state, volume: action.volume };
     case "LOAD_DESIGN":
       return { ...action.state };
+    case "SET_EDIT_MODE":
+      return { ...state, editMode: action.mode };
+    case "SET_MANUAL_CURVES":
+      return {
+        ...state,
+        ...(action.outline && { manualOutline: action.outline }),
+        ...(action.rockerTop && { manualRockerTop: action.rockerTop }),
+        ...(action.rockerBottom && { manualRockerBottom: action.rockerBottom }),
+        ...(action.crossSections && { manualCrossSections: action.crossSections }),
+      };
     default:
       return state;
   }
@@ -155,4 +192,16 @@ export const handleAction = (
 ): Effect.Effect<void, never, FullClientContext> =>
   Effect.gen(function* () {
     yield* clientLog("debug", "[BoardBuilder] State Action processed", action);
+    
+    if (action.type === "SET_EDIT_MODE") {
+      yield* clientLog("info", `[BoardBuilder] Edit mode changed to ${action.mode}`);
+    }
+    if (action.type === "SET_MANUAL_CURVES") {
+      yield* clientLog("info", "[BoardBuilder] Manual curves have been baked into state", {
+        hasOutline: !!action.outline,
+        hasRockerTop: !!action.rockerTop,
+        hasRockerBottom: !!action.rockerBottom,
+        crossSectionsCount: action.crossSections?.length ?? 0
+      });
+    }
   });

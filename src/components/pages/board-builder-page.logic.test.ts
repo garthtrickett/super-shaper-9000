@@ -1,4 +1,33 @@
 import { expect } from "@open-wc/testing";
+import { INITIAL_STATE, update } from "./board-builder-page.logic";
+
+describe("Board Builder State Logic", () => {
+  it("should initialize with parametric editMode", () => {
+    expect(INITIAL_STATE.editMode).to.equal("parametric");
+  });
+
+  it("should update editMode to manual", () => {
+    const nextState = update(INITIAL_STATE, { type: "SET_EDIT_MODE", mode: "manual" });
+    expect(nextState.editMode).to.equal("manual");
+  });
+
+  it("should set manual curves", () => {
+    const mockBezier = {
+      controlPoints: [[0, 0, 0] as [number, number, number]],
+      tangents1: [[0, 0, 0] as [number, number, number]],
+      tangents2: [[0, 0, 0] as [number, number, number]],
+    };
+    
+    const nextState = update(INITIAL_STATE, {
+      type: "SET_MANUAL_CURVES",
+      outline: mockBezier
+    });
+    
+    expect(nextState.manualOutline).to.deep.equal(mockBezier);
+    expect(nextState.manualRockerTop).to.be.undefined;
+  });
+});
+import { expect } from "@open-wc/testing";
 import { update, INITIAL_STATE, type BoardAction } from "./board-builder-page.logic";
 
 describe("Board Builder Logic", () => {
