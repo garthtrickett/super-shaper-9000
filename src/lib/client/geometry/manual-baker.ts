@@ -110,16 +110,20 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
     }
   }
 
-  // 4. Force stringer locks for the absolute tips to prevent holes in the mesh
+  // 4. Force stringer locks for the absolute tips ONLY if they naturally converge to 0 (Pintails/Nose)
   if (anchors.length > 0) {
-    anchors[0]![0] = 0; 
-    tangents1[0]![0] = 0; 
-    tangents2[0]![0] = 0;
+    if (Math.abs(anchors[0]![0]) < 0.05) {
+      anchors[0]![0] = 0; 
+      tangents1[0]![0] = 0; 
+      tangents2[0]![0] = 0;
+    }
 
     const last = anchors.length - 1;
-    anchors[last]![0] = 0;
-    tangents1[last]![0] = 0;
-    tangents2[last]![0] = 0;
+    if (Math.abs(anchors[last]![0]) < 0.05) {
+      anchors[last]![0] = 0;
+      tangents1[last]![0] = 0;
+      tangents2[last]![0] = 0;
+    }
   }
 
   return { controlPoints: anchors, tangents1, tangents2 };
@@ -291,9 +295,43 @@ export const bakeToManual = (model: BoardModel): Effect.Effect<{
     try: () => generateBoardCurves(model),
     catch: (e) => new Error(String(e))
   });
+
+  // --- FIX: Strip non-differentiable end-caps ---
+  // The parametric model adds 90-degree stringer closures and backward swallow cuts.
+  // These destroy Bezier tangents. We remove them so the curve cleanly represents the rail.
+  const cleanOutline = [...curves.outline];
+  while (cleanOutline.length > 2) {
+    const last = cleanOutline[cleanOutline.length - 1]!;
+    const prev = cleanOutline[cleanOutline.length - 2]!;
+    
+    // 1. Strip Z-backtracking (Swallow tail caps)
+    if (last[2] < prev[2]) {
+        cleanOutline.pop();
+        continue;
+    }
+    
+    // 2. Strip 90-degree stringer caps (Squash/Square tails)
+    if (Math.abs(last[2] - prev[2]) < 0.001 && last[0] === 0 && prev[0] > 0.01) {
+        cleanOutline.pop();
+        continue;
+    }
+    
+    break;
+  }
+  
+  // Check nose too just in case (e.g. blunt torpedo noses)
+  while (cleanOutline.length > 2) {
+    const first = cleanOutline[0]!;
+    const second = cleanOutline[1]!;
+    if (Math.abs(first[2] - second[2]) < 0.001 && first[0] === 0 && second[0] > 0.01) {
+        cleanOutline.shift();
+        continue;
+    }
+    break;
+  }
   
   return {
-    outline: fitBezierZ(curves.outline as Point3D[]),
+    outline: fitBezierZ(cleanOutline as Point3D[]),
     rockerTop: fitBezierZ(curves.rockerTop as Point3D[]),
     rockerBottom: fitBezierZ(curves.rockerBottom as Point3D[]),
     crossSections: extractCrossSectionsSS9000(model, curves)

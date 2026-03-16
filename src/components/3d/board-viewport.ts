@@ -629,8 +629,8 @@ export class BoardViewport extends LitElement {
       if (curveName === 'rockerTop' || curveName === 'rockerBottom') inInches.x = 0;
       if (curveName.startsWith('crossSection_')) inInches.z = userData.origZ;
 
-      if ((curveName === 'outline' || curveName === 'rockerTop' || curveName === 'rockerBottom') && isEndNode) {
-        inInches.x = 0; // Lock nose/tail to stringer
+      if ((curveName === 'rockerTop' || curveName === 'rockerBottom') && isEndNode) {
+        inInches.x = 0; // Lock nose/tail to stringer for rockers only (allow wide tails in outline)
       }
 
       // Apply constrained coordinates back to visual target

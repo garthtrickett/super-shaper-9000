@@ -220,9 +220,10 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       if (curve === "rockerTop" || curve === "rockerBottom") position[0] = 0;
       if (crossSectionIdx !== -1) position[2] = targetCurve.controlPoints[index]![2];
 
-      if ((curve === "outline" || curve === "rockerTop" || curve === "rockerBottom") && 
+      // Only force Rockers to the stringer. Outline can have wide tails (squash/square).
+      if ((curve === "rockerTop" || curve === "rockerBottom") && 
           (index === 0 || index === targetCurve.controlPoints.length - 1)) {
-        position[0] = 0; // Lock Nose/Tail to stringer
+        position[0] = 0; 
       }
 
       // --- Math Helpers for Kinematics ---
