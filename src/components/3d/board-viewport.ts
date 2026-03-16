@@ -574,7 +574,14 @@ export class BoardViewport extends LitElement {
       const inInches = target.clone().multiplyScalar(12);
 
       // --- STEP 4: Planar & Stringer UX Locks ---
-      const userData = this.draggedGizmo.userData;
+      const userData = this.draggedGizmo.userData as {
+        isGizmo: boolean;
+        type: 'anchor' | 'tangent1' | 'tangent2';
+        curve: string;
+        index: number;
+        maxIndex: number;
+        origZ: number;
+      };
       const curveName = userData.curve;
       const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
 
@@ -595,7 +602,7 @@ export class BoardViewport extends LitElement {
       // Dispatch event to SAM Controller (Step 3)
       this.dispatchEvent(new CustomEvent('gizmo-dragged', {
         detail: { 
-          userData: this.draggedGizmo.userData, 
+          userData: userData, 
           position: [inInches.x, inInches.y, inInches.z] 
         },
         bubbles: true,
