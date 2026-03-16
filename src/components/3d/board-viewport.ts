@@ -34,7 +34,10 @@ export class BoardViewport extends LitElement {
 
   private renderer!: THREE.WebGLRenderer;
   private scene!: THREE.Scene;
-  private camera!: THREE.PerspectiveCamera;
+  private perspectiveCamera!: THREE.PerspectiveCamera;
+  private orthoCamera!: THREE.OrthographicCamera;
+  private activeCamera!: THREE.Camera;
+  private viewMode: 'perspective' | 'top' | 'side' | 'profile' = 'perspective';
   private controls!: OrbitControls;
   private animationId: number = 0;
   private resizeObserver!: ResizeObserver;
@@ -452,14 +455,26 @@ export class BoardViewport extends LitElement {
     this.scene.background = new THREE.Color(0x09090b); // matches zinc-950
 
     // 2. Camera setup
-    this.camera = new THREE.PerspectiveCamera(
+    const aspect = this.clientWidth / this.clientHeight;
+    this.perspectiveCamera = new THREE.PerspectiveCamera(
       50,
-      this.clientWidth / this.clientHeight,
+      aspect,
       0.1,
       1000
     );
     // Look down the Nose (-Z axis) so the front of the board is in the foreground
-    this.camera.position.set(-6, 4, -6);
+    this.perspectiveCamera.position.set(-6, 4, -6);
+
+    const frustumSize = 10;
+    this.orthoCamera = new THREE.OrthographicCamera(
+      -frustumSize * aspect / 2,
+      frustumSize * aspect / 2,
+      frustumSize / 2,
+      -frustumSize / 2,
+      0.1,
+      1000
+    );
+    this.activeCamera = this.perspectiveCamera;
 
     // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({
@@ -506,7 +521,7 @@ export class BoardViewport extends LitElement {
     this.scene.add(floor);
 
     // 6. Controls
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls = new OrbitControls(this.activeCamera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.target.set(0, 0, 0);
@@ -536,7 +551,7 @@ export class BoardViewport extends LitElement {
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    this.raycaster.setFromCamera(this.mouse, this.camera);
+    this.raycaster.setFromCamera(this.mouse, this.activeCamera);
     
     // Intersect only with gizmos
     const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
@@ -547,7 +562,7 @@ export class BoardViewport extends LitElement {
       this.controls.enabled = false; // Disable camera orbit while dragging
       
       // Calculate a mathematical plane passing through the gizmo, facing the camera
-      const cameraDir = this.camera.getWorldDirection(new THREE.Vector3()).negate();
+      const cameraDir = this.activeCamera.getWorldDirection(new THREE.Vector3()).negate();
       this.dragPlane.setFromNormalAndCoplanarPoint(cameraDir, this.draggedGizmo.position);
       
       // Calculate the exact click offset from the center of the gizmo to prevent snapping
@@ -564,7 +579,7 @@ export class BoardViewport extends LitElement {
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    this.raycaster.setFromCamera(this.mouse, this.camera);
+    this.raycaster.setFromCamera(this.mouse, this.activeCamera);
     const target = new THREE.Vector3();
     
     if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
