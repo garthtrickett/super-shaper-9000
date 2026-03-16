@@ -109,13 +109,15 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   cp.sort((a, b) => a[2] - b[2]);
 
   const ptsOutline = new rhino.Point3dList();
-  ptsOutline.add(cp[0][0], cp[0][1], cp[0][2]);
+  const firstCp = cp[0]!;
+  ptsOutline.add(firstCp[0], firstCp[1], firstCp[2]);
   
-  let lastZ = cp[0][2];
+  let lastZ = firstCp[2];
   for (let i = 1; i < cp.length; i++) {
-      if (cp[i][2] - lastZ > 0.01) {
-          ptsOutline.add(cp[i][0], cp[i][1], cp[i][2]);
-          lastZ = cp[i][2];
+      const currCp = cp[i]!;
+      if (currCp[2] - lastZ > 0.01) {
+          ptsOutline.add(currCp[0], currCp[1], currCp[2]);
+          lastZ = currCp[2];
       }
   }
 

@@ -79,14 +79,22 @@ export const exportS3dx = (model: BoardModel, curves: BoardCurves): Effect.Effec
       bottomAnchors: botBezier.controlPoints.length
     });
 
-    // Step 3: XML Serialization
+    // Step 3 & 4: XML Serialization & Metadata Injection
     return `<?xml version="1.0" encoding="iso-8859-1"?>
 <Shape3d_design>
 	<Board>
+		<Version>9</Version>
+		<VersionNumber>9.1.1.2</VersionNumber>
 		<Name>SuperShaper_${model.length.toFixed(1)}_${model.tailType}</Name>
+		<Author>Super Shaper 9000</Author>
+		<Comment>Generated parametrically</Comment>
 		<Length>${(model.length * INCHES_TO_CM).toFixed(3)}</Length>
 		<Width>${(model.width * INCHES_TO_CM).toFixed(3)}</Width>
 		<Thickness>${(model.thickness * INCHES_TO_CM).toFixed(3)}</Thickness>
+		<Tail_rocker>${(model.tailRocker * INCHES_TO_CM).toFixed(3)}</Tail_rocker>
+		<Nose_rocker>${(model.noseRocker * INCHES_TO_CM).toFixed(3)}</Nose_rocker>
+		<Volume>${model.volume.toFixed(3)}</Volume>
+		<Symmetry>6</Symmetry>
 ${serializeBezier3d("Otl", "", 1, otlBezier)}
 ${serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier)}
 ${serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier)}
@@ -104,10 +112,6 @@ export interface S3DBezier {
   tangents2: [number, number, number][]; // Outgoing (right) handles
 }
 
-/**
- * Samples a dense array of NURBS points and fits a C1-continuous Cubic Bezier Curve
- * using 7 strategic stations along the length of the board.
- */
 /**
  * Evaluates procedural formulas at 8 strategic lengths to bake dynamic math into static Slices.
  */
@@ -248,8 +252,8 @@ const fitSliceBezier = (pts: [number, number, number][]): S3DBezier => {
   const t1: [number, number, number][] = [];
   const t2: [number, number, number][] = [];
 
-  const distY = (pA: number[], pB: number[]) => Math.abs(pA[1] - pB[1]) / 3;
-  const distZ = (pA: number[], pB: number[]) => Math.abs(pA[2] - pB[2]) / 3;
+  const distY = (pA: [number, number, number], pB: [number, number, number]) => Math.abs(pA[1] - pB[1]) / 3;
+  const distZ = (pA: [number, number, number], pB: [number, number, number]) => Math.abs(pA[2] - pB[2]) / 3;
 
   // P0: Bottom Stringer (Horizontal tangent towards Tuck)
   t1.push([...pts[0]!]);
@@ -415,7 +419,7 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
     `\t\t\t\t<Tangent_type_point_${i}> 0 </Tangent_type_point_${i}>`
   ).join("\n");
 
-  return `\t	<${tag}>
+  return `\t\t<${tag}>
 \t\t\t<Bezier3d>
 \t\t\t\t<Name>${name}</Name>
 \t\t\t\t<Degree>3</Degree>

@@ -77,7 +77,7 @@ describe("Board Curves Generator", () => {
     });
     
     // Pintail (5% of width)
-    let model: BoardModel = { length: 72, width: 20, thickness: 2.5, tailType: "pintail", isComputing: false, meshData: null };
+    let model = { length: 72, width: 20, thickness: 2.5, tailType: "pintail" } as unknown as BoardModel;
     let result = await generateBoardCurves(model);
     let tailPoint = result.outline[result.outline.length - 1]!;
     expect(tailPoint[0]).to.equal(20 * 0.05);

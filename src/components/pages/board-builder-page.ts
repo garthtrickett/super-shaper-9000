@@ -22,6 +22,22 @@ export class BoardBuilderPage extends LitElement {
 
   protected override createRenderRoot() { return this; }
 
+  private async _handleExportS3dx() {
+    try {
+      const curves = await generateBoardCurves(this.ctrl.model);
+      const xml = await runClientPromise(exportS3dx(this.ctrl.model, curves));
+      const blob = new Blob([xml], { type: "application/xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `SuperShaper_${this.ctrl.model.length.toFixed(1)}_${this.ctrl.model.tailType}.s3dx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to export S3DX", e);
+    }
+  }
+
   private _handleImport() {
     try {
       const parsed = JSON.parse(this.importJson) as unknown;
