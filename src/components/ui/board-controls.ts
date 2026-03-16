@@ -184,9 +184,10 @@ export class BoardControls extends LitElement {
     return html`
       <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar">
         <!-- Import / Export Actions -->
-        <div class="flex gap-2 mb-4">
-          <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export</button>
-          <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="flex-1 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import</button>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-blue-600 hover:bg-blue-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import</button>
+          <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">JSON</button>
+          <button @click=${() => this.dispatchEvent(new CustomEvent('export-s3dx', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-emerald-400 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">S3DX</button>
         </div>
 
         <!-- Top HUD Panel (Volume & Weight) -->
