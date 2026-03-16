@@ -20,7 +20,7 @@ describe("Board Builder Logic", () => {
 
 describe("BoardBuilder Logic", () => {
   it("should correctly update a dimension", () => {
-    const action: BoardAction = { type: "UPDATE_DIMENSION", dimension: "length", value: 80 };
+    const action: BoardAction = { type: "UPDATE_NUMBER", param: "length", value: 80 };
     const nextState = update(INITIAL_STATE, action);
     
     expect(nextState.length).to.equal(80);
@@ -30,7 +30,7 @@ describe("BoardBuilder Logic", () => {
   });
 
   it("should correctly update tail type", () => {
-    const action: BoardAction = { type: "UPDATE_TAIL", tailType: "swallow" };
+    const action: BoardAction = { type: "UPDATE_STRING", param: "tailType", value: "swallow" };
     const nextState = update(INITIAL_STATE, action);
     
     expect(nextState.tailType).to.equal("swallow");
