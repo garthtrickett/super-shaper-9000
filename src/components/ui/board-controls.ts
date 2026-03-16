@@ -298,12 +298,12 @@ export class BoardControls extends LitElement {
             {value: "single", label: "Single Concave"},
             {value: "single_to_double", label: "Single to Double"},
             {value: "vee_to_quad_channels", label: "Vee -> Quad-Inside-Single"}
-          ], this.bottomContour)}
+          ], this.bottomContour, this.editMode === 'manual')}
           <div class="h-px bg-zinc-800 my-4"></div>
-          ${this._renderSlider("Entry Vee Depth", "veeDepth", 0, 0.5, 0.0625, this.veeDepth)}
-          ${this._renderSlider("Single Concave Depth", "concaveDepth", 0, 0.5, 0.0625, this.concaveDepth)}
-          ${this._renderSlider("Channel Depth", "channelDepth", 0, 0.5, 0.0625, this.channelDepth)}
-          ${this._renderSlider("Channel Length (from tail)", "channelLength", 0, 36.0, 1.0, this.channelLength)}
+          ${this._renderSlider("Entry Vee Depth", "veeDepth", 0, 0.5, 0.0625, this.veeDepth, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Single Concave Depth", "concaveDepth", 0, 0.5, 0.0625, this.concaveDepth, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Channel Depth", "channelDepth", 0, 0.5, 0.0625, this.channelDepth, "\"", this.editMode === 'manual')}
+          ${this._renderSlider("Channel Length (from tail)", "channelLength", 0, 36.0, 1.0, this.channelLength, "\"", this.editMode === 'manual')}
         `, false)}
 
         ${this._renderAccordion("Fins & Placement", html`
