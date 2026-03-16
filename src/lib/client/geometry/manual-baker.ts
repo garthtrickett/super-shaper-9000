@@ -121,37 +121,42 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
   return { controlPoints: anchors, tangents1, tangents2 };
 };
 
+const getDist2D = (pA: Point3D, pB: Point3D) => Math.sqrt(Math.pow(pA[0]-pB[0], 2) + Math.pow(pA[1]-pB[1], 2));
+
 const fitSliceBezierX = (pts: Point3D[]): BezierCurveData => {
   const t1: Point3D[] = [];
   const t2: Point3D[] = [];
 
-  const distX = (pA: Point3D, pB: Point3D) => Math.abs(pA[0] - pB[0]) / 3;
-  const distY = (pA: Point3D, pB: Point3D) => Math.abs(pA[1] - pB[1]) / 3;
-
-  // P0: Stringer Bottom
+  // P0: Stringer Bottom (Flat)
   t1.push([...pts[0]!]);
-  t2.push([pts[0]![0] + distX(pts[0]!, pts[1]!), pts[0]![1], pts[0]![2]]);
+  t2.push([pts[0]![0] + Math.abs(pts[1]![0] - pts[0]![0])/3, pts[0]![1], pts[0]![2]]);
 
   // P1: Tuck Bottom
-  let dx = pts[2]![0] - pts[0]![0];
-  let dy = pts[2]![1] - pts[0]![1];
-  let slope = Math.abs(dx) > 0.0001 ? dy / dx : 0;
-  t1.push([pts[1]![0] - distX(pts[0]!, pts[1]!), pts[1]![1] - slope * distX(pts[0]!, pts[1]!), pts[1]![2]]);
-  t2.push([pts[1]![0] + distX(pts[1]!, pts[2]!), pts[1]![1] + slope * distX(pts[1]!, pts[2]!), pts[1]![2]]);
+  let dirX = pts[2]![0] - pts[0]![0];
+  let dirY = pts[2]![1] - pts[0]![1];
+  let len = Math.sqrt(dirX*dirX + dirY*dirY);
+  if (len > 0.0001) { dirX /= len; dirY /= len; } else { dirX = 1; dirY = 0; }
+  let d0 = getDist2D(pts[0]!, pts[1]!) / 3;
+  t1.push([pts[1]![0] - dirX * d0, pts[1]![1] - dirY * d0, pts[1]![2]]);
+  let d1 = getDist2D(pts[1]!, pts[2]!) / 3;
+  t2.push([pts[1]![0] + dirX * d1, pts[1]![1] + dirY * d1, pts[1]![2]]);
 
-  // P2: Rail Apex
-  t1.push([pts[2]![0], pts[2]![1] - distY(pts[1]!, pts[2]!), pts[2]![2]]);
-  t2.push([pts[2]![0], pts[2]![1] + distY(pts[2]!, pts[3]!), pts[2]![2]]);
+  // P2: Rail Apex (Vertical)
+  t1.push([pts[2]![0], pts[2]![1] - Math.abs(pts[2]![1] - pts[1]![1])/3, pts[2]![2]]);
+  t2.push([pts[2]![0], pts[2]![1] + Math.abs(pts[3]![1] - pts[2]![1])/3, pts[2]![2]]);
 
   // P3: Deck Shoulder
-  dx = pts[4]![0] - pts[2]![0];
-  dy = pts[4]![1] - pts[2]![1];
-  slope = Math.abs(dx) > 0.0001 ? dy / dx : 0;
-  t1.push([pts[3]![0] - distX(pts[2]!, pts[3]!), pts[3]![1] - slope * distX(pts[2]!, pts[3]!), pts[3]![2]]);
-  t2.push([pts[3]![0] + distX(pts[3]!, pts[4]!), pts[3]![1] + slope * distX(pts[3]!, pts[4]!), pts[3]![2]]);
+  dirX = pts[4]![0] - pts[2]![0];
+  dirY = pts[4]![1] - pts[2]![1];
+  len = Math.sqrt(dirX*dirX + dirY*dirY);
+  if (len > 0.0001) { dirX /= len; dirY /= len; } else { dirX = -1; dirY = 0; }
+  d0 = getDist2D(pts[2]!, pts[3]!) / 3;
+  t1.push([pts[3]![0] - dirX * d0, pts[3]![1] - dirY * d0, pts[3]![2]]);
+  d1 = getDist2D(pts[3]!, pts[4]!) / 3;
+  t2.push([pts[3]![0] + dirX * d1, pts[3]![1] + dirY * d1, pts[3]![2]]);
 
-  // P4: Deck Stringer
-  t1.push([pts[4]![0] + distX(pts[3]!, pts[4]!), pts[4]![1], pts[4]![2]]);
+  // P4: Deck Stringer (Flat)
+  t1.push([pts[4]![0] - Math.abs(pts[4]![0] - pts[3]![0])/3, pts[4]![1], pts[4]![2]]);
   t2.push([...pts[4]!]);
 
   return { controlPoints: pts, tangents1: t1, tangents2: t2 };

@@ -366,7 +366,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
         if (zInches >= z0 && zInches <= z1) {
           s0 = crossSections[k]!;
           s1 = crossSections[k + 1]!;
-          lerpFactor = (zInches - z0) / (z1 - z0);
+          lerpFactor = Math.abs(z1 - z0) < 0.0001 ? 0 : (zInches - z0) / (z1 - z0);
           break;
         }
       }
