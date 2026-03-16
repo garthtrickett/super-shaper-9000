@@ -386,25 +386,28 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const rawX = pA[0] + (pB[0] - pA[0]) * lerpFactor;
       const rawY = pA[1] + (pB[1] - pA[1]) * lerpFactor;
 
-      const sliceWidth = (s0.controlPoints[2]![0] + (s1.controlPoints[2]![0] - s0.controlPoints[2]![0]) * lerpFactor) || 1;
+      const sliceWidth = s0.controlPoints[2]![0] + (s1.controlPoints[2]![0] - s0.controlPoints[2]![0]) * lerpFactor;
       const sliceTop = s0.controlPoints[4]![1] + (s1.controlPoints[4]![1] - s0.controlPoints[4]![1]) * lerpFactor;
       const sliceBot = s0.controlPoints[0]![1] + (s1.controlPoints[0]![1] - s0.controlPoints[0]![1]) * lerpFactor;
 
-      const normX = rawX / sliceWidth;
-            
-      // Safely normalize Y relative to the rocker without exploding if thickness approaches 0
+      // Clamp normalization to prevent "Infinity" spikes when width shrinks to 0 at the nose/tail
+      let px = 0;
+      if (Math.abs(sliceWidth) > 0.05 && Math.abs(halfWidth) > 0.05) {
+          const normX = rawX / sliceWidth;
+          px = (isRightSide ? 1 : -1) * normX * halfWidth;
+      }
+
       const sliceThickness = sliceTop - sliceBot;
       const currentThickness = topY - botY;
             
       let py = botY;
-      if (Math.abs(sliceThickness) > 0.0001) {
+      // Clamp normalization to prevent "Infinity" spikes when thickness shrinks to 0 at the tips
+      if (Math.abs(sliceThickness) > 0.05 && Math.abs(currentThickness) > 0.05) {
           const normY = (rawY - sliceBot) / sliceThickness;
           py = botY + normY * currentThickness;
       } else {
           py = botY + currentThickness / 2;
       }
-
-      const px = (isRightSide ? 1 : -1) * normX * halfWidth;
 
       // Note: We do NOT re-apply `calculateBottomContourOffset` here in manual mode!
       // `extractCrossSectionsSS9000` already baked the bottom contours into the generated slices.

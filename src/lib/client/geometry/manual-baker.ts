@@ -5,12 +5,16 @@ import { generateBoardCurves, type BoardCurves } from "./board-curves";
 const fitBezierZ = (points: Point3D[]): BezierCurveData => {
   if (points.length === 0) return { controlPoints: [], tangents1: [], tangents2: [] };
 
-  // 1. Clean data: Remove exact duplicate Zs to prevent division by zero,
-  // but keep steep slopes (like squash tails) intact.
+  // 1. Clean data: Remove exact 3D duplicates to prevent division by zero,
+  // but KEEP identical Zs if X/Y differ (vital for squash/square tails).
   const cleanPoints: Point3D[] = [];
   for (const p of points) {
-    if (cleanPoints.length === 0 || p[2] > cleanPoints[cleanPoints.length - 1]![2] + 0.0001) {
+    if (cleanPoints.length === 0) {
       cleanPoints.push(p);
+    } else {
+      const last = cleanPoints[cleanPoints.length - 1]!;
+      const dist = Math.sqrt(Math.pow(p[0]-last[0],2) + Math.pow(p[1]-last[1],2) + Math.pow(p[2]-last[2],2));
+      if (dist > 0.001) cleanPoints.push(p);
     }
   }
 
