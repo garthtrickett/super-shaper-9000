@@ -5,6 +5,16 @@ import "./board-viewport";
 import type { BoardViewport } from "./board-viewport";
 
 describe("BoardViewport (3D Component)", () => {
+  it("should render a canvas element inside its shadow DOM", async () => {
+    const el = await fixture<BoardViewport>(
+      html`<board-viewport></board-viewport>`
+    );
+    
+    const canvas = el.shadowRoot?.querySelector("canvas");
+    expect(canvas).to.exist;
+    expect(canvas?.tagName.toLowerCase()).to.equal("canvas");
+  });
+
   describe("Camera & Viewport Controls", () => {
     it("renders camera toggles only in manual edit mode", async () => {
       // Parametric Mode
@@ -67,20 +77,5 @@ describe("BoardViewport (3D Component)", () => {
       expect(outlineGizmo.visible).to.be.false;
       expect(rockerGizmo.visible).to.be.true;
     });
-  });
-});
-import { expect, fixture, html } from "@open-wc/testing";
-import "./board-viewport";
-import type { BoardViewport } from "./board-viewport";
-
-describe("BoardViewport", () => {
-  it("should render a canvas element inside its shadow DOM", async () => {
-    const el = await fixture<BoardViewport>(
-      html`<board-viewport></board-viewport>`
-    );
-    
-    const canvas = el.shadowRoot?.querySelector("canvas");
-    expect(canvas).to.exist;
-    expect(canvas?.tagName.toLowerCase()).to.equal("canvas");
   });
 });
