@@ -90,7 +90,8 @@ export const exportS3dx = (model: BoardModel, curves: BoardCurves): Effect.Effec
 ${serializeBezier3d("Otl", "", 1, otlBezier)}
 ${serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier)}
 ${serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier)}
-		<!-- Cross-Sections (Couples) coming in Step 3. -->
+		<Number_of_slices>8</Number_of_slices>
+${bakeCrossSections(model, curves)}
 	</Board>
 </Shape3d_design>`;
   });
