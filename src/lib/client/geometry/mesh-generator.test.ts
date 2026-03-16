@@ -1,6 +1,9 @@
 import { expect } from "@open-wc/testing";
-import { MeshGeneratorService } from "./mesh-generator";
+import { MeshGeneratorService, calculateBottomContourOffset } from "./mesh-generator";
+import { bakeToManual } from "./manual-baker";
+import { generateBoardCurves } from "./board-curves";
 import { INITIAL_STATE, type BoardModel } from "../../../components/pages/board-builder-page.logic";
+import { runClientPromise } from "../runtime";
 
 describe("MeshGeneratorService", () => {
   it("does not produce NaN or Infinity vertices during manual generation with extreme concaves", () => {
@@ -49,15 +52,7 @@ describe("MeshGeneratorService", () => {
 
     expect(hasInvalidNumber).to.be.false;
   });
-});
-import { expect } from "@open-wc/testing";
-import { Effect } from "effect";
-import { MeshGeneratorService, calculateBottomContourOffset } from "./mesh-generator";
-import { bakeToManual } from "./manual-baker";
-import { generateBoardCurves } from "./board-curves";
-import { INITIAL_STATE, type BoardModel } from "../../../components/pages/board-builder-page.logic";
 
-describe("Mesh Generator Service", () => {
   describe("Contour Compositing", () => {
     it("yields 0 offset for flat bottom contour", () => {
       const model: BoardModel = { ...INITIAL_STATE, bottomContour: "flat" };
@@ -87,7 +82,7 @@ describe("Mesh Generator Service", () => {
       const paramVol = paramMesh.volumeLiters;
 
       // 2. Bake to Manual Mode (extract the curves into bezier points)
-      const manualCurves = await Effect.runPromise(bakeToManual(INITIAL_STATE));
+      const manualCurves = await runClientPromise(bakeToManual(INITIAL_STATE));
       const manualState: BoardModel = {
         ...INITIAL_STATE,
         editMode: "manual",

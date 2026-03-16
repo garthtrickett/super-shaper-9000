@@ -1,8 +1,8 @@
 import { expect } from "@open-wc/testing";
-import { Effect } from "effect";
-import { bakeToManual } from "./manual-baker";
+import { bakeToManual, extractCrossSectionsSS9000 } from "./manual-baker";
 import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
 import { runClientPromise } from "../runtime";
+import type { BoardCurves } from "./board-curves";
 
 describe("manual-baker", () => {
   it("preserves tangent angles when applying stringer locks to the tips", async () => {
@@ -14,8 +14,8 @@ describe("manual-baker", () => {
     const outline = result.outline;
     const tailIdx = outline.controlPoints.length - 1;
     
-    const tailAnchor = outline.controlPoints[tailIdx];
-    const tailTangent1 = outline.tangents1[tailIdx]; // Incoming handle from the rail
+    const tailAnchor = outline.controlPoints[tailIdx]!;
+    const tailTangent1 = outline.tangents1[tailIdx]!; // Incoming handle from the rail
 
     // 1. The anchor itself MUST be locked to X=0 (the stringer) to be watertight
     expect(tailAnchor[0]).to.equal(0);
@@ -29,14 +29,7 @@ describe("manual-baker", () => {
     expect(Number.isFinite(tailTangent1[1])).to.be.true;
     expect(Number.isFinite(tailTangent1[2])).to.be.true;
   });
-});
-import { expect } from "@open-wc/testing";
-import { Effect } from "effect";
-import { bakeToManual, extractCrossSectionsSS9000 } from "./manual-baker";
-import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
-import type { BoardCurves } from "./board-curves";
 
-describe("Manual Baker (Geometry Math)", () => {
   it("extracts exactly 8 cross sections at standard S3DX fractions", () => {
     // Minimal mocked curves to bypass Rhino dependency in this test
     const mockCurves: BoardCurves = {
@@ -61,7 +54,7 @@ describe("Manual Baker (Geometry Math)", () => {
 
   it("bakes parametric model into full manual curves", async () => {
     // Using runPromise to resolve the Effect, which internally calls generateBoardCurves
-    const result = await Effect.runPromise(bakeToManual(INITIAL_STATE));
+    const result = await runClientPromise(bakeToManual(INITIAL_STATE));
     
     // Check that outline and rockers are populated with mathematical anchor points
     expect(result.outline.controlPoints.length).to.be.greaterThan(3);
