@@ -55,7 +55,18 @@ describe("S3DX Exporter", () => {
         length: 70,
         width: 18.75,
         thickness: 2.5,
-        tailType: "squash"
+        tailType: "squash",
+        volume: 30.5,
+        tailRocker: 1.6,
+        noseRocker: 5.2,
+        apexRatio: 0.35,
+        railFullness: 0.65,
+        deckDome: 0.65,
+        channelLength: 12.0,
+        veeDepth: 0.15,
+        concaveDepth: 0.25,
+        channelDepth: 0.1875,
+        bottomContour: "vee_to_quad_channels"
       } as BoardModel;
 
       // Minimal mocked curves to bypass Rhino dependency in this test
@@ -67,10 +78,12 @@ describe("S3DX Exporter", () => {
 
       const xml = await Effect.runPromise(exportS3dx(mockModel, mockCurves));
       
-      // Verify XML Declarations
+      // Verify XML Declarations & Metadata
       expect(xml).to.include('<?xml version="1.0" encoding="iso-8859-1"?>');
       expect(xml).to.include("<Shape3d_design>");
       expect(xml).to.include("<Name>SuperShaper_70.0_squash</Name>");
+      expect(xml).to.include("<Version>9</Version>");
+      expect(xml).to.include("<Author>Super Shaper 9000</Author>");
 
       // Verify Unit Conversions (Inches to Centimeters)
       // 70 inches * 2.54 = 177.800 cm
@@ -79,16 +92,22 @@ describe("S3DX Exporter", () => {
       expect(xml).to.include("<Width>47.625</Width>");
       // 2.5 * 2.54 = 6.350 cm
       expect(xml).to.include("<Thickness>6.350</Thickness>");
+      // Rocker conversions
+      expect(xml).to.include("<Tail_rocker>4.064</Tail_rocker>"); // 1.6 * 2.54
+      expect(xml).to.include("<Nose_rocker>13.208</Nose_rocker>"); // 5.2 * 2.54
+      expect(xml).to.include("<Volume>30.500</Volume>");
 
       // Verify Step 2 Curve XML Tags were injected
       expect(xml).to.include("<Otl>");
       expect(xml).to.include("<StrBot>");
       expect(xml).to.include("<StrDeck>");
       
-      // Ensure the Bezier3d tag structure is correct
+      // Ensure the Bezier3d tag structure is correct and robust
       expect(xml).to.include("<Bezier3d>");
       expect(xml).to.include("<Tangents_1>");
       expect(xml).to.include("<Tangents_2>");
+      expect(xml).to.include("<Tangents_m>");
+      expect(xml).to.include("<Control_type_point_0> 32 </Control_type_point_0>");
 
       // Verify Step 3 Slices were injected
       expect(xml).to.include("<Number_of_slices>8</Number_of_slices>");
