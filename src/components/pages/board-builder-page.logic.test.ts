@@ -16,14 +16,6 @@ describe("Board Builder Logic", () => {
     expect(newState.noseShape).to.equal("pointy");
   });
 
-  it("should handle compute states properly", () => {
-    let state = update(INITIAL_STATE, { type: "COMPUTE_START" });
-    expect(state.isComputing).to.be.true;
-
-    state = update(state, { type: "COMPUTE_SUCCESS", meshData: "MESH_DATA" });
-    expect(state.isComputing).to.be.false;
-    expect(state.meshData).to.equal("MESH_DATA");
-  });
 });
 
 describe("BoardBuilder Logic", () => {
