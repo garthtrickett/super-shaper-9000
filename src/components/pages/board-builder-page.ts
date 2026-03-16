@@ -151,6 +151,7 @@ export class BoardBuilderPage extends LitElement {
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
+          @convert-to-manual=${() => this.ctrl.propose({ type: "CONVERT_TO_MANUAL" })}
         ></board-controls>
 
         <!-- Render the 3D scene taking up the full remaining area -->

@@ -1,5 +1,5 @@
 import { expect } from "@open-wc/testing";
-import { INITIAL_STATE, update } from "./board-builder-page.logic";
+import { update, INITIAL_STATE, type BoardAction } from "./board-builder-page.logic";
 
 describe("Board Builder State Logic", () => {
   it("should initialize with parametric editMode", () => {
@@ -26,9 +26,12 @@ describe("Board Builder State Logic", () => {
     expect(nextState.manualOutline).to.deep.equal(mockBezier);
     expect(nextState.manualRockerTop).to.be.undefined;
   });
+
+  it("should ignore state mutation for CONVERT_TO_MANUAL because it is async", () => {
+    const nextState = update(INITIAL_STATE, { type: "CONVERT_TO_MANUAL" });
+    expect(nextState).to.equal(INITIAL_STATE);
+  });
 });
-import { expect } from "@open-wc/testing";
-import { update, INITIAL_STATE, type BoardAction } from "./board-builder-page.logic";
 
 describe("Board Builder Logic", () => {
   it("should correctly update a number parameter", () => {

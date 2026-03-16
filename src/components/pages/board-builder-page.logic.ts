@@ -1,6 +1,7 @@
 import { Effect, Schema as S } from "effect";
 import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
+import { bakeToManual } from "../../lib/client/geometry/manual-baker";
 
 export type TailType = "squash" | "pintail" | "swallow" | "round" | "torpedo";
 export type NoseShape = "pointy" | "torpedo" | "clipped";
@@ -158,7 +159,8 @@ export type BoardAction =
   | { type: "UPDATE_VOLUME"; volume: number }
   | { type: "LOAD_DESIGN"; state: BoardModel }
   | { type: "SET_EDIT_MODE"; mode: "parametric" | "manual" }
-  | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; crossSections?: BezierCurveData[] };
+  | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; crossSections?: BezierCurveData[] }
+  | { type: "CONVERT_TO_MANUAL" };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -180,6 +182,9 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         ...(action.rockerBottom && { manualRockerBottom: action.rockerBottom }),
         ...(action.crossSections && { manualCrossSections: action.crossSections }),
       };
+    case "CONVERT_TO_MANUAL":
+      // Handled asynchronously in the handleAction effect
+      return state;
     default:
       return state;
   }
@@ -203,5 +208,23 @@ export const handleAction = (
         hasRockerBottom: !!action.rockerBottom,
         crossSectionsCount: action.crossSections?.length ?? 0
       });
+    }
+
+    if (action.type === "CONVERT_TO_MANUAL") {
+      yield* clientLog("info", "[BoardBuilder] Starting conversion from parametric to manual curves...");
+      
+      yield* bakeToManual(_state).pipe(
+        Effect.flatMap((manualData) => Effect.sync(() => {
+          _dispatch({
+            type: "SET_MANUAL_CURVES",
+            outline: manualData.outline,
+            rockerTop: manualData.rockerTop,
+            rockerBottom: manualData.rockerBottom,
+            crossSections: manualData.crossSections,
+          });
+          _dispatch({ type: "SET_EDIT_MODE", mode: "manual" });
+        })),
+        Effect.catchAll((e) => clientLog("error", "[BoardBuilder] Failed to bake manual curves", e))
+      );
     }
   });
