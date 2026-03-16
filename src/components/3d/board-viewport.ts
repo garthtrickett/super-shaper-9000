@@ -570,11 +570,27 @@ export class BoardViewport extends LitElement {
     if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
       target.sub(this.dragOffset);
       
-      // Update gizmo position instantly for fluid UI feedback
-      this.draggedGizmo.position.copy(target);
-      
       // Scale coordinates back from Three.js World (Feet) to Application Logic (Inches)
       const inInches = target.clone().multiplyScalar(12);
+
+      // --- STEP 4: Planar & Stringer UX Locks ---
+      const userData = this.draggedGizmo.userData;
+      const curveName = userData.curve;
+      const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
+
+      if (curveName === 'outline') inInches.y = 0;
+      if (curveName === 'rockerTop' || curveName === 'rockerBottom') inInches.x = 0;
+      if (curveName.startsWith('crossSection_')) inInches.z = userData.origZ;
+
+      if ((curveName === 'outline' || curveName === 'rockerTop' || curveName === 'rockerBottom') && isEndNode) {
+        inInches.x = 0; // Lock nose/tail to stringer
+      }
+
+      // Apply constrained coordinates back to visual target
+      target.copy(inInches).multiplyScalar(1/12);
+      
+      // Update gizmo position instantly for fluid UI feedback
+      this.draggedGizmo.position.copy(target);
       
       // Dispatch event to SAM Controller (Step 3)
       this.dispatchEvent(new CustomEvent('gizmo-dragged', {

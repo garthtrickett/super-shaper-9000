@@ -210,12 +210,62 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         tangents2: [...targetCurve.tangents2],
       };
 
-      if (nodeType === "anchor" && updatedCurve.controlPoints[index]) {
+      // --- STEP 4: Planar & Stringer Locks ---
+      if (curve === "outline") position[1] = 0;
+      if (curve === "rockerTop" || curve === "rockerBottom") position[0] = 0;
+      if (crossSectionIdx !== -1) position[2] = targetCurve.controlPoints[index]![2];
+
+      if ((curve === "outline" || curve === "rockerTop" || curve === "rockerBottom") && 
+          (index === 0 || index === targetCurve.controlPoints.length - 1)) {
+        position[0] = 0; // Lock Nose/Tail to stringer
+      }
+
+      // --- Math Helpers for Kinematics ---
+      const vec3Sub = (a: number[], b: number[]): Point3D => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+      const vec3Add = (a: number[], b: number[]): Point3D => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+      const vec3Len = (v: number[]): number => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+      const vec3Scale = (v: number[], s: number): Point3D => [v[0]*s, v[1]*s, v[2]*s];
+
+      const oldAnchor = targetCurve.controlPoints[index];
+      const oldT1 = targetCurve.tangents1[index];
+      const oldT2 = targetCurve.tangents2[index];
+
+      // --- STEP 4: C1 Continuity & Translation ---
+      if (nodeType === "anchor" && oldAnchor) {
+        const delta = vec3Sub(position, oldAnchor);
         updatedCurve.controlPoints[index] = [...position];
-      } else if (nodeType === "tangent1" && updatedCurve.tangents1[index]) {
+        
+        // Move handles relative to anchor
+        if (oldT1) updatedCurve.tangents1[index] = vec3Add(oldT1, delta);
+        if (oldT2) updatedCurve.tangents2[index] = vec3Add(oldT2, delta);
+        
+      } else if (nodeType === "tangent1" && oldAnchor && oldT1) {
         updatedCurve.tangents1[index] = [...position];
-      } else if (nodeType === "tangent2" && updatedCurve.tangents2[index]) {
+        
+        // Pivot opposite handle (C1 Continuity)
+        if (oldT2) {
+          const dir1 = vec3Sub(position, oldAnchor);
+          const len1 = vec3Len(dir1);
+          if (len1 > 0.001) {
+            const norm1 = vec3Scale(dir1, 1 / len1);
+            const origDist2 = vec3Len(vec3Sub(oldT2, oldAnchor));
+            updatedCurve.tangents2[index] = vec3Sub(oldAnchor, vec3Scale(norm1, origDist2));
+          }
+        }
+        
+      } else if (nodeType === "tangent2" && oldAnchor && oldT2) {
         updatedCurve.tangents2[index] = [...position];
+        
+        // Pivot opposite handle (C1 Continuity)
+        if (oldT1) {
+          const dir2 = vec3Sub(position, oldAnchor);
+          const len2 = vec3Len(dir2);
+          if (len2 > 0.001) {
+            const norm2 = vec3Scale(dir2, 1 / len2);
+            const origDist1 = vec3Len(vec3Sub(oldT1, oldAnchor));
+            updatedCurve.tangents1[index] = vec3Sub(oldAnchor, vec3Scale(norm2, origDist1));
+          }
+        }
       }
 
       if (curve === "outline") return { ...state, manualOutline: updatedCurve };
