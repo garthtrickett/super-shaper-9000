@@ -29,21 +29,25 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
   // 2. Select strategic anchor stations
   const fractions = [0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0];
   const anchors: Point3D[] = [];
+  const anchorIndices: number[] = [];
 
   for (const t of fractions) {
     const targetZ = minZ + t * L;
     let closestPt = cleanPoints[0]!;
+    let closestIdx = 0;
     let minDist = Infinity;
     for (let i = 0; i < cleanPoints.length; i++) {
       const dist = Math.abs(cleanPoints[i]![2] - targetZ);
       if (dist < minDist) {
         minDist = dist;
         closestPt = cleanPoints[i]!;
+        closestIdx = i;
       }
     }
     // Prevent duplicate anchors if fractions are too close
     if (anchors.length === 0 || Math.abs(anchors[anchors.length - 1]![2] - closestPt[2]) > 0.1) {
       anchors.push([...closestPt]);
+      anchorIndices.push(closestIdx);
     }
   }
 
@@ -54,26 +58,45 @@ const fitBezierZ = (points: Point3D[]): BezierCurveData => {
     Math.sqrt(Math.pow(a[0]-b[0], 2) + Math.pow(a[1]-b[1], 2) + Math.pow(a[2]-b[2], 2));
 
   // 3. Catmull-Rom style Tangent Generation
-  // Reverted to coarse anchors to prevent aggressive overshoot at the rapidly curving tips,
-  // and replaced independent Z-clamping with proportional handle scaling to preserve vector slopes.
+  // Use high-resolution sampled points to calculate the true slope at the anchors,
+  // avoiding the "corner" effect caused by bridging long gaps with straight vectors.
   for (let i = 0; i < anchors.length; i++) {
     const P = anchors[i]!;
-        
+    const ptIdx = anchorIndices[i]!;
+            
     let dirX = 0, dirY = 0, dirZ = 1;
 
     if (i === 0) {
-      const next = anchors[i + 1]!;
-      const d = getDist(P, next);
-      if (d > 0) { dirX = (next[0]-P[0])/d; dirY = (next[1]-P[1])/d; dirZ = (next[2]-P[2])/d; }
+      if (ptIdx < cleanPoints.length - 1) {
+        const next = cleanPoints[ptIdx + 1]!;
+        const d = getDist(P, next);
+        if (d > 0) { dirX = (next[0]-P[0])/d; dirY = (next[1]-P[1])/d; dirZ = (next[2]-P[2])/d; }
+            
+        // Auto-smooth round noses (force C1 continuity across mirror plane)
+        if (Math.abs(P[0]) < 0.05 && Math.abs(dirX) > Math.abs(dirZ) * 1.5) {
+            dirZ = 0;
+            dirX = Math.sign(dirX) || 1;
+        }
+      }
     } else if (i === anchors.length - 1) {
-      const prev = anchors[i - 1]!;
-      const d = getDist(prev, P);
-      if (d > 0) { dirX = (P[0]-prev[0])/d; dirY = (P[1]-prev[1])/d; dirZ = (P[2]-prev[2])/d; }
+      if (ptIdx > 0) {
+        const prev = cleanPoints[ptIdx - 1]!;
+        const d = getDist(prev, P);
+        if (d > 0) { dirX = (P[0]-prev[0])/d; dirY = (P[1]-prev[1])/d; dirZ = (P[2]-prev[2])/d; }
+            
+        // Auto-smooth round/squash tails (force C1 continuity across mirror plane)
+        if (Math.abs(P[0]) < 0.05 && Math.abs(dirX) > Math.abs(dirZ) * 1.5) {
+            dirZ = 0;
+            dirX = Math.sign(dirX) || 1;
+        }
+      }
     } else {
-      const next = anchors[i + 1]!;
-      const prev = anchors[i - 1]!;
-      const d = getDist(prev, next);
-      if (d > 0) { dirX = (next[0]-prev[0])/d; dirY = (next[1]-prev[1])/d; dirZ = (next[2]-prev[2])/d; }
+      if (ptIdx > 0 && ptIdx < cleanPoints.length - 1) {
+        const next = cleanPoints[ptIdx + 1]!;
+        const prev = cleanPoints[ptIdx - 1]!;
+        const d = getDist(prev, next);
+        if (d > 0) { dirX = (next[0]-prev[0])/d; dirY = (next[1]-prev[1])/d; dirZ = (next[2]-prev[2])/d; }
+      }
     }
 
     const distToPrev = i > 0 ? getDist(anchors[i - 1]!, P) : 0;
