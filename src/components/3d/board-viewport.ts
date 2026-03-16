@@ -619,23 +619,88 @@ export class BoardViewport extends LitElement {
   }
 
   private onResize() {
-    if (!this.camera || !this.renderer) return;
+    if (!this.perspectiveCamera || !this.orthoCamera || !this.renderer) return;
     const width = this.clientWidth;
     const height = this.clientHeight;
+    const aspect = width / height;
 
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+    this.perspectiveCamera.aspect = aspect;
+    this.perspectiveCamera.updateProjectionMatrix();
+
+    const frustumSize = 10; // Fits up to a 10ft board
+    this.orthoCamera.left = -frustumSize * aspect / 2;
+    this.orthoCamera.right = frustumSize * aspect / 2;
+    this.orthoCamera.top = frustumSize / 2;
+    this.orthoCamera.bottom = -frustumSize / 2;
+    this.orthoCamera.updateProjectionMatrix();
+
     this.renderer.setSize(width, height);
+  }
+
+  private setViewMode(mode: 'perspective' | 'top' | 'side' | 'profile') {
+    this.viewMode = mode;
+    if (mode === 'perspective') {
+      this.activeCamera = this.perspectiveCamera;
+      this.controls.object = this.perspectiveCamera;
+      this.controls.enableRotate = true;
+    } else {
+      this.activeCamera = this.orthoCamera;
+      this.controls.object = this.orthoCamera;
+      this.controls.enableRotate = false; // Lock rotation in orthographic
+      
+      this.controls.target.set(0, 0, 0);
+
+      if (mode === 'top') {
+        this.orthoCamera.position.set(0, 10, 0);
+        this.orthoCamera.up.set(0, 0, -1); // Up is towards nose
+      } else if (mode === 'side') {
+        this.orthoCamera.position.set(10, 0, 0);
+        this.orthoCamera.up.set(0, 1, 0); // Up is up
+      } else if (mode === 'profile') {
+        this.orthoCamera.position.set(0, 0, -10); // Looking from nose to tail
+        this.orthoCamera.up.set(0, 1, 0); // Up is up
+      }
+      this.orthoCamera.lookAt(0, 0, 0);
+      this.orthoCamera.updateProjectionMatrix();
+    }
+    this.controls.update();
+    this.updateGizmoVisibility();
+  }
+
+  private updateGizmoVisibility() {
+    this.gizmoGroup.children.forEach(child => {
+      const userData = child.userData as { curve?: string };
+      const curve = userData?.curve;
+      if (!curve) return;
+      
+      if (this.viewMode === 'perspective') {
+        child.visible = true;
+      } else if (this.viewMode === 'top') {
+        child.visible = curve === 'outline';
+      } else if (this.viewMode === 'side') {
+        child.visible = curve === 'rockerTop' || curve === 'rockerBottom';
+      } else if (this.viewMode === 'profile') {
+        child.visible = curve.startsWith('crossSection_');
+      }
+    });
   }
 
   private renderLoop = () => {
     this.animationId = requestAnimationFrame(this.renderLoop);
     this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.activeCamera);
   };
 
   override render() {
+    const isManual = this.boardState?.editMode === 'manual';
+    
     return html`
+      <div class="absolute top-4 left-4 z-10 flex gap-2 ${isManual ? '' : 'hidden'}">
+        <button @click=${() => this.setViewMode('perspective')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'perspective' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Perspective</button>
+        <button @click=${() => this.setViewMode('top')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'top' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Top (Outline)</button>
+        <button @click=${() => this.setViewMode('side')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'side' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Side (Rocker)</button>
+        <button @click=${() => this.setViewMode('profile')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'profile' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Profile (Slices)</button>
+      </div>
       <canvas></canvas>
     `;
   }
