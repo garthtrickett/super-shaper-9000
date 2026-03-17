@@ -1,5 +1,6 @@
+
 import { expect } from "@open-wc/testing";
-import { update, INITIAL_STATE, type BoardModel, type BezierCurveData } from "./board-builder-page.logic";
+import { update, INITIAL_STATE, type BoardAction, type BoardModel, type BezierCurveData } from "./board-builder-page.logic";
 
 describe("Board Builder Logic (SAM Reducer)", () => {
   const mockCurve: BezierCurveData = {
@@ -95,8 +96,6 @@ describe("Board Builder Logic (SAM Reducer)", () => {
     });
   });
 });
-import { expect } from "@open-wc/testing";
-import { update, INITIAL_STATE, type BoardAction, type BoardModel } from "./board-builder-page.logic";
 
 describe("Board Builder State & Kinematic Logic", () => {
   describe("Mode Switching & Parameters", () => {

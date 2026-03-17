@@ -62,10 +62,15 @@ export const exportS3dx = (model: BoardModel, curves: BoardCurves): Effect.Effec
 
     // Step 2: Translate dense NURBS points to Shape3d World Coordinates
     // We map Outline, Rocker Bottom, and Rocker Top
-    const mapCurve = (curve: [number, number, number][]) => 
-      curve.map(p => translateToShape3d(p, model.length, model.thickness));
+    const mapCurve = (curve: [number, number, number][], flattenZ: boolean = false) => 
+      curve.map(p => {
+        const pt = translateToShape3d(p, model.length, model.thickness);
+        if (flattenZ) pt[2] = 0.000000;
+        return pt;
+      });
 
-    const outlineS3d = mapCurve(curves.outline);
+    // Shape3D requires the Outline curve to be strictly 2D at Z=0
+    const outlineS3d = mapCurve(curves.outline, true);
     const botS3d = mapCurve(curves.rockerBottom);
     const deckS3d = mapCurve(curves.rockerTop);
 
@@ -95,9 +100,9 @@ export const exportS3dx = (model: BoardModel, curves: BoardCurves): Effect.Effec
 		<Nose_rocker>${(model.noseRocker * INCHES_TO_CM).toFixed(3)}</Nose_rocker>
 		<Volume>${model.volume.toFixed(3)}</Volume>
 		<Symmetry>6</Symmetry>
-${serializeBezier3d("Otl", "", 1, otlBezier)}
-${serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier)}
-${serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier)}
+${serializeBezier3d("Otl", "", 1, otlBezier, model.length)}
+${serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier, model.length)}
+${serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier, model.length)}
 		<Number_of_slices>8</Number_of_slices>
 ${bakeCrossSections(model, curves)}
 	</Board>
@@ -118,9 +123,9 @@ export interface S3DBezier {
 export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): string => {
   const slices: string[] = [];
   
-  // 8 Strategic Stations along the board (0 = Tail, 1 = Nose)
-  // We avoid absolute 0.0 and 1.0 to prevent mathematical singularities where Width = 0
-  const fractions = [0.01, 0.05, 0.2, 0.4, 0.6, 0.8, 0.95, 0.99];
+  // 8 Strategic Stations along the board. 
+  // Shape3D requires Couples_0 to be at the TAIL (t=0.99) and Couples_7 at the NOSE (t=0.01)
+  const fractions = [0.99, 0.95, 0.8, 0.6, 0.4, 0.2, 0.05, 0.01];
   
   const L = model.length;
   const minZ = curves.outline[0]![2];
@@ -165,9 +170,6 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
     const halfWidth = getOutlineWidthAtZ(zInches);
     const topY = getRockerY(zInches, true);
     const botY = getRockerY(zInches, false);
-    
-    // Baseline for Z is stringer bottom
-    const baselineY = botY;
     
     const thickness = Math.max(0, topY - botY);
     const apexY = botY + thickness * model.apexRatio;
@@ -227,6 +229,12 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
       return py + (offset * abs_cy);
     };
 
+    // Baseline for Z MUST be exactly the bottom stringer to satisfy Shape3D's relative Z-coordinate requirement
+    const baselineY = getContourY(0.0, false);
+    
+    // Calculate absolute Z center of the board at this slice for Shape3D's Symmetry_center
+    const centerZ = (((topY + botY) / 2) + model.thickness / 2) * INCHES_TO_CM;
+
     // The 5 key points defining a standard CAD surfboard cross-section
     // [X_s3d (const), Y_s3d (width), Z_s3d (height relative to bottom)]
     const pts: [number, number, number][] = [
@@ -238,7 +246,7 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
     ];
 
     const sliceBezier = fitSliceBezier(pts);
-    slices.push(serializeCoupleXML(index, sliceBezier));
+    slices.push(serializeCoupleXML(index, sliceBezier, centerZ));
   });
 
   return slices.join("\n");
@@ -284,12 +292,12 @@ const fitSliceBezier = (pts: [number, number, number][]): S3DBezier => {
   return { controlPoints: pts, tangents1: t1, tangents2: t2 };
 };
 
-const serializeCoupleXML = (index: number, bezier: S3DBezier): string => {
+const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): string => {
   const formatPt = (p: [number, number, number]) => 
     `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
   
-  const buildPoly = (pts: [number, number, number][]) => 
-    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>5</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>6</Symmetry>\n\t\t\t\t\t\t<Plan>3</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
+  const buildPoly = (pts: [number, number, number][], overridePlan: number = 3, overrideSymmetry: number = 6) => 
+    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>5</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Symmetry_center>\n\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>0.000000</x><y>0.000000</y><z>${centerZ.toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>\n\t\t\t\t\t\t</Symmetry_center>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
 
   // Tangents_m is always zeroed out in couples
   const emptyPt = `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>0.000000</x><y>0.000000</y><z>0.000000</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
@@ -314,6 +322,11 @@ const serializeCoupleXML = (index: number, bezier: S3DBezier): string => {
 \t\t\t\t<Control_type_point_2> 98 </Control_type_point_2>
 \t\t\t\t<Control_type_point_3> 32 </Control_type_point_3>
 \t\t\t\t<Control_type_point_4> 224 </Control_type_point_4>
+\t\t\t\t<Tangent_type_point_0> 0 </Tangent_type_point_0>
+\t\t\t\t<Tangent_type_point_1> 0 </Tangent_type_point_1>
+\t\t\t\t<Tangent_type_point_2> 16 </Tangent_type_point_2>
+\t\t\t\t<Tangent_type_point_3> 2 </Tangent_type_point_3>
+\t\t\t\t<Tangent_type_point_4> 0 </Tangent_type_point_4>
 \t\t\t</Bezier3d>
 \t\t</Couples_${index}>`;
 };
@@ -405,17 +418,23 @@ export const fitBezier = (points: [number, number, number][]): S3DBezier => {
 /**
  * Serializes a fitted Bezier curve into Shape3d's proprietary XML format.
  */
-const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DBezier): string => {
+const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DBezier, boardLengthInches: number): string => {
+  const centerLengthCm = (boardLengthInches / 2) * INCHES_TO_CM;
+  
   const formatPt = (p: [number, number, number]) => 
     `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
   
   const buildPoly = (pts: [number, number, number][], overridePlan: number = plan, overrideSymmetry: number = tag === "Otl" ? 6 : 0) => 
-    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${pts.length}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
+    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${pts.length}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Symmetry_center>\n\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${centerLengthCm.toFixed(6)}</x><y>0.000000</y><z>0.000000</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>\n\t\t\t\t\t\t</Symmetry_center>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
 
   const tangM = `\t\t\t\t<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as [number,number,number]), 0, 0)}\n\t\t\t\t</Tangents_m>`;
   
+  // Shape3D requires Control types to be grouped, followed by Tangent types grouped.
   const controlTypes = bezier.controlPoints.map((_, i) => 
-    `\t\t\t\t<Control_type_point_${i}> 32 </Control_type_point_${i}>\n` +
+    `\t\t\t\t<Control_type_point_${i}> 32 </Control_type_point_${i}>`
+  ).join("\n");
+  
+  const tangentTypes = bezier.controlPoints.map((_, i) => 
     `\t\t\t\t<Tangent_type_point_${i}> 0 </Tangent_type_point_${i}>`
   ).join("\n");
 
@@ -431,6 +450,7 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
 \t\t\t\t<Tangents_2>\n${buildPoly(bezier.tangents2)}\n\t\t\t\t</Tangents_2>
 ${tangM}
 ${controlTypes}
+${tangentTypes}
 \t\t\t</Bezier3d>
 \t\t</${tag}>`;
 };
