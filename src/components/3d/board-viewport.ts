@@ -51,6 +51,12 @@ export class BoardViewport extends LitElement {
   private draggedGizmo: THREE.Mesh | null = null;
   private dragPlane = new THREE.Plane();
   private dragOffset = new THREE.Vector3();
+  private dragStartPos = new THREE.Vector2();
+
+  // Reusable materials for performance
+  private matAnchor = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false });
+  private matHandle = new THREE.MeshBasicMaterial({ color: 0xa1a1aa, depthTest: false });
+  private matSelected = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false }); // Neon Green
 
   private _boardTexture: THREE.CanvasTexture | null = null;
   private _bumpTexture: THREE.CanvasTexture | null = null;
@@ -123,6 +129,7 @@ export class BoardViewport extends LitElement {
       if (oldState) {
         let needsGeometryUpdate = false;
         let gizmoVisChanged = false;
+        let selectionChanged = false;
         const oldBoardState = oldState;
          
         for (const key in this.boardState) {
@@ -130,6 +137,8 @@ export class BoardViewport extends LitElement {
           if (this.boardState[k] !== oldBoardState[k]) {
             if (k === "showGizmos") {
               gizmoVisChanged = true;
+            } else if (k === "selectedNode") {
+              selectionChanged = true;
             } else if (k !== "volume") {
               needsGeometryUpdate = true;
             }
@@ -138,6 +147,7 @@ export class BoardViewport extends LitElement {
         
         if (!needsGeometryUpdate) {
           if (gizmoVisChanged) this.updateGizmoVisibility();
+          if (selectionChanged) this.updateGizmoHighlights();
           return;
         }
       }
@@ -392,9 +402,7 @@ export class BoardViewport extends LitElement {
             runClientUnscoped(clientLog("info", "[BoardViewport] Rendering manual Bezier Gizmos"));
 
             const anchorGeo = new THREE.SphereGeometry(0.4 * scale, 16, 16);
-            const anchorMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false }); // Blue anchors
             const handleGeo = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
-            const handleMat = new THREE.MeshBasicMaterial({ color: 0xa1a1aa, depthTest: false }); // Gray tangent handles
             const lineMat = new THREE.LineDashedMaterial({ color: 0x52525b, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
 
             const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string) => {
@@ -405,7 +413,7 @@ export class BoardViewport extends LitElement {
                     const t2 = curve.tangents2[i];
 
                     // Draw Anchor
-                    const anchorMesh = new THREE.Mesh(anchorGeo, anchorMat);
+                    const anchorMesh = new THREE.Mesh(anchorGeo, this.matAnchor);
                     anchorMesh.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
                     anchorMesh.renderOrder = 999;
                     anchorMesh.userData = { isGizmo: true, type: 'anchor', curve: curveName, index: i };
@@ -415,7 +423,7 @@ export class BoardViewport extends LitElement {
                         // Don't draw handles if they are completely collapsed onto the anchor
                         if (Math.abs(t[0]-cp[0]) < 0.001 && Math.abs(t[1]-cp[1]) < 0.001 && Math.abs(t[2]-cp[2]) < 0.001) return;
 
-                        const handleMesh = new THREE.Mesh(handleGeo, handleMat);
+                        const handleMesh = new THREE.Mesh(handleGeo, this.matHandle);
                         handleMesh.position.set(t[0] * scale, t[1] * scale, t[2] * scale);
                         handleMesh.renderOrder = 999;
                         handleMesh.userData = { isGizmo: true, type: handleType, curve: curveName, index: i };
@@ -448,6 +456,7 @@ export class BoardViewport extends LitElement {
         }
         
         this.updateGizmoVisibility();
+        this.updateGizmoHighlights();
     }
   }
 
@@ -570,6 +579,8 @@ export class BoardViewport extends LitElement {
   }
 
   private onPointerDown = (e: PointerEvent) => {
+    this.dragStartPos.set(e.clientX, e.clientY);
+
     if (this.boardState?.editMode !== 'manual' || this.boardState?.showGizmos === false) return;
 
     const rect = this.canvas.getBoundingClientRect();
@@ -651,10 +662,29 @@ export class BoardViewport extends LitElement {
     }
   }
 
-  private onPointerUp = (_e: PointerEvent) => {
+  private onPointerUp = (e: PointerEvent) => {
     if (this.draggedGizmo) {
       this.draggedGizmo = null;
       this.controls.enabled = true; // Re-enable camera orbit
+    }
+
+    // Click detection for selection (if mouse barely moved)
+    if (this.boardState?.editMode === 'manual') {
+      const dist = Math.hypot(e.clientX - this.dragStartPos.x, e.clientY - this.dragStartPos.y);
+      if (dist < 5) {
+        const rect = this.canvas.getBoundingClientRect();
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.activeCamera);
+        
+        const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
+        const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
+        
+        this.dispatchEvent(new CustomEvent('node-selected', {
+          detail: { node: hit ? hit.object.userData : null },
+          bubbles: true, composed: true
+        }));
+      }
     }
   };
 
@@ -705,6 +735,28 @@ export class BoardViewport extends LitElement {
     }
     this.controls.update();
     this.updateGizmoVisibility();
+  }
+
+  private updateGizmoHighlights() {
+    const selected = this.boardState?.selectedNode;
+    
+    this.gizmoGroup.children.forEach(child => {
+      const ud = child.userData as { isGizmo?: boolean; curve?: string; index?: number; type?: string };
+      if (!ud || !ud.isGizmo) return;
+      
+      if (child instanceof THREE.Mesh) {
+        const isSelected = selected && 
+                           ud.curve === selected.curve && 
+                           ud.index === selected.index && 
+                           ud.type === selected.type;
+        
+        if (isSelected) {
+          child.material = this.matSelected;
+        } else {
+          child.material = ud.type === 'anchor' ? this.matAnchor : this.matHandle;
+        }
+      }
+    });
   }
 
   private updateGizmoVisibility() {
