@@ -75,9 +75,9 @@ export const exportS3dx = (model: BoardModel, curves: BoardCurves): Effect.Effec
     const deckS3d = mapCurve(curves.rockerTop);
 
     // Generate Cubic Beziers via Curve Fitting
-    const otlBezier = fitBezier(outlineS3d);
-    const botBezier = fitBezier(botS3d);
-    const deckBezier = fitBezier(deckS3d);
+    const otlBezier = fitBezier(outlineS3d, 'outline');
+    const botBezier = fitBezier(botS3d, 'rocker');
+    const deckBezier = fitBezier(deckS3d, 'rocker');
 
     yield* clientLog("debug", "[s3dx-exporter] Bezier Curves Generated", { 
       outlineAnchors: otlBezier.controlPoints.length,
@@ -331,14 +331,16 @@ const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): 
 \t\t</Couples_${index}>`;
 };
 
-export const fitBezier = (points: [number, number, number][]): S3DBezier => {
+export const fitBezier = (points: [number, number, number][], curveType: 'outline' | 'rocker'): S3DBezier => {
   // 1. Ensure points are sorted from Tail (x=0) to Nose (x=L)
   const sorted = [...points].sort((a, b) => a[0] - b[0]);
-  const L = sorted[sorted.length - 1]![0];
+  const L = sorted.length > 0 ? sorted[sorted.length - 1]![0] : 0;
 
-  // 2. Strategic sampling fractions: Tail, Fin Area, Hip, Wide Point, Chest, Nose-Entry, Nose tip.
-  const fractions = [0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0];
-  
+  // ✅ FIX: Use different sampling fractions based on curve type to match reference file
+  const fractions = curveType === 'outline' 
+    ? [0.0, 0.025, 0.47, 1.0] // 4 points for outline
+    : [0.0, 0.5, 1.0];        // 3 points for rockers
+
   const anchors: [number, number, number][] = [];
   const indices: number[] = [];
 
@@ -353,8 +355,11 @@ export const fitBezier = (points: [number, number, number][]): S3DBezier => {
         closestIdx = i;
       }
     }
-    anchors.push(sorted[closestIdx]!);
-    indices.push(closestIdx);
+    // Prevent duplicate points if fractions resolve to the same sample
+    if (indices.indexOf(closestIdx) === -1) {
+      anchors.push(sorted[closestIdx]!);
+      indices.push(closestIdx);
+    }
   }
 
   const tangents1: [number, number, number][] = [];
@@ -368,6 +373,7 @@ export const fitBezier = (points: [number, number, number][]): S3DBezier => {
     // Calculate central difference (slope) across this anchor
     let dx = 0, dy = 0, dz = 0;
     if (idx === 0) {
+      if (sorted.length < 2) continue;
       const next = sorted[idx + 1]!;
       dx = next[0] - P[0]; dy = next[1] - P[1]; dz = next[2] - P[2];
     } else if (idx === sorted.length - 1) {
@@ -429,13 +435,32 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
 
   const tangM = `\t\t\t\t<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as [number,number,number]), 0, 0)}\n\t\t\t\t</Tangents_m>`;
   
-  // Shape3D requires Control types to be grouped, followed by Tangent types grouped.
+  // ✅ FIX: Implement dynamic control and tangent types based on reference files
+  const getControlType = (i: number, total: number) => {
+    // End points are '32', intermediate points are '0'
+    if (i === 0 || i === total - 1) return 32;
+    return 0;
+  };
+
+  const getTangentType = (i: number, total: number, curveType: 'outline' | 'rocker' ) => {
+    if (i === 0 || i === total - 1) return 0;
+    if (curveType === 'outline') {
+      // Pattern from reference: 0, 2, 16, 0
+      if (i === 1) return 2;
+      if (i === 2) return 16;
+    } else {
+      // Rocker pattern: 0, 32, 0
+      if (i === 1) return 32;
+    }
+    return 0;
+  };
+
   const controlTypes = bezier.controlPoints.map((_, i) => 
-    `\t\t\t\t<Control_type_point_${i}> 32 </Control_type_point_${i}>`
+    `\t\t\t\t<Control_type_point_${i}> ${getControlType(i, bezier.controlPoints.length)} </Control_type_point_${i}>`
   ).join("\n");
   
   const tangentTypes = bezier.controlPoints.map((_, i) => 
-    `\t\t\t\t<Tangent_type_point_${i}> 0 </Tangent_type_point_${i}>`
+    `\t\t\t\t<Tangent_type_point_${i}> ${getTangentType(i, bezier.controlPoints.length, tag === 'Otl' ? 'outline' : 'rocker')} </Tangent_type_point_${i}>`
   ).join("\n");
 
   return `\t\t<${tag}>
