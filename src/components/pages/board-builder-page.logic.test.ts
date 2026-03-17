@@ -1,4 +1,101 @@
 import { expect } from "@open-wc/testing";
+import { update, INITIAL_STATE, type BoardModel, type BezierCurveData } from "./board-builder-page.logic";
+
+describe("Board Builder Logic (SAM Reducer)", () => {
+  const mockCurve: BezierCurveData = {
+    controlPoints: [[0, 0, 0]],
+    tangents1: [[0, 0, 0]],
+    tangents2: [[0, 0, 0]]
+  };
+
+  describe("Undo / Redo History Stack", () => {
+    it("initializes the history stack when converting to manual mode", () => {
+      const state = update(INITIAL_STATE, {
+        type: "SET_MANUAL_CURVES",
+        outline: mockCurve
+      });
+
+      expect(state.manualHistory).to.exist;
+      expect(state.manualHistory?.length).to.equal(1);
+      expect(state.historyIndex).to.equal(0);
+    });
+
+    it("navigates backward and forward safely through history", () => {
+      // 1. Init
+      let state = update(INITIAL_STATE, { type: "SET_MANUAL_CURVES", outline: mockCurve });
+      state = { ...state, editMode: "manual" };
+
+      // 2. Make an edit (Snapshot 2)
+      state = update(state, {
+        type: "UPDATE_NODE_EXACT",
+        curve: "outline",
+        index: 0,
+        anchor: [10, 0, 0]
+      });
+
+      expect(state.historyIndex).to.equal(1);
+      expect(state.manualOutline?.controlPoints[0]![0]).to.equal(10);
+
+      // 3. UNDO
+      state = update(state, { type: "UNDO" });
+      expect(state.historyIndex).to.equal(0);
+      expect(state.manualOutline?.controlPoints[0]![0]).to.equal(0); // Back to original
+
+      // 4. REDO
+      state = update(state, { type: "REDO" });
+      expect(state.historyIndex).to.equal(1);
+      expect(state.manualOutline?.controlPoints[0]![0]).to.equal(10); // Forward to edit
+    });
+
+    it("drops redo futures when a new timeline branch is created", () => {
+      let state = update(INITIAL_STATE, { type: "SET_MANUAL_CURVES", outline: mockCurve });
+      state = { ...state, editMode: "manual" };
+
+      // State 1: [10, 0, 0]
+      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 0, anchor: [10, 0, 0] });
+      // State 2: [20, 0, 0]
+      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 0, anchor: [20, 0, 0] });
+
+      expect(state.manualHistory?.length).to.equal(3); // [Init, State 1, State 2]
+      expect(state.historyIndex).to.equal(2);
+
+      // Undo back to Init
+      state = update(state, { type: "UNDO" });
+      state = update(state, { type: "UNDO" });
+      expect(state.historyIndex).to.equal(0);
+
+      // Branch the timeline! Make a new edit from Init.
+      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 0, anchor: [99, 0, 0] });
+
+      // The futures (State 1 and State 2) should be destroyed.
+      expect(state.manualHistory?.length).to.equal(2); // [Init, New State]
+      expect(state.historyIndex).to.equal(1);
+      expect(state.manualOutline?.controlPoints[0]![0]).to.equal(99);
+    });
+  });
+
+  describe("Node Inspector (Exact Updates)", () => {
+    it("updates exact coordinates of an anchor and tangents simultaneously", () => {
+      let state = update(INITIAL_STATE, { type: "SET_MANUAL_CURVES", outline: mockCurve });
+      state = { ...state, editMode: "manual" };
+
+      state = update(state, {
+        type: "UPDATE_NODE_EXACT",
+        curve: "outline",
+        index: 0,
+        anchor: [1, 1, 1],
+        tangent1: [2, 2, 2],
+        tangent2: [3, 3, 3]
+      });
+
+      const out = state.manualOutline!;
+      expect(out.controlPoints[0]).to.deep.equal([1, 1, 1]);
+      expect(out.tangents1[0]).to.deep.equal([2, 2, 2]);
+      expect(out.tangents2[0]).to.deep.equal([3, 3, 3]);
+    });
+  });
+});
+import { expect } from "@open-wc/testing";
 import { update, INITIAL_STATE, type BoardAction, type BoardModel } from "./board-builder-page.logic";
 
 describe("Board Builder State & Kinematic Logic", () => {
