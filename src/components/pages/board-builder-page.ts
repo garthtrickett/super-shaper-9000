@@ -9,6 +9,7 @@ import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 import "../3d/board-viewport";
 import "../ui/board-controls";
+import "../ui/node-inspector";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
@@ -176,6 +177,14 @@ export class BoardBuilderPage extends LitElement {
             });
           }}
         ></board-viewport>
+
+        ${state.editMode === 'manual' && state.selectedNode ? html`
+          <node-inspector
+            class="absolute top-16 right-4 z-20 w-[340px]"
+            .boardState=${state}
+            @update-node=${(e: CustomEvent) => this.ctrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+          ></node-inspector>
+        ` : ''}
       </div>
     `;
   }
