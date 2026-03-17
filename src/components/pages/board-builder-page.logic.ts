@@ -17,9 +17,16 @@ export const BezierCurveSchema = S.Struct({
   tangents2: S.Array(Point3DSchema),
 });
 
+export const SelectedNodeSchema = S.Struct({
+  curve: S.String,
+  index: S.Number,
+  type: S.Literal("anchor", "tangent1", "tangent2")
+});
+
 export const BoardModelSchema = S.Struct({
   showGizmos: S.optional(S.Boolean),
   editMode: S.optional(S.Literal("parametric", "manual")),
+  selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
   manualOutline: S.optional(BezierCurveSchema),
   manualRockerTop: S.optional(BezierCurveSchema),
   manualRockerBottom: S.optional(BezierCurveSchema),
@@ -69,9 +76,16 @@ export interface BezierCurveData {
   tangents2: Point3D[];
 }
 
+export type SelectedNode = {
+  curve: string;
+  index: number;
+  type: "anchor" | "tangent1" | "tangent2";
+};
+
 export interface BoardModel {
   showGizmos?: boolean;
   editMode?: "parametric" | "manual";
+  selectedNode?: SelectedNode | null;
   manualOutline?: BezierCurveData;
   manualRockerTop?: BezierCurveData;
   manualRockerBottom?: BezierCurveData;
@@ -117,6 +131,7 @@ export interface BoardModel {
 export const INITIAL_STATE: BoardModel = {
   showGizmos: true,
   editMode: "parametric",
+  selectedNode: null,
   // 65kg Slab-Hunter Specs (Maximum Hold / Weak Paddler)
   length: 70, // 5'10"
   width: 18.75,
@@ -165,7 +180,9 @@ export type BoardAction =
   | { type: "SET_EDIT_MODE"; mode: "parametric" | "manual" }
   | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; crossSections?: BezierCurveData[] }
   | { type: "CONVERT_TO_MANUAL" }
-  | { type: "UPDATE_MANUAL_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] };
+  | { type: "UPDATE_MANUAL_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
+  | { type: "SELECT_NODE"; node: SelectedNode | null }
+  | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D };
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -180,6 +197,46 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       return { ...action.state };
     case "SET_EDIT_MODE":
       return { ...state, editMode: action.mode };
+    case "SELECT_NODE":
+      return { ...state, selectedNode: action.node };
+    case "UPDATE_NODE_EXACT": {
+      if (state.editMode !== "manual") return state;
+      const { curve, index, anchor, tangent1, tangent2 } = action;
+      
+      let targetCurve: BezierCurveData | undefined;
+      let crossSectionIdx = -1;
+
+      if (curve === "outline") targetCurve = state.manualOutline;
+      else if (curve === "rockerTop") targetCurve = state.manualRockerTop;
+      else if (curve === "rockerBottom") targetCurve = state.manualRockerBottom;
+      else if (curve.startsWith("crossSection_")) {
+        crossSectionIdx = parseInt(curve.split("_")[1]!, 10);
+        targetCurve = state.manualCrossSections?.[crossSectionIdx];
+      }
+
+      if (!targetCurve) return state;
+
+      const updatedCurve: BezierCurveData = {
+        controlPoints: [...targetCurve.controlPoints],
+        tangents1: [...targetCurve.tangents1],
+        tangents2: [...targetCurve.tangents2],
+      };
+
+      // Apply exact overrides supplied by the UI Inspector
+      if (anchor) updatedCurve.controlPoints[index] = [...anchor];
+      if (tangent1) updatedCurve.tangents1[index] = [...tangent1];
+      if (tangent2) updatedCurve.tangents2[index] = [...tangent2];
+
+      if (curve === "outline") return { ...state, manualOutline: updatedCurve };
+      if (curve === "rockerTop") return { ...state, manualRockerTop: updatedCurve };
+      if (curve === "rockerBottom") return { ...state, manualRockerBottom: updatedCurve };
+      if (crossSectionIdx !== -1 && state.manualCrossSections) {
+        const newCrossSections = [...state.manualCrossSections];
+        newCrossSections[crossSectionIdx] = updatedCurve;
+        return { ...state, manualCrossSections: newCrossSections };
+      }
+      return state;
+    }
     case "SET_MANUAL_CURVES":
       return {
         ...state,
