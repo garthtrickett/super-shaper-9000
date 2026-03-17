@@ -2,17 +2,18 @@ import { Effect } from "effect";
 import type { BoardModel } from "../../../components/pages/board-builder-page.logic";
 import type { BoardCurves } from "./board-curves";
 import { clientLog } from "../clientLog";
+import { getBoardProfileAtZ, getBottomYAt } from "./mesh-generator";
 
 const INCHES_TO_CM = 2.54;
 
 /**
  * Translates Super Shaper 9000 [X, Y, Z] (inches) to Shape3d [X, Y, Z] (cm)
- * 
+ *
  * SS9000:
  * - X: Width (0 at stringer)
  * - Y: Thickness (0 at center of board, bottom is -T/2)
  * - Z: Length (0 at center, -L/2 at nose, +L/2 at tail)
- * 
+ *
  * Shape3d:
  * - X: Length (0 at Absolute Tail, +L at Nose)
  * - Y: Width (0 at stringer)
@@ -25,10 +26,10 @@ export const translateToShape3d = (
 ): [number, number, number] => {
   // 1. X_s3d (Length): Distance from tail. Tail in SS9000 is +L/2.
   const x_s3d = (boardLengthInches / 2 - z) * INCHES_TO_CM;
-  
+
   // 2. Y_s3d (Width): Maps directly from X_ss9000
   const y_s3d = x * INCHES_TO_CM;
-  
+
   // 3. Z_s3d (Thickness): Offset so bottom plane (-T/2) is at 0
   const z_s3d = (y + boardThicknessInches / 2) * INCHES_TO_CM;
 
@@ -36,34 +37,26 @@ export const translateToShape3d = (
   return [
     Number(x_s3d.toFixed(6)),
     Number(y_s3d.toFixed(6)),
-    Number(z_s3d.toFixed(6))
+    Number(z_s3d.toFixed(6)),
   ];
 };
 
-export const exportS3dx = (model: BoardModel, curves: BoardCurves): Effect.Effect<string> => 
+export const exportS3dx = (
+  model: BoardModel,
+  curves: BoardCurves
+): Effect.Effect<string> =>
   Effect.gen(function* () {
-    yield* clientLog("info", "[s3dx-exporter] Starting Step 1: Coordinate Translation Pipeline");
-    
-    // Test the mapping on critical boundary points to verify translation math
-    const tailPoint = curves.outline[curves.outline.length - 1];
-    const nosePoint = curves.outline[0];
-    
-    if (tailPoint && nosePoint) {
-      const tailS3d = translateToShape3d(tailPoint, model.length, model.thickness);
-      const noseS3d = translateToShape3d(nosePoint, model.length, model.thickness);
-      
-      yield* clientLog("debug", "[s3dx-exporter] Coordinate Translation Validation", {
-        ss9000_tail: tailPoint,
-        s3d_tail: tailS3d,
-        ss9000_nose: nosePoint,
-        s3d_nose: noseS3d
-      });
-    }
+    yield* clientLog(
+      "info",
+      "[s3dx-exporter] Starting Step 1: Coordinate Translation Pipeline"
+    );
 
     // Step 2: Translate dense NURBS points to Shape3d World Coordinates
-    // We map Outline, Rocker Bottom, and Rocker Top
-    const mapCurve = (curve: [number, number, number][], flattenZ: boolean = false) => 
-      curve.map(p => {
+    const mapCurve = (
+      curve: [number, number, number][],
+      flattenZ: boolean = false
+    ) =>
+      curve.map((p) => {
         const pt = translateToShape3d(p, model.length, model.thickness);
         if (flattenZ) pt[2] = 0.000000;
         return pt;
@@ -75,14 +68,17 @@ export const exportS3dx = (model: BoardModel, curves: BoardCurves): Effect.Effec
     const deckS3d = mapCurve(curves.rockerTop);
 
     // Generate Cubic Beziers via Curve Fitting
-    const otlBezier = fitBezier(outlineS3d, 'outline');
-    const botBezier = fitBezier(botS3d, 'rocker');
-    const deckBezier = fitBezier(deckS3d, 'rocker');
+    const otlBezier = fitBezier(outlineS3d, "outline");
+    const botBezier = fitBezier(botS3d, "rocker");
+    const deckBezier = fitBezier(deckS3d, "rocker");
 
-    yield* clientLog("debug", "[s3dx-exporter] Bezier Curves Generated", { 
+    yield* clientLog("debug", "[s3dx-exporter] Bezier Curves Generated", {
       outlineAnchors: otlBezier.controlPoints.length,
-      bottomAnchors: botBezier.controlPoints.length
+      bottomAnchors: botBezier.controlPoints.length,
     });
+    
+    // ✅ NEW: Generate Fin Box and Leash Plug XML
+    const plugsAndFinsXML = generatePlugsAndFinsXML(model, curves);
 
     // Step 3 & 4: XML Serialization & Metadata Injection
     return `<?xml version="1.0" encoding="iso-8859-1"?>
@@ -105,6 +101,7 @@ ${serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier, model.length)}
 ${serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier, model.length)}
 		<Number_of_slices>8</Number_of_slices>
 ${bakeCrossSections(model, curves)}
+${plugsAndFinsXML}
 	</Board>
 </Shape3d_design>`;
   });
@@ -117,9 +114,7 @@ export interface S3DBezier {
   tangents2: [number, number, number][]; // Outgoing (right) handles
 }
 
-/**
- * Evaluates procedural formulas at 8 strategic lengths to bake dynamic math into static Slices.
- */
+// ... (bakeCrossSections, fitSliceBezier, and serializeCoupleXML remain unchanged) ...
 export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): string => {
   const slices: string[] = [];
   
@@ -252,10 +247,6 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
   return slices.join("\n");
 };
 
-/**
- * Custom 5-Point Curve Fitter tailored specifically for Surfboard Physics.
- * Enforces vertical tangents at the apex and horizontal tangents at the stringer.
- */
 const fitSliceBezier = (pts: [number, number, number][]): S3DBezier => {
   const t1: [number, number, number][] = [];
   const t2: [number, number, number][] = [];
@@ -365,55 +356,53 @@ export const fitBezier = (points: [number, number, number][], curveType: 'outlin
   const tangents1: [number, number, number][] = [];
   const tangents2: [number, number, number][] = [];
 
-  // 3. Hermite-to-Bezier Tangent Estimation
+  // ✅ FIX: Use a more stable tangent calculation based on adjacent anchors
   for (let i = 0; i < anchors.length; i++) {
-    const idx = indices[i]!;
     const P = anchors[i]!;
 
-    // Calculate central difference (slope) across this anchor
-    let dx = 0, dy = 0, dz = 0;
-    if (idx === 0) {
-      if (sorted.length < 2) continue;
-      const next = sorted[idx + 1]!;
-      dx = next[0] - P[0]; dy = next[1] - P[1]; dz = next[2] - P[2];
-    } else if (idx === sorted.length - 1) {
-      const prev = sorted[idx - 1]!;
-      dx = P[0] - prev[0]; dy = P[1] - prev[1]; dz = P[2] - prev[2];
-    } else {
-      const next = sorted[idx + 1]!;
-      const prev = sorted[idx - 1]!;
-      dx = next[0] - prev[0]; dy = next[1] - prev[1]; dz = next[2] - prev[2];
-    }
-
-    let slopeY = 0, slopeZ = 0;
-    if (Math.abs(dx) > 0.0001) {
-      slopeY = dy / dx;
-      slopeZ = dz / dx;
-    }
-
-    // Tangent 1 (Left Handle - Points toward Tail)
+    let tangentVec: [number, number, number] = [0, 0, 0];
     if (i === 0) {
-      tangents1.push([...P]); // Tail anchor has no left handle
-    } else {
+      const nextP = anchors[i + 1]!;
+      tangentVec = [nextP[0] - P[0], nextP[1] - P[1], nextP[2] - P[2]];
+    } else if (i === anchors.length - 1) {
       const prevP = anchors[i - 1]!;
-      const distX = (P[0] - prevP[0]) / 3;
+      tangentVec = [P[0] - prevP[0], P[1] - prevP[1], P[2] - prevP[2]];
+    } else {
+      const nextP = anchors[i + 1]!;
+      const prevP = anchors[i - 1]!;
+      tangentVec = [nextP[0] - prevP[0], nextP[1] - prevP[1], nextP[2] - prevP[2]];
+    }
+
+    const len = Math.hypot(tangentVec[0], tangentVec[1], tangentVec[2]);
+    if (len > 1e-6) {
+      tangentVec[0] /= len;
+      tangentVec[1] /= len;
+      tangentVec[2] /= len;
+    }
+
+    const distToPrev = i > 0 ? Math.hypot(P[0] - anchors[i-1]![0], P[1] - anchors[i-1]![1], P[2] - anchors[i-1]![2]) : 0;
+    const distToNext = i < anchors.length - 1 ? Math.hypot(anchors[i+1]![0] - P[0], anchors[i+1]![1] - P[1], anchors[i+1]![2] - P[2]) : 0;
+    
+    const handleLen1 = distToPrev / 3;
+    const handleLen2 = distToNext / 3;
+
+    if (i === 0) {
+      tangents1.push([...P]);
+    } else {
       tangents1.push([
-        P[0] - Math.abs(distX),
-        P[1] - slopeY * Math.abs(distX),
-        P[2] - slopeZ * Math.abs(distX)
+        P[0] - tangentVec[0] * handleLen1,
+        P[1] - tangentVec[1] * handleLen1,
+        P[2] - tangentVec[2] * handleLen1,
       ]);
     }
 
-    // Tangent 2 (Right Handle - Points toward Nose)
     if (i === anchors.length - 1) {
-      tangents2.push([...P]); // Nose anchor has no right handle
+      tangents2.push([...P]);
     } else {
-      const nextP = anchors[i + 1]!;
-      const distX = (nextP[0] - P[0]) / 3;
       tangents2.push([
-        P[0] + Math.abs(distX),
-        P[1] + slopeY * Math.abs(distX),
-        P[2] + slopeZ * Math.abs(distX)
+        P[0] + tangentVec[0] * handleLen2,
+        P[1] + tangentVec[1] * handleLen2,
+        P[2] + tangentVec[2] * handleLen2,
       ]);
     }
   }
@@ -478,4 +467,83 @@ ${controlTypes}
 ${tangentTypes}
 \t\t\t</Bezier3d>
 \t\t</${tag}>`;
+};
+
+// ====================================================================
+// ✅ NEW: FIN BOX & LEASH PLUG GENERATION LOGIC
+// ====================================================================
+
+const generatePlugsAndFinsXML = (model: BoardModel, curves: BoardCurves): string => {
+  const boxConfigs: { name: string; zFromTail: number; xFromCenter: number; isCenter: boolean; isSide: boolean; isPlug: boolean }[] =[];
+
+  // 1. Fins
+  if (model.finSetup === 'thruster') {
+    boxConfigs.push({ name: "Fin sides", zFromTail: model.frontFinZ, xFromCenter: model.frontFinX, isCenter: false, isSide: true, isPlug: false });
+    boxConfigs.push({ name: "Fin center", zFromTail: model.rearFinZ, xFromCenter: 0, isCenter: true, isSide: false, isPlug: false });
+  } else if (model.finSetup === 'quad') {
+    boxConfigs.push({ name: "Fin sides", zFromTail: model.frontFinZ, xFromCenter: model.frontFinX, isCenter: false, isSide: true, isPlug: false });
+    boxConfigs.push({ name: "Fin sides", zFromTail: model.rearFinZ, xFromCenter: model.rearFinX, isCenter: false, isSide: true, isPlug: false });
+  } else if (model.finSetup === 'twin') {
+    boxConfigs.push({ name: "Fin sides", zFromTail: model.frontFinZ, xFromCenter: model.frontFinX, isCenter: false, isSide: true, isPlug: false });
+  }
+
+  // 2. Leash Plug (Standard placement: 3.5 inches from tail on the stringer)
+  boxConfigs.push({ name: "Leash 1", zFromTail: 3.5, xFromCenter: 0, isCenter: false, isSide: false, isPlug: true });
+
+  if (boxConfigs.length === 0) {
+    return "<Nb_Boxes>0</Nb_Boxes>";
+  }
+
+  const boxesXML = boxConfigs.map((box, i) => {
+    // 1. Calculate position in our coordinate system
+    const z_ss = model.length / 2 - box.zFromTail;
+    const profile = getBoardProfileAtZ(model, curves, z_ss);
+    const x_ss = box.isCenter || box.isPlug ? 0 : profile.halfWidth - box.xFromCenter;
+    
+    let y_ss = 0;
+    if (box.isPlug) {
+      // Leash plug sits flush on the deck
+      y_ss = profile.topY;
+    } else {
+      // Fins sit flush on the bottom contours
+      y_ss = getBottomYAt(model, curves, x_ss, z_ss);
+    }
+
+    // 2. Translate to S3D coordinates for the <Ref. point>
+    const refPointS3D = translateToShape3d([x_ss, y_ss, z_ss], model.length, model.thickness);
+
+    // 3. Static values from reference for standard elements
+    const boxLengthCm = box.isPlug ? 2.7 : 15.0;
+    const boxWidthCm = box.isPlug ? 2.7 : 3.2;
+    const boxHeightCm = box.isPlug ? 1.6 : 1.55;
+    const face = box.isPlug ? 0 : 1; // 0 = Deck, 1 = Bottom
+    const style = box.isPlug ? 4 : 3; // 4 = Plug, 3 = Fin Box
+    const toeInRad = box.isSide ? (model.toeAngle * Math.PI / 180).toFixed(4) : "0.0000";
+
+    return `\t\t<Box_${i}>
+		<Box>
+			<Name>${box.name}</Name>
+			<Length>${boxLengthCm.toFixed(3)}</Length>
+			<Width>${boxWidthCm.toFixed(3)}</Width>
+			<Height>${boxHeightCm.toFixed(3)}</Height>
+			<Even>${box.isSide ? 1 : 0}</Even>
+			<Central>${box.isCenter ? 1 : 0}</Central>
+			<FixedTail>${box.isPlug ? 0 : 1}</FixedTail>
+			<FixedRail>${box.isSide ? 1 : 0}</FixedRail>
+			<Face>${face}</Face>
+			<Style>${style}</Style>
+			<Ref. point>
+			<Point3d>
+				<x>${refPointS3D[0].toFixed(6)}</x><y>${refPointS3D[1].toFixed(6)}</y><z>${refPointS3D[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>
+			</Point3d></Ref. point>
+			<AngleOz>${toeInRad}</AngleOz>
+			<DisplayD3D>1</DisplayD3D>
+			<MappingD3D>1</MappingD3D>
+			<ImageMappedD3D>White</ImageMappedD3D>
+			<CutCNC>1</CutCNC>
+		</Box>
+		</Box_${i}>`;
+  }).join('\n');
+
+  return `<Nb_Boxes>${boxConfigs.length}</Nb_Boxes>\n${boxesXML}`;
 };
