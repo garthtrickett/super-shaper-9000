@@ -27,6 +27,8 @@ export const BoardModelSchema = S.Struct({
   showGizmos: S.optional(S.Boolean),
   editMode: S.optional(S.Literal("parametric", "manual")),
   selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
+  manualHistory: S.optional(S.Array(S.Unknown)),
+  historyIndex: S.optional(S.Number),
   manualOutline: S.optional(BezierCurveSchema),
   manualRockerTop: S.optional(BezierCurveSchema),
   manualRockerBottom: S.optional(BezierCurveSchema),
@@ -82,10 +84,19 @@ export type SelectedNode = {
   type: "anchor" | "tangent1" | "tangent2";
 };
 
+export interface ManualSnapshot {
+  outline?: BezierCurveData;
+  rockerTop?: BezierCurveData;
+  rockerBottom?: BezierCurveData;
+  crossSections?: BezierCurveData[];
+}
+
 export interface BoardModel {
   showGizmos?: boolean;
   editMode?: "parametric" | "manual";
   selectedNode?: SelectedNode | null;
+  manualHistory?: ManualSnapshot[];
+  historyIndex?: number;
   manualOutline?: BezierCurveData;
   manualRockerTop?: BezierCurveData;
   manualRockerBottom?: BezierCurveData;
@@ -182,7 +193,31 @@ export type BoardAction =
   | { type: "CONVERT_TO_MANUAL" }
   | { type: "UPDATE_MANUAL_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
   | { type: "SELECT_NODE"; node: SelectedNode | null }
-  | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D };
+  | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }
+  | { type: "SAVE_HISTORY_SNAPSHOT" }
+  | { type: "UNDO" }
+  | { type: "REDO" };
+
+// Helper to push an immutable snapshot to the history stack
+const pushHistory = (currentState: BoardModel): BoardModel => {
+  const snapshot: ManualSnapshot = {
+    outline: currentState.manualOutline,
+    rockerTop: currentState.manualRockerTop,
+    rockerBottom: currentState.manualRockerBottom,
+    crossSections: currentState.manualCrossSections,
+  };
+  const currentHistory = currentState.manualHistory || [];
+  const currentIndex = currentState.historyIndex ?? -1;
+  
+  // Drop any "Redo" futures if we branch off a new timeline
+  const newHistory = currentHistory.slice(0, currentIndex + 1);
+  newHistory.push(snapshot);
+  
+  // Prevent memory leaks by capping undo history at 50 actions
+  if (newHistory.length > 50) newHistory.shift();
+  
+  return { ...currentState, manualHistory: newHistory, historyIndex: newHistory.length - 1 };
+};
 
 export const update = (state: BoardModel, action: BoardAction): BoardModel => {
   switch (action.type) {
@@ -227,24 +262,57 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       if (tangent1) updatedCurve.tangents1[index] = [...tangent1];
       if (tangent2) updatedCurve.tangents2[index] = [...tangent2];
 
-      if (curve === "outline") return { ...state, manualOutline: updatedCurve };
-      if (curve === "rockerTop") return { ...state, manualRockerTop: updatedCurve };
-      if (curve === "rockerBottom") return { ...state, manualRockerBottom: updatedCurve };
-      if (crossSectionIdx !== -1 && state.manualCrossSections) {
+      let newState = state;
+      if (curve === "outline") newState = { ...state, manualOutline: updatedCurve };
+      else if (curve === "rockerTop") newState = { ...state, manualRockerTop: updatedCurve };
+      else if (curve === "rockerBottom") newState = { ...state, manualRockerBottom: updatedCurve };
+      else if (crossSectionIdx !== -1 && state.manualCrossSections) {
         const newCrossSections = [...state.manualCrossSections];
         newCrossSections[crossSectionIdx] = updatedCurve;
-        return { ...state, manualCrossSections: newCrossSections };
+        newState = { ...state, manualCrossSections: newCrossSections };
       }
-      return state;
+      // Auto-snapshot history when directly typing exact numbers into the UI
+      return pushHistory(newState);
     }
-    case "SET_MANUAL_CURVES":
+    case "SAVE_HISTORY_SNAPSHOT":
+      return pushHistory(state);
+    case "UNDO": {
+      if (!state.manualHistory || state.historyIndex === undefined || state.historyIndex <= 0) return state;
+      const newIndex = state.historyIndex - 1;
+      const snap = state.manualHistory[newIndex]!;
       return {
+        ...state,
+        historyIndex: newIndex,
+        manualOutline: snap.outline,
+        manualRockerTop: snap.rockerTop,
+        manualRockerBottom: snap.rockerBottom,
+        manualCrossSections: snap.crossSections
+      };
+    }
+    case "REDO": {
+      if (!state.manualHistory || state.historyIndex === undefined || state.historyIndex >= state.manualHistory.length - 1) return state;
+      const newIndex = state.historyIndex + 1;
+      const snap = state.manualHistory[newIndex]!;
+      return {
+        ...state,
+        historyIndex: newIndex,
+        manualOutline: snap.outline,
+        manualRockerTop: snap.rockerTop,
+        manualRockerBottom: snap.rockerBottom,
+        manualCrossSections: snap.crossSections
+      };
+    }
+    case "SET_MANUAL_CURVES": {
+      const newState = {
         ...state,
         ...(action.outline && { manualOutline: action.outline }),
         ...(action.rockerTop && { manualRockerTop: action.rockerTop }),
         ...(action.rockerBottom && { manualRockerBottom: action.rockerBottom }),
         ...(action.crossSections && { manualCrossSections: action.crossSections }),
       };
+      // We initialize the first history snapshot immediately upon entering manual mode
+      return pushHistory(newState);
+    }
     case "CONVERT_TO_MANUAL":
       // Handled asynchronously in the handleAction effect
       return state;

@@ -663,14 +663,23 @@ export class BoardViewport extends LitElement {
   }
 
   private onPointerUp = (e: PointerEvent) => {
+    const dist = Math.hypot(e.clientX - this.dragStartPos.x, e.clientY - this.dragStartPos.y);
+
     if (this.draggedGizmo) {
+      if (dist >= 5) {
+        // It was an actual physical drag that just completed, so we dispatch the end event 
+        // to let the SAM controller know it should save a snapshot to the Undo History.
+        this.dispatchEvent(new CustomEvent('gizmo-drag-ended', {
+          bubbles: true, composed: true
+        }));
+      }
+      
       this.draggedGizmo = null;
       this.controls.enabled = true; // Re-enable camera orbit
     }
 
     // Click detection for selection (if mouse barely moved)
     if (this.boardState?.editMode === 'manual') {
-      const dist = Math.hypot(e.clientX - this.dragStartPos.x, e.clientY - this.dragStartPos.y);
       if (dist < 5) {
         const rect = this.canvas.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;

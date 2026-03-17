@@ -3,7 +3,7 @@ import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { ReactiveSamController } from "../../lib/client/reactive-sam-controller";
-import { INITIAL_STATE, update, handleAction, BoardModelSchema, type BoardModel, type BoardAction } from "./board-builder-page.logic";
+import { INITIAL_STATE, update, handleAction, BoardModelSchema, type BoardModel, type BoardAction, type Point3D } from "./board-builder-page.logic";
 import { runClientPromise } from "../../lib/client/runtime";
 import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
@@ -167,6 +167,7 @@ export class BoardBuilderPage extends LitElement {
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
             this.ctrl.propose({ type: "SELECT_NODE", node: e.detail.node });
           }}
+          @gizmo-drag-ended=${() => this.ctrl.propose({ type: "SAVE_HISTORY_SNAPSHOT" })}
           @gizmo-dragged=${(e: CustomEvent<{ userData: { type: 'anchor'|'tangent1'|'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
             this.ctrl.propose({
               type: "UPDATE_MANUAL_NODE_POSITION",
@@ -182,7 +183,7 @@ export class BoardBuilderPage extends LitElement {
           <node-inspector
             class="absolute top-16 right-4 z-20 w-[340px]"
             .boardState=${state}
-            @update-node=${(e: CustomEvent) => this.ctrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+            @update-node=${(e: CustomEvent<{ curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }>) => this.ctrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
           ></node-inspector>
         ` : ''}
       </div>
