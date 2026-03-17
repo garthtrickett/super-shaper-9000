@@ -79,6 +79,44 @@ export class BoardBuilderPage extends LitElement {
     `;
   }
 
+  private _handleKeyDown = (e: KeyboardEvent) => {
+    // Only handle hotkeys if we are actively in manual sculpting mode
+    if (this.ctrl.model.editMode !== "manual") return;
+
+    // Do not hijack Undo/Redo if the user is typing inside an input field (e.g., Node Inspector)
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+      return;
+    }
+
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+    if (cmdOrCtrl && !e.altKey) {
+      if (e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          this.ctrl.propose({ type: "REDO" });
+        } else {
+          this.ctrl.propose({ type: "UNDO" });
+        }
+      } else if (e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        this.ctrl.propose({ type: "REDO" });
+      }
+    }
+  };
+
+  override connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener("keydown", this._handleKeyDown);
+  }
+
+  override disconnectedCallback() {
+    window.removeEventListener("keydown", this._handleKeyDown);
+    super.disconnectedCallback();
+  }
+
   private _renderImportModal() {
     if (!this.showImportModal) return null;
     return html`
@@ -158,6 +196,27 @@ export class BoardBuilderPage extends LitElement {
           @convert-to-manual=${() => this.ctrl.propose({ type: "CONVERT_TO_MANUAL" })}
           @revert-to-parametric=${() => this.ctrl.propose({ type: "SET_EDIT_MODE", mode: "parametric" })}
         ></board-controls>
+
+        ${state.editMode === 'manual' ? html`
+          <div class="absolute top-4 right-4 z-10 flex gap-2">
+            <button 
+              @click=${() => this.ctrl.propose({ type: "UNDO" })}
+              ?disabled=${!state.manualHistory || state.historyIndex === undefined || state.historyIndex <= 0}
+              class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+              title="Undo (Cmd/Ctrl + Z)"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+            </button>
+            <button 
+              @click=${() => this.ctrl.propose({ type: "REDO" })}
+              ?disabled=${!state.manualHistory || state.historyIndex === undefined || state.historyIndex >= state.manualHistory.length - 1}
+              class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+              title="Redo (Cmd/Ctrl + Shift + Z)"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path></svg>
+            </button>
+          </div>
+        ` : ''}
 
         <!-- Render the 3D scene taking up the full remaining area -->
         <board-viewport 
