@@ -418,11 +418,30 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
           py = botY + currentThickness / 2;
       }
 
+      // Calculate vertically opposite Y for thickness heatmap
+      const tOpposite = 1.0 - tCross;
+      const pAOpp = evaluateBezier3D(s0, tOpposite);
+      const pBOpp = evaluateBezier3D(s1, tOpposite);
+      const rawYOpp = pAOpp[1] + (pBOpp[1] - pAOpp[1]) * lerpFactor;
+      
+      let pyOpp = botY;
+      if (Math.abs(sliceThickness) > 0.05 && Math.abs(currentThickness) > 0.05) {
+          const normYOpp = (rawYOpp - sliceBot) / sliceThickness;
+          pyOpp = botY + normYOpp * currentThickness;
+      } else {
+          pyOpp = botY + currentThickness / 2;
+      }
+      
+      const localThickness = Math.abs(py - pyOpp);
+      const normT = Math.max(0, Math.min(1, localThickness / model.thickness));
+      const [r, g, b] = colorHeatmap(normT);
+
       // Note: We do NOT re-apply `calculateBottomContourOffset` here in manual mode!
       // `extractCrossSectionsSS9000` already baked the bottom contours into the generated slices.
 
       vertices.push(px * scale, py * scale, zInches * scale);
       uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
+      colors.push(r, g, b);
     }
   }
 
