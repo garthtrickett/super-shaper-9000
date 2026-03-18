@@ -71,6 +71,15 @@
           export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
           export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="${pkgs.chromium}/bin/chromium"
 
+          # --- PLAYWRIGHT UI MODE FIX ---
+          # Playwright's UI mode ignores the config executablePath and strictly looks for
+          # 'google-chrome' or 'google-chrome-stable' in the PATH on Linux.
+          # We alias our nix chromium to trick it into launching the trace viewer.
+          mkdir -p .nix-bins
+          ln -sf "${pkgs.chromium}/bin/chromium" .nix-bins/google-chrome
+          ln -sf "${pkgs.chromium}/bin/chromium" .nix-bins/google-chrome-stable
+          export PATH="$PWD/.nix-bins:$PATH"
+
           # --- ANDROID CONFIG ---
           export ANDROID_SDK_ROOT="${androidSdk}/libexec/android-sdk"
           export ANDROID_HOME=$ANDROID_SDK_ROOT
