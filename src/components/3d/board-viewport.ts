@@ -68,14 +68,30 @@ export class BoardViewport extends LitElement {
   private _bumpTexture: THREE.CanvasTexture | null = null;
 
   private _zebraTexture: THREE.CanvasTexture | null = null;
+  private zebraCanvas: HTMLCanvasElement | null = null;
+  private zebraOffset = 0;
 
   private getZebraTexture() {
     if (this._zebraTexture) return this._zebraTexture;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d')!;
+    this.zebraCanvas = document.createElement('canvas');
+    this.zebraCanvas.width = 1024;
+    this.zebraCanvas.height = 512;
+
+    this._zebraTexture = new THREE.CanvasTexture(this.zebraCanvas);
+    this._zebraTexture.mapping = THREE.EquirectangularReflectionMapping;
+    this._zebraTexture.colorSpace = THREE.SRGBColorSpace;
+    this._zebraTexture.magFilter = THREE.LinearFilter;
+    this._zebraTexture.minFilter = THREE.LinearMipmapLinearFilter;
+
+    this.updateZebraCanvas(0);
+
+    return this._zebraTexture;
+  }
+
+  private updateZebraCanvas(offset: number) {
+    if (!this.zebraCanvas || !this._zebraTexture) return;
+    const ctx = this.zebraCanvas.getContext('2d')!;
 
     // Fill white background
     ctx.fillStyle = '#ffffff';
@@ -85,17 +101,14 @@ export class BoardViewport extends LitElement {
     ctx.fillStyle = '#000000';
     const stripeCount = 48; // High frequency bands to spot tiny surface bumps
     const stripeHeight = 512 / stripeCount;
-    for (let i = 0; i < stripeCount; i += 2) {
-      ctx.fillRect(0, i * stripeHeight, 1024, stripeHeight);
+    
+    // Render slightly out of bounds to seamlessly handle the wrapping offset
+    for (let i = -2; i <= stripeCount + 2; i += 2) {
+      const y = (i * stripeHeight) + (offset % (stripeHeight * 2));
+      ctx.fillRect(0, y, 1024, stripeHeight);
     }
 
-    this._zebraTexture = new THREE.CanvasTexture(canvas);
-    this._zebraTexture.mapping = THREE.EquirectangularReflectionMapping;
-    this._zebraTexture.colorSpace = THREE.SRGBColorSpace;
-    this._zebraTexture.magFilter = THREE.LinearFilter;
-    this._zebraTexture.minFilter = THREE.LinearMipmapLinearFilter;
-
-    return this._zebraTexture;
+    this._zebraTexture.needsUpdate = true;
   }
 
   private getBoardTextures() {
