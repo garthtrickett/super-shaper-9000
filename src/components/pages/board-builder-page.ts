@@ -222,7 +222,7 @@ export class BoardBuilderPage extends LitElement {
 
         <!-- Render the 3D scene taking up the full remaining area -->
         <board-viewport 
-          class="flex-1 w-full h-full relative z-0"
+          class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.ctrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {

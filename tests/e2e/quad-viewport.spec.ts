@@ -80,7 +80,7 @@ test.describe('Quad Viewport CAD Interface', () => {
       const cp = outline.controlPoints[3];
       if (!cp) return null;
 
-      const canvas = viewport.shadowRoot?.querySelector('canvas');
+      const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
       if (!canvas) return null;
 
       const rect = canvas.getBoundingClientRect();

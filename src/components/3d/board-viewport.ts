@@ -1,5 +1,5 @@
 // FILE: src/components/3d/board-viewport.ts
-import { LitElement, html, css } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
 
@@ -19,10 +19,10 @@ import { SceneManager } from "./managers/SceneManager";
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
   @property({ type: Object }) boardState?: BoardModel;
-  static override styles = css`
-    :host { display: block; width: 100%; height: 100%; position: relative; overflow: hidden; }
-    canvas { display: block; width: 100%; height: 100%; outline: none; }
-  `;
+  
+  protected override createRenderRoot() { 
+    return this; // Use Light DOM for Tailwind CSS support
+  }
 
   @query("canvas")
   private canvas!: HTMLCanvasElement;
@@ -346,7 +346,7 @@ export class BoardViewport extends LitElement {
     `;
 
     return html`
-      <canvas></canvas>
+      <canvas class="block w-full h-full outline-none"></canvas>
       <div class="absolute inset-0 pointer-events-none z-10">
         ${this.maximizedView === null ? html`
           <div class="w-full h-full grid grid-cols-2 grid-rows-2">
