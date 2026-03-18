@@ -1,3 +1,4 @@
+// FILE: src/components/3d/board-viewport.ts
 import { LitElement, html, css } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
@@ -35,9 +36,9 @@ export class BoardViewport extends LitElement {
   private renderer!: THREE.WebGLRenderer;
   private scene!: THREE.Scene;
   private perspectiveCamera!: THREE.PerspectiveCamera;
-  private orthoCamera!: THREE.OrthographicCamera;
-  private activeCamera!: THREE.Camera;
-  private viewMode: 'perspective' | 'top' | 'side' | 'profile' = 'perspective';
+  private topCamera!: THREE.OrthographicCamera;
+  private sideCamera!: THREE.OrthographicCamera;
+  private profileCamera!: THREE.OrthographicCamera;
   private controls!: OrbitControls;
   private animationId: number = 0;
   private resizeObserver!: ResizeObserver;
@@ -179,7 +180,7 @@ export class BoardViewport extends LitElement {
 
     const scale = 1 / 12; // Inches to Feet for Three.js coordinates
 
-    const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, mirrorX = false, followRocker = false) => {
+    const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false, followRocker = false) => {
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => {
@@ -204,14 +205,16 @@ export class BoardViewport extends LitElement {
             vertices[i*3+2] = zInches * scale;
         });
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        return new THREE.Line(geometry, mat);
+        const line = new THREE.Line(geometry, mat);
+        line.layers.set(layerIndex);
+        return line;
     };
 
-    // Render outline wrapping the rails, and rocker staying normal
-    this.wireframeGroup.add(buildLine(curves.outline, matOutline, false, true));
-    this.wireframeGroup.add(buildLine(curves.outline, matOutline, true, true)); 
-    this.wireframeGroup.add(buildLine(curves.rockerTop, matRocker, false, false));
-    this.wireframeGroup.add(buildLine(curves.rockerBottom, matRocker, false, false));
+    // Render outline wrapping the rails (Layer 1), and rocker staying normal (Layer 2)
+    this.wireframeGroup.add(buildLine(curves.outline, matOutline, 1, false, true));
+    this.wireframeGroup.add(buildLine(curves.outline, matOutline, 1, true, true)); 
+    this.wireframeGroup.add(buildLine(curves.rockerTop, matRocker, 2, false, false));
+    this.wireframeGroup.add(buildLine(curves.rockerBottom, matRocker, 2, false, false));
 
     // Handle Solid Mesh Rendering
     while (this.solidGroup.children.length > 0) {
@@ -405,7 +408,7 @@ export class BoardViewport extends LitElement {
             const handleGeo = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
             const lineMat = new THREE.LineDashedMaterial({ color: 0x52525b, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
 
-            const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string) => {
+            const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number) => {
                 if (!curve) return;
                 for (let i = 0; i < curve.controlPoints.length; i++) {
                     const cp = curve.controlPoints[i]!;
@@ -416,6 +419,7 @@ export class BoardViewport extends LitElement {
                     const anchorMesh = new THREE.Mesh(anchorGeo, this.matAnchor);
                     anchorMesh.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
                     anchorMesh.renderOrder = 999;
+                    anchorMesh.layers.set(layerIndex);
                     anchorMesh.userData = { isGizmo: true, type: 'anchor', curve: curveName, index: i };
                     this.gizmoGroup.add(anchorMesh);
 
@@ -426,6 +430,7 @@ export class BoardViewport extends LitElement {
                         const handleMesh = new THREE.Mesh(handleGeo, this.matHandle);
                         handleMesh.position.set(t[0] * scale, t[1] * scale, t[2] * scale);
                         handleMesh.renderOrder = 999;
+                        handleMesh.layers.set(layerIndex);
                         handleMesh.userData = { isGizmo: true, type: handleType, curve: curveName, index: i };
                         this.gizmoGroup.add(handleMesh);
 
@@ -436,6 +441,7 @@ export class BoardViewport extends LitElement {
                         const line = new THREE.Line(lineGeo, lineMat);
                         line.computeLineDistances();
                         line.renderOrder = 998;
+                        line.layers.set(layerIndex);
                         this.gizmoGroup.add(line);
                     };
 
@@ -444,13 +450,13 @@ export class BoardViewport extends LitElement {
                 }
             };
 
-            drawGizmosForCurve(this.boardState.manualOutline, 'outline');
-            drawGizmosForCurve(this.boardState.manualRockerTop, 'rockerTop');
-            drawGizmosForCurve(this.boardState.manualRockerBottom, 'rockerBottom');
+            drawGizmosForCurve(this.boardState.manualOutline, 'outline', 1);
+            drawGizmosForCurve(this.boardState.manualRockerTop, 'rockerTop', 2);
+            drawGizmosForCurve(this.boardState.manualRockerBottom, 'rockerBottom', 2);
             
             if (this.boardState.manualCrossSections) {
                 this.boardState.manualCrossSections.forEach((cs, idx) => {
-                    drawGizmosForCurve(cs, `crossSection_${idx}`);
+                    drawGizmosForCurve(cs, `crossSection_${idx}`, 3);
                 });
             }
         }
@@ -482,26 +488,47 @@ export class BoardViewport extends LitElement {
     this.scene.background = new THREE.Color(0x09090b); // matches zinc-950
 
     // 2. Camera setup
+    // Each quadrant will have half the width and half the height, so the aspect ratio of a quadrant is the same as the full canvas.
     const aspect = this.clientWidth / this.clientHeight;
-    this.perspectiveCamera = new THREE.PerspectiveCamera(
-      50,
-      aspect,
-      0.1,
-      1000
-    );
+    this.perspectiveCamera = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000);
     // Look down the Nose (-Z axis) so the front of the board is in the foreground
     this.perspectiveCamera.position.set(-6, 4, -6);
 
     const frustumSize = 10;
-    this.orthoCamera = new THREE.OrthographicCamera(
-      -frustumSize * aspect / 2,
-      frustumSize * aspect / 2,
-      frustumSize / 2,
-      -frustumSize / 2,
-      0.1,
-      1000
-    );
-    this.activeCamera = this.perspectiveCamera;
+    const orthoLeft = -frustumSize * aspect / 2;
+    const orthoRight = frustumSize * aspect / 2;
+    const orthoTop = frustumSize / 2;
+    const orthoBottom = -frustumSize / 2;
+
+    this.topCamera = new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
+    this.topCamera.position.set(0, 10, 0);
+    this.topCamera.up.set(0, 0, -1);
+    this.topCamera.lookAt(0, 0, 0);
+    // Layer 0 (Solid/Grid) + Layer 1 (Outline Gizmos)
+    this.topCamera.layers.disableAll();
+    this.topCamera.layers.enable(0);
+    this.topCamera.layers.enable(1);
+
+    this.sideCamera = new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
+    this.sideCamera.position.set(10, 0, 0);
+    this.sideCamera.up.set(0, 1, 0);
+    this.sideCamera.lookAt(0, 0, 0);
+    // Layer 0 (Solid/Grid) + Layer 2 (Rocker Gizmos)
+    this.sideCamera.layers.disableAll();
+    this.sideCamera.layers.enable(0);
+    this.sideCamera.layers.enable(2);
+
+    this.profileCamera = new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
+    this.profileCamera.position.set(0, 0, -10);
+    this.profileCamera.up.set(0, 1, 0);
+    this.profileCamera.lookAt(0, 0, 0);
+    // Layer 0 (Solid/Grid) + Layer 3 (Slice Gizmos)
+    this.profileCamera.layers.disableAll();
+    this.profileCamera.layers.enable(0);
+    this.profileCamera.layers.enable(3);
+
+    // Perspective Camera sees all layers
+    this.perspectiveCamera.layers.enableAll();
 
     // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({
@@ -548,7 +575,9 @@ export class BoardViewport extends LitElement {
     this.scene.add(floor);
 
     // 6. Controls
-    this.controls = new OrbitControls(this.activeCamera, this.renderer.domElement);
+    // Bind orbit controls to the perspective camera for now. 
+    // We will restrict mouse events to the top-right quadrant in Step 3.
+    this.controls = new OrbitControls(this.perspectiveCamera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.target.set(0, 0, 0);
@@ -587,7 +616,7 @@ export class BoardViewport extends LitElement {
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    this.raycaster.setFromCamera(this.mouse, this.activeCamera);
+    this.raycaster.setFromCamera(this.mouse, this.perspectiveCamera);
     
     // Intersect only with gizmos
     const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
@@ -598,7 +627,7 @@ export class BoardViewport extends LitElement {
       this.controls.enabled = false; // Disable camera orbit while dragging
       
       // Calculate a mathematical plane passing through the gizmo, facing the camera
-      const cameraDir = this.activeCamera.getWorldDirection(new THREE.Vector3()).negate();
+      const cameraDir = this.perspectiveCamera.getWorldDirection(new THREE.Vector3()).negate();
       this.dragPlane.setFromNormalAndCoplanarPoint(cameraDir, this.draggedGizmo.position);
       
       // Calculate the exact click offset from the center of the gizmo to prevent snapping
@@ -615,7 +644,7 @@ export class BoardViewport extends LitElement {
     this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    this.raycaster.setFromCamera(this.mouse, this.activeCamera);
+    this.raycaster.setFromCamera(this.mouse, this.perspectiveCamera);
     const target = new THREE.Vector3();
     
     if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
@@ -654,7 +683,7 @@ export class BoardViewport extends LitElement {
       this.dispatchEvent(new CustomEvent('gizmo-dragged', {
         detail: { 
           userData: userData, 
-          position: [inInches.x, inInches.y, inInches.z] 
+          position:[inInches.x, inInches.y, inInches.z] 
         },
         bubbles: true,
         composed: true
@@ -675,16 +704,19 @@ export class BoardViewport extends LitElement {
       }
       
       this.draggedGizmo = null;
-      this.controls.enabled = true; // Re-enable camera orbit
+      this.activeDragCamera = null;
     }
+    
+    // Always re-enable controls if mouse goes up (though we dynamically restrict it on pointer down anyway)
+    this.controls.enabled = true;
 
     // Click detection for selection (if mouse barely moved)
     if (this.boardState?.editMode === 'manual') {
       if (dist < 5) {
-        const rect = this.canvas.getBoundingClientRect();
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.activeCamera);
+        const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+        this.mouse.copy(mouse);
+        this.raycaster.setFromCamera(this.mouse, camera);
+        this.raycaster.layers.mask = camera.layers.mask;
         
         const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
         const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
@@ -698,52 +730,34 @@ export class BoardViewport extends LitElement {
   };
 
   private onResize() {
-    if (!this.perspectiveCamera || !this.orthoCamera || !this.renderer) return;
+    if (!this.perspectiveCamera || !this.topCamera || !this.renderer) return;
     const width = this.clientWidth;
     const height = this.clientHeight;
+    // Each quadrant is half width, half height, so aspect ratio remains width / height
     const aspect = width / height;
 
     this.perspectiveCamera.aspect = aspect;
     this.perspectiveCamera.updateProjectionMatrix();
 
     const frustumSize = 10; // Fits up to a 10ft board
-    this.orthoCamera.left = -frustumSize * aspect / 2;
-    this.orthoCamera.right = frustumSize * aspect / 2;
-    this.orthoCamera.top = frustumSize / 2;
-    this.orthoCamera.bottom = -frustumSize / 2;
-    this.orthoCamera.updateProjectionMatrix();
+    const orthoLeft = -frustumSize * aspect / 2;
+    const orthoRight = frustumSize * aspect / 2;
+    const orthoTop = frustumSize / 2;
+    const orthoBottom = -frustumSize / 2;
+
+    const updateOrtho = (cam: THREE.OrthographicCamera) => {
+      cam.left = orthoLeft;
+      cam.right = orthoRight;
+      cam.top = orthoTop;
+      cam.bottom = orthoBottom;
+      cam.updateProjectionMatrix();
+    };
+
+    updateOrtho(this.topCamera);
+    updateOrtho(this.sideCamera);
+    updateOrtho(this.profileCamera);
 
     this.renderer.setSize(width, height);
-  }
-
-  private setViewMode(mode: 'perspective' | 'top' | 'side' | 'profile') {
-    this.viewMode = mode;
-    if (mode === 'perspective') {
-      this.activeCamera = this.perspectiveCamera;
-      this.controls.object = this.perspectiveCamera;
-      this.controls.enableRotate = true;
-    } else {
-      this.activeCamera = this.orthoCamera;
-      this.controls.object = this.orthoCamera;
-      this.controls.enableRotate = false; // Lock rotation in orthographic
-      
-      this.controls.target.set(0, 0, 0);
-
-      if (mode === 'top') {
-        this.orthoCamera.position.set(0, 10, 0);
-        this.orthoCamera.up.set(0, 0, -1); // Up is towards nose
-      } else if (mode === 'side') {
-        this.orthoCamera.position.set(10, 0, 0);
-        this.orthoCamera.up.set(0, 1, 0); // Up is up
-      } else if (mode === 'profile') {
-        this.orthoCamera.position.set(0, 0, -10); // Looking from nose to tail
-        this.orthoCamera.up.set(0, 1, 0); // Up is up
-      }
-      this.orthoCamera.lookAt(0, 0, 0);
-      this.orthoCamera.updateProjectionMatrix();
-    }
-    this.controls.update();
-    this.updateGizmoVisibility();
   }
 
   private updateGizmoHighlights() {
