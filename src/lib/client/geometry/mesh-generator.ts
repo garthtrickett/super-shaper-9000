@@ -317,6 +317,7 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
     uvs: new Float32Array(uvs),
+    colors: new Float32Array(colors),
     volumeLiters: calculateVolume(vertices, indices)
   };
 };
