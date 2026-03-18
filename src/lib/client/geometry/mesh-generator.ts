@@ -441,6 +441,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
     uvs: new Float32Array(uvs),
+    colors: new Float32Array(colors),
     volumeLiters: calculateVolume(vertices, indices)
   };
 };

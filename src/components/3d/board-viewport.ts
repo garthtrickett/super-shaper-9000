@@ -309,7 +309,7 @@ export class BoardViewport extends LitElement {
 
         const { map, bumpMap } = this.getBoardTextures();
 
-        const mat = new THREE.MeshPhysicalMaterial({ 
+        const standardMat = new THREE.MeshPhysicalMaterial({ 
             map: map,
             bumpMap: bumpMap,
             bumpScale: 0.005,
@@ -321,7 +321,13 @@ export class BoardViewport extends LitElement {
             side: THREE.DoubleSide
         });
 
-        const mesh = new THREE.Mesh(geom, mat);
+        const heatmapMat = new THREE.MeshStandardMaterial({ 
+            vertexColors: true, 
+            roughness: 0.8,
+            side: THREE.DoubleSide 
+        });
+
+        const mesh = new THREE.Mesh(geom, this.boardState.showHeatmap ? heatmapMat : standardMat);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         mesh.layers.set(0);
