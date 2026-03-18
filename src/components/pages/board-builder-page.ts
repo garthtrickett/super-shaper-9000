@@ -190,6 +190,7 @@ export class BoardBuilderPage extends LitElement {
           @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => this.ctrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value })}
           .editMode=${state.editMode || "parametric"}
           .showGizmos=${state.showGizmos ?? true}
+          .showHeatmap=${state.showHeatmap ?? false}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
