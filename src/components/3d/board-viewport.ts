@@ -42,6 +42,7 @@ export class BoardViewport extends LitElement {
   private controls!: OrbitControls;
   private animationId: number = 0;
   private resizeObserver!: ResizeObserver;
+  private geometryUpdateDebounceId: number | undefined;
   private wireframeGroup = new THREE.Group();
   private solidGroup = new THREE.Group();
   private finGroup = new THREE.Group();
@@ -123,41 +124,6 @@ export class BoardViewport extends LitElement {
     this.initThree();
   }
 
-  override updated(changedProperties: PropertyValues<this>) {
-    if (changedProperties.has("boardState") && this.boardState) {
-      const oldState = changedProperties.get("boardState");
-      
-      // Prevent infinite loops and lag: If ONLY the volume changed, do not rebuild the 3D mesh.
-      if (oldState) {
-        let needsGeometryUpdate = false;
-        let gizmoVisChanged = false;
-        let selectionChanged = false;
-        const oldBoardState = oldState;
-         
-        for (const key in this.boardState) {
-          const k = key as keyof BoardModel;
-          if (this.boardState[k] !== oldBoardState[k]) {
-            if (k === "showGizmos") {
-              gizmoVisChanged = true;
-            } else if (k === "selectedNode") {
-              selectionChanged = true;
-            } else if (k !== "volume") {
-              needsGeometryUpdate = true;
-            }
-          }
-        }
-        
-        if (!needsGeometryUpdate) {
-          if (gizmoVisChanged) this.updateGizmoVisibility();
-          if (selectionChanged) this.updateGizmoHighlights();
-          return;
-        }
-      }
-
-      void this._updateGeometry();
-    }
-  }
-
   private _updateGizmoPositionsFromState() {
     if (!this.boardState || this.boardState.editMode !== 'manual') return;
 
@@ -167,6 +133,7 @@ export class BoardViewport extends LitElement {
       if (child instanceof THREE.Mesh && child.userData.isGizmo) {
         const { curve, index, type } = child.userData;
         const key = `${curve}-${index}-${type}`;
+        // @ts-expect-error - ThreeJS Mesh generics mismatch
         gizmosByUserData.set(key, child);
       }
     });
@@ -200,7 +167,7 @@ export class BoardViewport extends LitElement {
     });
   }
 
-  override updated(changedProperties: PropertyValues<this>) {
+  override updated(changedProperties: PropertyValues) {
     if (changedProperties.has("boardState") && this.boardState) {
       const oldState = changedProperties.get("boardState") as BoardModel | undefined;
       let needsFullGeometryUpdate = false;
@@ -220,6 +187,9 @@ export class BoardViewport extends LitElement {
             }
           }
         }
+      } else {
+        // First render
+        needsFullGeometryUpdate = true;
       }
 
       if (needsFullGeometryUpdate) {
@@ -236,10 +206,8 @@ export class BoardViewport extends LitElement {
         }, 150); // 150ms delay after the last drag event
       } else {
         // Handle minor updates that don't need geometry regeneration
-        if (changedProperties.has('boardState') && this.boardState) {
-          if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
-          if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
-        }
+        if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
+        if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
       }
     }
   }
@@ -705,26 +673,22 @@ export class BoardViewport extends LitElement {
     let localX: number;
     let localY: number;
 
-    if (x < w && y < h) {
-      // Top Left: Top View
-      camera = this.topCamera;
-      localX = (x / w) * 2 - 1;
-      localY = -(y / h) * 2 + 1;
-    } else if (x >= w && y < h) {
-      // Top Right: Perspective View
-      camera = this.perspectiveCamera;
-      localX = ((x - w) / (rect.width - w)) * 2 - 1;
-      localY = -(y / h) * 2 + 1;
-    } else if (x < w && y >= h) {
-      // Bottom Left: Side View
-      camera = this.sideCamera;
-      localX = (x / w) * 2 - 1;
-      localY = -((y - h) / (rect.height - h)) * 2 + 1;
-    } else {
-      // Bottom Right: Profile View
-      camera = this.profileCamera;
-      localX = ((x - w) / (rect.width - w)) * 2 - 1;
-      localY = -((y - h) / (rect.height - h)) * 2 + 1;
+    if (x < w && y >= h) { // Bottom Left
+        camera = this.sideCamera;
+        localX = (x / w) * 2 - 1;
+        localY = -((y - h) / (rect.height - h)) * 2 + 1;
+    } else if (x >= w && y >= h) { // Bottom Right
+        camera = this.profileCamera;
+        localX = ((x - w) / (rect.width - w)) * 2 - 1;
+        localY = -((y - h) / (rect.height - h)) * 2 + 1;
+    } else if (x < w && y < h) { // Top Left
+        camera = this.topCamera;
+        localX = (x / w) * 2 - 1;
+        localY = -(y / h) * 2 + 1;
+    } else { // Top Right
+        camera = this.perspectiveCamera;
+        localX = ((x - w) / (rect.width - w)) * 2 - 1;
+        localY = -(y / h) * 2 + 1;
     }
 
     return { camera, mouse: new THREE.Vector2(localX, localY) };
@@ -781,7 +745,7 @@ export class BoardViewport extends LitElement {
       this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -(y / h) * 2 + 1);
     } else if (this.activeDragCamera === this.sideCamera) {
       this.mouse.set((x / w) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
-    } else {
+    } else { // profileCamera
       this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
     }
 
@@ -974,3 +938,4 @@ export class BoardViewport extends LitElement {
     `;
   }
 }
+

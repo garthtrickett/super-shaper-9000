@@ -91,10 +91,19 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-floating-promises": "error",
       "no-console": ["warn", { allow: ["warn", "error", "info", "debug"] }],
-      "@typescript-eslint/no-unused-vars": [
+      "@typescript-eslint/no-unused-vars":[
         "error",
         { varsIgnorePattern: "^_", argsIgnorePattern: "^_" },
       ],
     },
   },
+
+  // 5. Test specific overrides
+  {
+    files:["tests/e2e/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+    rules: {
+      "@typescript-eslint/await-thenable": "off",
+      "@typescript-eslint/no-floating-promises": "off"
+    }
+  }
 );
