@@ -7,9 +7,9 @@ if (process.env.NIX_CC && !process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
-  fullyParallel: true,
+  // fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html']],
   use: {

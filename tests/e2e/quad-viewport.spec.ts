@@ -1,5 +1,5 @@
 // tests/e2e/quad-viewport.spec.ts
-import { test, expect } from '../utils/base-test';
+import { test, expect } from './utils/base-test';
 
 test.describe('Quad Viewport CAD Interface', () => {
   test.beforeEach(async ({ page }) => {
@@ -65,6 +65,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     // Drag it inwards to dramatically narrow the board
     await page.mouse.move(widePointGizmo.x - 40, widePointGizmo.y, { steps: 10 });
     await page.mouse.up();
+    // Wait for the debounce timer (150ms) + geometry generation buffer
     await page.waitForTimeout(500);
 
     // --- 3. Verify the visual state has changed ---

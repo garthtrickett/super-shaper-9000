@@ -158,6 +158,92 @@ export class BoardViewport extends LitElement {
     }
   }
 
+  private _updateGizmoPositionsFromState() {
+    if (!this.boardState || this.boardState.editMode !== 'manual') return;
+
+    const scale = 1 / 12;
+    const gizmosByUserData = new Map<string, THREE.Mesh>();
+    this.gizmoGroup.children.forEach(child => {
+      if (child instanceof THREE.Mesh && child.userData.isGizmo) {
+        const { curve, index, type } = child.userData;
+        const key = `${curve}-${index}-${type}`;
+        gizmosByUserData.set(key, child);
+      }
+    });
+
+    const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
+      if (!curveData) return;
+      for (let i = 0; i < curveData.controlPoints.length; i++) {
+        const cp = curveData.controlPoints[i]!;
+        const t1 = curveData.tangents1[i];
+        const t2 = curveData.tangents2[i];
+
+        const anchorKey = `${curveName}-${i}-anchor`;
+        gizmosByUserData.get(anchorKey)?.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
+
+        if (t1) {
+          const t1Key = `${curveName}-${i}-tangent1`;
+          gizmosByUserData.get(t1Key)?.position.set(t1[0] * scale, t1[1] * scale, t1[2] * scale);
+        }
+        if (t2) {
+          const t2Key = `${curveName}-${i}-tangent2`;
+          gizmosByUserData.get(t2Key)?.position.set(t2[0] * scale, t2[1] * scale, t2[2] * scale);
+        }
+      }
+    };
+
+    updatePositionsForCurve(this.boardState.manualOutline, 'outline');
+    updatePositionsForCurve(this.boardState.manualRockerTop, 'rockerTop');
+    updatePositionsForCurve(this.boardState.manualRockerBottom, 'rockerBottom');
+    this.boardState.manualCrossSections?.forEach((cs, idx) => {
+      updatePositionsForCurve(cs, `crossSection_${idx}`);
+    });
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    if (changedProperties.has("boardState") && this.boardState) {
+      const oldState = changedProperties.get("boardState") as BoardModel | undefined;
+      let needsFullGeometryUpdate = false;
+      let isManualDragUpdate = false;
+
+      if (oldState) {
+        // Determine what kind of update is needed
+        for (const key in this.boardState) {
+          const k = key as keyof BoardModel;
+          if (this.boardState[k] !== oldState[k]) {
+            if (k === 'manualOutline' || k === 'manualRockerTop' || k === 'manualRockerBottom' || k === 'manualCrossSections') {
+              isManualDragUpdate = true;
+            } else if (k !== 'volume' && k !== 'selectedNode' && k !== 'showGizmos') {
+              needsFullGeometryUpdate = true;
+              isManualDragUpdate = false; // A parametric change overrides a drag
+              break;
+            }
+          }
+        }
+      }
+
+      if (needsFullGeometryUpdate) {
+        clearTimeout(this.geometryUpdateDebounceId);
+        void this._updateGeometry(); // Parametric changes are instant
+      } else if (isManualDragUpdate) {
+        // For manual dragging, only update gizmo positions instantly
+        this._updateGizmoPositionsFromState();
+        
+        // Debounce the heavy mesh regeneration
+        clearTimeout(this.geometryUpdateDebounceId);
+        this.geometryUpdateDebounceId = window.setTimeout(() => {
+          void this._updateGeometry();
+        }, 150); // 150ms delay after the last drag event
+      } else {
+        // Handle minor updates that don't need geometry regeneration
+        if (changedProperties.has('boardState') && this.boardState) {
+          if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
+          if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
+        }
+      }
+    }
+  }
+
   private async _updateGeometry() {
     if (!this.boardState) return;
     
