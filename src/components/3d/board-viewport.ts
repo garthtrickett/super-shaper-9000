@@ -997,9 +997,21 @@ export class BoardViewport extends LitElement {
       this.activeDragCamera = camera;
       this.controls.enabled = false; // Disable camera orbit while dragging
       
-      // Calculate a mathematical plane passing through the gizmo, facing the camera
-      const cameraDir = camera.getWorldDirection(new THREE.Vector3()).negate();
-      this.dragPlane.setFromNormalAndCoplanarPoint(cameraDir, this.draggedGizmo.position);
+      // Calculate a mathematical plane based on the curve type to prevent projection slipping
+      const curveName = this.draggedGizmo.userData.curve as string;
+      const planeNormal = new THREE.Vector3();
+      
+      if (curveName === 'outline') {
+        planeNormal.set(0, 1, 0); // XZ plane
+      } else if (curveName.startsWith('rocker')) {
+        planeNormal.set(1, 0, 0); // YZ plane
+      } else if (curveName.startsWith('crossSection')) {
+        planeNormal.set(0, 0, 1); // XY plane
+      } else {
+        camera.getWorldDirection(planeNormal).negate(); // Fallback
+      }
+      
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.draggedGizmo.position);
       
       // Calculate the exact click offset from the center of the gizmo to prevent snapping
       if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragOffset)) {
