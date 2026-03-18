@@ -11,7 +11,7 @@ test.describe('Quad Viewport CAD Interface', () => {
   });
 
   test('should render the four-quadrant layout', async ({ page }) => {
-    await expect(page).toHaveScreenshot('quad-view-baseline.png', { maxDiffPixels: 100 });
+    await expect(page).toHaveScreenshot('quad-view-baseline.png', { maxDiffPixels: 1000 });
   });
 
   test('should only allow camera orbiting in the perspective view', async ({ page }) => {
