@@ -619,6 +619,8 @@ export class BoardViewport extends LitElement {
             const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
             const sprite = new THREE.Sprite(spriteMaterial);
             sprite.scale.set(1.5, 0.75, 1.0);
+            // Attach metadata for E2E testing
+            sprite.userData = { isAnnotation: true, text };
             return sprite;
         };
 

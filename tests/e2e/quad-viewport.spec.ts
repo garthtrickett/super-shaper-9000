@@ -130,4 +130,40 @@ test.describe('Quad Viewport CAD Interface', () => {
     // 4. Now assert the screenshot (will pass instantly without looping)
     await expect(page).not.toHaveScreenshot('quad-view-gizmos-initial.png');
   });
+
+  test('should dynamically update dimension annotations when parametric sliders change', async ({ page }) => {
+    // --- 1. Extract initial annotations from the 3D scene ---
+    const getAnnotationTexts = async () => {
+      return await page.evaluate(() => {
+        const viewport = document.querySelector('board-viewport') as any;
+        if (!viewport || !viewport.annotationGroup) return [];
+        
+        return viewport.annotationGroup.children
+          .filter((child: any) => child.userData && child.userData.isAnnotation)
+          .map((sprite: any) => sprite.userData.text as string);
+      });
+    };
+
+    const initialTexts = await getAnnotationTexts();
+    
+    // The default board length is 70 inches. We should see 70.0" in the annotations.
+    expect(initialTexts).toContain('70.0"');
+
+    // --- 2. Change the Length slider via the UI ---
+    // Locate the first range input (which is the Length slider)
+    const lengthSlider = page.locator('board-controls input[type="range"]').first();
+    
+    // Change length to 72 inches (6'0")
+    await lengthSlider.fill('72');
+    await lengthSlider.dispatchEvent('input');
+
+    // Wait for the geometry debounce (150ms) + WebGL render time
+    await page.waitForTimeout(500);
+
+    // --- 3. Verify the WebGL annotations updated ---
+    const updatedTexts = await getAnnotationTexts();
+    
+    expect(updatedTexts).not.toContain('70.0"');
+    expect(updatedTexts).toContain('72.0"');
+  });
 });
