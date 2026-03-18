@@ -69,6 +69,15 @@
   vertical-align: baseline;
 }
 
+/* --- Custom Scrollbar --- */
+.custom-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.custom-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* --- New Notion Block Styles --- */
 .prose {
   overflow: visible;

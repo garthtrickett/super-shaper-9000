@@ -148,7 +148,7 @@ export class BoardBuilderPage extends LitElement {
       <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
         <!-- UI Controls Panel -->
         <board-controls
-          class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full overflow-y-auto shadow-2xl"
+          class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl"
           .length=${state.length}
           .width=${state.width}
           .thickness=${state.thickness}
