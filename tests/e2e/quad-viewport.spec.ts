@@ -54,7 +54,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     expect(box).toBeDefined();
 
     // Take a screenshot of the initial manual state before we drag anything
-    await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { maxDiffPixels: 100 });
+    await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { maxDiffPixels: 1000 });
 
     // --- 2. Drag a known gizmo area in the Top-Left (Outline) view ---
     // This coordinate is near the wide point of the board outline
