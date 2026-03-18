@@ -321,7 +321,32 @@ export class BoardViewport extends LitElement {
         const mesh = new THREE.Mesh(geom, mat);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+        mesh.layers.set(0);
         this.solidGroup.add(mesh);
+
+        // --- Blueprint Mesh for Orthographic Layers (Layer 5) ---
+        const blueprintMat = new THREE.MeshBasicMaterial({
+            color: 0x09090b, // Match background to act as occlusion mask
+            depthWrite: true,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+            side: THREE.DoubleSide
+        });
+        const blueprintMesh = new THREE.Mesh(geom, blueprintMat);
+        blueprintMesh.layers.set(5);
+
+        const edgesGeo = new THREE.EdgesGeometry(geom, 15);
+        const edgesMat = new THREE.LineBasicMaterial({
+            color: 0x3b82f6, // Blue blueprint lines
+            transparent: true,
+            opacity: 0.4
+        });
+        const blueprintEdges = new THREE.LineSegments(edgesGeo, edgesMat);
+        blueprintEdges.layers.set(5);
+
+        this.solidGroup.add(blueprintMesh);
+        this.solidGroup.add(blueprintEdges);
 
         // --- STEP 6: Fin Placement & Rendering ---
         while (this.finGroup.children.length > 0) {
@@ -331,7 +356,7 @@ export class BoardViewport extends LitElement {
             this.finGroup.remove(child);
         }
 
-        const createFinMesh = (isSmall: boolean = false) => {
+        const createFinMesh = (isSmall: boolean = false, isBlueprint: boolean = false) => {
             const shape = new THREE.Shape();
             const base = isSmall ? 3.5 * scale : 4.5 * scale;
             const height = isSmall ? 4.0 * scale : 4.75 * scale;
@@ -361,15 +386,42 @@ export class BoardViewport extends LitElement {
             // Center the thickness perfectly
             geom.translate(0, 0, -0.025 * scale);
             
-            const mat = new THREE.MeshPhysicalMaterial({ 
-                color: 0xf8fafc, 
-                roughness: 0.15, 
-                transmission: 0.9, // Clear frosted fiberglass
-                thickness: 0.2,
-                ior: 1.5
-            });
+            let mat;
+            if (isBlueprint) {
+                mat = new THREE.MeshBasicMaterial({
+                    color: 0x09090b,
+                    depthWrite: true,
+                    polygonOffset: true,
+                    polygonOffsetFactor: 1,
+                    polygonOffsetUnits: 1
+                });
+            } else {
+                mat = new THREE.MeshPhysicalMaterial({ 
+                    color: 0xf8fafc, 
+                    roughness: 0.15, 
+                    transmission: 0.9,
+                    thickness: 0.2,
+                    ior: 1.5
+                });
+            }
+            
             const finMesh = new THREE.Mesh(geom, mat);
-            finMesh.castShadow = true;
+            
+            if (isBlueprint) {
+                finMesh.layers.set(5);
+                const edgesGeo = new THREE.EdgesGeometry(geom, 15);
+                const edgesMat = new THREE.LineBasicMaterial({
+                    color: 0x3b82f6,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const finEdges = new THREE.LineSegments(edgesGeo, edgesMat);
+                finEdges.layers.set(5);
+                finMesh.add(finEdges);
+            } else {
+                finMesh.castShadow = true;
+                finMesh.layers.set(0);
+            }
             
             // 1. Flip upside down so tip points down into the water (-Y)
             // 2. Rotate 90deg so leading edge (+X in shape) points towards the board's nose (-Z)
@@ -378,12 +430,14 @@ export class BoardViewport extends LitElement {
         };
 
         const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
-            // 1. Create the perfectly oriented local fin mesh
-            const finMesh = createFinMesh(isSmall);
+            // 1. Create the perfectly oriented local fin meshes
+            const finSolid = createFinMesh(isSmall, false);
+            const finBlueprint = createFinMesh(isSmall, true);
             
             // 2. Wrap it in a container so Toe and Cant rotations don't conflict
             const finContainer = new THREE.Group();
-            finContainer.add(finMesh);
+            finContainer.add(finSolid);
+            finContainer.add(finBlueprint);
 
             // 3. Position the container on the board
             const zLoc = (this.boardState!.length / 2) - zFromTail;
@@ -573,31 +627,32 @@ export class BoardViewport extends LitElement {
     this.topCamera.position.set(0, 10, 0);
     this.topCamera.up.set(0, 0, -1);
     this.topCamera.lookAt(0, 0, 0);
-    // Layer 0 (Solid/Grid) + Layer 1 (Outline Gizmos)
+    // Layer 1 (Outline Gizmos) + Layer 5 (Blueprint Mesh)
     this.topCamera.layers.disableAll();
-    this.topCamera.layers.enable(0);
     this.topCamera.layers.enable(1);
+    this.topCamera.layers.enable(5);
 
     this.sideCamera = new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
     this.sideCamera.position.set(10, 0, 0);
     this.sideCamera.up.set(0, 1, 0);
     this.sideCamera.lookAt(0, 0, 0);
-    // Layer 0 (Solid/Grid) + Layer 2 (Rocker Gizmos)
+    // Layer 2 (Rocker Gizmos) + Layer 5 (Blueprint Mesh)
     this.sideCamera.layers.disableAll();
-    this.sideCamera.layers.enable(0);
     this.sideCamera.layers.enable(2);
+    this.sideCamera.layers.enable(5);
 
     this.profileCamera = new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
     this.profileCamera.position.set(0, 0, -10);
     this.profileCamera.up.set(0, 1, 0);
     this.profileCamera.lookAt(0, 0, 0);
-    // Layer 0 (Solid/Grid) + Layer 3 (Slice Gizmos)
+    // Layer 3 (Slice Gizmos) + Layer 5 (Blueprint Mesh)
     this.profileCamera.layers.disableAll();
-    this.profileCamera.layers.enable(0);
     this.profileCamera.layers.enable(3);
+    this.profileCamera.layers.enable(5);
 
-    // Perspective Camera sees all layers
+    // Perspective Camera sees everything EXCEPT the blueprint layer (Layer 5)
     this.perspectiveCamera.layers.enableAll();
+    this.perspectiveCamera.layers.disable(5);
 
     // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({
