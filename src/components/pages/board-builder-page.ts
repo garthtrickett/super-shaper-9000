@@ -191,6 +191,7 @@ export class BoardBuilderPage extends LitElement {
           .editMode=${state.editMode || "parametric"}
           .showGizmos=${state.showGizmos ?? true}
           .showHeatmap=${state.showHeatmap ?? false}
+          .showZebra=${state.showZebra ?? false}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}

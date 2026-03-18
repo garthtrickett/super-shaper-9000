@@ -5,8 +5,24 @@ export interface RawGeometryData {
   vertices: Float32Array;
   indices: Uint32Array;
   uvs: Float32Array;
+  colors: Float32Array;
   volumeLiters: number;
 }
+
+const colorHeatmap = (normalizedValue: number): [number, number, number] => {
+  // 0.0 (thin) -> Blue (Hue 240), 1.0 (thick) -> Red (Hue 0)
+  const hue = (1.0 - normalizedValue) * 240;
+  const h = hue / 360;
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return[hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
+};
 
 // --- BEZIER EVALUATION HELPERS ---
 
@@ -29,7 +45,7 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const uuu = uu * u;
   const ttt = tt * localT;
   
-  return [
+  return[
     uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0],
     uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1],
     uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2]
@@ -235,7 +251,8 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
   const segmentsRadial = 36;
   const vertices: number[] = [];
   const indices: number[] = [];
-  const uvs: number[] = [];
+  const uvs: number[] =[];
+  const colors: number[] =[];
   const scale = 1 / 12;
 
   const deckCurve = model.deckDome;
@@ -282,23 +299,25 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
 
       const px = signX * Math.pow(abs_cx, railExp) * halfWidth;
       const pyTop = apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
-      let py = 0;
-
-      if (cy >= 0) {
-        py = pyTop;
-      } else {
-        py = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
-        if (halfWidth > 0.001) {
-          const nx = px / halfWidth;
-          let contourOffset = calculateBottomContourOffset(model, nz, tailDist, Math.abs(nx), widthFade);
-          contourOffset *= abs_cy;
-          py += contourOffset;
-        }
-        if (py > pyTop - 0.05) py = pyTop - 0.05;
+      
+      let pyBot = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
+      if (halfWidth > 0.001) {
+        const nx = px / halfWidth;
+        let contourOffset = calculateBottomContourOffset(model, nz, tailDist, Math.abs(nx), widthFade);
+        contourOffset *= abs_cy;
+        pyBot += contourOffset;
       }
+      if (pyBot > pyTop - 0.05) pyBot = pyTop - 0.05;
+
+      const py = cy >= 0 ? pyTop : pyBot;
+
+      const localThickness = Math.max(0, pyTop - pyBot);
+      const normT = Math.max(0, Math.min(1, localThickness / model.thickness));
+      const [r, g, b] = colorHeatmap(normT);
 
       vertices.push(px * scale, py * scale, zInches * scale);
       uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
+      colors.push(r, g, b);
     }
   }
 
@@ -328,6 +347,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
   const vertices: number[] = [];
   const indices: number[] = [];
   const uvs: number[] = [];
+  const colors: number[] =[];
   const scale = 1 / 12;
 
   const outline = model.manualOutline!;
@@ -339,11 +359,9 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
   for (let i = 0; i < segmentsZ; i++) {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
-    // const tailDist = Math.max(0, maxZ - zInches);
 
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
+    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, zInches);
     const { topY, botY, halfWidth } = profile;
-    // const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
 
     let s0 = crossSections[0]!;
     let s1 = crossSections[crossSections.length - 1]!;
@@ -434,7 +452,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       
       const localThickness = Math.abs(py - pyOpp);
       const normT = Math.max(0, Math.min(1, localThickness / model.thickness));
-      const [r, g, b] = colorHeatmap(normT);
+      const[r, g, b] = colorHeatmap(normT);
 
       // Note: We do NOT re-apply `calculateBottomContourOffset` here in manual mode!
       // `extractCrossSectionsSS9000` already baked the bottom contours into the generated slices.

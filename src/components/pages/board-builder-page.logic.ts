@@ -26,6 +26,7 @@ export const SelectedNodeSchema = S.Struct({
 export const BoardModelSchema = S.Struct({
   showGizmos: S.optional(S.Boolean),
   showHeatmap: S.optional(S.Boolean),
+  showZebra: S.optional(S.Boolean),
   editMode: S.optional(S.Literal("parametric", "manual")),
   selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
   manualHistory: S.optional(S.Array(S.Unknown)),
@@ -95,6 +96,7 @@ export interface ManualSnapshot {
 export interface BoardModel {
   showGizmos?: boolean;
   showHeatmap?: boolean;
+  showZebra?: boolean;
   editMode?: "parametric" | "manual";
   selectedNode?: SelectedNode | null;
   manualHistory?: ManualSnapshot[];
@@ -144,6 +146,7 @@ export interface BoardModel {
 export const INITIAL_STATE: BoardModel = {
   showGizmos: true,
   showHeatmap: false,
+  showZebra: false,
   editMode: "parametric",
   selectedNode: null,
   // 65kg Slab-Hunter Specs (Maximum Hold / Weak Paddler)
@@ -227,7 +230,15 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
     case "UPDATE_NUMBER":
     case "UPDATE_STRING":
     case "UPDATE_BOOLEAN": {
-      return { ...state, [action.param]: action.value } as unknown as BoardModel;
+      const newState = { ...state, [action.param]: action.value } as unknown as BoardModel;
+      // Enforce mutually exclusive diagnostic visualizers
+      if (action.param === "showHeatmap" && action.value === true) {
+        newState.showZebra = false;
+      }
+      if (action.param === "showZebra" && action.value === true) {
+        newState.showHeatmap = false;
+      }
+      return newState;
     }
     case "UPDATE_VOLUME":
       return { ...state, volume: action.volume };

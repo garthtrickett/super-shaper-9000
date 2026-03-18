@@ -42,6 +42,7 @@ export class BoardControls extends LitElement {
   @property({ type: String }) editMode = "parametric";
   @property({ type: Boolean }) showGizmos = true;
   @property({ type: Boolean }) showHeatmap = false;
+  @property({ type: Boolean }) showZebra = false;
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -230,19 +231,34 @@ export class BoardControls extends LitElement {
           Export .s3dx (CNC Ready)
         </button>
 
-        <!-- Thickness Heatmap Toggle -->
-        <label class="flex items-center justify-between mb-4 bg-zinc-950 p-3 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner">
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
-            <span class="text-xs font-bold text-zinc-300 uppercase tracking-wider">Thickness Heatmap</span>
-          </div>
-          <input 
-            type="checkbox" 
-            .checked=${this.showHeatmap} 
-            @change=${(e: Event) => this._dispatchBoolean('showHeatmap', (e.target as HTMLInputElement).checked)} 
-            class="w-4 h-4 accent-orange-500 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
-          />
-        </label>
+        <!-- Diagnostic Toggles (Mutually Exclusive) -->
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showHeatmap ? 'ring-1 ring-orange-500/50' : ''}">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
+              <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Heatmap</span>
+            </div>
+            <input 
+              type="checkbox" 
+              .checked=${this.showHeatmap} 
+              @change=${(e: Event) => this._dispatchBoolean('showHeatmap', (e.target as HTMLInputElement).checked)} 
+              class="w-3 h-3 accent-orange-500 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
+            />
+          </label>
+
+          <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showZebra ? 'ring-1 ring-white/50' : ''}">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+              <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Zebra Flow</span>
+            </div>
+            <input 
+              type="checkbox" 
+              .checked=${this.showZebra} 
+              @change=${(e: Event) => this._dispatchBoolean('showZebra', (e.target as HTMLInputElement).checked)} 
+              class="w-3 h-3 accent-white rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
+            />
+          </label>
+        </div>
 
         <!-- Top HUD Panel (Volume & Weight) -->
         <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 flex items-center justify-around shadow-inner">
