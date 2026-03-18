@@ -19,6 +19,7 @@ export class SceneManager {
     profile: THREE.OrthographicCamera;
   };
 
+  public maximizedView: 'perspective' | 'top' | 'side' | 'profile' | null = null;
   private animationId: number = 0;
   private resizeObserver: ResizeObserver;
 
@@ -142,6 +143,10 @@ export class SceneManager {
     this.scene.add(floor);
   }
 
+  public setMaximizedView(view: 'perspective' | 'top' | 'side' | 'profile' | null) {
+    this.maximizedView = view;
+  }
+
   private setupGrids() {
     const createCADGrid = (layer: number, rotationX: number, rotationZ: number, positionOffset: THREE.Vector3) => {
       const group = new THREE.Group();
@@ -176,26 +181,33 @@ export class SceneManager {
       onLoop(); // Callback for external updates like zebra animation
 
       this.renderer.setScissorTest(true);
-      const w = Math.floor(this.canvas.clientWidth / 2);
-      const h = Math.floor(this.canvas.clientHeight / 2);
-      const w2 = this.canvas.clientWidth - w;
-      const h2 = this.canvas.clientHeight - h;
 
-      this.renderer.setViewport(0, 0, w, h);
-      this.renderer.setScissor(0, 0, w, h);
-      this.renderer.render(this.scene, this.cameras.side);
+      if (this.maximizedView) {
+        this.renderer.setViewport(0, 0, this.canvas.clientWidth, this.canvas.clientHeight);
+        this.renderer.setScissor(0, 0, this.canvas.clientWidth, this.canvas.clientHeight);
+        this.renderer.render(this.scene, this.cameras[this.maximizedView]);
+      } else {
+        const w = Math.floor(this.canvas.clientWidth / 2);
+        const h = Math.floor(this.canvas.clientHeight / 2);
+        const w2 = this.canvas.clientWidth - w;
+        const h2 = this.canvas.clientHeight - h;
 
-      this.renderer.setViewport(w, 0, w2, h);
-      this.renderer.setScissor(w, 0, w2, h);
-      this.renderer.render(this.scene, this.cameras.profile);
+        this.renderer.setViewport(0, 0, w, h);
+        this.renderer.setScissor(0, 0, w, h);
+        this.renderer.render(this.scene, this.cameras.side);
 
-      this.renderer.setViewport(0, h, w, h2);
-      this.renderer.setScissor(0, h, w, h2);
-      this.renderer.render(this.scene, this.cameras.top);
+        this.renderer.setViewport(w, 0, w2, h);
+        this.renderer.setScissor(w, 0, w2, h);
+        this.renderer.render(this.scene, this.cameras.profile);
 
-      this.renderer.setViewport(w, h, w2, h2);
-      this.renderer.setScissor(w, h, w2, h2);
-      this.renderer.render(this.scene, this.cameras.perspective);
+        this.renderer.setViewport(0, h, w, h2);
+        this.renderer.setScissor(0, h, w, h2);
+        this.renderer.render(this.scene, this.cameras.top);
+
+        this.renderer.setViewport(w, h, w2, h2);
+        this.renderer.setScissor(w, h, w2, h2);
+        this.renderer.render(this.scene, this.cameras.perspective);
+      }
 
       this.renderer.setScissorTest(false);
     };

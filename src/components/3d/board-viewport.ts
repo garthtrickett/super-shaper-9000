@@ -1,7 +1,9 @@
 // FILE: src/components/3d/board-viewport.ts
 import { LitElement, html, css } from "lit";
-import { customElement, property, query } from "lit/decorators.js";
+import { customElement, property, query, state } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
+
+export type ViewportId = 'perspective' | 'top' | 'side' | 'profile';
 import * as THREE from "three";
 import type { BoardModel, BezierCurveData } from "../pages/board-builder-page.logic";
 import { generateBoardCurves, type BoardCurves } from "../../lib/client/geometry/board-curves";
@@ -24,6 +26,8 @@ export class BoardViewport extends LitElement {
 
   @query("canvas")
   private canvas!: HTMLCanvasElement;
+
+  @state() private maximizedView: ViewportId | null = null;
 
   private sceneManager!: SceneManager;
   private interactionManager!: InteractionManager;
@@ -322,7 +326,44 @@ export class BoardViewport extends LitElement {
     this.gizmoGroup.visible = this.boardState?.showGizmos !== false;
   }
 
+  private toggleMaximize(view: ViewportId | null) {
+    this.maximizedView = view;
+    if (this.sceneManager) this.sceneManager.setMaximizedView(view);
+    if (this.interactionManager) this.interactionManager.setMaximizedView(view);
+  }
+
   override render() {
-    return html`<canvas></canvas>`;
+    const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
+    const collapseIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>`;
+
+    const renderQuadrantOverlay = (id: ViewportId, label: string) => html`
+      <div class="relative w-full h-full">
+        <span class="absolute top-3 left-3 px-2 py-1 bg-zinc-950/80 text-[10px] font-bold text-zinc-400 uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto">${label}</span>
+        <button @click=${() => this.toggleMaximize(id)} class="absolute top-3 right-3 p-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded shadow backdrop-blur-sm pointer-events-auto transition-colors" title="Maximize">
+          ${expandIcon}
+        </button>
+      </div>
+    `;
+
+    return html`
+      <canvas></canvas>
+      <div class="absolute inset-0 pointer-events-none z-10">
+        ${this.maximizedView === null ? html`
+          <div class="w-full h-full grid grid-cols-2 grid-rows-2">
+            <div class="border-r border-b border-zinc-800/80">${renderQuadrantOverlay('top', 'Top')}</div>
+            <div class="border-b border-zinc-800/80">${renderQuadrantOverlay('perspective', 'Perspective')}</div>
+            <div class="border-r border-zinc-800/80">${renderQuadrantOverlay('side', 'Side')}</div>
+            <div>${renderQuadrantOverlay('profile', 'Profile')}</div>
+          </div>
+        ` : html`
+          <div class="w-full h-full relative">
+            <span class="absolute top-3 left-3 px-2 py-1 bg-zinc-950/80 text-[10px] font-bold text-zinc-400 uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto">${this.maximizedView}</span>
+            <button @click=${() => this.toggleMaximize(null)} class="absolute top-3 right-3 p-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-blue-400 hover:text-blue-300 rounded shadow backdrop-blur-sm pointer-events-auto transition-colors" title="Restore View">
+              ${collapseIcon}
+            </button>
+          </div>
+        `}
+      </div>
+    `;
   }
 }

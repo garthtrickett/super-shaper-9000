@@ -11,6 +11,7 @@ export class InteractionManager {
   private dragStartPos = new THREE.Vector2();
   private activeDragCamera: THREE.Camera | null = null;
   private boardState?: BoardModel;
+  private maximizedView: 'perspective' | 'top' | 'side' | 'profile' | null = null;
 
   constructor(
     private host: HTMLElement,
@@ -50,11 +51,28 @@ export class InteractionManager {
     this.boardState = state;
   }
 
+  public setMaximizedView(view: 'perspective' | 'top' | 'side' | 'profile' | null) {
+    this.maximizedView = view;
+    if (view) {
+      this.controls.perspective.enabled = (view === 'perspective');
+      this.controls.top.enabled = (view === 'top');
+      this.controls.side.enabled = (view === 'side');
+      this.controls.profile.enabled = (view === 'profile');
+    }
+  }
+
   private getQuadrantCameraAndMouse = (e: PointerEvent): { camera: THREE.Camera, mouse: THREE.Vector2 } => {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
+    if (this.maximizedView) {
+      const camera = this.cameras[this.maximizedView];
+      const localX = (x / rect.width) * 2 - 1;
+      const localY = -(y / rect.height) * 2 + 1;
+      return { camera, mouse: new THREE.Vector2(localX, localY) };
+    }
+
     const w = rect.width / 2;
     const h = rect.height / 2;
 
@@ -88,10 +106,17 @@ export class InteractionManager {
 
     const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
     
-    this.controls.perspective.enabled = (camera === this.cameras.perspective);
-    this.controls.top.enabled = (camera === this.cameras.top);
-    this.controls.side.enabled = (camera === this.cameras.side);
-    this.controls.profile.enabled = (camera === this.cameras.profile);
+    if (this.maximizedView) {
+      this.controls.perspective.enabled = (this.maximizedView === 'perspective');
+      this.controls.top.enabled = (this.maximizedView === 'top');
+      this.controls.side.enabled = (this.maximizedView === 'side');
+      this.controls.profile.enabled = (this.maximizedView === 'profile');
+    } else {
+      this.controls.perspective.enabled = (camera === this.cameras.perspective);
+      this.controls.top.enabled = (camera === this.cameras.top);
+      this.controls.side.enabled = (camera === this.cameras.side);
+      this.controls.profile.enabled = (camera === this.cameras.profile);
+    }
 
     if (this.boardState?.editMode !== 'manual' || this.boardState?.showGizmos === false) return;
 
@@ -130,12 +155,14 @@ export class InteractionManager {
   private onPointerMove = (e: PointerEvent) => {
     // Dynamically update active viewport controls on hover, but only if not actively dragging/clicking
     if (e.buttons === 0 && !this.draggedGizmo) {
-      const { camera } = this.getQuadrantCameraAndMouse(e);
-      if (this.controls.perspective.enabled !== (camera === this.cameras.perspective)) {
-        this.controls.perspective.enabled = (camera === this.cameras.perspective);
-        this.controls.top.enabled = (camera === this.cameras.top);
-        this.controls.side.enabled = (camera === this.cameras.side);
-        this.controls.profile.enabled = (camera === this.cameras.profile);
+      if (!this.maximizedView) {
+        const { camera } = this.getQuadrantCameraAndMouse(e);
+        if (this.controls.perspective.enabled !== (camera === this.cameras.perspective)) {
+          this.controls.perspective.enabled = (camera === this.cameras.perspective);
+          this.controls.top.enabled = (camera === this.cameras.top);
+          this.controls.side.enabled = (camera === this.cameras.side);
+          this.controls.profile.enabled = (camera === this.cameras.profile);
+        }
       }
     }
 
@@ -144,13 +171,18 @@ export class InteractionManager {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const w = rect.width / 2;
-    const h = rect.height / 2;
-    
-    if (this.activeDragCamera === this.cameras.top) this.mouse.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
-    else if (this.activeDragCamera === this.cameras.perspective) this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -(y / h) * 2 + 1);
-    else if (this.activeDragCamera === this.cameras.side) this.mouse.set((x / w) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
-    else this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+
+    if (this.maximizedView) {
+      this.mouse.set((x / rect.width) * 2 - 1, -(y / rect.height) * 2 + 1);
+    } else {
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+      
+      if (this.activeDragCamera === this.cameras.top) this.mouse.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
+      else if (this.activeDragCamera === this.cameras.perspective) this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -(y / h) * 2 + 1);
+      else if (this.activeDragCamera === this.cameras.side) this.mouse.set((x / w) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+      else this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+    }
 
     this.raycaster.setFromCamera(this.mouse, this.activeDragCamera);
     const target = new THREE.Vector3();
@@ -193,11 +225,18 @@ export class InteractionManager {
       this.activeDragCamera = null;
     }
     
-    const { camera } = this.getQuadrantCameraAndMouse(e);
-    this.controls.perspective.enabled = (camera === this.cameras.perspective);
-    this.controls.top.enabled = (camera === this.cameras.top);
-    this.controls.side.enabled = (camera === this.cameras.side);
-    this.controls.profile.enabled = (camera === this.cameras.profile);
+    if (this.maximizedView) {
+      this.controls.perspective.enabled = (this.maximizedView === 'perspective');
+      this.controls.top.enabled = (this.maximizedView === 'top');
+      this.controls.side.enabled = (this.maximizedView === 'side');
+      this.controls.profile.enabled = (this.maximizedView === 'profile');
+    } else {
+      const { camera } = this.getQuadrantCameraAndMouse(e);
+      this.controls.perspective.enabled = (camera === this.cameras.perspective);
+      this.controls.top.enabled = (camera === this.cameras.top);
+      this.controls.side.enabled = (camera === this.cameras.side);
+      this.controls.profile.enabled = (camera === this.cameras.profile);
+    }
 
     if (this.boardState?.editMode === 'manual' && dist < 5) {
       const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
