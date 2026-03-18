@@ -642,7 +642,7 @@ export class BoardViewport extends LitElement {
             // Remove duplicate bottom stringer point where the two halves meet
             leftPts.pop(); 
             const fullPts = [...leftPts, ...rightPts];
-            fullPts.push(fullPts[0].clone()); // Close the loop precisely at the deck stringer
+            if (fullPts[0]) fullPts.push(fullPts[0].clone()); // Close the loop precisely at the deck stringer
 
             const geo = new THREE.BufferGeometry().setFromPoints(fullPts);
             
