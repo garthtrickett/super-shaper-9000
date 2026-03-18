@@ -627,32 +627,38 @@ export class BoardViewport extends LitElement {
     this.topCamera.position.set(0, 10, 0);
     this.topCamera.up.set(0, 0, -1);
     this.topCamera.lookAt(0, 0, 0);
-    // Layer 1 (Outline Gizmos) + Layer 5 (Blueprint Mesh)
+    // Layer 1 (Outline Gizmos) + Layer 5 (Blueprint Mesh) + Layer 6 (Top Grid)
     this.topCamera.layers.disableAll();
     this.topCamera.layers.enable(1);
     this.topCamera.layers.enable(5);
+    this.topCamera.layers.enable(6);
 
     this.sideCamera = new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
     this.sideCamera.position.set(10, 0, 0);
     this.sideCamera.up.set(0, 1, 0);
     this.sideCamera.lookAt(0, 0, 0);
-    // Layer 2 (Rocker Gizmos) + Layer 5 (Blueprint Mesh)
+    // Layer 2 (Rocker Gizmos) + Layer 5 (Blueprint Mesh) + Layer 7 (Side Grid)
     this.sideCamera.layers.disableAll();
     this.sideCamera.layers.enable(2);
     this.sideCamera.layers.enable(5);
+    this.sideCamera.layers.enable(7);
 
     this.profileCamera = new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
     this.profileCamera.position.set(0, 0, -10);
     this.profileCamera.up.set(0, 1, 0);
     this.profileCamera.lookAt(0, 0, 0);
-    // Layer 3 (Slice Gizmos) + Layer 5 (Blueprint Mesh)
+    // Layer 3 (Slice Gizmos) + Layer 5 (Blueprint Mesh) + Layer 8 (Profile Grid)
     this.profileCamera.layers.disableAll();
     this.profileCamera.layers.enable(3);
     this.profileCamera.layers.enable(5);
+    this.profileCamera.layers.enable(8);
 
-    // Perspective Camera sees everything EXCEPT the blueprint layer (Layer 5)
+    // Perspective Camera sees everything EXCEPT the blueprint layer and CAD grids
     this.perspectiveCamera.layers.enableAll();
     this.perspectiveCamera.layers.disable(5);
+    this.perspectiveCamera.layers.disable(6);
+    this.perspectiveCamera.layers.disable(7);
+    this.perspectiveCamera.layers.disable(8);
 
     // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({
@@ -710,9 +716,53 @@ export class BoardViewport extends LitElement {
     this.scene.add(this.finGroup);
     this.scene.add(this.gizmoGroup);
 
-    const gridHelper = new THREE.GridHelper(10, 10, 0x27272a, 0x18181b);
-    gridHelper.position.y = -0.99; // Offset slightly above the shadow floor to prevent Z-fighting
-    this.scene.add(gridHelper);
+    const createCADGrid = (layer: number, rotationX: number, rotationZ: number, positionOffset: THREE.Vector3) => {
+        const group = new THREE.Group();
+        
+        // 20 ft board area (scale is 1 unit = 1 foot)
+        const major = new THREE.GridHelper(20, 20, 0x3f3f46, 0x27272a); 
+        const minor = new THREE.GridHelper(20, 80, 0x27272a, 0x18181b); // 3-inch increments
+        
+        // Push grids behind transparent objects to prevent depth-fighting
+        major.renderOrder = -1;
+        minor.renderOrder = -1;
+        
+        const majorMat = major.material as THREE.LineBasicMaterial;
+        const minorMat = minor.material as THREE.LineBasicMaterial;
+        
+        majorMat.depthWrite = false;
+        minorMat.depthWrite = false;
+        majorMat.transparent = true;
+        minorMat.transparent = true;
+        majorMat.opacity = 0.5;
+        minorMat.opacity = 0.3;
+        
+        group.add(major);
+        group.add(minor);
+        
+        group.rotation.x = rotationX;
+        group.rotation.z = rotationZ;
+        group.position.copy(positionOffset);
+        
+        group.traverse(child => {
+            child.layers.set(layer);
+        });
+        
+        return group;
+    };
+
+    // Top Grid (Layer 6) - Faces Y, sits below the board
+    const topGrid = createCADGrid(6, 0, 0, new THREE.Vector3(0, -2, 0));
+    
+    // Side Grid (Layer 7) - Faces X, sits behind the board from sideCamera (X=10 looking at X=0)
+    const sideGrid = createCADGrid(7, 0, Math.PI / 2, new THREE.Vector3(-2, 0, 0));
+    
+    // Profile Grid (Layer 8) - Faces Z, sits behind the board from profileCamera (Z=-10 looking at Z=0)
+    const profileGrid = createCADGrid(8, Math.PI / 2, 0, new THREE.Vector3(0, 0, 5));
+
+    this.scene.add(topGrid);
+    this.scene.add(sideGrid);
+    this.scene.add(profileGrid);
 
     // 8. Handle Resize
     this.resizeObserver = new ResizeObserver(() => this.onResize());
