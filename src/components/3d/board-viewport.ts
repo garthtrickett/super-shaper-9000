@@ -1278,9 +1278,9 @@ export class BoardViewport extends LitElement {
     this.controls.update();
 
     // Animate Zebra stripes smoothly across the Y-axis
-    if (this.boardState?.showZebra && this.zebraCanvas) {
+    if (this.boardState?.showZebra) {
       this.zebraOffset += 0.5; // Controls the flow speed
-      this.updateZebraCanvas(this.zebraOffset);
+      this.textureManager.updateZebraCanvas(this.zebraOffset);
     }
 
     // Enable scissor test to restrict drawing to quadrants
