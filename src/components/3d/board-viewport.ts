@@ -11,6 +11,7 @@ import { MeshGeneratorService } from "../../lib/client/geometry/mesh-generator";
 import { extractCrossSectionsSS9000 } from "../../lib/client/geometry/manual-baker";
 import { clientLog } from "../../lib/client/clientLog";
 import { runClientUnscoped } from "../../lib/client/runtime";
+import { TextureManager } from "./managers/TextureManager";
 
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
@@ -64,108 +65,8 @@ export class BoardViewport extends LitElement {
   private matHandle = new THREE.MeshBasicMaterial({ color: 0xa1a1aa, depthTest: false });
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false }); // Neon Green
 
-  private _boardTexture: THREE.CanvasTexture | null = null;
-  private _bumpTexture: THREE.CanvasTexture | null = null;
-
-  private _zebraTexture: THREE.CanvasTexture | null = null;
-  private zebraCanvas: HTMLCanvasElement | null = null;
+  private textureManager = new TextureManager();
   private zebraOffset = 0;
-
-  private getZebraTexture() {
-    if (this._zebraTexture) return this._zebraTexture;
-
-    this.zebraCanvas = document.createElement('canvas');
-    this.zebraCanvas.width = 1024;
-    this.zebraCanvas.height = 512;
-
-    this._zebraTexture = new THREE.CanvasTexture(this.zebraCanvas);
-    this._zebraTexture.mapping = THREE.EquirectangularReflectionMapping;
-    this._zebraTexture.colorSpace = THREE.SRGBColorSpace;
-    this._zebraTexture.magFilter = THREE.LinearFilter;
-    this._zebraTexture.minFilter = THREE.LinearMipmapLinearFilter;
-
-    this.updateZebraCanvas(0);
-
-    return this._zebraTexture;
-  }
-
-  private updateZebraCanvas(offset: number) {
-    if (!this.zebraCanvas || !this._zebraTexture) return;
-    const ctx = this.zebraCanvas.getContext('2d')!;
-
-    // Fill white background
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 1024, 512);
-
-    // Draw horizontal black stripes (equator rings in equirectangular projection)
-    ctx.fillStyle = '#000000';
-    const stripeCount = 48; // High frequency bands to spot tiny surface bumps
-    const stripeHeight = 512 / stripeCount;
-    
-    // Render slightly out of bounds to seamlessly handle the wrapping offset
-    for (let i = -2; i <= stripeCount + 2; i += 2) {
-      const y = (i * stripeHeight) + (offset % (stripeHeight * 2));
-      ctx.fillRect(0, y, 1024, stripeHeight);
-    }
-
-    this._zebraTexture.needsUpdate = true;
-  }
-
-  private getBoardTextures() {
-    if (this._boardTexture && this._bumpTexture) return { map: this._boardTexture, bumpMap: this._bumpTexture };
-
-    // 1. Color & Stringer Map
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d')!;
-
-    // Warm white foam core
-    ctx.fillStyle = '#fdfcf8';
-    ctx.fillRect(0, 0, 1024, 1024);
-
-    // Dark wood stringer (U=0.25 and U=0.75 mappings)
-    ctx.fillStyle = '#4a3320';
-    ctx.fillRect(256 - 3, 0, 6, 1024);
-    ctx.fillRect(768 - 3, 0, 6, 1024);
-
-    // Subtle brushed lines (foam cell texture direction)
-    ctx.fillStyle = 'rgba(0,0,0,0.02)';
-    for (let i = 0; i < 1024; i += 4) {
-      ctx.fillRect(0, i, 1024, 1 + Math.random() * 2);
-    }
-
-    this._boardTexture = new THREE.CanvasTexture(canvas);
-    this._boardTexture.wrapS = THREE.RepeatWrapping;
-    this._boardTexture.wrapT = THREE.RepeatWrapping;
-    this._boardTexture.colorSpace = THREE.SRGBColorSpace;
-
-    // 2. Bump Map (Micro Foam Cells)
-    const bumpCanvas = document.createElement('canvas');
-    bumpCanvas.width = 512;
-    bumpCanvas.height = 512;
-    const bCtx = bumpCanvas.getContext('2d')!;
-    
-    bCtx.fillStyle = '#808080';
-    bCtx.fillRect(0, 0, 512, 512);
-
-    const imgData = bCtx.getImageData(0, 0, 512, 512);
-    for (let i = 0; i < imgData.data.length; i += 4) {
-      const noise = (Math.random() - 0.5) * 40;
-      const val = Math.min(255, Math.max(0, 128 + noise));
-      imgData.data[i] = val;
-      imgData.data[i + 1] = val;
-      imgData.data[i + 2] = val;
-      imgData.data[i + 3] = 255;
-    }
-    bCtx.putImageData(imgData, 0, 0);
-
-    this._bumpTexture = new THREE.CanvasTexture(bumpCanvas);
-    this._bumpTexture.wrapS = THREE.RepeatWrapping;
-    this._bumpTexture.wrapT = THREE.RepeatWrapping;
-
-    return { map: this._boardTexture, bumpMap: this._bumpTexture };
-  }
 
   override firstUpdated() {
     this.initThree();
@@ -351,7 +252,7 @@ export class BoardViewport extends LitElement {
             }));
         }
 
-        const { map, bumpMap } = this.getBoardTextures();
+        const { map, bumpMap } = this.textureManager.getBoardTextures();
 
         const standardMat = new THREE.MeshPhysicalMaterial({ 
             map: map,
@@ -376,7 +277,7 @@ export class BoardViewport extends LitElement {
             color: 0xffffff,
             metalness: 1.0,
             roughness: 0.0,
-            envMap: this.getZebraTexture(),
+            envMap: this.textureManager.getZebraTexture(),
             side: THREE.DoubleSide
         });
 
@@ -817,6 +718,7 @@ export class BoardViewport extends LitElement {
     if (this.resizeObserver) this.resizeObserver.disconnect();
     if (this.renderer) this.renderer.dispose();
     if (this.controls) this.controls.dispose();
+    this.textureManager.dispose();
 
     if (this.canvas) {
       this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
