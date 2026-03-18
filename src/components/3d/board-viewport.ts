@@ -47,7 +47,8 @@ export class BoardViewport extends LitElement {
   private solidGroup = new THREE.Group();
   private finGroup = new THREE.Group();
   private gizmoGroup = new THREE.Group();
-  
+  private annotationGroup = new THREE.Group();
+    
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private draggedGizmo: THREE.Mesh | null = null;
@@ -586,6 +587,80 @@ export class BoardViewport extends LitElement {
         
         this.updateGizmoVisibility();
         this.updateGizmoHighlights();
+
+        // --- STEP 8: Dynamic Dimension Annotations ---
+        while (this.annotationGroup.children.length > 0) {
+            const child = this.annotationGroup.children[0] as THREE.Line | THREE.Sprite;
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (child instanceof THREE.Sprite && child.material.map) child.material.map.dispose();
+                child.material.dispose();
+            }
+            this.annotationGroup.remove(child);
+        }
+
+        const createTextSprite = (text: string) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d')!;
+            ctx.font = 'bold 42px monospace';
+            ctx.fillStyle = '#60a5fa'; // Tailwind blue-400
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 128, 64);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(1.5, 0.75, 1.0);
+            return sprite;
+        };
+
+        const createDimLine = (p1: THREE.Vector3, p2: THREE.Vector3, tickDir: THREE.Vector3, tickLen: number) => {
+            const pts =[
+                new THREE.Vector3().copy(p1).addScaledVector(tickDir, tickLen),
+                new THREE.Vector3().copy(p1).addScaledVector(tickDir, -tickLen),
+                p1,
+                p2,
+                new THREE.Vector3().copy(p2).addScaledVector(tickDir, tickLen),
+                new THREE.Vector3().copy(p2).addScaledVector(tickDir, -tickLen)
+            ];
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = new THREE.LineBasicMaterial({ color: 0x3b82f6, depthTest: false, transparent: true, opacity: 0.6 });
+            return new THREE.Line(geo, mat);
+        };
+
+        const addDim = (text: string, p1: THREE.Vector3, p2: THREE.Vector3, tickDir: THREE.Vector3, layer: number, textOffset: THREE.Vector3) => {
+            const line = createDimLine(p1, p2, tickDir, 0.5 * scale);
+            line.layers.set(layer);
+            this.annotationGroup.add(line);
+
+            const sprite = createTextSprite(text);
+            const midPoint = new THREE.Vector3().lerpVectors(p1, p2, 0.5).add(textOffset);
+            sprite.position.copy(midPoint);
+            sprite.layers.set(layer);
+            this.annotationGroup.add(sprite);
+        };
+
+        const L = this.boardState.length * scale;
+        const W = this.boardState.width * scale;
+        const T = this.boardState.thickness * scale;
+        const pad = 4.0 * scale; // 4 inches padding off the board edge
+
+        // Top View (Layer 6) - Length & Width
+        addDim(`${this.boardState.length.toFixed(1)}"`, new THREE.Vector3(W/2 + pad, 0, -L/2), new THREE.Vector3(W/2 + pad, 0, L/2), new THREE.Vector3(1, 0, 0), 6, new THREE.Vector3(1.2 * scale, 0, 0));
+        addDim(`${this.boardState.width.toFixed(2)}"`, new THREE.Vector3(-W/2, 0, L/2 + pad), new THREE.Vector3(W/2, 0, L/2 + pad), new THREE.Vector3(0, 0, 1), 6, new THREE.Vector3(0, 0, 1.0 * scale));
+
+        // Side View (Layer 7) - Length & Thickness
+        addDim(`${this.boardState.length.toFixed(1)}"`, new THREE.Vector3(0, -T/2 - pad, -L/2), new THREE.Vector3(0, -T/2 - pad, L/2), new THREE.Vector3(0, 1, 0), 7, new THREE.Vector3(0, -1.0 * scale, 0));
+        // Side view is looking down X axis (from +X), so -Z is to the Right. Shift text Right.
+        addDim(`${this.boardState.thickness.toFixed(2)}"`, new THREE.Vector3(0, -T/2, 0), new THREE.Vector3(0, T/2, 0), new THREE.Vector3(0, 0, 1), 7, new THREE.Vector3(0, 0, -1.5 * scale));
+
+        // Profile View (Layer 8) - Width & Thickness
+        addDim(`${this.boardState.width.toFixed(2)}"`, new THREE.Vector3(-W/2, -T/2 - pad, 0), new THREE.Vector3(W/2, -T/2 - pad, 0), new THREE.Vector3(0, 1, 0), 8, new THREE.Vector3(0, -1.0 * scale, 0));
+        addDim(`${this.boardState.thickness.toFixed(2)}"`, new THREE.Vector3(W/2 + pad, -T/2, 0), new THREE.Vector3(W/2 + pad, T/2, 0), new THREE.Vector3(1, 0, 0), 8, new THREE.Vector3(1.5 * scale, 0, 0));
     }
   }
 
@@ -715,6 +790,7 @@ export class BoardViewport extends LitElement {
     this.scene.add(this.solidGroup);
     this.scene.add(this.finGroup);
     this.scene.add(this.gizmoGroup);
+    this.scene.add(this.annotationGroup);
 
     const createCADGrid = (layer: number, rotationX: number, rotationZ: number, positionOffset: THREE.Vector3) => {
         const group = new THREE.Group();
@@ -727,8 +803,8 @@ export class BoardViewport extends LitElement {
         major.renderOrder = -1;
         minor.renderOrder = -1;
         
-        const majorMat = major.material as THREE.LineBasicMaterial;
-        const minorMat = minor.material as THREE.LineBasicMaterial;
+        const majorMat = major.material;
+        const minorMat = minor.material;
         
         majorMat.depthWrite = false;
         minorMat.depthWrite = false;
