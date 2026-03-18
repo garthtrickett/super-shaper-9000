@@ -1,0 +1,190 @@
+import * as THREE from "three";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import type { BoardModel } from "../../pages/board-builder-page.logic";
+
+export class InteractionManager {
+  private raycaster = new THREE.Raycaster();
+  private mouse = new THREE.Vector2();
+  private draggedGizmo: THREE.Mesh | null = null;
+  private dragPlane = new THREE.Plane();
+  private dragOffset = new THREE.Vector3();
+  private dragStartPos = new THREE.Vector2();
+  private activeDragCamera: THREE.Camera | null = null;
+  private boardState?: BoardModel;
+
+  constructor(
+    private host: HTMLElement,
+    private canvas: HTMLCanvasElement,
+    private cameras: {
+      perspective: THREE.PerspectiveCamera;
+      top: THREE.OrthographicCamera;
+      side: THREE.OrthographicCamera;
+      profile: THREE.OrthographicCamera;
+    },
+    private controls: OrbitControls,
+    private gizmoGroup: THREE.Group
+  ) {}
+
+  public initialize() {
+    this.canvas.addEventListener("pointerdown", this.onPointerDown, { capture: true });
+    this.canvas.addEventListener("pointermove", this.onPointerMove);
+    this.canvas.addEventListener("pointerup", this.onPointerUp);
+    this.canvas.addEventListener("pointercancel", this.onPointerUp);
+    this.canvas.addEventListener("pointerleave", this.onPointerUp);
+  }
+
+  public dispose() {
+    this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
+    this.canvas.removeEventListener("pointermove", this.onPointerMove);
+    this.canvas.removeEventListener("pointerup", this.onPointerUp);
+    this.canvas.removeEventListener("pointercancel", this.onPointerUp);
+    this.canvas.removeEventListener("pointerleave", this.onPointerUp);
+  }
+
+  public setBoardState(state: BoardModel) {
+    this.boardState = state;
+  }
+
+  private getQuadrantCameraAndMouse = (e: PointerEvent): { camera: THREE.Camera, mouse: THREE.Vector2 } => {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const w = rect.width / 2;
+    const h = rect.height / 2;
+
+    let camera: THREE.Camera;
+    let localX: number;
+    let localY: number;
+
+    if (x < w && y >= h) { // Bottom Left
+        camera = this.cameras.side;
+        localX = (x / w) * 2 - 1;
+        localY = -((y - h) / (rect.height - h)) * 2 + 1;
+    } else if (x >= w && y >= h) { // Bottom Right
+        camera = this.cameras.profile;
+        localX = ((x - w) / (rect.width - w)) * 2 - 1;
+        localY = -((y - h) / (rect.height - h)) * 2 + 1;
+    } else if (x < w && y < h) { // Top Left
+        camera = this.cameras.top;
+        localX = (x / w) * 2 - 1;
+        localY = -(y / h) * 2 + 1;
+    } else { // Top Right
+        camera = this.cameras.perspective;
+        localX = ((x - w) / (rect.width - w)) * 2 - 1;
+        localY = -(y / h) * 2 + 1;
+    }
+
+    return { camera, mouse: new THREE.Vector2(localX, localY) };
+  }
+
+  private onPointerDown = (e: PointerEvent) => {
+    this.dragStartPos.set(e.clientX, e.clientY);
+
+    const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+    
+    this.controls.enabled = (camera === this.cameras.perspective);
+
+    if (this.boardState?.editMode !== 'manual' || this.boardState?.showGizmos === false) return;
+
+    this.mouse.copy(mouse);
+    this.raycaster.setFromCamera(this.mouse, camera);
+    this.raycaster.layers.mask = camera.layers.mask;
+    
+    const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
+    const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
+
+    if (hit) {
+      this.draggedGizmo = hit.object as THREE.Mesh;
+      this.activeDragCamera = camera;
+      this.controls.enabled = false;
+      
+      const curveName = this.draggedGizmo.userData.curve as string;
+      const planeNormal = new THREE.Vector3();
+      
+      if (curveName === 'outline') planeNormal.set(0, 1, 0);
+      else if (curveName.startsWith('rocker')) planeNormal.set(1, 0, 0);
+      else if (curveName.startsWith('crossSection')) planeNormal.set(0, 0, 1);
+      else camera.getWorldDirection(planeNormal).negate();
+      
+      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.draggedGizmo.position);
+      
+      if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragOffset)) {
+        this.dragOffset.sub(this.draggedGizmo.position);
+      }
+    }
+  }
+
+  private onPointerMove = (e: PointerEvent) => {
+    if (!this.draggedGizmo || !this.activeDragCamera) return;
+    
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const w = rect.width / 2;
+    const h = rect.height / 2;
+    
+    if (this.activeDragCamera === this.cameras.top) this.mouse.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
+    else if (this.activeDragCamera === this.cameras.perspective) this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -(y / h) * 2 + 1);
+    else if (this.activeDragCamera === this.cameras.side) this.mouse.set((x / w) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+    else this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+
+    this.raycaster.setFromCamera(this.mouse, this.activeDragCamera);
+    const target = new THREE.Vector3();
+    
+    if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
+      target.sub(this.dragOffset);
+      
+      const inInches = target.clone().multiplyScalar(12);
+
+      const userData = this.draggedGizmo.userData as { curve: string; index: number; maxIndex: number; origZ: number; };
+      const curveName = userData.curve;
+      const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
+
+      if (curveName === 'outline') inInches.y = 0;
+      if (curveName === 'rockerTop' || curveName === 'rockerBottom') inInches.x = 0;
+      if (curveName.startsWith('crossSection_')) inInches.z = userData.origZ;
+      if ((curveName === 'rockerTop' || curveName === 'rockerBottom') && isEndNode) inInches.x = 0;
+
+      target.copy(inInches).multiplyScalar(1/12);
+      this.draggedGizmo.position.copy(target);
+    }
+  }
+
+  private onPointerUp = (e: PointerEvent) => {
+    const dist = Math.hypot(e.clientX - this.dragStartPos.x, e.clientY - this.dragStartPos.y);
+
+    if (this.draggedGizmo) {
+      if (dist >= 5) {
+        const finalPosInches = this.draggedGizmo.position.clone().multiplyScalar(12);
+        this.host.dispatchEvent(new CustomEvent('gizmo-dragged', {
+          detail: {
+            userData: this.draggedGizmo.userData,
+            position: [finalPosInches.x, finalPosInches.y, finalPosInches.z]
+          },
+          bubbles: true, composed: true
+        }));
+        this.host.dispatchEvent(new CustomEvent('gizmo-drag-ended', { bubbles: true, composed: true }));
+      }
+      this.draggedGizmo = null;
+      this.activeDragCamera = null;
+    }
+    
+    this.controls.enabled = true;
+
+    if (this.boardState?.editMode === 'manual' && dist < 5) {
+      const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+      this.mouse.copy(mouse);
+      this.raycaster.setFromCamera(this.mouse, camera);
+      this.raycaster.layers.mask = camera.layers.mask;
+      
+      const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
+      const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
+      
+      this.host.dispatchEvent(new CustomEvent('node-selected', {
+        detail: { node: hit ? hit.object.userData : null },
+        bubbles: true, composed: true
+      }));
+    }
+  };
+}

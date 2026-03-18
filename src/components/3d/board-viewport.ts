@@ -5,6 +5,7 @@ import type { PropertyValues } from "lit";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { AnnotationBuilder } from "./builders/AnnotationBuilder";
 import type { BoardModel, BezierCurveData } from "../pages/board-builder-page.logic";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 import { MeshGeneratorService } from "../../lib/client/geometry/mesh-generator";
