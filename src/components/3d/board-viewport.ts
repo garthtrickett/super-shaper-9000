@@ -133,7 +133,7 @@ export class BoardViewport extends LitElement {
       if (child instanceof THREE.Mesh && child.userData.isGizmo) {
         const { curve, index, type } = child.userData;
         const key = `${curve}-${index}-${type}`;
-        // @ts-expect-error - ThreeJS Mesh generics mismatch
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         gizmosByUserData.set(key, child);
       }
     });
