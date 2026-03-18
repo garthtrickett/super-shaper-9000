@@ -8,6 +8,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import type { BoardModel, BezierCurveData } from "../pages/board-builder-page.logic";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 import { MeshGeneratorService } from "../../lib/client/geometry/mesh-generator";
+import { extractCrossSectionsSS9000 } from "../../lib/client/geometry/manual-baker";
 import { clientLog } from "../../lib/client/clientLog";
 import { runClientUnscoped } from "../../lib/client/runtime";
 
@@ -48,6 +49,7 @@ export class BoardViewport extends LitElement {
   private finGroup = new THREE.Group();
   private gizmoGroup = new THREE.Group();
   private annotationGroup = new THREE.Group();
+  private sliceLinesGroup = new THREE.Group();
     
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
@@ -585,6 +587,82 @@ export class BoardViewport extends LitElement {
             }
         }
         
+        // --- STEP 6.5: Ghosted Slices (Foil Flow View) ---
+        while (this.sliceLinesGroup.children.length > 0) {
+            const child = this.sliceLinesGroup.children[0] as THREE.Line;
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) (child.material as THREE.Material).dispose();
+            this.sliceLinesGroup.remove(child);
+        }
+
+        let crossSections: BezierCurveData[] =[];
+        if (this.boardState.editMode === "manual" && this.boardState.manualCrossSections) {
+            crossSections = this.boardState.manualCrossSections;
+        } else {
+            crossSections = extractCrossSectionsSS9000(this.boardState, curves);
+        }
+
+        const sampleBezierCurveData = (bezier: BezierCurveData, steps: number = 40): THREE.Vector3[] => {
+            const pts: THREE.Vector3[] =[];
+            const numSegments = bezier.controlPoints.length - 1;
+            if (numSegments <= 0) return pts;
+            
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const scaledT = t * numSegments;
+                let segmentIdx = Math.floor(scaledT);
+                if (segmentIdx >= numSegments) segmentIdx = numSegments - 1;
+                const localT = scaledT - segmentIdx;
+                
+                const P0 = bezier.controlPoints[segmentIdx]!;
+                const P1 = bezier.controlPoints[segmentIdx + 1]!;
+                const T0 = bezier.tangents2[segmentIdx]!;
+                const T1 = bezier.tangents1[segmentIdx + 1]!;
+                
+                const u = 1 - localT;
+                const tt = localT * localT;
+                const uu = u * u;
+                const uuu = uu * u;
+                const ttt = tt * localT;
+                
+                const x = uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0];
+                const y = uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1];
+                const z = uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2];
+                
+                pts.push(new THREE.Vector3(x * scale, y * scale, z * scale));
+            }
+            return pts;
+        };
+
+        crossSections.forEach((cs, idx) => {
+            const rightPts = sampleBezierCurveData(cs);
+            // Mirror across X-axis to create the left side of the slice
+            const leftPts = rightPts.map(p => new THREE.Vector3(-p.x, p.y, p.z)).reverse();
+            
+            // Remove duplicate bottom stringer point where the two halves meet
+            leftPts.pop(); 
+            const fullPts = [...leftPts, ...rightPts];
+            fullPts.push(fullPts[0].clone()); // Close the loop precisely at the deck stringer
+
+            const geo = new THREE.BufferGeometry().setFromPoints(fullPts);
+            
+            // Calculate gradient from Blue (Nose) to Red (Tail)
+            const hue = 0.66 * (1 - (idx / (crossSections.length - 1)));
+            const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
+            
+            const mat = new THREE.LineBasicMaterial({ 
+                color: color, 
+                transparent: true, 
+                opacity: 0.6,
+                depthWrite: false
+            });
+            
+            const line = new THREE.Line(geo, mat);
+            line.layers.set(3); // Render only to Perspective & Profile cameras
+            line.userData = { isSlice: true, curveName: `crossSection_${idx}`, defaultColor: color.getHex() };
+            this.sliceLinesGroup.add(line);
+        });
+
         this.updateGizmoVisibility();
         this.updateGizmoHighlights();
 
@@ -728,10 +806,10 @@ export class BoardViewport extends LitElement {
     this.profileCamera.position.set(0, 0, -10);
     this.profileCamera.up.set(0, 1, 0);
     this.profileCamera.lookAt(0, 0, 0);
-    // Layer 3 (Slice Gizmos) + Layer 5 (Blueprint Mesh) + Layer 8 (Profile Grid)
+    // Layer 3 (Slice Lines & Gizmos) + Layer 8 (Profile Grid)
+    // We explicitly exclude Layer 5 so the Ghosted Slices are fully visible without the solid mesh blocking them
     this.profileCamera.layers.disableAll();
     this.profileCamera.layers.enable(3);
-    this.profileCamera.layers.enable(5);
     this.profileCamera.layers.enable(8);
 
     // Perspective Camera sees everything EXCEPT the blueprint layer and CAD grids
@@ -797,6 +875,7 @@ export class BoardViewport extends LitElement {
     this.scene.add(this.finGroup);
     this.scene.add(this.gizmoGroup);
     this.scene.add(this.annotationGroup);
+    this.scene.add(this.sliceLinesGroup);
 
     const createCADGrid = (layer: number, rotationX: number, rotationZ: number, positionOffset: THREE.Vector3) => {
         const group = new THREE.Group();
@@ -1065,27 +1144,51 @@ export class BoardViewport extends LitElement {
     this.renderer.setSize(width, height);
   }
 
-  private updateGizmoHighlights() {
-    const selected = this.boardState?.selectedNode;
-    
-    this.gizmoGroup.children.forEach(child => {
-      const ud = child.userData as { isGizmo?: boolean; curve?: string; index?: number; type?: string };
-      if (!ud || !ud.isGizmo) return;
-      
-      if (child instanceof THREE.Mesh) {
-        const isSelected = selected && 
-                           ud.curve === selected.curve && 
-                           ud.index === selected.index && 
-                           ud.type === selected.type;
+    private updateGizmoHighlights() {
+        const selected = this.boardState?.selectedNode;
         
-        if (isSelected) {
-          child.material = this.matSelected;
-        } else {
-          child.material = ud.type === 'anchor' ? this.matAnchor : this.matHandle;
-        }
-      }
-    });
-  }
+        // Highlight Gizmos
+        this.gizmoGroup.children.forEach(child => {
+            const ud = child.userData as { isGizmo?: boolean; curve?: string; index?: number; type?: string };
+            if (!ud || !ud.isGizmo) return;
+            
+            if (child instanceof THREE.Mesh) {
+                const isSelected = selected && 
+                                   ud.curve === selected.curve && 
+                                   ud.index === selected.index && 
+                                   ud.type === selected.type;
+                
+                if (isSelected) {
+                    child.material = this.matSelected;
+                } else {
+                    child.material = ud.type === 'anchor' ? this.matAnchor : this.matHandle;
+                }
+            }
+        });
+
+        // Highlight Ghosted Slice Lines
+        this.sliceLinesGroup.children.forEach(child => {
+            const ud = child.userData as { isSlice?: boolean; curveName?: string; defaultColor?: number };
+            if (ud && ud.isSlice) {
+                const mat = (child as THREE.Line).material as THREE.LineBasicMaterial;
+                if (selected && selected.curve.startsWith('crossSection_')) {
+                    if (selected.curve === ud.curveName) {
+                        mat.color.setHex(0xffffff);
+                        mat.opacity = 1.0;
+                        child.renderOrder = 999; // Draw selected slice on top
+                    } else {
+                        mat.color.setHex(ud.defaultColor!);
+                        mat.opacity = 0.15; // Dim inactive slices
+                        child.renderOrder = 0;
+                    }
+                } else {
+                    mat.color.setHex(ud.defaultColor!);
+                    mat.opacity = 0.6; // Default state
+                    child.renderOrder = 0;
+                }
+            }
+        });
+    }
 
   private updateGizmoVisibility() {
     const show = this.boardState?.showGizmos !== false;
