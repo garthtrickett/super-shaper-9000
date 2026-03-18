@@ -72,4 +72,41 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await closeBtn.click();
     await expect(modalHeading).toBeHidden();
   });
+
+  test("Diagnostic toggles (Heatmap and Zebra) are mutually exclusive", async ({ page }) => {
+    // 1. Load the app
+    await page.goto("/");
+    await expect(page.locator("app-shell")).toBeVisible();
+
+    // 2. Wait for viewport and controls to mount
+    await expect(page.locator("board-viewport")).toBeVisible();
+    const boardControls = page.locator("board-controls");
+    await expect(boardControls).toBeVisible();
+
+    // 3. Locate the checkboxes via their wrapping labels
+    const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Heatmap/i }).locator('input[type="checkbox"]');
+    const zebraCheckbox = boardControls.locator('label').filter({ hasText: /Zebra Flow/i }).locator('input[type="checkbox"]');
+
+    // 4. Initially both should be off (based on INITIAL_STATE)
+    await expect(heatmapCheckbox).not.toBeChecked();
+    await expect(zebraCheckbox).not.toBeChecked();
+
+    // 5. Turn on Heatmap
+    console.log("Testing: Enabling Heatmap");
+    await heatmapCheckbox.check({ force: true });
+    await expect(heatmapCheckbox).toBeChecked();
+    await expect(zebraCheckbox).not.toBeChecked();
+
+    // 6. Turn on Zebra (Heatmap should auto-disable)
+    console.log("Testing: Enabling Zebra Flow (Should disable Heatmap)");
+    await zebraCheckbox.check({ force: true });
+    await expect(zebraCheckbox).toBeChecked();
+    await expect(heatmapCheckbox).not.toBeChecked();
+
+    // 7. Turn on Heatmap again (Zebra should auto-disable)
+    console.log("Testing: Re-enabling Heatmap (Should disable Zebra Flow)");
+    await heatmapCheckbox.check({ force: true });
+    await expect(heatmapCheckbox).toBeChecked();
+    await expect(zebraCheckbox).not.toBeChecked();
+  });
 });

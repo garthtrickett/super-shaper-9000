@@ -67,6 +67,37 @@ export class BoardViewport extends LitElement {
   private _boardTexture: THREE.CanvasTexture | null = null;
   private _bumpTexture: THREE.CanvasTexture | null = null;
 
+  private _zebraTexture: THREE.CanvasTexture | null = null;
+
+  private getZebraTexture() {
+    if (this._zebraTexture) return this._zebraTexture;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+
+    // Fill white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Draw horizontal black stripes (equator rings in equirectangular projection)
+    ctx.fillStyle = '#000000';
+    const stripeCount = 48; // High frequency bands to spot tiny surface bumps
+    const stripeHeight = 512 / stripeCount;
+    for (let i = 0; i < stripeCount; i += 2) {
+      ctx.fillRect(0, i * stripeHeight, 1024, stripeHeight);
+    }
+
+    this._zebraTexture = new THREE.CanvasTexture(canvas);
+    this._zebraTexture.mapping = THREE.EquirectangularReflectionMapping;
+    this._zebraTexture.colorSpace = THREE.SRGBColorSpace;
+    this._zebraTexture.magFilter = THREE.LinearFilter;
+    this._zebraTexture.minFilter = THREE.LinearMipmapLinearFilter;
+
+    return this._zebraTexture;
+  }
+
   private getBoardTextures() {
     if (this._boardTexture && this._bumpTexture) return { map: this._boardTexture, bumpMap: this._bumpTexture };
 

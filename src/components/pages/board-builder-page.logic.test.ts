@@ -125,6 +125,22 @@ describe("Board Builder State & Kinematic Logic", () => {
       const newState = update(INITIAL_STATE, action);
       expect(newState.noseShape).to.equal("pointy");
     });
+
+    it("should disable Zebra Flow when Heatmap is enabled", () => {
+      const stateWithZebra = { ...INITIAL_STATE, showZebra: true, showHeatmap: false };
+      const action: BoardAction = { type: "UPDATE_BOOLEAN", param: "showHeatmap", value: true };
+      const newState = update(stateWithZebra, action);
+      expect(newState.showHeatmap).to.be.true;
+      expect(newState.showZebra).to.be.false;
+    });
+
+    it("should disable Heatmap when Zebra Flow is enabled", () => {
+      const stateWithHeatmap = { ...INITIAL_STATE, showHeatmap: true, showZebra: false };
+      const action: BoardAction = { type: "UPDATE_BOOLEAN", param: "showZebra", value: true };
+      const newState = update(stateWithHeatmap, action);
+      expect(newState.showZebra).to.be.true;
+      expect(newState.showHeatmap).to.be.false;
+    });
   });
 
   describe("Kinematic Constraints (Manual Mode)", () => {
