@@ -783,16 +783,6 @@ export class BoardViewport extends LitElement {
       
       // Update gizmo position instantly for fluid UI feedback
       this.draggedGizmo.position.copy(target);
-      
-      // Dispatch event to SAM Controller (Step 3)
-      this.dispatchEvent(new CustomEvent('gizmo-dragged', {
-        detail: { 
-          userData: userData, 
-          position:[inInches.x, inInches.y, inInches.z] 
-        },
-        bubbles: true,
-        composed: true
-      }));
     }
   }
 
@@ -801,8 +791,17 @@ export class BoardViewport extends LitElement {
 
     if (this.draggedGizmo) {
       if (dist >= 5) {
-        // It was an actual physical drag that just completed, so we dispatch the end event 
-        // to let the SAM controller know it should save a snapshot to the Undo History.
+        // It was a drag. Get the final position and dispatch the single state update.
+        const finalPosInches = this.draggedGizmo.position.clone().multiplyScalar(12);
+        this.dispatchEvent(new CustomEvent('gizmo-dragged', {
+          detail: {
+            userData: this.draggedGizmo.userData,
+            position: [finalPosInches.x, finalPosInches.y, finalPosInches.z]
+          },
+          bubbles: true, composed: true
+        }));
+        
+        // Now dispatch the event to save the history snapshot.
         this.dispatchEvent(new CustomEvent('gizmo-drag-ended', {
           bubbles: true, composed: true
         }));
