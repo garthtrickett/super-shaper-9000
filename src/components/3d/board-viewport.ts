@@ -772,43 +772,49 @@ export class BoardViewport extends LitElement {
     const show = this.boardState?.showGizmos !== false;
 
     this.gizmoGroup.children.forEach(child => {
-      const userData = child.userData as { curve?: string };
-      const curve = userData?.curve;
-      if (!curve) return;
-      
-      if (!show) {
-        child.visible = false;
-        return;
-      }
-
-      if (this.viewMode === 'perspective') {
-        child.visible = true;
-      } else if (this.viewMode === 'top') {
-        child.visible = curve === 'outline';
-      } else if (this.viewMode === 'side') {
-        child.visible = curve === 'rockerTop' || curve === 'rockerBottom';
-      } else if (this.viewMode === 'profile') {
-        child.visible = curve.startsWith('crossSection_');
-      }
+      child.visible = show;
     });
   }
 
   private renderLoop = () => {
     this.animationId = requestAnimationFrame(this.renderLoop);
     this.controls.update();
-    this.renderer.render(this.scene, this.activeCamera);
+
+    // Enable scissor test to restrict drawing to quadrants
+    this.renderer.setScissorTest(true);
+
+    const w = Math.floor(this.clientWidth / 2);
+    const h = Math.floor(this.clientHeight / 2);
+    const w2 = this.clientWidth - w;
+    const h2 = this.clientHeight - h;
+
+    // Bottom Left: Side View
+    this.renderer.setViewport(0, 0, w, h);
+    this.renderer.setScissor(0, 0, w, h);
+    this.renderer.render(this.scene, this.sideCamera);
+
+    // Bottom Right: Profile View
+    this.renderer.setViewport(w, 0, w2, h);
+    this.renderer.setScissor(w, 0, w2, h);
+    this.renderer.render(this.scene, this.profileCamera);
+
+    // Top Left: Top View
+    this.renderer.setViewport(0, h, w, h2);
+    this.renderer.setScissor(0, h, w, h2);
+    this.renderer.render(this.scene, this.topCamera);
+
+    // Top Right: Perspective View
+    this.renderer.setViewport(w, h, w2, h2);
+    this.renderer.setScissor(w, h, w2, h2);
+    this.renderer.render(this.scene, this.perspectiveCamera);
+
+    // Restore default state
+    this.renderer.setScissorTest(false);
   };
 
   override render() {
-    const isManual = this.boardState?.editMode === 'manual';
-    
+    // The view buttons have been removed. We now have a permanent 4-way split.
     return html`
-      <div class="absolute top-4 left-4 z-10 flex gap-2 ${isManual ? '' : 'hidden'}">
-        <button @click=${() => this.setViewMode('perspective')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'perspective' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Perspective</button>
-        <button @click=${() => this.setViewMode('top')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'top' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Top (Outline)</button>
-        <button @click=${() => this.setViewMode('side')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'side' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Side (Rocker)</button>
-        <button @click=${() => this.setViewMode('profile')} class="px-3 py-1.5 rounded text-xs font-bold transition-colors ${this.viewMode === 'profile' ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}">Profile (Slices)</button>
-      </div>
       <canvas></canvas>
     `;
   }

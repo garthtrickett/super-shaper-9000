@@ -34,7 +34,7 @@ export const translateToShape3d = (
   const z_s3d = (y + boardThicknessInches / 2) * INCHES_TO_CM;
 
   // Format to 6 decimal places as requested by .s3dx spec precision
-  return [
+  return[
     Number(x_s3d.toFixed(6)),
     Number(y_s3d.toFixed(6)),
     Number(z_s3d.toFixed(6)),
@@ -114,13 +114,12 @@ export interface S3DBezier {
   tangents2: [number, number, number][]; // Outgoing (right) handles
 }
 
-// ... (bakeCrossSections, fitSliceBezier, and serializeCoupleXML remain unchanged) ...
 export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): string => {
-  const slices: string[] = [];
+  const slices: string[] =[];
   
   // 8 Strategic Stations along the board. 
   // Shape3D requires Couples_0 to be at the TAIL (t=0.99) and Couples_7 at the NOSE (t=0.01)
-  const fractions = [0.99, 0.95, 0.8, 0.6, 0.4, 0.2, 0.05, 0.01];
+  const fractions =[0.99, 0.95, 0.8, 0.6, 0.4, 0.2, 0.05, 0.01];
   
   const L = model.length;
   const minZ = curves.outline[0]![2];
@@ -231,13 +230,7 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
     const centerZ = (((topY + botY) / 2) + model.thickness / 2) * INCHES_TO_CM;
 
     // The 5 key points defining a standard CAD surfboard cross-section
-    // [X_s3d (const), Y_s3d (width), Z_s3d (height relative to bottom)]
-    const pts: [number, number, number][] = [
-      [x_s3d, 0, (getContourY(0.0, false) - baselineY) * INCHES_TO_CM],                            // Bottom Stringer
-      [x_s3d, 0.75 * halfWidth * INCHES_TO_CM, (getContourY(0.75, false) - baselineY) * INCHES_TO_CM], // Bottom Tuck
-      [x_s3d, halfWidth * INCHES_TO_CM, (apexY - baselineY) * INCHES_TO_CM],                       // Rail Apex
-      [x_s3d, 0.75 * halfWidth * INCHES_TO_CM, (getContourY(0.75, true) - baselineY) * INCHES_TO_CM],  // Deck Shoulder
-      [x_s3d, 0, (getContourY(0.0, true) - baselineY) * INCHES_TO_CM]                              // Deck Stringer
+    const pts: [number, number, number][] = [[x_s3d, 0, (getContourY(0.0, false) - baselineY) * INCHES_TO_CM],[x_s3d, 0.75 * halfWidth * INCHES_TO_CM, (getContourY(0.75, false) - baselineY) * INCHES_TO_CM],[x_s3d, halfWidth * INCHES_TO_CM, (apexY - baselineY) * INCHES_TO_CM],[x_s3d, 0.75 * halfWidth * INCHES_TO_CM, (getContourY(0.75, true) - baselineY) * INCHES_TO_CM],[x_s3d, 0, (getContourY(0.0, true) - baselineY) * INCHES_TO_CM]
     ];
 
     const sliceBezier = fitSliceBezier(pts);
@@ -248,11 +241,11 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
 };
 
 const fitSliceBezier = (pts: [number, number, number][]): S3DBezier => {
-  const t1: [number, number, number][] = [];
-  const t2: [number, number, number][] = [];
+  const t1:[number, number, number][] = [];
+  const t2: [number, number, number][] =[];
 
-  const distY = (pA: [number, number, number], pB: [number, number, number]) => Math.abs(pA[1] - pB[1]) / 3;
-  const distZ = (pA: [number, number, number], pB: [number, number, number]) => Math.abs(pA[2] - pB[2]) / 3;
+  const distY = (pA: [number, number, number], pB:[number, number, number]) => Math.abs(pA[1] - pB[1]) / 3;
+  const distZ = (pA: [number, number, number], pB:[number, number, number]) => Math.abs(pA[2] - pB[2]) / 3;
 
   // P0: Bottom Stringer (Horizontal tangent towards Tuck)
   t1.push([...pts[0]!]);
@@ -284,7 +277,7 @@ const fitSliceBezier = (pts: [number, number, number][]): S3DBezier => {
 };
 
 const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): string => {
-  const formatPt = (p: [number, number, number]) => 
+  const formatPt = (p:[number, number, number]) => 
     `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
   
   const buildPoly = (pts: [number, number, number][], overridePlan: number = 3, overrideSymmetry: number = 6) => 
@@ -322,18 +315,18 @@ const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): 
 \t\t</Couples_${index}>`;
 };
 
-export const fitBezier = (points: [number, number, number][], curveType: 'outline' | 'rocker'): S3DBezier => {
+export const fitBezier = (points:[number, number, number][], curveType: 'outline' | 'rocker'): S3DBezier => {
   // 1. Ensure points are sorted from Tail (x=0) to Nose (x=L)
   const sorted = [...points].sort((a, b) => a[0] - b[0]);
   const L = sorted.length > 0 ? sorted[sorted.length - 1]![0] : 0;
 
   // ✅ FIX: Use different sampling fractions based on curve type to match reference file
   const fractions = curveType === 'outline' 
-    ? [0.0, 0.025, 0.47, 1.0] // 4 points for outline
-    : [0.0, 0.5, 1.0];        // 3 points for rockers
+    ?[0.0, 0.025, 0.47, 1.0] // 4 points for outline
+    :[0.0, 0.5, 1.0];        // 3 points for rockers
 
-  const anchors: [number, number, number][] = [];
-  const indices: number[] = [];
+  const anchors:[number, number, number][] = [];
+  const indices: number[] =[];
 
   for (const t of fractions) {
     const targetX = t * L;
@@ -353,8 +346,8 @@ export const fitBezier = (points: [number, number, number][], curveType: 'outlin
     }
   }
 
-  const tangents1: [number, number, number][] = [];
-  const tangents2: [number, number, number][] = [];
+  const tangents1: [number, number, number][] =[];
+  const tangents2: [number, number, number][] =[];
 
   // ✅ FIX: Use a more stable tangent calculation based on adjacent anchors
   for (let i = 0; i < anchors.length; i++) {
@@ -419,10 +412,10 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
   const formatPt = (p: [number, number, number]) => 
     `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
   
-  const buildPoly = (pts: [number, number, number][], overridePlan: number = plan, overrideSymmetry: number = tag === "Otl" ? 6 : 0) => 
+  const buildPoly = (pts:[number, number, number][], overridePlan: number = plan, overrideSymmetry: number = tag === "Otl" ? 6 : 0) => 
     `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${pts.length}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Symmetry_center>\n\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${centerLengthCm.toFixed(6)}</x><y>0.000000</y><z>0.000000</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>\n\t\t\t\t\t\t</Symmetry_center>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
 
-  const tangM = `\t\t\t\t<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as [number,number,number]), 0, 0)}\n\t\t\t\t</Tangents_m>`;
+  const tangM = `\t\t\t\t<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as[number,number,number]), 0, 0)}\n\t\t\t\t</Tangents_m>`;
   
   // ✅ FIX: Implement dynamic control and tangent types based on reference files
   const getControlType = (i: number, total: number) => {
@@ -511,38 +504,67 @@ const generatePlugsAndFinsXML = (model: BoardModel, curves: BoardCurves): string
 
     // 2. Translate to S3D coordinates for the <Ref. point>
     const refPointS3D = translateToShape3d([x_ss, y_ss, z_ss], model.length, model.thickness);
+    
+    // Helper to format 3D points exactly like Shape3D expects
+    const formatPt = (pt: [number, number, number]) => 
+      `\t\t\t<Point3d>\n\t\t\t\t<x>${pt[0].toFixed(6)}</x><y>${pt[1].toFixed(6)}</y><z>${pt[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t</Point3d>`;
 
     // 3. Static values from reference for standard elements
     const boxLengthCm = box.isPlug ? 2.7 : 15.0;
     const boxWidthCm = box.isPlug ? 2.7 : 3.2;
     const boxHeightCm = box.isPlug ? 1.6 : 1.55;
+    const diameter = box.isPlug ? 2.7 : 3.2;
+    const c1c2 = box.isPlug ? 0.0 : 11.8;
+    const reflexion = box.isPlug ? 0 : 20;
+    
     const face = box.isPlug ? 0 : 1; // 0 = Deck, 1 = Bottom
     const style = box.isPlug ? 4 : 3; // 4 = Plug, 3 = Fin Box
     const toeInRad = box.isSide ? (model.toeAngle * Math.PI / 180).toFixed(4) : "0.0000";
+    
+    const ptConvergence = box.isSide ? `\n\t\t\t<PtConvergence>250.000000</PtConvergence>` : "";
 
     return `\t\t<Box_${i}>
-		<Box>
-			<Name>${box.name}</Name>
-			<Length>${boxLengthCm.toFixed(3)}</Length>
-			<Width>${boxWidthCm.toFixed(3)}</Width>
-			<Height>${boxHeightCm.toFixed(3)}</Height>
-			<Even>${box.isSide ? 1 : 0}</Even>
-			<Central>${box.isCenter ? 1 : 0}</Central>
-			<FixedTail>${box.isPlug ? 0 : 1}</FixedTail>
-			<FixedRail>${box.isSide ? 1 : 0}</FixedRail>
-			<Face>${face}</Face>
-			<Style>${style}</Style>
-			<Ref. point>
-			<Point3d>
-				<x>${refPointS3D[0].toFixed(6)}</x><y>${refPointS3D[1].toFixed(6)}</y><z>${refPointS3D[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>
-			</Point3d></Ref. point>
-			<AngleOz>${toeInRad}</AngleOz>
-			<DisplayD3D>1</DisplayD3D>
-			<MappingD3D>1</MappingD3D>
-			<ImageMappedD3D>White</ImageMappedD3D>
-			<CutCNC>1</CutCNC>
-		</Box>
-		</Box_${i}>`;
+\t\t<Box>
+\t\t\t<Name>${box.name}</Name>
+\t\t\t<Length>${boxLengthCm.toFixed(3)}</Length>
+\t\t\t<Width>${boxWidthCm.toFixed(3)}</Width>
+\t\t\t<Height>${boxHeightCm.toFixed(3)}</Height>
+\t\t\t<Diameter>${diameter.toFixed(3)}</Diameter>
+\t\t\t<C1C2>${c1c2.toFixed(3)}</C1C2>
+\t\t\t<Color>0</Color>
+\t\t\t<Reflexion_coef>${reflexion}</Reflexion_coef>
+\t\t\t<Even>${box.isSide ? 1 : 0}</Even>
+\t\t\t<Central>${box.isCenter ? 1 : 0}</Central>
+\t\t\t<SymNoseTail>0</SymNoseTail>
+\t\t\t<IFixedToBt>-1</IFixedToBt>
+\t\t\t<DistFixedTo>0.000</DistFixedTo>
+\t\t\t<AFixedTo>0.000</AFixedTo>
+\t\t\t<FixedTail>${box.isPlug ? 0 : 1}</FixedTail>
+\t\t\t<FixedNose>0</FixedNose>
+\t\t\t<FixedCenter>0</FixedCenter>
+\t\t\t<FixedRail>${box.isSide ? 1 : 0}</FixedRail>
+\t\t\t<Face>${face}</Face>
+\t\t\t<Style>${style}</Style>
+\t\t\t<Ref. point>
+${formatPt(refPointS3D)}</Ref. point>
+\t\t\t<PointRef>
+${formatPt(refPointS3D)}</PointRef>
+\t\t\t<PointRefDx>${box.isCenter || box.isPlug ? '0.000' : '-1.500'}</PointRefDx>
+\t\t\t<PointRefDy>${box.isSide ? '0.320' : '0.000'}</PointRefDy>
+\t\t\t<PointCenter>
+${formatPt(refPointS3D)}</PointCenter>
+\t\t\t<FinLength>10.160</FinLength>${ptConvergence}
+\t\t\t<AngleOz>${toeInRad}</AngleOz>
+\t\t\t<DisplayD3D>1</DisplayD3D>
+\t\t\t<MappingD3D>1</MappingD3D>
+\t\t\t<ImageMappedD3D>White</ImageMappedD3D>
+\t\t\t<CutCNC>1</CutCNC>
+\t\t\t<DpLibelle>
+\t\t\t<Point2d>
+\t\t\t\t<x>0.000000</x><y>0.000000</y><color>337156096</color>
+\t\t\t</Point2d></DpLibelle>
+\t\t</Box>
+\t\t</Box_${i}>`;
   }).join('\n');
 
   return `<Nb_Boxes>${boxConfigs.length}</Nb_Boxes>\n${boxesXML}`;
