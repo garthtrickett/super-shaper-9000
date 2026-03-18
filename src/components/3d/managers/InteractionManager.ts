@@ -21,7 +21,12 @@ export class InteractionManager {
       side: THREE.OrthographicCamera;
       profile: THREE.OrthographicCamera;
     },
-    private controls: OrbitControls,
+    private controls: {
+      perspective: OrbitControls;
+      top: OrbitControls;
+      side: OrbitControls;
+      profile: OrbitControls;
+    },
     private gizmoGroup: THREE.Group
   ) {}
 
@@ -83,7 +88,10 @@ export class InteractionManager {
 
     const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
     
-    this.controls.enabled = (camera === this.cameras.perspective);
+    this.controls.perspective.enabled = (camera === this.cameras.perspective);
+    this.controls.top.enabled = (camera === this.cameras.top);
+    this.controls.side.enabled = (camera === this.cameras.side);
+    this.controls.profile.enabled = (camera === this.cameras.profile);
 
     if (this.boardState?.editMode !== 'manual' || this.boardState?.showGizmos === false) return;
 
@@ -97,7 +105,11 @@ export class InteractionManager {
     if (hit) {
       this.draggedGizmo = hit.object as THREE.Mesh;
       this.activeDragCamera = camera;
-      this.controls.enabled = false;
+      
+      this.controls.perspective.enabled = false;
+      this.controls.top.enabled = false;
+      this.controls.side.enabled = false;
+      this.controls.profile.enabled = false;
       
       const curveName = this.draggedGizmo.userData.curve as string;
       const planeNormal = new THREE.Vector3();
@@ -116,6 +128,17 @@ export class InteractionManager {
   }
 
   private onPointerMove = (e: PointerEvent) => {
+    // Dynamically update active viewport controls on hover, but only if not actively dragging/clicking
+    if (e.buttons === 0 && !this.draggedGizmo) {
+      const { camera } = this.getQuadrantCameraAndMouse(e);
+      if (this.controls.perspective.enabled !== (camera === this.cameras.perspective)) {
+        this.controls.perspective.enabled = (camera === this.cameras.perspective);
+        this.controls.top.enabled = (camera === this.cameras.top);
+        this.controls.side.enabled = (camera === this.cameras.side);
+        this.controls.profile.enabled = (camera === this.cameras.profile);
+      }
+    }
+
     if (!this.draggedGizmo || !this.activeDragCamera) return;
     
     const rect = this.canvas.getBoundingClientRect();
@@ -170,7 +193,11 @@ export class InteractionManager {
       this.activeDragCamera = null;
     }
     
-    this.controls.enabled = true;
+    const { camera } = this.getQuadrantCameraAndMouse(e);
+    this.controls.perspective.enabled = (camera === this.cameras.perspective);
+    this.controls.top.enabled = (camera === this.cameras.top);
+    this.controls.side.enabled = (camera === this.cameras.side);
+    this.controls.profile.enabled = (camera === this.cameras.profile);
 
     if (this.boardState?.editMode === 'manual' && dist < 5) {
       const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
