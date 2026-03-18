@@ -336,7 +336,7 @@ export class BoardViewport extends LitElement {
             side: THREE.DoubleSide
         });
 
-        let activeMat = standardMat;
+        let activeMat: THREE.Material = standardMat;
         if (this.boardState.showHeatmap) activeMat = heatmapMat;
         else if (this.boardState.showZebra) activeMat = zebraMat;
 
