@@ -327,7 +327,20 @@ export class BoardViewport extends LitElement {
             side: THREE.DoubleSide 
         });
 
-        const mesh = new THREE.Mesh(geom, this.boardState.showHeatmap ? heatmapMat : standardMat);
+        // The Zebra material needs to act as a flawless mirror to reflect the environment map stripes
+        const zebraMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            metalness: 1.0,
+            roughness: 0.0,
+            envMap: this.getZebraTexture(),
+            side: THREE.DoubleSide
+        });
+
+        let activeMat = standardMat;
+        if (this.boardState.showHeatmap) activeMat = heatmapMat;
+        else if (this.boardState.showZebra) activeMat = zebraMat;
+
+        const mesh = new THREE.Mesh(geom, activeMat);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         mesh.layers.set(0);
