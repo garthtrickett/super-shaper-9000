@@ -311,7 +311,7 @@ export class BoardViewport extends LitElement {
       if (ud.isSlice) {
         const mat = (child as THREE.Line).material as THREE.LineBasicMaterial;
         const isSelected = selected && selected.curve === ud.curveName;
-        mat.color.setHex(isSelected ? 0xffffff : ud.defaultColor!);
+        mat.color.setHex(isSelected ? 0xffffff : (ud.defaultColor as number));
         mat.opacity = isSelected ? 1.0 : 0.15;
         child.renderOrder = isSelected ? 999 : 0;
       }
