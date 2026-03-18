@@ -53,6 +53,7 @@ export class BoardViewport extends LitElement {
   private dragPlane = new THREE.Plane();
   private dragOffset = new THREE.Vector3();
   private dragStartPos = new THREE.Vector2();
+  private activeDragCamera: THREE.Camera | null = null;
 
   // Reusable materials for performance
   private matAnchor = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false });
@@ -474,7 +475,7 @@ export class BoardViewport extends LitElement {
     if (this.controls) this.controls.dispose();
 
     if (this.canvas) {
-      this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+      this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
       this.canvas.removeEventListener("pointermove", this.onPointerMove);
       this.canvas.removeEventListener("pointerup", this.onPointerUp);
       this.canvas.removeEventListener("pointercancel", this.onPointerUp);
@@ -575,8 +576,6 @@ export class BoardViewport extends LitElement {
     this.scene.add(floor);
 
     // 6. Controls
-    // Bind orbit controls to the perspective camera for now. 
-    // We will restrict mouse events to the top-right quadrant in Step 3.
     this.controls = new OrbitControls(this.perspectiveCamera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
@@ -597,7 +596,8 @@ export class BoardViewport extends LitElement {
     this.resizeObserver.observe(this);
 
     // 9. Event Listeners for Gizmos
-    this.canvas.addEventListener("pointerdown", this.onPointerDown);
+    // Use capture for pointerdown so we can disable OrbitControls before it handles the event
+    this.canvas.addEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.addEventListener("pointermove", this.onPointerMove);
     this.canvas.addEventListener("pointerup", this.onPointerUp);
     this.canvas.addEventListener("pointercancel", this.onPointerUp);
@@ -607,16 +607,56 @@ export class BoardViewport extends LitElement {
     this.renderLoop();
   }
 
+  private getQuadrantCameraAndMouse(e: PointerEvent): { camera: THREE.Camera, mouse: THREE.Vector2 } {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const w = rect.width / 2;
+    const h = rect.height / 2;
+
+    let camera: THREE.Camera;
+    let localX: number;
+    let localY: number;
+
+    if (x < w && y < h) {
+      // Top Left: Top View
+      camera = this.topCamera;
+      localX = (x / w) * 2 - 1;
+      localY = -(y / h) * 2 + 1;
+    } else if (x >= w && y < h) {
+      // Top Right: Perspective View
+      camera = this.perspectiveCamera;
+      localX = ((x - w) / (rect.width - w)) * 2 - 1;
+      localY = -(y / h) * 2 + 1;
+    } else if (x < w && y >= h) {
+      // Bottom Left: Side View
+      camera = this.sideCamera;
+      localX = (x / w) * 2 - 1;
+      localY = -((y - h) / (rect.height - h)) * 2 + 1;
+    } else {
+      // Bottom Right: Profile View
+      camera = this.profileCamera;
+      localX = ((x - w) / (rect.width - w)) * 2 - 1;
+      localY = -((y - h) / (rect.height - h)) * 2 + 1;
+    }
+
+    return { camera, mouse: new THREE.Vector2(localX, localY) };
+  }
+
   private onPointerDown = (e: PointerEvent) => {
     this.dragStartPos.set(e.clientX, e.clientY);
 
+    const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+    
+    // Only allow orbiting if clicking in the perspective quadrant
+    this.controls.enabled = (camera === this.perspectiveCamera);
+
     if (this.boardState?.editMode !== 'manual' || this.boardState?.showGizmos === false) return;
 
-    const rect = this.canvas.getBoundingClientRect();
-    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    this.raycaster.setFromCamera(this.mouse, this.perspectiveCamera);
+    this.mouse.copy(mouse);
+    this.raycaster.setFromCamera(this.mouse, camera);
+    this.raycaster.layers.mask = camera.layers.mask;
     
     // Intersect only with gizmos
     const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
@@ -624,10 +664,11 @@ export class BoardViewport extends LitElement {
 
     if (hit) {
       this.draggedGizmo = hit.object as THREE.Mesh;
+      this.activeDragCamera = camera;
       this.controls.enabled = false; // Disable camera orbit while dragging
       
       // Calculate a mathematical plane passing through the gizmo, facing the camera
-      const cameraDir = this.perspectiveCamera.getWorldDirection(new THREE.Vector3()).negate();
+      const cameraDir = camera.getWorldDirection(new THREE.Vector3()).negate();
       this.dragPlane.setFromNormalAndCoplanarPoint(cameraDir, this.draggedGizmo.position);
       
       // Calculate the exact click offset from the center of the gizmo to prevent snapping
@@ -638,13 +679,27 @@ export class BoardViewport extends LitElement {
   }
 
   private onPointerMove = (e: PointerEvent) => {
-    if (!this.draggedGizmo) return;
-
+    if (!this.draggedGizmo || !this.activeDragCamera) return;
+    
+    // To make dragging smooth even if the mouse leaves the original quadrant, 
+    // we recalculate the local coords relative to the activeDragCamera's quadrant bounds.
     const rect = this.canvas.getBoundingClientRect();
-    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const w = rect.width / 2;
+    const h = rect.height / 2;
+    
+    if (this.activeDragCamera === this.topCamera) {
+      this.mouse.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
+    } else if (this.activeDragCamera === this.perspectiveCamera) {
+      this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -(y / h) * 2 + 1);
+    } else if (this.activeDragCamera === this.sideCamera) {
+      this.mouse.set((x / w) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+    } else {
+      this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+    }
 
-    this.raycaster.setFromCamera(this.mouse, this.perspectiveCamera);
+    this.raycaster.setFromCamera(this.mouse, this.activeDragCamera);
     const target = new THREE.Vector3();
     
     if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
