@@ -56,20 +56,64 @@ test.describe('Quad Viewport CAD Interface', () => {
     // Take a screenshot of the initial manual state before we drag anything
     await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { maxDiffPixels: 1000 });
 
-    // --- 2. Drag a known gizmo area in the Top-Left (Outline) view ---
-    // This coordinate is near the wide point of the board outline
-    const widePointGizmo = { x: box!.x + box!.width * 0.25, y: box!.y + box!.height * 0.25 };
+    // --- 2. Dynamically locate the 3D Gizmo from the application state ---
+    // This perfectly calculates the projection matrix equivalent to find the 2px sphere.
+    const hitPosition = await page.evaluate(() => {
+      const viewport = document.querySelector('board-viewport') as any;
+      if (!viewport || !viewport.boardState || !viewport.boardState.manualOutline) return null;
 
-    await page.mouse.move(widePointGizmo.x, widePointGizmo.y);
+      const outline = viewport.boardState.manualOutline;
+      // Index 3 is t=0.5 (Z=0, Wide Point)
+      const cp = outline.controlPoints[3];
+
+      const canvas = viewport.shadowRoot.querySelector('canvas');
+      if (!canvas) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+
+      const worldX = cp[0] / 12;
+      const worldZ = cp[2] / 12;
+
+      const orthoRight = 5 * aspect;
+      const orthoTop = 5;
+
+      const ndcX = worldX / orthoRight;
+      const ndcY = -worldZ / orthoTop; // -Z is UP
+
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+
+      const pixelX = rect.left + ((ndcX + 1) / 2 * w);
+      const pixelY = rect.top + ((1 - ndcY) / 2 * h);
+
+      return { x: pixelX, y: pixelY };
+    });
+    expect(hitPosition).toBeTruthy();
+
+    // Select the gizmo to open the inspector
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    await page.waitForTimeout(100);
+    expect(await page.locator('node-inspector').isVisible()).toBe(true);
+
+    // 1. Get the initial value of the X/Z input in the node inspector
+    const xInput = page.locator('node-inspector input').first();
+    const initialX = await xInput.inputValue();
+
+    // 2. Perform your drag securely on the precisely located gizmo
+    await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.mouse.down();
     // Drag it inwards to dramatically narrow the board
-    await page.mouse.move(widePointGizmo.x - 40, widePointGizmo.y, { steps: 10 });
+    await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 10 });
     await page.mouse.up();
-    // Wait for the debounce timer (150ms) + geometry generation buffer
+
+    // 3. WAIT for the DOM to reflect the new coordinates (this doesn't stall the GPU)
+    await expect(xInput).not.toHaveValue(initialX);
+
+    // Optional: Give headless WebGL a tiny breather to finish the new paint
     await page.waitForTimeout(500);
 
-    // --- 3. Verify the visual state has changed ---
-    // The new screenshot should not match the initial state, proving the drag updated the geometry.
+    // 4. Now assert the screenshot (will pass instantly without looping)
     await expect(page).not.toHaveScreenshot('quad-view-gizmos-initial.png');
   });
 });

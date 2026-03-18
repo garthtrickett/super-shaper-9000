@@ -475,7 +475,14 @@ export class BoardViewport extends LitElement {
                     anchorMesh.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
                     anchorMesh.renderOrder = 999;
                     anchorMesh.layers.set(layerIndex);
-                    anchorMesh.userData = { isGizmo: true, type: 'anchor', curve: curveName, index: i };
+                    anchorMesh.userData = { 
+                        isGizmo: true, 
+                        type: 'anchor', 
+                        curve: curveName, 
+                        index: i,
+                        maxIndex: curve.controlPoints.length - 1,
+                        origZ: cp[2]
+                    };
                     this.gizmoGroup.add(anchorMesh);
 
                     const drawHandle = (t: [number, number, number], handleType: string) => {
@@ -486,7 +493,14 @@ export class BoardViewport extends LitElement {
                         handleMesh.position.set(t[0] * scale, t[1] * scale, t[2] * scale);
                         handleMesh.renderOrder = 999;
                         handleMesh.layers.set(layerIndex);
-                        handleMesh.userData = { isGizmo: true, type: handleType, curve: curveName, index: i };
+                        handleMesh.userData = { 
+                            isGizmo: true, 
+                            type: handleType, 
+                            curve: curveName, 
+                            index: i,
+                            maxIndex: curve.controlPoints.length - 1,
+                            origZ: t[2]
+                        };
                         this.gizmoGroup.add(handleMesh);
 
                         const lineGeo = new THREE.BufferGeometry().setFromPoints([
