@@ -92,19 +92,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(zebraCheckbox).not.toBeChecked();
 
     // 5. Turn on Heatmap
-    console.log("Testing: Enabling Heatmap");
+    console.info("Testing: Enabling Heatmap");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
 
     // 6. Turn on Zebra (Heatmap should auto-disable)
-    console.log("Testing: Enabling Zebra Flow (Should disable Heatmap)");
+    console.info("Testing: Enabling Zebra Flow (Should disable Heatmap)");
     await zebraCheckbox.check({ force: true });
     await expect(zebraCheckbox).toBeChecked();
     await expect(heatmapCheckbox).not.toBeChecked();
 
     // 7. Turn on Heatmap again (Zebra should auto-disable)
-    console.log("Testing: Re-enabling Heatmap (Should disable Zebra Flow)");
+    console.info("Testing: Re-enabling Heatmap (Should disable Zebra Flow)");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
