@@ -2,6 +2,9 @@
 import { test, expect } from './utils/base-test';
 
 test.describe('Quad Viewport CAD Interface', () => {
+  // Give this entire suite more time since software WebGL is very slow in headless mode
+  test.setTimeout(60000);
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     // Wait for the 3D viewport to be initialized and rendered
@@ -26,7 +29,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     // --- 1. Drag in a 2D view (Top Left) and verify NO rotation occurs ---
     await page.mouse.move(topLeft.x, topLeft.y);
     await page.mouse.down();
-    await page.mouse.move(topLeft.x + 50, topLeft.y + 50, { steps: 5 });
+    await page.mouse.move(topLeft.x + 50, topLeft.y + 50, { steps: 2 });
     await page.mouse.up();
     await page.waitForTimeout(500); // Wait for momentum to settle
 
@@ -35,7 +38,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     // --- 2. Drag in the 3D view (Top Right) and verify rotation DOES occur ---
     await page.mouse.move(topRight.x, topRight.y);
     await page.mouse.down();
-    await page.mouse.move(topRight.x + 80, topRight.y + 50, { steps: 5 });
+    await page.mouse.move(topRight.x + 80, topRight.y + 50, { steps: 2 });
     await page.mouse.up();
     await page.waitForTimeout(500); // Wait for orbit controls to settle
 
@@ -103,8 +106,8 @@ test.describe('Quad Viewport CAD Interface', () => {
     // 2. Perform your drag securely on the precisely located gizmo
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.mouse.down();
-    // Drag it inwards to dramatically narrow the board
-    await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 10 });
+    // Drag it inwards to dramatically narrow the board (use fewer steps to save time in headless WebGL)
+    await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 2 });
     await page.mouse.up();
 
     // 3. WAIT for the DOM to reflect the new coordinates (this doesn't stall the GPU)
