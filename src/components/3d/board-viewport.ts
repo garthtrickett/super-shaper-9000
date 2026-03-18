@@ -594,7 +594,11 @@ export class BoardViewport extends LitElement {
             if (child.geometry) child.geometry.dispose();
             if (child.material) {
                 if (child instanceof THREE.Sprite && child.material.map) child.material.map.dispose();
-                child.material.dispose();
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(m => m.dispose());
+                } else {
+                    child.material.dispose();
+                }
             }
             this.annotationGroup.remove(child);
         }
