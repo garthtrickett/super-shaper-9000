@@ -133,14 +133,26 @@ test.describe('Quad Viewport CAD Interface', () => {
 
   test('should dynamically update dimension annotations when parametric sliders change', async ({ page }) => {
     // --- 1. Extract initial annotations from the 3D scene ---
-    const getAnnotationTexts = async () => {
+    const getAnnotationTexts = async (): Promise<string[]> => {
       return await page.evaluate(() => {
-        const viewport = document.querySelector('board-viewport') as any;
-        if (!viewport || !viewport.annotationGroup) return [];
-        
+        type BoardViewportWithAnnotations = HTMLElement & {
+          annotationGroup?: {
+            children: Array<{
+              userData?: {
+                isAnnotation?: boolean;
+                text?: string;
+              };
+            }>;
+          };
+        };
+
+        const viewport = document.querySelector('board-viewport') as unknown as BoardViewportWithAnnotations | null;
+        if (!viewport || !viewport.annotationGroup?.children) return [];
+
         return viewport.annotationGroup.children
-          .filter((child: any) => child.userData && child.userData.isAnnotation)
-          .map((sprite: any) => sprite.userData.text as string);
+          .filter(child => child.userData?.isAnnotation)
+          .map(sprite => sprite.userData?.text || '')
+          .filter(Boolean); // Remove any empty strings just in case
       });
     };
 
