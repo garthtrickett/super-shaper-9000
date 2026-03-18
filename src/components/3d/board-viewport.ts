@@ -40,6 +40,7 @@ export class BoardViewport extends LitElement {
   private gizmoGroup = new THREE.Group();
   private annotationGroup = new THREE.Group();
   private sliceLinesGroup = new THREE.Group();
+  private apexLineGroup = new THREE.Group();
   private zebraOffset = 0;
     
   private matAnchor = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false });
@@ -47,9 +48,9 @@ export class BoardViewport extends LitElement {
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false });
 
   override firstUpdated() {
-    this.sceneManager = new SceneManager(this.canvas, [
+    this.sceneManager = new SceneManager(this.canvas,[
       this.wireframeGroup, this.solidGroup, this.finGroup, 
-      this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup
+      this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup
     ]);
     
     this.interactionManager = new InteractionManager(
@@ -110,6 +111,7 @@ export class BoardViewport extends LitElement {
       } else {
         if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
         if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
+        if (oldState?.showApexLine !== this.boardState.showApexLine) this.apexLineGroup.visible = !!this.boardState.showApexLine;
       }
     }
   }
@@ -145,6 +147,7 @@ export class BoardViewport extends LitElement {
     FinBuilder.build(this.finGroup, this.boardState, curves, scale);
     GizmoBuilder.build(this.gizmoGroup, this.boardState, scale, this.matAnchor, this.matHandle);
     this.buildSliceLines(curves, scale);
+    this.buildApexLine(curves, scale);
     AnnotationBuilder.build(this.annotationGroup, this.boardState, scale);
 
     this.updateGizmoVisibility();
@@ -215,6 +218,43 @@ export class BoardViewport extends LitElement {
     const blueprintEdges = new THREE.LineSegments(edgesGeo, edgesMat);
     blueprintEdges.layers.set(5);
     this.solidGroup.add(blueprintEdges);
+  }
+
+  private buildApexLine(curves: BoardCurves, scale: number) {
+    while (this.apexLineGroup.children.length > 0) {
+      const child = this.apexLineGroup.children[0] as THREE.Line;
+      child.geometry.dispose();
+      (child.material as THREE.Material).dispose();
+      this.apexLineGroup.remove(child);
+    }
+
+    // Glowing neon emerald line that ignores depth (renders on top of the solid board)
+    const mat = new THREE.LineBasicMaterial({ color: 0x34d399, depthTest: false, transparent: true, opacity: 0.9 });
+    const ptsRight: THREE.Vector3[] = [];
+    const ptsLeft: THREE.Vector3[] =[];
+    
+    const steps = 100;
+    const minZ = curves.outline[0]![2];
+    const maxZ = curves.outline[curves.outline.length - 1]![2];
+    
+    for(let i=0; i<=steps; i++) {
+        const z = minZ + (maxZ - minZ) * (i/steps);
+        const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, z);
+        ptsRight.push(new THREE.Vector3(profile.halfWidth * scale, profile.apexY * scale, z * scale));
+        ptsLeft.push(new THREE.Vector3(-profile.halfWidth * scale, profile.apexY * scale, z * scale));
+    }
+    
+    const geoRight = new THREE.BufferGeometry().setFromPoints(ptsRight);
+    const geoLeft = new THREE.BufferGeometry().setFromPoints(ptsLeft);
+    
+    const lineRight = new THREE.Line(geoRight, mat);
+    const lineLeft = new THREE.Line(geoLeft, mat);
+    
+    lineRight.renderOrder = 999;
+    lineLeft.renderOrder = 999;
+
+    this.apexLineGroup.add(lineRight, lineLeft);
+    this.apexLineGroup.visible = !!this.boardState?.showApexLine;
   }
 
   private buildSliceLines(curves: BoardCurves, scale: number) {

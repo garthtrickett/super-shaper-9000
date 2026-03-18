@@ -43,6 +43,7 @@ export class BoardControls extends LitElement {
   @property({ type: Boolean }) showGizmos = true;
   @property({ type: Boolean }) showHeatmap = false;
   @property({ type: Boolean }) showZebra = false;
+  @property({ type: Boolean }) showApexLine = false;
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -231,8 +232,8 @@ export class BoardControls extends LitElement {
           Export .s3dx (CNC Ready)
         </button>
 
-        <!-- Diagnostic Toggles (Mutually Exclusive) -->
-        <div class="grid grid-cols-2 gap-2 mb-4">
+        <!-- Diagnostic Toggles -->
+        <div class="grid grid-cols-3 gap-2 mb-4">
           <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showHeatmap ? 'ring-1 ring-orange-500/50' : ''}">
             <div class="flex items-center gap-1.5">
               <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"></path></svg>
@@ -256,6 +257,19 @@ export class BoardControls extends LitElement {
               .checked=${this.showZebra} 
               @change=${(e: Event) => this._dispatchBoolean('showZebra', (e.target as HTMLInputElement).checked)} 
               class="w-3 h-3 accent-white rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
+            />
+          </label>
+
+          <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showApexLine ? 'ring-1 ring-emerald-400/50' : ''}">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M12 12h.01"></path></svg>
+              <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Rail Apex</span>
+            </div>
+            <input 
+              type="checkbox" 
+              .checked=${this.showApexLine} 
+              @change=${(e: Event) => this._dispatchBoolean('showApexLine', (e.target as HTMLInputElement).checked)} 
+              class="w-3 h-3 accent-emerald-400 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
             />
           </label>
         </div>

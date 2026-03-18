@@ -27,6 +27,7 @@ export const BoardModelSchema = S.Struct({
   showGizmos: S.optional(S.Boolean),
   showHeatmap: S.optional(S.Boolean),
   showZebra: S.optional(S.Boolean),
+  showApexLine: S.optional(S.Boolean),
   editMode: S.optional(S.Literal("parametric", "manual")),
   selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
   manualHistory: S.optional(S.Array(S.Unknown)),
@@ -97,6 +98,7 @@ export interface BoardModel {
   showGizmos?: boolean;
   showHeatmap?: boolean;
   showZebra?: boolean;
+  showApexLine?: boolean;
   editMode?: "parametric" | "manual";
   selectedNode?: SelectedNode | null;
   manualHistory?: ManualSnapshot[];
@@ -147,6 +149,7 @@ export const INITIAL_STATE: BoardModel = {
   showGizmos: true,
   showHeatmap: false,
   showZebra: false,
+  showApexLine: false,
   editMode: "parametric",
   selectedNode: null,
   // 65kg Slab-Hunter Specs (Maximum Hold / Weak Paddler)
