@@ -5,7 +5,6 @@ import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
 import { computeBoardMesh } from "./services/rhino-compute";
-import { path } from "path";
 
 export const app = new Elysia()
   .use(cors())
