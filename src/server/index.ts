@@ -1,3 +1,6 @@
+// File: src/server/index.ts
+// ===================================
+
 import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
@@ -48,4 +51,4 @@ app.listen(PORT);
 console.info(`\n🏄‍♂️ Super Shaper API running in ${process.env.NODE_ENV || 'development'} mode`);
 console.info(`🔗 URL: http://${app.server?.hostname}:${app.server?.port}\n`);
 
-export type App = typeof app;>>>>>>> REPLACE
+export type App = typeof app;
