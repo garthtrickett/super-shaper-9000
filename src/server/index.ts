@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
 import { computeBoardMesh } from "./services/rhino-compute";
+import { path } from "path";
 
 export const app = new Elysia()
   .use(cors())
@@ -11,7 +12,8 @@ export const app = new Elysia()
       try {
         const result = await computeBoardMesh(body);
         return { status: "success", data: result };
-      } catch  {
+      } catch (err) {
+        console.error("[Server] Compute Error:", err);
         set.status = 500;
         return { status: "error", message: "Compute failed" };
       }
@@ -23,15 +25,27 @@ export const app = new Elysia()
       tailType: t.String()
     })
   })
+  // Serve static assets from the Vite build directory
   .use(
     staticPlugin({
-      assets: "./dist/assets",
-      prefix: "/assets",
+      assets: "dist",
+      prefix: "/",
     }),
   )
-  .get("*", () => Bun.file("./dist/index.html"));
+  // SPA Fallback: Serve index.html for any route not caught by the above
+  .get("*", ({ set }) => {
+    const file = Bun.file("dist/index.html");
+    if (file.size === 0) {
+        set.status = 404;
+        return "Build artifacts not found. Run 'bun run build' first.";
+    }
+    return file;
+  });
 
-app.listen(42069);
-console.info(`\n🏄‍♂️ Super Shaper API running at http://${app.server?.hostname}:${app.server?.port}\n`);
+const PORT = process.env.PORT || 42069;
+app.listen(PORT);
 
-export type App = typeof app;
+console.info(`\n🏄‍♂️ Super Shaper API running in ${process.env.NODE_ENV || 'development'} mode`);
+console.info(`🔗 URL: http://${app.server?.hostname}:${app.server?.port}\n`);
+
+export type App = typeof app;>>>>>>> REPLACE
