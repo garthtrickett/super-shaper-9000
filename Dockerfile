@@ -1,3 +1,6 @@
+# File: Dockerfile
+# ===================================
+
 # Use the official Bun image
 FROM oven/bun:latest
 
@@ -5,11 +8,11 @@ FROM oven/bun:latest
 WORKDIR /app
 
 # Copy package.json and the lockfile for dependency installation
-# This step is cached unless package.json or bun.lockb changes
+# This step is cached unless package.json or bun.lock changes
 COPY package.json ./
-COPY bun.lockb ./
+COPY bun.lock ./
 
-# Install dependencies. The --frozen-lockfile flag ensures it uses the exact versions from bun.lockb
+# Install dependencies. The --frozen-lockfile flag ensures it uses the exact versions from bun.lock
 RUN bun install --frozen-lockfile
 
 # Copy the rest of your application code
