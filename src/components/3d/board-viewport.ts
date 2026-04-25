@@ -163,6 +163,16 @@ export class BoardViewport extends LitElement {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.15 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
     
+    let activeOutline = curves.outline;
+    let activeRockerTop = curves.rockerTop;
+    let activeRockerBottom = curves.rockerBottom;
+
+    if (this.boardState?.editMode === "manual") {
+      if (this.boardState.manualOutline) activeOutline = this.sampleBezierCurve(this.boardState.manualOutline, 100);
+      if (this.boardState.manualRockerTop) activeRockerTop = this.sampleBezierCurve(this.boardState.manualRockerTop, 100);
+      if (this.boardState.manualRockerBottom) activeRockerBottom = this.sampleBezierCurve(this.boardState.manualRockerBottom, 100);
+    }
+
     const buildLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false, isOutline = false) => {
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(pts.length * 3);
@@ -186,10 +196,10 @@ export class BoardViewport extends LitElement {
         return line;
     };
     
-    this.wireframeGroup.add(buildLine(curves.outline, matOutline, 1, false, true));
-    this.wireframeGroup.add(buildLine(curves.outline, matOutline, 1, true, true));
-    this.wireframeGroup.add(buildLine(curves.rockerTop, matRocker, 2, false, false));
-    this.wireframeGroup.add(buildLine(curves.rockerBottom, matRocker, 2, false, false));
+    this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, true));
+    this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, true));
+    this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, false));
+    this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false, false));
   }
   
   private buildSolidMesh(curves: BoardCurves, _scale: number) {
@@ -246,8 +256,12 @@ export class BoardViewport extends LitElement {
     const ptsLeft: THREE.Vector3[] =[];
     
     const steps = 100;
-    const minZ = curves.outline[0]![2];
-    const maxZ = curves.outline[curves.outline.length - 1]![2];
+    const minZ = this.boardState?.editMode === "manual" && this.boardState.manualOutline 
+      ? this.boardState.manualOutline.controlPoints[0]![2] 
+      : curves.outline[0]![2];
+    const maxZ = this.boardState?.editMode === "manual" && this.boardState.manualOutline 
+      ? this.boardState.manualOutline.controlPoints[this.boardState.manualOutline.controlPoints.length - 1]![2] 
+      : curves.outline[curves.outline.length - 1]![2];
     
     for(let i=0; i<=steps; i++) {
         const z = minZ + (maxZ - minZ) * (i/steps);
