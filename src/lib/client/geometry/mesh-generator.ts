@@ -344,9 +344,13 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
         const v = ringIndex * (segmentsRadial + 1) + j;
         const vNext = ringIndex * (segmentsRadial + 1) + (j + 1);
         if (isNose) {
-            indices.push(centerIdx, vNext, v);
-        } else {
+            // For the nose cap, the normal points -Z. The CCW ring appears clockwise when viewed from the front.
+            // Winding (Center, vNext, v) creates the correct outward-facing normal.
             indices.push(centerIdx, v, vNext);
+        } else {
+            // For the tail cap, the normal points +Z. The ring is CCW when viewed from the back.
+            // Winding (Center, v, vNext) creates an inward normal, so we reverse it.
+            indices.push(centerIdx, vNext, v);
         }
     }
   };
@@ -514,9 +518,13 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
         const v = ringIndex * (segmentsRadial + 1) + j;
         const vNext = ringIndex * (segmentsRadial + 1) + (j + 1);
         if (isNose) {
-            indices.push(centerIdx, vNext, v);
-        } else {
+            // For the nose cap, the normal points -Z. The CCW ring appears clockwise when viewed from the front.
+            // Winding (Center, vNext, v) creates the correct outward-facing normal.
             indices.push(centerIdx, v, vNext);
+        } else {
+            // For the tail cap, the normal points +Z. The ring is CCW when viewed from the back.
+            // Winding (Center, v, vNext) creates an inward normal, so we reverse it.
+            indices.push(centerIdx, vNext, v);
         }
     }
   };
