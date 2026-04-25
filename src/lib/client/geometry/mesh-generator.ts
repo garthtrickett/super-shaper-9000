@@ -347,9 +347,9 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
     const ringStartIdx = vertices.length / 3;
     for (let j = 0; j <= segmentsRadial; j++) {
         const origV = ringIndex * (segmentsRadial + 1) + j;
-        vertices.push(vertices[origV * 3], vertices[origV * 3 + 1], vertices[origV * 3 + 2]);
-        uvs.push(uvs[origV * 2], uvs[origV * 2 + 1]);
-        colors.push(colors[origV * 3], colors[origV * 3 + 1], colors[origV * 3 + 2]);
+        vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
+        uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
+        colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
     }
 
     for (let j = 0; j < segmentsRadial; j++) {
@@ -529,9 +529,9 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     const ringStartIdx = vertices.length / 3;
     for (let j = 0; j <= segmentsRadial; j++) {
         const origV = ringIndex * (segmentsRadial + 1) + j;
-        vertices.push(vertices[origV * 3], vertices[origV * 3 + 1], vertices[origV * 3 + 2]);
-        uvs.push(uvs[origV * 2], uvs[origV * 2 + 1]);
-        colors.push(colors[origV * 3], colors[origV * 3 + 1], colors[origV * 3 + 2]);
+        vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
+        uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
+        colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
     }
 
     for (let j = 0; j < segmentsRadial; j++) {

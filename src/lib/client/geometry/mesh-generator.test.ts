@@ -4,6 +4,7 @@ import { bakeToManual } from "./manual-baker";
 import { generateBoardCurves } from "./board-curves";
 import { INITIAL_STATE, type BoardModel } from "../../../components/pages/board-builder-page.logic";
 import { runClientPromise } from "../runtime";
+import { parseS3dx } from "./s3dx-importer";
 
 describe("MeshGeneratorService", () => {
   it("does not produce NaN or Infinity vertices during manual generation with extreme concaves", () => {

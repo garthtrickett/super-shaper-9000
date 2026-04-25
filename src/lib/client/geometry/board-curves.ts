@@ -168,7 +168,7 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
           return [p[0], p[1], p[2]];
       };
 
-      const distance = (p1: number[], p2: number[]) => Math.hypot(p1[0] - p2[0], p1[1] - p2[1], p1[2] - p2[2]);
+      const distance = (p1:[number, number, number], p2: [number, number, number]) => Math.hypot(p1[0] - p2[0], p1[1] - p2[1], p1[2] - p2[2]);
 
       const subdivide = (t0: number, t1: number, p0:[number, number, number], p1: [number, number, number], depth: number) => {
           const tMid = (t0 + t1) / 2;
