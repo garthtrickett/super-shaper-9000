@@ -36,6 +36,7 @@ export interface ImportedS3dxData {
   outline: BezierCurveData;
   rockerBottom: BezierCurveData;
   rockerTop: BezierCurveData;
+  apexRocker: BezierCurveData; // ✅ NEW: The true apex height curve from the file
   crossSections: BezierCurveData[];
 }
 
@@ -128,6 +129,8 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     const outline = reverseCurve(extractBezier("Otl", true, false));
     const rockerBottom = reverseCurve(extractBezier("StrBot", false, true));
     const rockerTop = reverseCurve(extractBezier("StrDeck", false, true));
+    // ✅ NEW: Extract the Apex curve from the side profile definitions
+    const apexRocker = reverseCurve(extractBezier("curveDefSide2", false, true));
 
     // 4. Extract Cross Sections (Couples)
     const crossSections: BezierCurveData[] =[];
@@ -221,6 +224,7 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       outline,
       rockerBottom,
       rockerTop,
+      apexRocker, // ✅ Pass the new curve data through
       crossSections: cleanCrossSections
     };
   });

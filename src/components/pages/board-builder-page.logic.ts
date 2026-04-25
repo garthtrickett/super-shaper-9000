@@ -35,6 +35,7 @@ export const BoardModelSchema = S.Struct({
   manualOutline: S.optional(BezierCurveSchema),
   manualRockerTop: S.optional(BezierCurveSchema),
   manualRockerBottom: S.optional(BezierCurveSchema),
+  manualApexRocker: S.optional(BezierCurveSchema),
   manualCrossSections: S.optional(S.Array(BezierCurveSchema)),
   length: S.Number,
   width: S.Number,
@@ -91,6 +92,7 @@ export interface ManualSnapshot {
   outline?: BezierCurveData;
   rockerTop?: BezierCurveData;
   rockerBottom?: BezierCurveData;
+  apexRocker?: BezierCurveData;
   crossSections?: BezierCurveData[];
 }
 
@@ -106,6 +108,7 @@ export interface BoardModel {
   manualOutline?: BezierCurveData;
   manualRockerTop?: BezierCurveData;
   manualRockerBottom?: BezierCurveData;
+  manualApexRocker?: BezierCurveData;
   manualCrossSections?: BezierCurveData[];
   length: number;
   width: number;
@@ -198,7 +201,7 @@ export type BoardAction =
   | { type: "UPDATE_VOLUME"; volume: number }
   | { type: "LOAD_DESIGN"; state: BoardModel }
   | { type: "SET_EDIT_MODE"; mode: "parametric" | "manual" }
-  | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; crossSections?: BezierCurveData[] }
+  | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
   | { type: "CONVERT_TO_MANUAL" }
   | { type: "UPDATE_MANUAL_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
   | { type: "SELECT_NODE"; node: SelectedNode | null }
@@ -206,7 +209,7 @@ export type BoardAction =
   | { type: "SAVE_HISTORY_SNAPSHOT" }
   | { type: "UNDO" }
   | { type: "REDO" }
-  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; crossSections: BezierCurveData[] };
+  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[] };
 
 // Helper to push an immutable snapshot to the history stack
 const pushHistory = (currentState: BoardModel): BoardModel => {
@@ -214,6 +217,7 @@ const pushHistory = (currentState: BoardModel): BoardModel => {
     outline: currentState.manualOutline,
     rockerTop: currentState.manualRockerTop,
     rockerBottom: currentState.manualRockerBottom,
+    apexRocker: currentState.manualApexRocker,
     crossSections: currentState.manualCrossSections,
   };
   const currentHistory = currentState.manualHistory || [];
@@ -304,6 +308,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         manualOutline: snap.outline,
         manualRockerTop: snap.rockerTop,
         manualRockerBottom: snap.rockerBottom,
+        manualApexRocker: snap.apexRocker,
         manualCrossSections: snap.crossSections
       };
     }
@@ -317,6 +322,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         manualOutline: snap.outline,
         manualRockerTop: snap.rockerTop,
         manualRockerBottom: snap.rockerBottom,
+        manualApexRocker: snap.apexRocker,
         manualCrossSections: snap.crossSections
       };
     }
@@ -326,6 +332,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         ...(action.outline && { manualOutline: action.outline }),
         ...(action.rockerTop && { manualRockerTop: action.rockerTop }),
         ...(action.rockerBottom && { manualRockerBottom: action.rockerBottom }),
+        ...(action.apexRocker && { manualApexRocker: action.apexRocker }),
         ...(action.crossSections && { manualCrossSections: action.crossSections }),
       };
       // We initialize the first history snapshot immediately upon entering manual mode
@@ -341,6 +348,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         manualOutline: action.outline,
         manualRockerTop: action.rockerTop,
         manualRockerBottom: action.rockerBottom,
+        manualApexRocker: action.apexRocker,
         manualCrossSections: action.crossSections,
       };
       return pushHistory(newState);

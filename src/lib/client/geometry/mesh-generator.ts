@@ -125,10 +125,14 @@ export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInch
     const widthPt = evaluateBezierAtZ(model.manualOutline, zInches);
     const topPt = evaluateBezierAtZ(model.manualRockerTop, zInches);
     const botPt = evaluateBezierAtZ(model.manualRockerBottom, zInches);
-    const thickness = Math.max(0, topPt[1] - botPt[1]);
-    const maxZ = model.manualOutline.controlPoints[model.manualOutline.controlPoints.length - 1]![2];
-    const apexRatio = getParametricApexRatio(zInches, maxZ, model.apexRatio, model.hardEdgeLength);
-    return { topY: topPt[1], botY: botPt[1], apexY: botPt[1] + thickness * apexRatio, halfWidth: widthPt[0] };
+
+    let apexY = botPt[1] + (topPt[1] - botPt[1]) * model.apexRatio; // Fallback
+    if (model.manualApexRocker) {
+      const apexPt = evaluateBezierAtZ(model.manualApexRocker, zInches);
+      apexY = apexPt[1];
+    }
+
+    return { topY: topPt[1], botY: botPt[1], apexY, halfWidth: widthPt[0] };
   }
   
   const topY = getParametricRockerY(zInches, true, curves);
