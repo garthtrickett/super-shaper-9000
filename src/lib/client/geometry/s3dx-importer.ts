@@ -34,9 +34,11 @@ export interface ImportedS3dxData {
   width: number;
   thickness: number;
   outline: BezierCurveData;
+  railOutline: BezierCurveData; // ✅ NEW: Horizontal curve for the rail's bottom edge
+  apexOutline: BezierCurveData; // ✅ NEW: Horizontal curve for the rail's widest point
   rockerBottom: BezierCurveData;
   rockerTop: BezierCurveData;
-  apexRocker: BezierCurveData; // ✅ NEW: The true apex height curve from the file
+  apexRocker: BezierCurveData;
   crossSections: BezierCurveData[];
 }
 
@@ -127,9 +129,10 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     // 3. Extract Main Curves
     // Shape3D stores points from Tail to Nose. SS9000 requires Nose to Tail (increasing Z).
     const outline = reverseCurve(extractBezier("Otl", true, false));
+    const railOutline = reverseCurve(extractBezier("curveDefTop1", true, false));
+    const apexOutline = reverseCurve(extractBezier("curveDefTop2", true, false));
     const rockerBottom = reverseCurve(extractBezier("StrBot", false, true));
     const rockerTop = reverseCurve(extractBezier("StrDeck", false, true));
-    // ✅ NEW: Extract the Apex curve from the side profile definitions
     const apexRocker = reverseCurve(extractBezier("curveDefSide2", false, true));
 
     // 4. Extract Cross Sections (Couples)
@@ -222,9 +225,11 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       width: widthInches,
       thickness: thicknessInches,
       outline,
+      railOutline,
+      apexOutline,
       rockerBottom,
       rockerTop,
-      apexRocker, // ✅ Pass the new curve data through
+      apexRocker,
       crossSections: cleanCrossSections
     };
   });

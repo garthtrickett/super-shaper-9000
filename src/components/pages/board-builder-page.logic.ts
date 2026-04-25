@@ -33,6 +33,8 @@ export const BoardModelSchema = S.Struct({
   manualHistory: S.optional(S.Array(S.Unknown)),
   historyIndex: S.optional(S.Number),
   manualOutline: S.optional(BezierCurveSchema),
+  manualRailOutline: S.optional(BezierCurveSchema),
+  manualApexOutline: S.optional(BezierCurveSchema),
   manualRockerTop: S.optional(BezierCurveSchema),
   manualRockerBottom: S.optional(BezierCurveSchema),
   manualApexRocker: S.optional(BezierCurveSchema),
@@ -90,6 +92,8 @@ export type SelectedNode = {
 
 export interface ManualSnapshot {
   outline?: BezierCurveData;
+  railOutline?: BezierCurveData;
+  apexOutline?: BezierCurveData;
   rockerTop?: BezierCurveData;
   rockerBottom?: BezierCurveData;
   apexRocker?: BezierCurveData;
@@ -106,6 +110,8 @@ export interface BoardModel {
   manualHistory?: ManualSnapshot[];
   historyIndex?: number;
   manualOutline?: BezierCurveData;
+  manualRailOutline?: BezierCurveData;
+  manualApexOutline?: BezierCurveData;
   manualRockerTop?: BezierCurveData;
   manualRockerBottom?: BezierCurveData;
   manualApexRocker?: BezierCurveData;
@@ -201,7 +207,7 @@ export type BoardAction =
   | { type: "UPDATE_VOLUME"; volume: number }
   | { type: "LOAD_DESIGN"; state: BoardModel }
   | { type: "SET_EDIT_MODE"; mode: "parametric" | "manual" }
-  | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
+  | { type: "SET_MANUAL_CURVES"; outline?: BezierCurveData; railOutline?: BezierCurveData; apexOutline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
   | { type: "CONVERT_TO_MANUAL" }
   | { type: "UPDATE_MANUAL_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
   | { type: "SELECT_NODE"; node: SelectedNode | null }
@@ -209,12 +215,14 @@ export type BoardAction =
   | { type: "SAVE_HISTORY_SNAPSHOT" }
   | { type: "UNDO" }
   | { type: "REDO" }
-  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[] };
+  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[] };
 
 // Helper to push an immutable snapshot to the history stack
 const pushHistory = (currentState: BoardModel): BoardModel => {
   const snapshot: ManualSnapshot = {
     outline: currentState.manualOutline,
+    railOutline: currentState.manualRailOutline,
+    apexOutline: currentState.manualApexOutline,
     rockerTop: currentState.manualRockerTop,
     rockerBottom: currentState.manualRockerBottom,
     apexRocker: currentState.manualApexRocker,
@@ -306,6 +314,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         ...state,
         historyIndex: newIndex,
         manualOutline: snap.outline,
+        manualRailOutline: snap.railOutline,
+        manualApexOutline: snap.apexOutline,
         manualRockerTop: snap.rockerTop,
         manualRockerBottom: snap.rockerBottom,
         manualApexRocker: snap.apexRocker,
@@ -320,6 +330,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         ...state,
         historyIndex: newIndex,
         manualOutline: snap.outline,
+        manualRailOutline: snap.railOutline,
+        manualApexOutline: snap.apexOutline,
         manualRockerTop: snap.rockerTop,
         manualRockerBottom: snap.rockerBottom,
         manualApexRocker: snap.apexRocker,
@@ -330,6 +342,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       const newState = {
         ...state,
         ...(action.outline && { manualOutline: action.outline }),
+        ...(action.railOutline && { manualRailOutline: action.railOutline }),
+        ...(action.apexOutline && { manualApexOutline: action.apexOutline }),
         ...(action.rockerTop && { manualRockerTop: action.rockerTop }),
         ...(action.rockerBottom && { manualRockerBottom: action.rockerBottom }),
         ...(action.apexRocker && { manualApexRocker: action.apexRocker }),
@@ -346,6 +360,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         width: action.width,
         thickness: action.thickness,
         manualOutline: action.outline,
+        manualRailOutline: action.railOutline,
+        manualApexOutline: action.apexOutline,
         manualRockerTop: action.rockerTop,
         manualRockerBottom: action.rockerBottom,
         manualApexRocker: action.apexRocker,
