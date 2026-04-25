@@ -43,8 +43,14 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
   Effect.gen(function* () {
     yield* clientLog("info", "[s3dx-importer] Starting XML parsing");
 
+    // Shape3D outputs illegal XML tags (e.g. <Ref. point>) which the browser's DOMParser rejects.
+    // We must sanitize these known invalid tags before parsing to make it strictly valid XML.
+    const sanitizedXml = xmlString
+      .replace(/<Ref\. point>/g, "<Ref_point>")
+      .replace(/<\/Ref\. point>/g, "</Ref_point>");
+
     const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlString, "application/xml");
+    const doc = parser.parseFromString(sanitizedXml, "application/xml");
 
     // Check for parsing errors
     const parserError = doc.querySelector("parsererror");
