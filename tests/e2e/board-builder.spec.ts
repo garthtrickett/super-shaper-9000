@@ -21,6 +21,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // We just verify the HUD renders a valid floating point number.
     await expect(boardControls.getByText(/\d+\.\d+/).first()).toBeVisible();
 
+    // 3.5. Verify Flip Board button is available and works
+    const flipBtn = page.locator('button[title*="Flip"]');
+    await expect(flipBtn).toBeVisible();
+    await flipBtn.click(); // Flip to bottom
+    await flipBtn.click(); // Flip back to top
+
     // 4. Click "Unlock Manual Sculpting"
     const unlockBtn = boardControls.getByRole('button', { name: /Unlock Manual Sculpting/i });
     await expect(unlockBtn).toBeVisible();

@@ -16,7 +16,10 @@ test.describe('Quad Viewport CAD Interface', () => {
   test('should render the four-quadrant layout', async ({ page }) => {
     // Bumping tolerance slightly because high-frequency grid lines and text sprites 
     // cause anti-aliasing variations between GPU (headed) and CPU (headless) rendering.
-    await expect(page).toHaveScreenshot('quad-view-baseline.png', { maxDiffPixels: 2500 });
+    await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
+      maxDiffPixels: 2500,
+      mask:[page.locator('button[title*="Flip"]')]
+    });
   });
 
   test('should only allow camera orbiting in the perspective view', async ({ page }) => {
@@ -35,7 +38,10 @@ test.describe('Quad Viewport CAD Interface', () => {
     await page.mouse.up();
     await page.waitForTimeout(500); // Wait for momentum to settle
 
-    await expect(page).toHaveScreenshot('quad-view-no-rotation.png', { maxDiffPixels: 2500 });
+    await expect(page).toHaveScreenshot('quad-view-no-rotation.png', { 
+      maxDiffPixels: 2500,
+      mask: [page.locator('button[title*="Flip"]')]
+    });
 
     // --- 2. Drag in the 3D view (Top Right) and verify rotation DOES occur ---
     await page.mouse.move(topRight.x, topRight.y);
@@ -45,7 +51,9 @@ test.describe('Quad Viewport CAD Interface', () => {
     await page.waitForTimeout(500); // Wait for orbit controls to settle
 
     // Compare against the *un-rotated* screenshot. They should NOT match.
-    await expect(page).not.toHaveScreenshot('quad-view-no-rotation.png');
+    await expect(page).not.toHaveScreenshot('quad-view-no-rotation.png', {
+      mask: [page.locator('button[title*="Flip"]')]
+    });
   });
 
   test('should update 3D model when dragging a gizmo in a 2D view', async ({ page }) => {
@@ -59,7 +67,10 @@ test.describe('Quad Viewport CAD Interface', () => {
     expect(box).toBeDefined();
 
     // Take a screenshot of the initial manual state before we drag anything
-    await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { maxDiffPixels: 2500 });
+    await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { 
+      maxDiffPixels: 2500,
+      mask: [page.locator('button[title*="Flip"]')]
+    });
 
     // --- 2. Dynamically locate the 3D Gizmo from the application state ---
     // This perfectly calculates the projection matrix equivalent to find the 2px sphere.
@@ -128,7 +139,9 @@ test.describe('Quad Viewport CAD Interface', () => {
     await page.waitForTimeout(500);
 
     // 4. Now assert the screenshot (will pass instantly without looping)
-    await expect(page).not.toHaveScreenshot('quad-view-gizmos-initial.png');
+    await expect(page).not.toHaveScreenshot('quad-view-gizmos-initial.png', {
+      mask: [page.locator('button[title*="Flip"]')]
+    });
   });
 
   test('should dynamically update dimension annotations when parametric sliders change', async ({ page }) => {

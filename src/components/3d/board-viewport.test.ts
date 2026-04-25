@@ -16,6 +16,26 @@ describe("BoardViewport (3D Component)", () => {
   });
 
   describe("Camera & Viewport Controls", () => {
+    it("flips the board container when Flip button is clicked", async () => {
+      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
+
+      const buttons = Array.from(el.querySelectorAll('button'));
+      const flipBtn = buttons.find(b => b.title?.includes('Flip'));
+      expect(flipBtn).to.exist;
+
+      // Initial state
+      expect((el as any).isFlipped).to.be.false;
+      expect((el as any).boardContainer.rotation.z).to.equal(0);
+
+      // Click flip
+      flipBtn!.click();
+      await el.updateComplete;
+
+      // Flipped state
+      expect((el as any).isFlipped).to.be.true;
+      expect((el as any).boardContainer.rotation.z).to.equal(Math.PI);
+    });
+
     it("renders camera toggles only in manual edit mode", async () => {
       // Parametric Mode
       let el = await fixture<BoardViewport>(html`<board-viewport .boardState=${{ ...INITIAL_STATE, editMode: 'parametric' }}></board-viewport>`);
