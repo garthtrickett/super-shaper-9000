@@ -49,7 +49,12 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     // Check for parsing errors
     const parserError = doc.querySelector("parsererror");
     if (parserError) {
-      yield* Effect.fail(new Error("Invalid XML format"));
+      const errorMsg = parserError.textContent || "Unknown parsing error";
+      yield* clientLog("error", "[s3dx-importer] XML Parsing Failed", {
+        error: errorMsg,
+        snippet: xmlString.substring(0, 200)
+      });
+      yield* Effect.fail(new Error(`Invalid XML format: ${errorMsg}`));
     }
 
     // 1. Extract Metadata Dimensions (Stored in cm, need to convert to inches)
