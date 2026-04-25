@@ -147,9 +147,22 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     // Sort cross sections from Nose to Tail (increasing Z)
     crossSections.sort((a, b) => (a.controlPoints[0]?.[2] || 0) - (b.controlPoints[0]?.[2] || 0));
 
+    // Filter out microscopic slices at the absolute tips (nose/tail)
+    // that cause interpolation math to explode during mesh generation.
+    const cleanCrossSections = crossSections.filter((slice) => {
+      // Calculate slice half-width (max X coordinate)
+      const xs = slice.controlPoints.map(p => p[0]);
+      const halfWidth = Math.max(...xs);
+      
+      // If the slice is narrower than ~0.25 inches, it's a microscopic tip cap.
+      // Discard it so the mesh generator can interpolate naturally to a point.
+      return halfWidth > 0.25;
+    });
+
     yield* clientLog("info", "[s3dx-importer] Successfully extracted curves", {
       outlinePoints: outline.controlPoints.length,
-      crossSections: crossSections.length
+      crossSections: cleanCrossSections.length,
+      strippedSlices: crossSections.length - cleanCrossSections.length
     });
 
     return {
@@ -159,6 +172,6 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       outline,
       rockerBottom,
       rockerTop,
-      crossSections
+      crossSections: cleanCrossSections
     };
   });

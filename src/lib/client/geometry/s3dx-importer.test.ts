@@ -145,8 +145,9 @@ describe("S3DX Importer", () => {
       expect(result.rockerBottom.controlPoints.length).to.equal(3);
       expect(result.rockerTop.controlPoints.length).to.equal(3);
       
-      // It has 8 cross-section couples, sorted from Nose to Tail
-      expect(result.crossSections.length).to.equal(8);
+      // It has 8 cross-section couples originally, but the microscopic nose slice (< 0.25" half-width) is stripped.
+      // So we expect 7 slices, sorted from Nose to Tail.
+      expect(result.crossSections.length).to.equal(7);
       expect(result.crossSections[0]!.controlPoints[0]![2]).to.be.lessThan(0);
     });
 
