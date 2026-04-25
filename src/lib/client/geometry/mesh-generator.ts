@@ -21,7 +21,7 @@ const colorHeatmap = (normalizedValue: number): [number, number, number] => {
     if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
     return p;
   };
-  return[hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
+  return [hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
 };
 
 // --- BEZIER EVALUATION HELPERS ---
@@ -45,7 +45,7 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const uuu = uu * u;
   const ttt = tt * localT;
   
-  return[
+  return [
     uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0],
     uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1],
     uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2]
@@ -53,12 +53,9 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
 };
 
 const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): Point3D => {
-  // Fast path for exact endpoints. 
-  // This is critical for S3DX files where outline curves end with perfectly horizontal tangents (squash tail corners).
-  // The binary search cannot reliably resolve these "hooks", causing massive width scaling bugs at the tips.
   const firstPt = bezier.controlPoints[0];
   const lastPt = bezier.controlPoints[bezier.controlPoints.length - 1];
-  if (firstPt && Math.abs(targetZ - firstPt[2]) < 0.001) return[...firstPt];
+  if (firstPt && Math.abs(targetZ - firstPt[2]) < 0.001) return [...firstPt];
   if (lastPt && Math.abs(targetZ - lastPt[2]) < 0.001) return [...lastPt];
 
   let t0 = 0; let t1 = 1;
@@ -123,16 +120,24 @@ export const getParametricApexRatio = (zInches: number, maxZ: number, apexRatio:
 export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInches: number) => {
   if (model.editMode === "manual" && model.manualOutline && model.manualRockerTop && model.manualRockerBottom) {
     const widthPt = evaluateBezierAtZ(model.manualOutline, zInches);
+    const apexWidthPt = model.manualApexOutline ? evaluateBezierAtZ(model.manualApexOutline, zInches) : widthPt;
+
     const topPt = evaluateBezierAtZ(model.manualRockerTop, zInches);
     const botPt = evaluateBezierAtZ(model.manualRockerBottom, zInches);
 
-    let apexY = botPt[1] + (topPt[1] - botPt[1]) * model.apexRatio; // Fallback
+    let apexY = botPt[1] + (topPt[1] - botPt[1]) * model.apexRatio; 
     if (model.manualApexRocker) {
       const apexPt = evaluateBezierAtZ(model.manualApexRocker, zInches);
       apexY = apexPt[1];
     }
 
-    return { topY: topPt[1], botY: botPt[1], apexY, halfWidth: widthPt[0] };
+    return { 
+        topY: topPt[1], 
+        botY: botPt[1], 
+        apexY, 
+        halfWidth: widthPt[0],
+        apexHalfWidth: apexWidthPt[0]
+    };
   }
   
   const topY = getParametricRockerY(zInches, true, curves);
@@ -141,7 +146,7 @@ export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInch
   const thickness = Math.max(0, topY - botY);
   const maxZ = curves.outline.length > 0 ? curves.outline[curves.outline.length - 1]![2] : 0;
   const apexRatio = getParametricApexRatio(zInches, maxZ, model.apexRatio, model.hardEdgeLength);
-  return { topY, botY, apexY: botY + thickness * apexRatio, halfWidth };
+  return { topY, botY, apexY: botY + thickness * apexRatio, halfWidth, apexHalfWidth: halfWidth };
 };
 
 export const calculateBottomContourOffset = (model: BoardModel, nz: number, tailDist: number, nx: number, widthFade: number) => {
@@ -216,7 +221,7 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
 
   const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
   let contourOffset = calculateBottomContourOffset(model, nz, tailDist, nx, widthFade);
-  contourOffset *= abs_cy; // fade to 0 at rail
+  contourOffset *= abs_cy; 
   py += contourOffset;
 
   const MIN_CORE_THICKNESS = 0.05;
@@ -272,6 +277,25 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
   const minZ = curves.outline[0]![2];
   const maxZ = curves.outline[segmentsZ - 1]![2];
   const totalZ = maxZ - minZ;
+
+  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
+    const originalRingStart = ringIndex * (segmentsRadial + 1);
+    const newRingStart = vertices.length / 3;
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const origV = originalRingStart + j;
+      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
+      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
+      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
+    }
+
+    const fanCenterIdx = newRingStart + 27; 
+    for (let j = 0; j < segmentsRadial; j++) {
+      const p1 = newRingStart + j;
+      const p2 = newRingStart + j + 1;
+      if (isNose) indices.push(fanCenterIdx, p1, p2);
+      else indices.push(fanCenterIdx, p2, p1);
+    }
+  };
 
   for (let i = 0; i < segmentsZ; i++) {
     const p = curves.outline[i]!;
@@ -344,37 +368,6 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
     }
   }
 
-  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
-    // Step 1: Duplicate the final ring of vertices to create a hard edge for normals.
-    const originalRingStart = ringIndex * (segmentsRadial + 1);
-    const newRingStart = vertices.length / 3;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const origV = originalRingStart + j;
-      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
-      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
-      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
-    }
-
-    // Step 2: Create a true "end cap" by fanning triangles from the bottom stringer point.
-    // This preserves the shape of wide tails instead of pinching them to a point.
-    const fanCenterIdx = newRingStart + 27; // j=27 corresponds to the bottom center vertex.
-    for (let j = 0; j < segmentsRadial; j++) {
-      const p1 = newRingStart + j;
-      const p2 = newRingStart + j + 1;
-
-      if (isNose) {
-        // Clockwise winding for nose cap (viewed from front)
-        indices.push(fanCenterIdx, p1, p2);
-      } else {
-        // Counter-clockwise for tail cap (viewed from back)
-        indices.push(fanCenterIdx, p2, p1);
-      }
-    }
-  };
-  // which causes dark "X" creases at the nose and tail.
-
-  // --- Tip Collapse Logic ---
-  // If the nose/tail is a point, collapse the final vertex ring to a single point for a smooth finish.
   const noseWidth = getParametricOutlineWidth(minZ, curves);
   if (noseWidth < 0.1) {
     const noseTopY = getParametricRockerY(minZ, true, curves);
@@ -428,6 +421,25 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
   const totalZ = maxZ - minZ;
 
+  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
+    const originalRingStart = ringIndex * (segmentsRadial + 1);
+    const newRingStart = vertices.length / 3;
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const origV = originalRingStart + j;
+      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
+      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
+      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
+    }
+
+    const fanCenterIdx = newRingStart + 27; 
+    for (let j = 0; j < segmentsRadial; j++) {
+      const p1 = newRingStart + j;
+      const p2 = newRingStart + j + 1;
+      if (isNose) indices.push(fanCenterIdx, p1, p2);
+      else indices.push(fanCenterIdx, p2, p1);
+    }
+  };
+
   for (let i = 0; i < segmentsZ; i++) {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
@@ -435,10 +447,9 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
     const { topY, botY, halfWidth } = profile;
 
-    // --- Tip Relaxation Logic ---
     const noseDist = zInches - minZ;
     const tailDist = maxZ - zInches;
-    const relaxZone = 2.0; // Blend to a perfect ellipse over the last 2 inches
+    const relaxZone = 2.0; 
     let relaxFactor = 0;
     if (noseDist < relaxZone && relaxZone > 0) {
       relaxFactor = 1.0 - noseDist / relaxZone;
@@ -446,12 +457,12 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       relaxFactor = 1.0 - tailDist / relaxZone;
     }
 
-    let s0 = crossSections[0]!;
-    let s1 = crossSections[crossSections.length - 1]!;
+    let s0 = crossSections[0]! || { controlPoints: [] };
+    let s1 = crossSections[crossSections.length - 1]! || { controlPoints: [] };
     let lerpFactor = 0;
 
-    const firstZ = crossSections[0]!.controlPoints[0]![2];
-    const lastZ = crossSections[crossSections.length - 1]!.controlPoints[0]![2];
+    const firstZ = crossSections[0]?.controlPoints[0]?.[2] ?? minZ;
+    const lastZ = crossSections[crossSections.length - 1]?.controlPoints[0]?.[2] ?? maxZ;
 
     if (zInches <= firstZ) {
       s0 = crossSections[0]!;
@@ -487,7 +498,12 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const rawX = pA[0] + (pB[0] - pA[0]) * lerpFactor;
       const rawY = pA[1] + (pB[1] - pA[1]) * lerpFactor;
 
-      const sliceWidth = s0.controlPoints[2]![0] + (s1.controlPoints[2]![0] - s0.controlPoints[2]![0]) * lerpFactor;
+      const s0_apex_w = s0.controlPoints[2]![0];
+      const s1_apex_w = s1.controlPoints[2]![0];
+      const sliceApexWidth = s0_apex_w + (s1_apex_w - s0_apex_w) * lerpFactor;
+      const scaleFactor = Math.abs(sliceApexWidth) > 1e-6 ? profile.apexHalfWidth / sliceApexWidth : 0;
+      const px_manual = (isRightSide ? 1 : -1) * rawX * scaleFactor;
+
       const s0Top = Math.max(...s0.controlPoints.map(p => p[1]));
       const s1Top = Math.max(...s1.controlPoints.map(p => p[1]));
       const sliceTop = s0Top + (s1Top - s0Top) * lerpFactor;
@@ -497,14 +513,10 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const sliceThickness = sliceTop - sliceBot;
       const currentThickness = topY - botY;
 
-      let px_manual = 0;
-      if (Math.abs(sliceWidth) > 1e-6) {
-        px_manual = (isRightSide ? 1 : -1) * (rawX / sliceWidth) * halfWidth;
-      }
-
       let py_manual = botY + currentThickness / 2;
       if (Math.abs(sliceThickness) > 1e-6) {
-        py_manual = botY + ((rawY - sliceBot) / sliceThickness) * currentThickness;
+          const normY = (rawY - sliceBot) / sliceThickness;
+          py_manual = botY + normY * currentThickness;
       }
 
       let px = px_manual;
@@ -532,7 +544,8 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
 
       let pyOpp = botY + currentThickness / 2;
       if (Math.abs(sliceThickness) > 1e-6) {
-        pyOpp = botY + ((rawYOpp - sliceBot) / sliceThickness) * currentThickness;
+          const normYOpp = (rawYOpp - sliceBot) / sliceThickness;
+          pyOpp = botY + normYOpp * currentThickness;
       }
 
       const localThickness = Math.abs(py - pyOpp);
@@ -556,35 +569,6 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
-    // Step 1: Duplicate the final ring of vertices to create a hard edge for normals.
-    const originalRingStart = ringIndex * (segmentsRadial + 1);
-    const newRingStart = vertices.length / 3;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const origV = originalRingStart + j;
-      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
-      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
-      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
-    }
-
-    // Step 2: Create a true "end cap" by fanning triangles from the bottom stringer point.
-    // This preserves the shape of wide tails instead of pinching them to a point.
-    const fanCenterIdx = newRingStart + 27; // j=27 corresponds to the bottom center vertex.
-    for (let j = 0; j < segmentsRadial; j++) {
-      const p1 = newRingStart + j;
-      const p2 = newRingStart + j + 1;
-
-      if (isNose) {
-        // Clockwise winding for nose cap (viewed from front)
-        indices.push(fanCenterIdx, p1, p2);
-      } else {
-        // Counter-clockwise for tail cap (viewed from back)
-        indices.push(fanCenterIdx, p2, p1);
-      }
-    }
-  };
-
-  // --- Tip Collapse & End Cap Logic ---
   const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, minZ);
   if (noseProfile.halfWidth < 0.1) {
     const centerY = ((noseProfile.topY + noseProfile.botY) / 2) * scale;

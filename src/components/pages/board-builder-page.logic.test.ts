@@ -150,8 +150,11 @@ describe("Board Builder State & Kinematic Logic", () => {
         width: 20,
         thickness: 3,
         outline: mockCurve,
+        railOutline: mockCurve,
+        apexOutline: mockCurve,
         rockerTop: mockCurve,
         rockerBottom: mockCurve,
+        apexRocker: mockCurve,
         crossSections: [mockCurve]
       };
       const newState = update(INITIAL_STATE, action);
