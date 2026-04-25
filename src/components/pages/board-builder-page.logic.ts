@@ -205,7 +205,8 @@ export type BoardAction =
   | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }
   | { type: "SAVE_HISTORY_SNAPSHOT" }
   | { type: "UNDO" }
-  | { type: "REDO" };
+  | { type: "REDO" }
+  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; crossSections: BezierCurveData[] };
 
 // Helper to push an immutable snapshot to the history stack
 const pushHistory = (currentState: BoardModel): BoardModel => {
@@ -330,6 +331,20 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       // We initialize the first history snapshot immediately upon entering manual mode
       return pushHistory(newState);
     }
+    case "IMPORT_S3DX": {
+      const newState = {
+        ...state,
+        editMode: "manual" as const,
+        length: action.length,
+        width: action.width,
+        thickness: action.thickness,
+        manualOutline: action.outline,
+        manualRockerTop: action.rockerTop,
+        manualRockerBottom: action.rockerBottom,
+        manualCrossSections: action.crossSections,
+      };
+      return pushHistory(newState);
+    }
     case "CONVERT_TO_MANUAL":
       // Handled asynchronously in the handleAction effect
       return state;
@@ -441,6 +456,13 @@ export const handleAction = (
     
     if (action.type === "SET_EDIT_MODE") {
       yield* clientLog("info", `[BoardBuilder] Edit mode changed to ${action.mode}`);
+    }
+    if (action.type === "IMPORT_S3DX") {
+      yield* clientLog("info", "[BoardBuilder] Imported S3DX file and switched to manual mode", {
+        length: action.length,
+        width: action.width,
+        thickness: action.thickness
+      });
     }
     if (action.type === "SET_MANUAL_CURVES") {
       yield* clientLog("info", "[BoardBuilder] Manual curves have been baked into state", {
