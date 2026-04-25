@@ -53,6 +53,52 @@ describe("MeshGeneratorService", () => {
     expect(hasInvalidNumber).to.be.false;
   });
 
+  describe("Imported S3DX Edge Cases", () => {
+    it("does not create a vertical bowtie (crease) at the tail for WitcherDaily", async () => {
+      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+      const xml = await response.text();
+      const importedData = await runClientPromise(parseS3dx(xml));
+      
+      const manualState: BoardModel = {
+        ...INITIAL_STATE,
+        editMode: "manual",
+        length: importedData.length,
+        width: importedData.width,
+        thickness: importedData.thickness,
+        manualOutline: importedData.outline,
+        manualRockerTop: importedData.rockerTop,
+        manualRockerBottom: importedData.rockerBottom,
+        manualCrossSections: importedData.crossSections
+      };
+
+      const mesh = MeshGeneratorService.generateMesh(manualState, {
+        outline: [], rockerTop: [], rockerBottom:[]
+      });
+
+      // Test the vertical bowtie assertion
+      const segmentsZ = 150;
+      const segmentsRadial = 36;
+      
+      let invertedCount = 0;
+
+      for (let i = 0; i < segmentsZ; i++) {
+        for (let j = 0; j <= 18; j++) {
+          const topIdx = i * (segmentsRadial + 1) + j;
+          const botIdx = i * (segmentsRadial + 1) + (36 - j);
+          
+          const topY = mesh.vertices[topIdx * 3 + 1]!;
+          const botY = mesh.vertices[botIdx * 3 + 1]!;
+          
+          if (botY > topY + 0.001) { // 0.001 tolerance for floating point
+            invertedCount++;
+          }
+        }
+      }
+      
+      expect(invertedCount).to.equal(0, `Found ${invertedCount} inverted vertex pairs (Deck Y < Bottom Y)`);
+    });
+  });
+
   describe("Contour Compositing", () => {
     it("yields 0 offset for flat bottom contour", () => {
       const model: BoardModel = { ...INITIAL_STATE, bottomContour: "flat" };

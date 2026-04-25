@@ -438,17 +438,17 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const rawY = pA[1] + (pB[1] - pA[1]) * lerpFactor;
 
       const sliceWidth = s0.controlPoints[2]![0] + (s1.controlPoints[2]![0] - s0.controlPoints[2]![0]) * lerpFactor;
-      const sliceTop = s0.controlPoints[4]![1] + (s1.controlPoints[4]![1] - s0.controlPoints[4]![1]) * lerpFactor;
       
-      // Reconstruct true un-concaved botY using apex math to prevent concave from compressing the normalization space
-      const maxZ_outline = outline.controlPoints[outline.controlPoints.length - 1]![2];
-      const apexRatio0 = getParametricApexRatio(s0.controlPoints[0]![2], maxZ_outline, model.apexRatio, model.hardEdgeLength);
-      const s0Bot = (s0.controlPoints[2]![1] - s0.controlPoints[4]![1] * apexRatio0) / (1 - apexRatio0);
+      // Use the actual bounding box of the manual slices to normalize vertical space.
+      // This prevents mathematical explosions if the user's manual apex ratio differs heavily from the parametric ratio.
+      const s0Top = Math.max(...s0.controlPoints.map(p => p[1]));
+      const s1Top = Math.max(...s1.controlPoints.map(p => p[1]));
+      const sliceTop = s0Top + (s1Top - s0Top) * lerpFactor;
       
-      const apexRatio1 = getParametricApexRatio(s1.controlPoints[0]![2], maxZ_outline, model.apexRatio, model.hardEdgeLength);
-      const s1Bot = (s1.controlPoints[2]![1] - s1.controlPoints[4]![1] * apexRatio1) / (1 - apexRatio1);
-      
+      const s0Bot = Math.min(...s0.controlPoints.map(p => p[1]));
+      const s1Bot = Math.min(...s1.controlPoints.map(p => p[1]));
       const sliceBot = s0Bot + (s1Bot - s0Bot) * lerpFactor;
+      
       const sliceThickness = sliceTop - sliceBot;
       // Clamp normalization to prevent "Infinity" spikes when width shrinks to 0 at the nose/tail
       let px = 0;
