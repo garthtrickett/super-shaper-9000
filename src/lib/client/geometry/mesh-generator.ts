@@ -370,14 +370,37 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
         }
     }
   };
+  // which causes dark "X" creases at the nose and tail.
 
+  // --- Tip Collapse Logic ---
+  // If the nose/tail is a point, collapse the final vertex ring to a single point for a smooth finish.
   const noseWidth = getParametricOutlineWidth(minZ, curves);
-  if (noseWidth > 0.01) {
-      buildEndCap(true, 0, minZ, getParametricRockerY(minZ, true, curves), getParametricRockerY(minZ, false, curves));
+  if (noseWidth < 0.1) {
+    const noseTopY = getParametricRockerY(minZ, true, curves);
+    const noseBotY = getParametricRockerY(minZ, false, curves);
+    const centerY = ((noseTopY + noseBotY) / 2) * scale;
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const idx = j * 3;
+      vertices[idx] = 0;
+      vertices[idx + 1] = centerY;
+    }
+  } else {
+    buildEndCap(true, 0, minZ, getParametricRockerY(minZ, true, curves), getParametricRockerY(minZ, false, curves));
   }
+
   const tailWidth = getParametricOutlineWidth(maxZ, curves);
-  if (tailWidth > 0.01) {
-      buildEndCap(false, segmentsZ - 1, maxZ, getParametricRockerY(maxZ, true, curves), getParametricRockerY(maxZ, false, curves));
+  if (tailWidth < 0.1) {
+    const tailTopY = getParametricRockerY(maxZ, true, curves);
+    const tailBotY = getParametricRockerY(maxZ, false, curves);
+    const centerY = ((tailTopY + tailBotY) / 2) * scale;
+    const ringIndex = segmentsZ - 1;
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const idx = (ringIndex * (segmentsRadial + 1) + j) * 3;
+      vertices[idx] = 0;
+      vertices[idx + 1] = centerY;
+    }
+  } else {
+    buildEndCap(false, segmentsZ - 1, maxZ, getParametricRockerY(maxZ, true, curves), getParametricRockerY(maxZ, false, curves));
   }
 
   return {
@@ -560,12 +583,29 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     }
   };
 
+  // --- Tip Collapse & End Cap Logic ---
   const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, minZ);
-  if (noseProfile.halfWidth > 0.01) {
+  if (noseProfile.halfWidth < 0.1) {
+    const centerY = ((noseProfile.topY + noseProfile.botY) / 2) * scale;
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const idx = j * 3;
+      vertices[idx] = 0;
+      vertices[idx + 1] = centerY;
+    }
+  } else {
     buildEndCap(true, 0, minZ, noseProfile.topY, noseProfile.botY);
   }
+
   const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, maxZ);
-  if (tailProfile.halfWidth > 0.01) {
+  if (tailProfile.halfWidth < 0.1) {
+    const centerY = ((tailProfile.topY + tailProfile.botY) / 2) * scale;
+    const ringIndex = segmentsZ - 1;
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const idx = (ringIndex * (segmentsRadial + 1) + j) * 3;
+      vertices[idx] = 0;
+      vertices[idx + 1] = centerY;
+    }
+  } else {
     buildEndCap(false, segmentsZ - 1, maxZ, tailProfile.topY, tailProfile.botY);
   }
 
