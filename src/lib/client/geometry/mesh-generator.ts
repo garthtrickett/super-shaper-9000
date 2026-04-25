@@ -340,34 +340,31 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
     }
   }
 
-  const buildEndCap = (isNose: boolean, ringIndex: number, zInches: number, topY: number, botY: number) => {
-    const centerY = (topY + botY) / 2;
-    const centerIdx = vertices.length / 3;
-    vertices.push(0, centerY * scale, zInches * scale);
-    uvs.push(0.5, isNose ? 0 : 1);
-    const normT = Math.max(0, Math.min(1, Math.abs(topY - botY) / model.thickness));
-    const[r, g, b] = colorHeatmap(normT);
-    colors.push(r, g, b);
-    
-    // Duplicate the ring vertices to ensure the end cap has independent, flat normals
-    // This prevents Three.js from smoothing the normals across the 90-degree rail edge, 
-    // which causes dark "X" creases at the nose and tail.
-    const ringStartIdx = vertices.length / 3;
+  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
+    // Step 1: Duplicate the final ring of vertices to create a hard edge for normals.
+    const originalRingStart = ringIndex * (segmentsRadial + 1);
+    const newRingStart = vertices.length / 3;
     for (let j = 0; j <= segmentsRadial; j++) {
-        const origV = ringIndex * (segmentsRadial + 1) + j;
-        vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
-        uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
-        colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
+      const origV = originalRingStart + j;
+      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
+      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
+      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
     }
 
+    // Step 2: Create a true "end cap" by fanning triangles from the bottom stringer point.
+    // This preserves the shape of wide tails instead of pinching them to a point.
+    const fanCenterIdx = newRingStart + 27; // j=27 corresponds to the bottom center vertex.
     for (let j = 0; j < segmentsRadial; j++) {
-        const v = ringStartIdx + j;
-        const vNext = ringStartIdx + (j + 1);
-        if (isNose) {
-            indices.push(centerIdx, v, vNext);
-        } else {
-            indices.push(centerIdx, vNext, v);
-        }
+      const p1 = newRingStart + j;
+      const p2 = newRingStart + j + 1;
+
+      if (isNose) {
+        // Clockwise winding for nose cap (viewed from front)
+        indices.push(fanCenterIdx, p1, p2);
+      } else {
+        // Counter-clockwise for tail cap (viewed from back)
+        indices.push(fanCenterIdx, p2, p1);
+      }
     }
   };
   // which causes dark "X" creases at the nose and tail.
@@ -555,30 +552,30 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  const buildEndCap = (isNose: boolean, ringIndex: number, zInches: number, topY: number, botY: number) => {
-    const centerY = (topY + botY) / 2;
-    const centerIdx = vertices.length / 3;
-    vertices.push(0, centerY * scale, zInches * scale);
-    uvs.push(0.5, isNose ? 0 : 1);
-    const normT = Math.max(0, Math.min(1, Math.abs(topY - botY) / model.thickness));
-    const [r, g, b] = colorHeatmap(normT);
-    colors.push(r, g, b);
-
-    const ringStartIdx = vertices.length / 3;
+  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
+    // Step 1: Duplicate the final ring of vertices to create a hard edge for normals.
+    const originalRingStart = ringIndex * (segmentsRadial + 1);
+    const newRingStart = vertices.length / 3;
     for (let j = 0; j <= segmentsRadial; j++) {
-      const origV = ringIndex * (segmentsRadial + 1) + j;
+      const origV = originalRingStart + j;
       vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
       uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
       colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
     }
 
+    // Step 2: Create a true "end cap" by fanning triangles from the bottom stringer point.
+    // This preserves the shape of wide tails instead of pinching them to a point.
+    const fanCenterIdx = newRingStart + 27; // j=27 corresponds to the bottom center vertex.
     for (let j = 0; j < segmentsRadial; j++) {
-      const v = ringStartIdx + j;
-      const vNext = ringStartIdx + (j + 1);
+      const p1 = newRingStart + j;
+      const p2 = newRingStart + j + 1;
+
       if (isNose) {
-        indices.push(centerIdx, v, vNext);
+        // Clockwise winding for nose cap (viewed from front)
+        indices.push(fanCenterIdx, p1, p2);
       } else {
-        indices.push(centerIdx, vNext, v);
+        // Counter-clockwise for tail cap (viewed from back)
+        indices.push(fanCenterIdx, p2, p1);
       }
     }
   };
