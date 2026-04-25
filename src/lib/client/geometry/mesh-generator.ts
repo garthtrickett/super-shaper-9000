@@ -53,6 +53,14 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
 };
 
 const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): Point3D => {
+  // Fast path for exact endpoints. 
+  // This is critical for S3DX files where outline curves end with perfectly horizontal tangents (squash tail corners).
+  // The binary search cannot reliably resolve these "hooks", causing massive width scaling bugs at the tips.
+  const firstPt = bezier.controlPoints[0];
+  const lastPt = bezier.controlPoints[bezier.controlPoints.length - 1];
+  if (firstPt && Math.abs(targetZ - firstPt[2]) < 0.001) return[...firstPt];
+  if (lastPt && Math.abs(targetZ - lastPt[2]) < 0.001) return [...lastPt];
+
   let t0 = 0; let t1 = 1;
   let p = evaluateBezier3D(bezier, 0.5);
   for (let i = 0; i < 15; i++) {

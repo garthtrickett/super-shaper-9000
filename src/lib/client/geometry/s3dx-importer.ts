@@ -205,26 +205,18 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     }
     // --- END FIX ---
 
-    const minZ = outline.controlPoints[0]![2];
-    const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
-
-    // Filter out auto-generated tip slices and microscopic artifacts.
+    // Filter out microscopic slices at the absolute tips (nose/tail)
+    // that cause interpolation math to explode during mesh generation.
     const cleanCrossSections = crossSections.filter((slice) => {
       if (slice.controlPoints.length === 0) return false;
       
-      const sliceZ = slice.controlPoints[0]![2];
-      const distToNose = Math.abs(sliceZ - minZ);
-      const distToTail = Math.abs(maxZ - sliceZ);
-      
-      // S3D automatically generates un-foiled "closure" slices at the absolute nose and tail.
-      // These ruin the rail flow on square/squash tails, creating boxy protrusions.
-      // Dropping them allows SS9000 to smoothly interpolate the last real sculpted slice to the tip.
-      if (distToNose < 0.2 || distToTail < 0.2) return false;
-
-      // Also strip any other microscopic slices that cause math explosions
+      // Calculate slice half-width (max X coordinate)
       const xs = slice.controlPoints.map(p => p[0]);
       const halfWidth = Math.max(...xs);
-      return halfWidth > 0.25;
+      
+      // We MUST keep valid tail blocks (e.g. 0.5" + halfWidth) to maintain the shaper's rail flow.
+      // Only discard truly microscopic closures that collapse the mesh.
+      return halfWidth > 0.05;
     });
 
     yield* clientLog("info", "[s3dx-importer] Successfully extracted curves", {
