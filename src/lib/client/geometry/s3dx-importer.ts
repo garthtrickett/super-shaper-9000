@@ -205,15 +205,25 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     }
     // --- END FIX ---
 
-    // Filter out microscopic slices at the absolute tips (nose/tail)
-    // that cause interpolation math to explode during mesh generation.
+    const minZ = outline.controlPoints[0]![2];
+    const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
+
+    // Filter out auto-generated tip slices and microscopic artifacts.
     const cleanCrossSections = crossSections.filter((slice) => {
-      // Calculate slice half-width (max X coordinate)
+      if (slice.controlPoints.length === 0) return false;
+      
+      const sliceZ = slice.controlPoints[0]![2];
+      const distToNose = Math.abs(sliceZ - minZ);
+      const distToTail = Math.abs(maxZ - sliceZ);
+      
+      // S3D automatically generates un-foiled "closure" slices at the absolute nose and tail.
+      // These ruin the rail flow on square/squash tails, creating boxy protrusions.
+      // Dropping them allows SS9000 to smoothly interpolate the last real sculpted slice to the tip.
+      if (distToNose < 0.2 || distToTail < 0.2) return false;
+
+      // Also strip any other microscopic slices that cause math explosions
       const xs = slice.controlPoints.map(p => p[0]);
       const halfWidth = Math.max(...xs);
-      
-      // If the slice is narrower than ~0.25 inches, it's a microscopic tip cap.
-      // Discard it so the mesh generator can interpolate naturally to a point.
       return halfWidth > 0.25;
     });
 
