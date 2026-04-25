@@ -205,24 +205,13 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     }
     // --- END FIX ---
 
-    // Filter out microscopic slices at the absolute tips (nose/tail)
-    // that cause interpolation math to explode during mesh generation.
-    const cleanCrossSections = crossSections.filter((slice) => {
-      if (slice.controlPoints.length === 0) return false;
-      
-      // Calculate slice half-width (max X coordinate)
-      const xs = slice.controlPoints.map(p => p[0]);
-      const halfWidth = Math.max(...xs);
-      
-      // We MUST keep valid tail blocks (e.g. 0.5" + halfWidth) to maintain the shaper's rail flow.
-      // Only discard truly microscopic closures that collapse the mesh.
-      return halfWidth > 0.05;
-    });
+    // Allow the mesh generator to handle all slices, including microscopic ones. It now has tip-blending logic.
+    const cleanCrossSections = crossSections;
 
     yield* clientLog("info", "[s3dx-importer] Successfully extracted curves", {
       outlinePoints: outline.controlPoints.length,
       crossSections: cleanCrossSections.length,
-      strippedSlices: crossSections.length - cleanCrossSections.length
+      strippedSlices: 0
     });
 
     return {

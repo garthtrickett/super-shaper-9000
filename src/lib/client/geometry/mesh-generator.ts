@@ -372,11 +372,11 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
   };
 
   const noseWidth = getParametricOutlineWidth(minZ, curves);
-  if (noseWidth > 0.05) {
+  if (noseWidth > 0.01) {
       buildEndCap(true, 0, minZ, getParametricRockerY(minZ, true, curves), getParametricRockerY(minZ, false, curves));
   }
   const tailWidth = getParametricOutlineWidth(maxZ, curves);
-  if (tailWidth > 0.05) {
+  if (tailWidth > 0.01) {
       buildEndCap(false, segmentsZ - 1, maxZ, getParametricRockerY(maxZ, true, curves), getParametricRockerY(maxZ, false, curves));
   }
 
@@ -395,7 +395,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
   const vertices: number[] = [];
   const indices: number[] = [];
   const uvs: number[] = [];
-  const colors: number[] =[];
+  const colors: number[] = [];
   const scale = 1 / 12;
 
   const outline = model.manualOutline!;
@@ -408,16 +408,27 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
 
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, zInches);
+    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
     const { topY, botY, halfWidth } = profile;
+
+    // --- Tip Relaxation Logic ---
+    const noseDist = zInches - minZ;
+    const tailDist = maxZ - zInches;
+    const relaxZone = 2.0; // Blend to a perfect ellipse over the last 2 inches
+    let relaxFactor = 0;
+    if (noseDist < relaxZone && relaxZone > 0) {
+      relaxFactor = 1.0 - noseDist / relaxZone;
+    } else if (tailDist < relaxZone && relaxZone > 0) {
+      relaxFactor = 1.0 - tailDist / relaxZone;
+    }
 
     let s0 = crossSections[0]!;
     let s1 = crossSections[crossSections.length - 1]!;
     let lerpFactor = 0;
-    
+
     const firstZ = crossSections[0]!.controlPoints[0]![2];
     const lastZ = crossSections[crossSections.length - 1]!.controlPoints[0]![2];
-    
+
     if (zInches <= firstZ) {
       s0 = crossSections[0]!;
       s1 = crossSections[0]!;
@@ -440,13 +451,12 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     }
 
     for (let j = 0; j <= segmentsRadial; j++) {
-      // Map topology to match parametric (j=0 is Right Apex, j=9 is Deck Stringer, j=27 is Bottom Stringer)
       let tCross = 0.5;
       let isRightSide = true;
-      if (j <= 9) { tCross = 0.5 + 0.5 * (j / 9); }
+      if (j <= 9) tCross = 0.5 + 0.5 * (j / 9);
       else if (j <= 18) { tCross = 1.0 - 0.5 * ((j - 9) / 9); isRightSide = false; }
       else if (j <= 27) { tCross = 0.5 - 0.5 * ((j - 18) / 9); isRightSide = false; }
-      else { tCross = 0.5 * ((j - 27) / 9); }
+      else tCross = 0.5 * ((j - 27) / 9);
 
       const pA = evaluateBezier3D(s0, tCross);
       const pB = evaluateBezier3D(s1, tCross);
@@ -454,56 +464,56 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const rawY = pA[1] + (pB[1] - pA[1]) * lerpFactor;
 
       const sliceWidth = s0.controlPoints[2]![0] + (s1.controlPoints[2]![0] - s0.controlPoints[2]![0]) * lerpFactor;
-      
-      // Use the actual bounding box of the manual slices to normalize vertical space.
-      // This prevents mathematical explosions if the user's manual apex ratio differs heavily from the parametric ratio.
       const s0Top = Math.max(...s0.controlPoints.map(p => p[1]));
       const s1Top = Math.max(...s1.controlPoints.map(p => p[1]));
       const sliceTop = s0Top + (s1Top - s0Top) * lerpFactor;
-      
       const s0Bot = Math.min(...s0.controlPoints.map(p => p[1]));
       const s1Bot = Math.min(...s1.controlPoints.map(p => p[1]));
       const sliceBot = s0Bot + (s1Bot - s0Bot) * lerpFactor;
-      
       const sliceThickness = sliceTop - sliceBot;
-      // Clamp normalization to prevent "Infinity" spikes when width shrinks to 0 at the nose/tail
-      let px = 0;
-      if (Math.abs(sliceWidth) > 0.05 && Math.abs(halfWidth) > 0.05) {
-          const normX = rawX / sliceWidth;
-          px = (isRightSide ? 1 : -1) * normX * halfWidth;
-      }
-
       const currentThickness = topY - botY;
-            
-      let py = botY;
-      // Clamp normalization to prevent "Infinity" spikes when thickness shrinks to 0 at the tips
-      if (Math.abs(sliceThickness) > 0.05 && Math.abs(currentThickness) > 0.05) {
-          const normY = (rawY - sliceBot) / sliceThickness;
-          py = botY + normY * currentThickness;
-      } else {
-          py = botY + currentThickness / 2;
+
+      let px_manual = 0;
+      if (Math.abs(sliceWidth) > 1e-6) {
+        px_manual = (isRightSide ? 1 : -1) * (rawX / sliceWidth) * halfWidth;
       }
 
-      // Calculate vertically opposite Y for thickness heatmap
+      let py_manual = botY + currentThickness / 2;
+      if (Math.abs(sliceThickness) > 1e-6) {
+        py_manual = botY + ((rawY - sliceBot) / sliceThickness) * currentThickness;
+      }
+
+      let px = px_manual;
+      let py = py_manual;
+
+      if (relaxFactor > 0) {
+        const angle = (j / segmentsRadial) * Math.PI * 2;
+        const cx = Math.cos(angle);
+        const cy = Math.sin(angle);
+        const apexY = profile.botY + (profile.topY - profile.botY) * model.apexRatio;
+        
+        const px_ellipse = Math.sign(cx) * Math.abs(cx) * halfWidth;
+        const py_top_ellipse = apexY + Math.abs(cy) * (profile.topY - apexY);
+        const py_bot_ellipse = apexY - Math.abs(cy) * (apexY - profile.botY);
+        const py_ellipse = cy >= 0 ? py_top_ellipse : py_bot_ellipse;
+
+        px = px_manual * (1 - relaxFactor) + px_ellipse * relaxFactor;
+        py = py_manual * (1 - relaxFactor) + py_ellipse * relaxFactor;
+      }
+
       const tOpposite = 1.0 - tCross;
       const pAOpp = evaluateBezier3D(s0, tOpposite);
       const pBOpp = evaluateBezier3D(s1, tOpposite);
       const rawYOpp = pAOpp[1] + (pBOpp[1] - pAOpp[1]) * lerpFactor;
-      
-      let pyOpp = botY;
-      if (Math.abs(sliceThickness) > 0.05 && Math.abs(currentThickness) > 0.05) {
-          const normYOpp = (rawYOpp - sliceBot) / sliceThickness;
-          pyOpp = botY + normYOpp * currentThickness;
-      } else {
-          pyOpp = botY + currentThickness / 2;
+
+      let pyOpp = botY + currentThickness / 2;
+      if (Math.abs(sliceThickness) > 1e-6) {
+        pyOpp = botY + ((rawYOpp - sliceBot) / sliceThickness) * currentThickness;
       }
-      
+
       const localThickness = Math.abs(py - pyOpp);
       const normT = Math.max(0, Math.min(1, localThickness / model.thickness));
-      const[r, g, b] = colorHeatmap(normT);
-
-      // Note: We do NOT re-apply `calculateBottomContourOffset` here in manual mode!
-      // `extractCrossSectionsSS9000` already baked the bottom contours into the generated slices.
+      const [r, g, b] = colorHeatmap(normT);
 
       vertices.push(px * scale, py * scale, zInches * scale);
       uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
@@ -530,36 +540,33 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     const normT = Math.max(0, Math.min(1, Math.abs(topY - botY) / model.thickness));
     const [r, g, b] = colorHeatmap(normT);
     colors.push(r, g, b);
-    
-    // Duplicate the ring vertices to ensure the end cap has independent, flat normals
-    // This prevents Three.js from smoothing the normals across the 90-degree rail edge, 
-    // which causes dark "X" creases at the nose and tail.
+
     const ringStartIdx = vertices.length / 3;
     for (let j = 0; j <= segmentsRadial; j++) {
-        const origV = ringIndex * (segmentsRadial + 1) + j;
-        vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
-        uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
-        colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
+      const origV = ringIndex * (segmentsRadial + 1) + j;
+      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
+      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
+      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
     }
 
     for (let j = 0; j < segmentsRadial; j++) {
-        const v = ringStartIdx + j;
-        const vNext = ringStartIdx + (j + 1);
-        if (isNose) {
-            indices.push(centerIdx, v, vNext);
-        } else {
-            indices.push(centerIdx, vNext, v);
-        }
+      const v = ringStartIdx + j;
+      const vNext = ringStartIdx + (j + 1);
+      if (isNose) {
+        indices.push(centerIdx, v, vNext);
+      } else {
+        indices.push(centerIdx, vNext, v);
+      }
     }
   };
 
-  const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, minZ);
-  if (noseProfile.halfWidth > 0.05) {
-      buildEndCap(true, 0, minZ, noseProfile.topY, noseProfile.botY);
+  const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, minZ);
+  if (noseProfile.halfWidth > 0.01) {
+    buildEndCap(true, 0, minZ, noseProfile.topY, noseProfile.botY);
   }
-  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
-  if (tailProfile.halfWidth > 0.05) {
-      buildEndCap(false, segmentsZ - 1, maxZ, tailProfile.topY, tailProfile.botY);
+  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, maxZ);
+  if (tailProfile.halfWidth > 0.01) {
+    buildEndCap(false, segmentsZ - 1, maxZ, tailProfile.topY, tailProfile.botY);
   }
 
   return {
