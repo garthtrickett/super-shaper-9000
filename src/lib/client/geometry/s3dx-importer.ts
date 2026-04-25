@@ -114,10 +114,20 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       };
     };
 
+    // Helper to reverse the direction of a Bezier curve (Nose-to-Tail vs Tail-to-Nose)
+    const reverseCurve = (curve: BezierCurveData): BezierCurveData => {
+      return {
+        controlPoints: [...curve.controlPoints].reverse(),
+        tangents1: [...curve.tangents2].reverse(),
+        tangents2:[...curve.tangents1].reverse()
+      };
+    };
+
     // 3. Extract Main Curves
-    const outline = extractBezier("Otl", true, false);
-    const rockerBottom = extractBezier("StrBot", false, true);
-    const rockerTop = extractBezier("StrDeck", false, true);
+    // Shape3D stores points from Tail to Nose. SS9000 requires Nose to Tail (increasing Z).
+    const outline = reverseCurve(extractBezier("Otl", true, false));
+    const rockerBottom = reverseCurve(extractBezier("StrBot", false, true));
+    const rockerTop = reverseCurve(extractBezier("StrDeck", false, true));
 
     // 4. Extract Cross Sections (Couples)
     const crossSections: BezierCurveData[] =[];
@@ -133,6 +143,9 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       }
       coupleIdx++;
     }
+    
+    // Sort cross sections from Nose to Tail (increasing Z)
+    crossSections.sort((a, b) => (a.controlPoints[0]?.[2] || 0) - (b.controlPoints[0]?.[2] || 0));
 
     yield* clientLog("info", "[s3dx-importer] Successfully extracted curves", {
       outlinePoints: outline.controlPoints.length,

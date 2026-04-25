@@ -200,7 +200,7 @@ export class BoardControls extends LitElement {
       <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar">
         <!-- Import / Export Actions -->
         <div class="grid grid-cols-2 gap-2 mb-2">
-          <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import JSON</button>
+          <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
           <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export JSON</button>
           
           ${this.editMode === 'parametric' ? html`

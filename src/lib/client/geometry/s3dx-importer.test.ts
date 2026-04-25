@@ -94,14 +94,14 @@ describe("S3DX Importer", () => {
 
       // Verify Outline Extracted and mapped to SS9000 coordinates
       expect(result.outline.controlPoints.length).to.equal(3);
-      // Tail anchor
-      expect(result.outline.controlPoints[0]![2]).to.be.closeTo(35, 0.001); // +L/2
+      // Nose anchor (Reversed so index 0 is Nose)
+      expect(result.outline.controlPoints[0]![2]).to.be.closeTo(-35, 0.001); // -L/2
       expect(result.outline.controlPoints[0]![0]).to.be.closeTo(0, 0.001);
       // Wide point
       expect(result.outline.controlPoints[1]![2]).to.be.closeTo(0, 0.001);
       expect(result.outline.controlPoints[1]![0]).to.be.closeTo(18.75 / 2, 0.001); // Half width
-      // Nose anchor
-      expect(result.outline.controlPoints[2]![2]).to.be.closeTo(-35, 0.001); // -L/2
+      // Tail anchor
+      expect(result.outline.controlPoints[2]![2]).to.be.closeTo(35, 0.001); // +L/2
 
       // Verify Rocker Extracted
       expect(result.rockerBottom.controlPoints.length).to.equal(1);
@@ -138,11 +138,16 @@ describe("S3DX Importer", () => {
       // Verify Complex Curve Extraction
       // The WitcherDaily file has 4 anchor points for its outline
       expect(result.outline.controlPoints.length).to.equal(4);
+      // Verify reversal applied: First point must be the nose (Negative Z)
+      expect(result.outline.controlPoints[0]![2]).to.be.lessThan(0);
+
       // It has standard 3-point rockers
       expect(result.rockerBottom.controlPoints.length).to.equal(3);
       expect(result.rockerTop.controlPoints.length).to.equal(3);
-      // It has 8 cross-section couples
+      
+      // It has 8 cross-section couples, sorted from Nose to Tail
       expect(result.crossSections.length).to.equal(8);
+      expect(result.crossSections[0]!.controlPoints[0]![2]).to.be.lessThan(0);
     });
 
     it("fails gracefully if the XML is malformed or missing metadata", async () => {

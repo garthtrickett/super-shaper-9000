@@ -41,7 +41,7 @@ describe("BoardControls (UI Component)", () => {
       el.addEventListener("import-design", spy);
 
       const buttons = Array.from(el.querySelectorAll("button"));
-      const btn = buttons.find(b => b.textContent?.includes("Import JSON"));
+      const btn = buttons.find(b => b.textContent?.includes("Import Design"));
       expect(btn).to.exist;
 
       btn!.click();
