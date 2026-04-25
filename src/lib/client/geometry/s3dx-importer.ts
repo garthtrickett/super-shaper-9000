@@ -87,19 +87,23 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
         const polyNode = parent.querySelector(`${subTag} > Polygone3d`);
         if (!polyNode) return [];
 
-        const points: Point3D[] =[];
-        polyNode.querySelectorAll("Point3d").forEach(ptNode => {
-          const x = parseFloat(ptNode.querySelector("x")?.textContent || "0");
-          const y = parseFloat(ptNode.querySelector("y")?.textContent || "0");
-          const z = parseFloat(ptNode.querySelector("z")?.textContent || "0");
-          
-          const pt = translateFromShape3d([x, y, z], lengthInches, thicknessInches);
-          
-          if (isOutline) pt[1] = 0; // Force Y to 0 for outline
-          if (isRocker) pt[0] = 0; // Force X to 0 for rockers
-
-          points.push(pt);
-        });
+        const points: Point3D[] = [];
+        // ✅ FIX: Iterate direct children to exclude the nested <Symmetry_center><Point3d> node
+        for (const child of Array.from(polyNode.children)) {
+          if (child.tagName === 'Point3d') {
+            const ptNode = child;
+            const x = parseFloat(ptNode.querySelector("x")?.textContent || "0");
+            const y = parseFloat(ptNode.querySelector("y")?.textContent || "0");
+            const z = parseFloat(ptNode.querySelector("z")?.textContent || "0");
+            
+            const pt = translateFromShape3d([x, y, z], lengthInches, thicknessInches);
+            
+            if (isOutline) pt[1] = 0; // Force Y to 0 for outline
+            if (isRocker) pt[0] = 0; // Force X to 0 for rockers
+  
+            points.push(pt);
+          }
+        }
         return points;
       };
 
