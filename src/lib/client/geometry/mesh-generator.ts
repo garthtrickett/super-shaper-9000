@@ -502,6 +502,34 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
+  const buildEndCap = (isNose: boolean, ringIndex: number, zInches: number, topY: number, botY: number) => {
+    const centerY = (topY + botY) / 2;
+    const centerIdx = vertices.length / 3;
+    vertices.push(0, centerY * scale, zInches * scale);
+    uvs.push(0.5, isNose ? 0 : 1);
+    const normT = Math.max(0, Math.min(1, Math.abs(topY - botY) / model.thickness));
+    const [r, g, b] = colorHeatmap(normT);
+    colors.push(r, g, b);
+    for (let j = 0; j < segmentsRadial; j++) {
+        const v = ringIndex * (segmentsRadial + 1) + j;
+        const vNext = ringIndex * (segmentsRadial + 1) + (j + 1);
+        if (isNose) {
+            indices.push(centerIdx, vNext, v);
+        } else {
+            indices.push(centerIdx, v, vNext);
+        }
+    }
+  };
+
+  const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, minZ);
+  if (noseProfile.halfWidth > 0.05) {
+      buildEndCap(true, 0, minZ, noseProfile.topY, noseProfile.botY);
+  }
+  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
+  if (tailProfile.halfWidth > 0.05) {
+      buildEndCap(false, segmentsZ - 1, maxZ, tailProfile.topY, tailProfile.botY);
+  }
+
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
