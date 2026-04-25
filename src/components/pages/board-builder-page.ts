@@ -7,6 +7,7 @@ import { INITIAL_STATE, update, handleAction, BoardModelSchema, type BoardModel,
 import { runClientPromise } from "../../lib/client/runtime";
 import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
+import { parseS3dx } from "../../lib/client/geometry/s3dx-importer";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
@@ -40,6 +41,32 @@ export class BoardBuilderPage extends LitElement {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("Failed to export S3DX", e);
+    }
+  }
+
+  private async _handleS3dxUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importedData = await runClientPromise(parseS3dx(text));
+      
+      this.ctrl.propose({
+        type: "IMPORT_S3DX",
+        ...importedData
+      });
+
+      this.showImportModal = false;
+      this.importJson = "";
+      this.importError = "";
+    } catch (err) {
+      console.error("Failed to parse .s3dx file", err);
+      this.importError = err instanceof Error ? err.message : "Failed to parse .s3dx file";
+    } finally {
+      // Reset input so the same file can be selected again if needed
+      input.value = "";
     }
   }
 
@@ -123,7 +150,24 @@ export class BoardBuilderPage extends LitElement {
       <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg shadow-2xl w-[500px] max-w-full flex flex-col">
           <h2 class="text-xl font-bold text-zinc-100 mb-4">Import Design</h2>
-          <p class="text-xs text-zinc-400 mb-2">Paste your JSON design code below:</p>
+          
+          <div class="mb-6 p-4 bg-zinc-950 border border-dashed border-zinc-700 rounded-lg flex flex-col items-center justify-center text-center">
+            <svg class="w-8 h-8 text-emerald-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            <p class="text-sm font-bold text-zinc-300 mb-1">Upload Shape3D (.s3dx) File</p>
+            <p class="text-xs text-zinc-500 mb-3">Import your existing designs directly.</p>
+            <label class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">
+              <span>Select .s3dx File</span>
+              <input type="file" accept=".s3dx" class="hidden" @change=${this._handleS3dxUpload} />
+            </label>
+          </div>
+
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex-1 h-px bg-zinc-800"></div>
+            <span class="text-xs font-bold text-zinc-500 uppercase tracking-widest">OR PASTE JSON</span>
+            <div class="flex-1 h-px bg-zinc-800"></div>
+          </div>
+
+          <p class="text-xs text-zinc-400 mb-2">Paste your Super Shaper JSON code below:</p>
           <textarea 
             @input=${(e: Event) => { this.importJson = (e.target as HTMLTextAreaElement).value; this.importError = ""; }}
             .value=${this.importJson}

@@ -141,6 +141,28 @@ describe("Board Builder State & Kinematic Logic", () => {
       expect(newState.showZebra).to.be.true;
       expect(newState.showHeatmap).to.be.false;
     });
+
+    it("should handle IMPORT_S3DX by switching to manual mode and pushing history", () => {
+      const mockCurve = { controlPoints: [[1,1,1]], tangents1: [[1,1,1]], tangents2: [[1,1,1]] } as any;
+      const action: BoardAction = {
+        type: "IMPORT_S3DX",
+        length: 70,
+        width: 20,
+        thickness: 3,
+        outline: mockCurve,
+        rockerTop: mockCurve,
+        rockerBottom: mockCurve,
+        crossSections: [mockCurve]
+      };
+      const newState = update(INITIAL_STATE, action);
+      
+      expect(newState.editMode).to.equal("manual");
+      expect(newState.length).to.equal(70);
+      expect(newState.width).to.equal(20);
+      expect(newState.thickness).to.equal(3);
+      expect(newState.manualHistory?.length).to.equal(1);
+      expect(newState.manualOutline).to.deep.equal(mockCurve);
+    });
   });
 
   describe("Kinematic Constraints (Manual Mode)", () => {
