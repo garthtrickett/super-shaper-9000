@@ -137,17 +137,28 @@ export class InteractionManager {
       this.controls.profile.enabled = false;
       
       const curveName = this.draggedGizmo.userData.curve as string;
-      const planeNormal = new THREE.Vector3();
+      const worldNormal = new THREE.Vector3();
       
-      if (curveName === 'outline') planeNormal.set(0, 1, 0);
-      else if (curveName.startsWith('rocker')) planeNormal.set(1, 0, 0);
-      else if (curveName.startsWith('crossSection')) planeNormal.set(0, 0, 1);
-      else camera.getWorldDirection(planeNormal).negate();
+      if (curveName === 'outline') {
+          worldNormal.set(0, 1, 0).transformDirection(this.draggedGizmo.parent!.matrixWorld);
+      }
+      else if (curveName.startsWith('rocker')) {
+          worldNormal.set(1, 0, 0).transformDirection(this.draggedGizmo.parent!.matrixWorld);
+      }
+      else if (curveName.startsWith('crossSection')) {
+          worldNormal.set(0, 0, 1).transformDirection(this.draggedGizmo.parent!.matrixWorld);
+      }
+      else {
+          camera.getWorldDirection(worldNormal).negate();
+      }
       
-      this.dragPlane.setFromNormalAndCoplanarPoint(planeNormal, this.draggedGizmo.position);
+      const worldPos = new THREE.Vector3();
+      this.draggedGizmo.getWorldPosition(worldPos);
+      
+      this.dragPlane.setFromNormalAndCoplanarPoint(worldNormal, worldPos);
       
       if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragOffset)) {
-        this.dragOffset.sub(this.draggedGizmo.position);
+        this.dragOffset.sub(worldPos);
       }
     }
   }
@@ -189,6 +200,9 @@ export class InteractionManager {
     
     if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
       target.sub(this.dragOffset);
+      
+      // Convert world target back to local coordinates so the UI updates correctly
+      this.draggedGizmo.parent!.worldToLocal(target);
       
       const inInches = target.clone().multiplyScalar(12);
 

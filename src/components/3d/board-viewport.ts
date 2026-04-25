@@ -34,6 +34,7 @@ export class BoardViewport extends LitElement {
   private textureManager = new TextureManager();
   
   private geometryUpdateDebounceId: number | undefined;
+  private boardContainer = new THREE.Group();
   private wireframeGroup = new THREE.Group();
   private solidGroup = new THREE.Group();
   private finGroup = new THREE.Group();
@@ -42,16 +43,20 @@ export class BoardViewport extends LitElement {
   private sliceLinesGroup = new THREE.Group();
   private apexLineGroup = new THREE.Group();
   private zebraOffset = 0;
+
+  @state() private isFlipped = false;
     
   private matAnchor = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false });
   private matHandle = new THREE.MeshBasicMaterial({ color: 0xa1a1aa, depthTest: false });
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false });
 
   override firstUpdated() {
-    this.sceneManager = new SceneManager(this.canvas,[
+    this.boardContainer.add(
       this.wireframeGroup, this.solidGroup, this.finGroup, 
       this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup
-    ]);
+    );
+
+    this.sceneManager = new SceneManager(this.canvas, [this.boardContainer]);
     
     this.interactionManager = new InteractionManager(
       this, this.canvas, this.sceneManager.cameras, 
@@ -372,6 +377,12 @@ export class BoardViewport extends LitElement {
     if (this.interactionManager) this.interactionManager.setMaximizedView(view);
   }
 
+  private toggleFlip() {
+    this.isFlipped = !this.isFlipped;
+    this.boardContainer.rotation.z = this.isFlipped ? Math.PI : 0;
+    this.boardContainer.updateMatrixWorld(true);
+  }
+
   override render() {
     const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
     const collapseIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>`;
@@ -387,6 +398,14 @@ export class BoardViewport extends LitElement {
 
     return html`
       <canvas class="block w-full h-full outline-none"></canvas>
+
+      <div class="absolute top-3 right-3 z-20 pointer-events-auto">
+        <button @click=${this.toggleFlip} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isFlipped ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Flip Board (Bottom Up)">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          <span>Flip</span>
+        </button>
+      </div>
+
       <div class="absolute inset-0 pointer-events-none z-10">
         ${this.maximizedView === null ? html`
           <div class="w-full h-full grid grid-cols-2 grid-rows-2">

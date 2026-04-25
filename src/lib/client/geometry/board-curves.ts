@@ -158,16 +158,62 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   ptsRockerBottom.add(0, bottomPlane + model.tailRocker, L/2);
   const crvRockerBottom = rhino.NurbsCurve.create(false, 3, ptsRockerBottom);
    
-  const sampleCurve = (crv: any, steps = 150) => {
-      const pts: [number, number, number][] =[];
+  const sampleCurve = (crv: any, tolerance = 0.01, minSteps = 20) => {
+      const pts:[number, number, number][] =[];
       if (!crv) return pts;
       const domain = crv.domain;
-      for (let i = 0; i <= steps; i++) {
-          const t = domain[0] + (domain[1] - domain[0]) * (i / steps);
+
+      const getPt = (t: number): [number, number, number] => {
           const p = crv.pointAt(t);
-          pts.push([p[0], p[1], p[2]]);
+          return [p[0], p[1], p[2]];
+      };
+
+      const distance = (p1: number[], p2: number[]) => Math.hypot(p1[0] - p2[0], p1[1] - p2[1], p1[2] - p2[2]);
+
+      const subdivide = (t0: number, t1: number, p0:[number, number, number], p1: [number, number, number], depth: number) => {
+          const tMid = (t0 + t1) / 2;
+          const pMid = getPt(tMid);
+
+          const dx = p1[0] - p0[0], dy = p1[1] - p0[1], dz = p1[2] - p0[2];
+          const lenSq = dx * dx + dy * dy + dz * dz;
+          let dist = 0;
+          
+          if (lenSq === 0) {
+              dist = distance(p0, pMid);
+          } else {
+              const tProj = ((pMid[0] - p0[0]) * dx + (pMid[1] - p0[1]) * dy + (pMid[2] - p0[2]) * dz) / lenSq;
+              const clampedT = Math.max(0, Math.min(1, tProj));
+              const projX = p0[0] + clampedT * dx;
+              const projY = p0[1] + clampedT * dy;
+              const projZ = p0[2] + clampedT * dz;
+              dist = Math.hypot(pMid[0] - projX, pMid[1] - projY, pMid[2] - projZ);
+          }
+
+          // Depth limit of 8 prevents infinite recursion, ensures performance
+          if (depth < 2 || (dist > tolerance && depth < 8)) {
+              subdivide(t0, tMid, p0, pMid, depth + 1);
+              subdivide(tMid, t1, pMid, p1, depth + 1);
+          } else {
+              pts.push(pMid, p1);
+          }
+      };
+
+      const stepSize = (domain[1] - domain[0]) / minSteps;
+      pts.push(getPt(domain[0]));
+      for (let i = 0; i < minSteps; i++) {
+          const t0 = domain[0] + i * stepSize;
+          const t1 = domain[0] + (i + 1) * stepSize;
+          subdivide(t0, t1, getPt(t0), getPt(t1), 0);
       }
-      return pts;
+
+      // Remove extremely close duplicates
+      const uniquePts: [number, number, number][] =[pts[0]!];
+      for (let i = 1; i < pts.length; i++) {
+          if (distance(pts[i]!, uniquePts[uniquePts.length - 1]!) > 0.001) {
+              uniquePts.push(pts[i]!);
+          }
+      }
+      return uniquePts;
   };
 
   const outline = sampleCurve(crvOutline);

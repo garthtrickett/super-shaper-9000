@@ -124,15 +124,19 @@ export class SceneManager {
     pmremGenerator.compileEquirectangularShader();
     this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
     dirLight.position.set(3, 8, -5);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     this.scene.add(dirLight);
+
+    const bottomLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    bottomLight.position.set(-3, -8, 5);
+    this.scene.add(bottomLight);
 
     const floorGeo = new THREE.PlaneGeometry(50, 50);
     const floorMat = new THREE.ShadowMaterial({ opacity: 0.5 });
