@@ -338,18 +338,26 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
     vertices.push(0, centerY * scale, zInches * scale);
     uvs.push(0.5, isNose ? 0 : 1);
     const normT = Math.max(0, Math.min(1, Math.abs(topY - botY) / model.thickness));
-    const [r, g, b] = colorHeatmap(normT);
+    const[r, g, b] = colorHeatmap(normT);
     colors.push(r, g, b);
+    
+    // Duplicate the ring vertices to ensure the end cap has independent, flat normals
+    // This prevents Three.js from smoothing the normals across the 90-degree rail edge, 
+    // which causes dark "X" creases at the nose and tail.
+    const ringStartIdx = vertices.length / 3;
+    for (let j = 0; j <= segmentsRadial; j++) {
+        const origV = ringIndex * (segmentsRadial + 1) + j;
+        vertices.push(vertices[origV * 3], vertices[origV * 3 + 1], vertices[origV * 3 + 2]);
+        uvs.push(uvs[origV * 2], uvs[origV * 2 + 1]);
+        colors.push(colors[origV * 3], colors[origV * 3 + 1], colors[origV * 3 + 2]);
+    }
+
     for (let j = 0; j < segmentsRadial; j++) {
-        const v = ringIndex * (segmentsRadial + 1) + j;
-        const vNext = ringIndex * (segmentsRadial + 1) + (j + 1);
+        const v = ringStartIdx + j;
+        const vNext = ringStartIdx + (j + 1);
         if (isNose) {
-            // For the nose cap, the normal points -Z. The CCW ring appears clockwise when viewed from the front.
-            // Winding (Center, vNext, v) creates the correct outward-facing normal.
             indices.push(centerIdx, v, vNext);
         } else {
-            // For the tail cap, the normal points +Z. The ring is CCW when viewed from the back.
-            // Winding (Center, v, vNext) creates an inward normal, so we reverse it.
             indices.push(centerIdx, vNext, v);
         }
     }
@@ -514,16 +522,24 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     const normT = Math.max(0, Math.min(1, Math.abs(topY - botY) / model.thickness));
     const [r, g, b] = colorHeatmap(normT);
     colors.push(r, g, b);
+    
+    // Duplicate the ring vertices to ensure the end cap has independent, flat normals
+    // This prevents Three.js from smoothing the normals across the 90-degree rail edge, 
+    // which causes dark "X" creases at the nose and tail.
+    const ringStartIdx = vertices.length / 3;
+    for (let j = 0; j <= segmentsRadial; j++) {
+        const origV = ringIndex * (segmentsRadial + 1) + j;
+        vertices.push(vertices[origV * 3], vertices[origV * 3 + 1], vertices[origV * 3 + 2]);
+        uvs.push(uvs[origV * 2], uvs[origV * 2 + 1]);
+        colors.push(colors[origV * 3], colors[origV * 3 + 1], colors[origV * 3 + 2]);
+    }
+
     for (let j = 0; j < segmentsRadial; j++) {
-        const v = ringIndex * (segmentsRadial + 1) + j;
-        const vNext = ringIndex * (segmentsRadial + 1) + (j + 1);
+        const v = ringStartIdx + j;
+        const vNext = ringStartIdx + (j + 1);
         if (isNose) {
-            // For the nose cap, the normal points -Z. The CCW ring appears clockwise when viewed from the front.
-            // Winding (Center, vNext, v) creates the correct outward-facing normal.
             indices.push(centerIdx, v, vNext);
         } else {
-            // For the tail cap, the normal points +Z. The ring is CCW when viewed from the back.
-            // Winding (Center, v, vNext) creates an inward normal, so we reverse it.
             indices.push(centerIdx, vNext, v);
         }
     }

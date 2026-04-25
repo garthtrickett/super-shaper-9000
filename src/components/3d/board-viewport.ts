@@ -163,14 +163,21 @@ export class BoardViewport extends LitElement {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.15 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
     
-    const buildLine = (pts: [number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false, followRocker = false) => {
+    const buildLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false, isOutline = false) => {
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => {
             const zInches = p[2];
             const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zInches);
-            vertices[i*3] = (mirrorX ? -profile.halfWidth : profile.halfWidth) * scale;
-            vertices[i*3+1] = followRocker ? profile.apexY * scale : p[1] * scale;
+            
+            if (isOutline) {
+                vertices[i*3] = (mirrorX ? -profile.halfWidth : profile.halfWidth) * scale;
+                vertices[i*3+1] = profile.apexY * scale;
+            } else {
+                // Rocker lines must strictly follow the stringer (X=0)
+                vertices[i*3] = 0;
+                vertices[i*3+1] = p[1] * scale;
+            }
             vertices[i*3+2] = zInches * scale;
         });
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
