@@ -117,6 +117,34 @@ describe("S3DX Importer", () => {
       expect(result.crossSections[0]!.controlPoints.length).to.equal(2);
     });
 
+    it("can parse a full, real-world .s3dx file (WitcherDaily.s3dx)", async () => {
+      // Web Test Runner serves the project directory, so we can fetch the fixture natively!
+      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+      expect(response.ok).to.be.true;
+      
+      const xml = await response.text();
+      const result = await Effect.runPromise(parseS3dx(xml));
+      
+      // Verify Metric to Imperial Conversion
+      // WitcherDaily is 193.04 cm -> 76 inches (6'4")
+      expect(result.length).to.be.closeTo(76, 0.1);
+      
+      // 51.435 cm -> 20.25 inches
+      expect(result.width).to.be.closeTo(20.25, 0.1);
+      
+      // 6.983 cm -> ~2.75 inches
+      expect(result.thickness).to.be.closeTo(2.75, 0.1);
+      
+      // Verify Complex Curve Extraction
+      // The WitcherDaily file has 4 anchor points for its outline
+      expect(result.outline.controlPoints.length).to.equal(4);
+      // It has standard 3-point rockers
+      expect(result.rockerBottom.controlPoints.length).to.equal(3);
+      expect(result.rockerTop.controlPoints.length).to.equal(3);
+      // It has 8 cross-section couples
+      expect(result.crossSections.length).to.equal(8);
+    });
+
     it("fails gracefully if the XML is malformed or missing metadata", async () => {
       const badXml = `<Shape3d_design><Board><Length>100</Length></Board></Shape3d_design>`; // Missing Thickness
       
