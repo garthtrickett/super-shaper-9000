@@ -163,9 +163,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
       if (!crv) return pts;
       const domain = crv.domain;
 
-      const getPt = (t: number): [number, number, number] => {
-          const p = crv.pointAt(t);
-          return [p[0], p[1], p[2]];
+      const getPt = (t: number):[number, number, number] => {
+          const p = crv.pointAt(t) as number[];
+          return [p[0]!, p[1]!, p[2]!];
       };
 
       const distance = (p1:[number, number, number], p2: [number, number, number]) => Math.hypot(p1[0] - p2[0], p1[1] - p2[1], p1[2] - p2[2]);

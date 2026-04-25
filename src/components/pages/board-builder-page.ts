@@ -44,7 +44,7 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private async _handleS3dxUpload(e: Event) {
+  private _handleS3dxUpload = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
