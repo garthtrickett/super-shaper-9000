@@ -147,6 +147,64 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     // Sort cross sections from Nose to Tail (increasing Z)
     crossSections.sort((a, b) => (a.controlPoints[0]?.[2] || 0) - (b.controlPoints[0]?.[2] || 0));
 
+    // --- FIX FOR SLICE Y-OFFSET ---
+    // Shape3D slices are stored with Z=0 at the local bottom stringer.
+    // translateFromShape3d maps this to y = -thickness/2.
+    // We must shift them up to match the actual Rocker Bottom curve.
+    const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
+      const numSegments = bezier.controlPoints.length - 1;
+      if (numSegments <= 0) return bezier.controlPoints[0] || [0, 0, 0];
+      const scaledT = t * numSegments;
+      let segmentIdx = Math.floor(scaledT);
+      if (segmentIdx >= numSegments) segmentIdx = numSegments - 1;
+      const localT = scaledT - segmentIdx;
+      
+      const P0 = bezier.controlPoints[segmentIdx] || [0, 0, 0];
+      const P1 = bezier.controlPoints[segmentIdx + 1] || [0, 0, 0];
+      const T0 = bezier.tangents2[segmentIdx] || [0, 0, 0];
+      const T1 = bezier.tangents1[segmentIdx + 1] || [0, 0, 0];
+      
+      const u = 1 - localT;
+      const tt = localT * localT;
+      const uu = u * u;
+      const uuu = uu * u;
+      const ttt = tt * localT;
+      
+      return [
+        uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0],
+        uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1],
+        uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2]
+      ];
+    };
+
+    const getRockerYAtZ = (bezier: BezierCurveData, targetZ: number): number => {
+      let t0 = 0; let t1 = 1;
+      let p = evaluateBezier3D(bezier, 0.5);
+      for (let i = 0; i < 15; i++) {
+        const tMid = (t0 + t1) / 2;
+        p = evaluateBezier3D(bezier, tMid);
+        if (p[2] < targetZ) t0 = tMid;
+        else t1 = tMid;
+      }
+      return p[1];
+    };
+
+    for (const slice of crossSections) {
+      if (slice.controlPoints.length === 0) continue;
+      const sliceZ = slice.controlPoints[0]![2];
+      const rockerY = getRockerYAtZ(rockerBottom, sliceZ);
+      const shiftY = rockerY + (thicknessInches / 2);
+
+      const shiftPoint = (pt: Point3D) => {
+        if (pt) pt[1] += shiftY;
+      };
+
+      slice.controlPoints.forEach(shiftPoint);
+      slice.tangents1.forEach(shiftPoint);
+      slice.tangents2.forEach(shiftPoint);
+    }
+    // --- END FIX ---
+
     // Filter out microscopic slices at the absolute tips (nose/tail)
     // that cause interpolation math to explode during mesh generation.
     const cleanCrossSections = crossSections.filter((slice) => {
