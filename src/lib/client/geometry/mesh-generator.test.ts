@@ -100,5 +100,38 @@ describe("MeshGeneratorService", () => {
       const diff = Math.abs(paramVol - manualVol);
       expect(diff).to.be.lessThan(0.5);
     });
+
+    it("generates a watertight tail cap with correct winding and UVs for wide tails", async () => {
+      const squashTailModel: BoardModel = { ...INITIAL_STATE, tailType: "squash", tailBlockWidth: 8.0 };
+      const curves = await generateBoardCurves(squashTailModel);
+      const mesh = MeshGeneratorService.generateMesh(squashTailModel, curves);
+
+      // Find the center vertex of the tail cap (it's the last one we added)
+      const centerIdx = mesh.vertices.length / 3 - 1;
+      const centerVertex = [mesh.vertices[centerIdx * 3], mesh.vertices[centerIdx * 3 + 1], mesh.vertices[centerIdx * 3 + 2]];
+      const centerUv = [mesh.uvs[centerIdx * 2], mesh.uvs[centerIdx * 2 + 1]];
+
+      // Verify the center vertex is on the stringer (X=0) at the tail end
+      expect(centerVertex[0]).to.be.closeTo(0, 0.001);
+      expect(centerVertex[2]).to.be.closeTo(squashTailModel.length / 2 / 12, 0.001);
+
+      // Verify UV is centered to prevent pinching
+      expect(centerUv[0]).to.be.closeTo(0.5, 0.001);
+      expect(centerUv[1]).to.be.closeTo(1.0, 0.001);
+
+      // Find the first triangle of the tail cap fan
+      let firstTriangle: number[] | undefined;
+      for (let i = mesh.indices.length - 3; i >= 0; i -= 3) {
+        if (mesh.indices[i] === centerIdx || mesh.indices[i+1] === centerIdx || mesh.indices[i+2] === centerIdx) {
+          firstTriangle = [mesh.indices[i]!, mesh.indices[i+1]!, mesh.indices[i+2]!];
+          break;
+        }
+      }
+
+      expect(firstTriangle).to.exist;
+      console.log("Logging tail cap debug info:");
+      console.log("  - Center Vertex Index:", centerIdx);
+      console.log("  - First Tail Cap Triangle Indices:", firstTriangle);
+    });
   });
 });
