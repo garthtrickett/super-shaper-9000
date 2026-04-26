@@ -273,7 +273,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   // This maps UV.v to cumulative 3D distance to prevent texture warping at the tips.
   const sliceArcLengths = new Float32Array(segmentsZ + 1);
   let totalArcLength = 0;
-  let lastCenterPos = new THREE.Vector3();
+  const lastCenterPos = new THREE.Vector3();
 
   for (let i = 0; i <= segmentsZ; i++) {
     const nz = (1 - Math.cos((i / segmentsZ) * Math.PI)) / 2;
@@ -298,6 +298,15 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
     const zInches = minZ + ((1 - Math.cos((i / segmentsZ) * Math.PI)) / 2) * (maxZ - minZ);
     const vCoord = sliceArcLengths[i]! / totalArcLength;
+
+    // Implement Geometric Tip Fading (1.5" fade zone for smooth closure)
+    const tailDist = Math.max(0, maxZ - zInches);
+    const noseDist = Math.max(0, zInches - minZ);
+    const fadeZone = 1.5;
+    let fadeFactor = 1.0;
+    if (noseDist < fadeZone) fadeFactor = noseDist / fadeZone;
+    if (tailDist < fadeZone) fadeFactor = Math.min(fadeFactor, tailDist / fadeZone);
+    fadeFactor = fadeFactor * fadeFactor * (3 - 2 * fadeFactor); // Smoothstep
     
     const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
@@ -341,6 +350,10 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
           py = profile.apexY - normY * (profile.apexY - profile.botY);
         }
+          
+        // Apply tip fade to aggressively pinch the rail into a flat edge at the tips
+        const centerY = profile.botY + (profile.topY - profile.botY) / 2;
+        py = centerY + (py - centerY) * fadeFactor;
       }
 
       const pos = new THREE.Vector3(px * scale, py * scale, zInches * scale);
@@ -390,7 +403,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   }
 
   // STEP 4: Generate Tail Cap if needed (wide tails)
-  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop:[], rockerBottom:[] }, maxZ);
+  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
   if (tailProfile.halfWidth >= 1e-3) {
     const finalRingStartIndex = segmentsZ * (segmentsRadial + 1);
     const capVertexStartIndex = vertices.length / 3;
