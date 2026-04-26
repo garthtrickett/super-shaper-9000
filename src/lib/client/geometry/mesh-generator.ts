@@ -269,14 +269,22 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   if (!outline || outline.controlPoints.length === 0) {
     return { vertices: new Float32Array(), indices: new Uint32Array(), uvs: new Float32Array(), colors: new Float32Array(), volumeLiters: 0 };
   }
-
   const minZ = outline.controlPoints[0]![2];
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
   const totalZ = maxZ - minZ;
 
-  for (let i = 0; i < segmentsZ; i++) {
-    const nz = i / (segmentsZ - 1);
+  // Loop one extra time to create the final collapsed seam at the nose and tail
+  for (let i = 0; i <= segmentsZ; i++) {
+    const nz = i / segmentsZ;
     const zInches = minZ + nz * totalZ;
+    const vCoord = i / segmentsZ;
+
+    // Create a fade-out zone at the tips to make the rails more boxy, which helps with sharp corners
+    let smoothFade = 1.0;
+    if (i < 3) smoothFade = i / 3.0;
+    else if (i > segmentsZ - 3) smoothFade = (segmentsZ - i) / 3.0;
+
+    const profile = getBoardProfileAtZ(model, { outline:[], rockerTop:[], rockerBottom:[] }, zInches);
     const vCoord = i / (segmentsZ - 1);
     
     let smoothFade = 1.0;
@@ -316,6 +324,11 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       if (sliceApexWidth > 1e-6 && profile.apexHalfWidth > 1e-6) {
           mappedX = rawX * (profile.apexHalfWidth / sliceApexWidth);
       }
+
+      // For the very first and last Z-segments, force the width to 0 to create the centerline seam.
+      if (i === 0 || i === segmentsZ) {
+        mappedX = 0;
+      }
       
       const px = (isRightSide ? 1 : -1) * mappedX;
 
@@ -330,14 +343,12 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
       if (Math.abs(sliceThickness) > 1e-6) {
           let normY = (rawY - sliceBot) / sliceThickness;
-          let boxNormY = 0;
-          if (j === 0 || j === 18 || j === 36) {
-              boxNormY = currentThickness > 1e-6 ? (profile.apexY - botY) / currentThickness : 0.5;
-          } else if (j > 0 && j < 18) {
-              boxNormY = 1.0;
-          } else {
-              boxNormY = 0.0;
+          let boxNormY = 0.5; // Default to center
+          if (currentThickness > 1e-6) {
+            if (j > 0 && j < 18) boxNormY = 1.0; // Top half
+            else if (j > 18) boxNormY = 0.0; // Bottom half
           }
+
           // Taper into a pure box edge at the tip
           normY = normY * smoothFade + boxNormY * (1 - smoothFade);
 
@@ -352,14 +363,12 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       let pyOpp = botY + currentThickness / 2;
       if (Math.abs(sliceThickness) > 1e-6) {
           let normYOpp = (rawYOpp - sliceBot) / sliceThickness;
-          let boxNormYOpp = 0;
-          if (Math.abs(tOpposite - 0.5) < 1e-6) {
-              boxNormYOpp = currentThickness > 1e-6 ? (profile.apexY - botY) / currentThickness : 0.5;
-          } else if (tOpposite > 0.5) {
-              boxNormYOpp = 1.0;
-          } else {
-              boxNormYOpp = 0.0;
+          let boxNormYOpp = 0.5; // Default to center
+           if (currentThickness > 1e-6) {
+            if (tOpposite > 0.5) boxNormYOpp = 1.0; // Top half
+            else if (tOpposite < 0.5) boxNormYOpp = 0.0; // Bottom half
           }
+
           // Taper into a pure box edge at the tip
           normYOpp = normYOpp * smoothFade + boxNormYOpp * (1 - smoothFade);
 
@@ -377,7 +386,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  for (let i = 0; i < segmentsZ - 1; i++) {
+  // The main loop now runs one extra time, so we need one extra segment for the indices.
+  for (let i = 0; i < segmentsZ; i++) {
     for (let j = 0; j < segmentsRadial; j++) {
       const a = i * (segmentsRadial + 1) + j;
       const b = i * (segmentsRadial + 1) + (j + 1);
@@ -388,95 +398,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  // --- END CAPS (Using duplicated vertices for sharp 90-degree normals) ---
-  
-  // Nose (-Z)
-  const noseRingStartIndex = 0;
-  let noseMinX = Infinity, noseMaxX = -Infinity;
-  let noseMinY = Infinity, noseMaxY = -Infinity;
-  for (let j = 0; j < segmentsRadial; j++) {
-      const x = vertices[(noseRingStartIndex + j) * 3]!;
-      const y = vertices[(noseRingStartIndex + j) * 3 + 1]!;
-      noseMinX = Math.min(noseMinX, x);
-      noseMaxX = Math.max(noseMaxX, x);
-      noseMinY = Math.min(noseMinY, y);
-      noseMaxY = Math.max(noseMaxY, y);
-  }
-  const noseWidth = noseMaxX - noseMinX;
-  const noseHeight = noseMaxY - noseMinY;
-
-  // Only cap if it's actually an open hole (like a blunt nose or squash tail). 
-  // If it's a pin tail (width ~ 0), the left and right sides spatially seal themselves!
-  if (noseWidth > 1e-4) {
-      const noseCenterX = (noseMinX + noseMaxX) / 2;
-      const noseCenterY = (noseMinY + noseMaxY) / 2;
-      const noseCenterIdx = vertices.length / 3;
-      
-      vertices.push(noseCenterX, noseCenterY, minZ * scale);
-      uvs.push(0.5, 0.5);
-      colors.push(0, 0, 1);
-
-      const capRingStartIdx = vertices.length / 3;
-      for (let j = 0; j <= segmentsRadial; j++) {
-          const srcIdx = noseRingStartIndex + j;
-          const vx = vertices[srcIdx * 3]!;
-          const vy = vertices[srcIdx * 3 + 1]!;
-          vertices.push(vx, vy, vertices[srcIdx * 3 + 2]!);
-          
-          const u = noseWidth > 0 ? (vx - noseMinX) / noseWidth : 0.5;
-          const v = noseHeight > 0 ? (vy - noseMinY) / noseHeight : 0.5;
-          uvs.push(u, v);
-          colors.push(colors[srcIdx * 3]!, colors[srcIdx * 3 + 1]!, colors[srcIdx * 3 + 2]!);
-      }
-
-      for (let j = 0; j < segmentsRadial; j++) {
-          // Reverse winding for Nose (-Z facing)
-          indices.push(noseCenterIdx, capRingStartIdx + j + 1, capRingStartIdx + j);
-      }
-  }
-
-  // Tail (+Z)
-  const tailRingStartIndex = (segmentsZ - 1) * (segmentsRadial + 1);
-  let tailMinX = Infinity, tailMaxX = -Infinity;
-  let tailMinY = Infinity, tailMaxY = -Infinity;
-  for (let j = 0; j < segmentsRadial; j++) {
-      const x = vertices[(tailRingStartIndex + j) * 3]!;
-      const y = vertices[(tailRingStartIndex + j) * 3 + 1]!;
-      tailMinX = Math.min(tailMinX, x);
-      tailMaxX = Math.max(tailMaxX, x);
-      tailMinY = Math.min(tailMinY, y);
-      tailMaxY = Math.max(tailMaxY, y);
-  }
-  const tailWidth = tailMaxX - tailMinX;
-  const tailHeight = tailMaxY - tailMinY;
-
-  if (tailWidth > 1e-4) {
-      const tailCenterX = (tailMinX + tailMaxX) / 2;
-      const tailCenterY = (tailMinY + tailMaxY) / 2;
-      const tailCenterIdx = vertices.length / 3;
-      
-      vertices.push(tailCenterX, tailCenterY, maxZ * scale);
-      uvs.push(0.5, 0.5);
-      colors.push(0, 0, 1);
-
-      const capRingStartIdx = vertices.length / 3;
-      for (let j = 0; j <= segmentsRadial; j++) {
-          const srcIdx = tailRingStartIndex + j;
-          const vx = vertices[srcIdx * 3]!;
-          const vy = vertices[srcIdx * 3 + 1]!;
-          vertices.push(vx, vy, vertices[srcIdx * 3 + 2]!);
-          
-          const u = tailWidth > 0 ? (vx - tailMinX) / tailWidth : 0.5;
-          const v = tailHeight > 0 ? (vy - tailMinY) / tailHeight : 0.5;
-          uvs.push(u, v);
-          colors.push(colors[srcIdx * 3]!, colors[srcIdx * 3 + 1]!, colors[srcIdx * 3 + 2]!);
-      }
-
-      for (let j = 0; j < segmentsRadial; j++) {
-          // Standard winding for Tail (+Z facing)
-          indices.push(tailCenterIdx, capRingStartIdx + j, capRingStartIdx + j + 1);
-      }
-  }
+  // The old, separate end-capping logic is no longer needed as the main loop now closes the mesh.
 
   return {
     vertices: new Float32Array(vertices),
