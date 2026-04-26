@@ -1,5 +1,6 @@
 // File: src/lib/client/geometry/mesh-generator.test.ts
 import { expect } from "@open-wc/testing";
+import * as THREE from "three";
 import { MeshGeneratorService } from "./mesh-generator";
 import { generateBoardCurves } from "./board-curves";
 import { INITIAL_STATE, type BoardModel } from "../../../components/pages/board-builder-page.logic";

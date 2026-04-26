@@ -279,10 +279,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const zInches = minZ + nz * totalZ;
     const vCoord = i / segmentsZ;
 
-    let smoothFade = 1.0;
-    if (i < 3) smoothFade = i / 3;
-    else if (i > segmentsZ - 4) smoothFade = (segmentsZ - 1 - i) / 3;
-
     const profile = getBoardProfileAtZ(model, { outline:[], rockerTop:[], rockerBottom:[] }, zInches);
     const { topY, botY } = profile;
 
@@ -299,7 +295,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       if (!blend) {
         const py = botY + (topY - botY) / 2;
         vertices.push(0, py * scale, zInches * scale);
-        uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
+        uvs.push(j / segmentsRadial, vCoord);
         colors.push(0, 0, 1);
         continue;
       }
@@ -311,15 +307,13 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const sliceApexWidth = blend.apexWidth;
 
       let mappedX = rawX;
-      // Simplified Lofting: Scale the entire cross-section based on the apex guide curve.
-      // This is more robust than multi-guide interpolation and prevents collapsing.
       if (sliceApexWidth > 1e-6 && profile.apexHalfWidth > 1e-6) {
           mappedX = rawX * (profile.apexHalfWidth / sliceApexWidth);
       }
-
-      // For the very first and last Z-segments, force the width to 0 to create the centerline seam.
-      if (i === 0 || i === segmentsZ) {
-        mappedX = 0;
+      
+      // If the profile width is essentially zero, collapse the entire ring to a point.
+      if (profile.halfWidth < 0.01) {
+          mappedX = 0;
       }
       
       const px = (isRightSide ? 1 : -1) * mappedX;
@@ -334,16 +328,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const scaleFactor = cosAngle > 0.1 ? (1 / cosAngle) : 1;
 
       if (Math.abs(sliceThickness) > 1e-6) {
-          let normY = (rawY - sliceBot) / sliceThickness;
-          let boxNormY = 0.5; // Default to center
-          if (currentThickness > 1e-6) {
-            if (j > 0 && j < 18) boxNormY = 1.0; // Top half
-            else if (j > 18) boxNormY = 0.0; // Bottom half
-          }
-
-          // Taper into a pure box edge at the tip
-          normY = normY * smoothFade + boxNormY * (1 - smoothFade);
-
+          const normY = (rawY - sliceBot) / sliceThickness;
           const depthScale = 1 + (scaleFactor - 1) * (1 - normY);
           py = botY + (normY * currentThickness) * depthScale;
       }
@@ -354,16 +339,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
       let pyOpp = botY + currentThickness / 2;
       if (Math.abs(sliceThickness) > 1e-6) {
-          let normYOpp = (rawYOpp - sliceBot) / sliceThickness;
-          let boxNormYOpp = 0.5; // Default to center
-           if (currentThickness > 1e-6) {
-            if (tOpposite > 0.5) boxNormYOpp = 1.0; // Top half
-            else if (tOpposite < 0.5) boxNormYOpp = 0.0; // Bottom half
-          }
-
-          // Taper into a pure box edge at the tip
-          normYOpp = normYOpp * smoothFade + boxNormYOpp * (1 - smoothFade);
-
+          const normYOpp = (rawYOpp - sliceBot) / sliceThickness;
           const depthScaleOpp = 1 + (scaleFactor - 1) * (1 - normYOpp);
           pyOpp = botY + (normYOpp * currentThickness) * depthScaleOpp;
       }
