@@ -1,9 +1,9 @@
 // File: src/lib/client/geometry/mesh-generator.test.ts
 import { expect } from "@open-wc/testing";
 import * as THREE from "three";
-import { MeshGeneratorService } from "./mesh-generator";
+import { MeshGeneratorService, getCrossSectionBlendAtZ } from "./mesh-generator";
 import { generateBoardCurves } from "./board-curves";
-import { INITIAL_STATE, type BoardModel } from "../../../components/pages/board-builder-page.logic";
+import { INITIAL_STATE, type BoardModel, type BezierCurveData, type Point3D } from "../../../components/pages/board-builder-page.logic";
 import { runClientPromise } from "../runtime";
 import { parseS3dx } from "./s3dx-importer";
 
@@ -344,6 +344,83 @@ describe("MeshGeneratorService", () => {
         0,
         `Found ${inwardFacingTriangles} tail-cap triangles with incorrect winding order (inward-facing normals), which appear as holes.`,
       );
+    });
+  });
+
+  describe("Tail Shape & Detail Preservation (Piecewise Scaling & Interpolation)", () => {
+    const mockBezier = (pts: Point3D[]): BezierCurveData => ({
+      controlPoints: pts,
+      tangents1: pts,
+      tangents2: pts
+    });
+
+    it("uses piecewise X-scaling to preserve the tuck line independently of the apex", () => {
+      const mockState: BoardModel = {
+        ...INITIAL_STATE,
+        outline: mockBezier([[10, 0, 0],[10, 0, 10]]),
+        railOutline: mockBezier([[2, 0, 0], [2, 0, 10]]), // Tuck is firmly at 2
+        rockerTop: mockBezier([[0, 10, 0], [0, 10, 10]]),
+        rockerBottom: mockBezier([[0, 0, 0],[0, 0, 10]]),
+        crossSections:[
+          // Slice: Tuck is at X=5 (t=0.25), Apex is at X=10 (t=0.5)
+          mockBezier([[0, 0, 0], [5, 0, 0],[10, 5, 0], [5, 10, 0], [0, 10, 0]])
+        ]
+      };
+        
+      const mesh = MeshGeneratorService.generateMesh(mockState, { outline:[], rockerTop:[], rockerBottom:[] });
+        
+      // Radial segments = 96. Bottom goes from j=0 to 48. t=0.25 is j=24.
+      const jTuck = 24; 
+      const vertexIdx = jTuck * 3;
+      const xVal = Math.abs(mesh.vertices[vertexIdx]!);
+        
+      const expectedInches = 2; // Should strictly lock to railOutline (tuckX)
+      const expectedScaled = expectedInches * (1/12);
+      expect(xVal).to.be.closeTo(expectedScaled, 0.001, "Tuck X should map independently to railOutline, not stretch to outline apex.");
+    });
+
+    it("scales Y coordinates based on parameter T to prevent contour scrambling on deep bottom channels", () => {
+      const mockState: BoardModel = {
+        ...INITIAL_STATE,
+        outline: mockBezier([[10, 0, 0],[10, 0, 10]]),
+        rockerBottom: mockBezier([[0, 0, 0], [0, 0, 10]]),
+        rockerTop: mockBezier([[0, 20, 0], [0, 20, 10]]),
+        apexRocker: mockBezier([[0, 5, 0], [0, 5, 10]]),
+        crossSections:[
+          // Slice: Deep channel at t=0.25 (Y=4). Apex at t=0.5 (Y=2).
+          mockBezier([[0, 0, 0],[5, 4, 0], [10, 2, 0], [5, 10, 0],[0, 10, 0]])
+        ]
+      };
+
+      const mesh = MeshGeneratorService.generateMesh(mockState, { outline:[], rockerTop:[], rockerBottom:[] });
+        
+      const jChan = 24; // t=0.25
+      const vertexIdx = jChan * 3;
+      const yVal = mesh.vertices[vertexIdx + 1]!;
+        
+      const expectedInches = 10; 
+      const expectedScaled = expectedInches * (1/12);
+        
+      expect(yVal).to.be.closeTo(expectedScaled, 0.001, "Y coordinate should scale via parameter space (T), ignoring spatial overlap.");
+    });
+
+    it("uses linear parameter interpolation for the apex to prevent overshoot at sharp tail drop-offs", () => {
+      const slices = [
+        mockBezier([[0,0,0],  [2,2,0],  [10,5,0],[2,8,0],  [0,10,0]]),  // S0: z=0, apex at t=0.5
+        mockBezier([[0,0,10],[2,2,10], [10,5,10], [2,8,10],[0,10,10]]), // S1: z=10, apex at t=0.5
+        mockBezier([[0,0,20], [2,2,20],[10,5,20], [2,8,20], [0,10,20]]), // S2: z=20, apex at t=0.5
+        mockBezier([[0,0,30], [2,2,30], [5,5,30],[10,8,30], [0,10,30]]) // S3: z=30, apex pushed to t=0.75
+      ];
+        
+      // Evaluate at z=15. Between S1(10) and S2(20). Both have tApex around 0.5.
+      // If cubic interpolation was used, the upcoming 0.75 at Z=30 causes a downward curve,
+      // making it dip below 0.5 at Z=15 (overshoot artifact).
+      // With linear, it should be exactly identical to the neighbors.
+        
+      const blend = getCrossSectionBlendAtZ(slices, 15);
+      const blend10 = getCrossSectionBlendAtZ(slices, 10);
+        
+      expect(blend!.tApex).to.be.closeTo(blend10!.tApex, 0.0001, "tApex should use linear interpolation, avoiding cubic undershoot artifacts.");
     });
   });
 
