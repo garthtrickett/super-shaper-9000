@@ -84,7 +84,7 @@ describe("Board Curves Generator", () => {
     expect(tailPoint[0]).to.equal(20 * 0.05);
 
     // Squash (30% of width)
-    model = { ...model, tailType: "squash" };
+    model = { ...model, tailType: "squash" } as unknown as BoardModel;
     result = await generateBoardCurves(model);
     tailPoint = result.outline[result.outline.length - 1]!;
     expect(tailPoint[0]).to.equal(20 * 0.3);

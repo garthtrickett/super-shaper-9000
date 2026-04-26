@@ -149,7 +149,7 @@ describe("MeshGeneratorService", () => {
     });
 
     it("generates a watertight tail cap with correct winding and UVs for wide tails", async () => {
-      const squashTailModel: BoardModel = { ...INITIAL_STATE, tailType: "squash", tailBlockWidth: 8.0 };
+      const squashTailModel = { ...INITIAL_STATE, tailType: "squash", tailBlockWidth: 8.0 } as unknown as BoardModel;
       const curves = await generateBoardCurves(squashTailModel);
       const mesh = MeshGeneratorService.generateMesh(squashTailModel, curves);
 

@@ -256,13 +256,13 @@ export const extractCrossSectionsSS9000 = (model: BoardModel, curves: BoardCurve
     const topY = getRockerY(zInches, true);
     const botY = getRockerY(zInches, false);
     const thickness = Math.max(0, topY - botY);
-    const apexY = botY + thickness * model.apexRatio;
+    const apexY = botY + thickness * ((model as any).apexRatio || 0.3);
 
     const tailDist = Math.max(0, maxZ - zInches);
     const noseDist = Math.max(0, zInches - minZ);
 
-    let railExp = 1.5 - model.railFullness;
-    let deckExp = model.deckDome;
+    let railExp = 1.5 - ((model as any).railFullness || 0.65);
+    let deckExp = ((model as any).deckDome || 0.65);
     const relaxZone = 2.0;
     if (noseDist < relaxZone) {
       const frac = noseDist / relaxZone;

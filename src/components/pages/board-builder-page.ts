@@ -282,7 +282,7 @@ export class BoardBuilderPage extends LitElement {
           }}
         ></board-viewport>
 
-        ${state.editMode === 'manual' && state.selectedNode ? html`
+        ${state.selectedNode ? html`
           <node-inspector
             class="absolute top-16 right-4 z-20 w-[340px]"
             .boardState=${state}
