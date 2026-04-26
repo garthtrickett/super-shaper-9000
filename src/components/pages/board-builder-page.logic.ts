@@ -455,13 +455,16 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         }
       }
 
-      if (curve === "outline") return { ...state, manualOutline: updatedCurve };
-      if (curve === "rockerTop") return { ...state, manualRockerTop: updatedCurve };
-      if (curve === "rockerBottom") return { ...state, manualRockerBottom: updatedCurve };
-      if (crossSectionIdx !== -1 && state.manualCrossSections) {
-        const newCrossSections = [...state.manualCrossSections];
+      if (curve === "outline") return { ...state, outline: updatedCurve };
+      if (curve === "rockerTop") return { ...state, rockerTop: updatedCurve };
+      if (curve === "rockerBottom") return { ...state, rockerBottom: updatedCurve };
+      if (curve === "apexOutline") return { ...state, apexOutline: updatedCurve };
+      if (curve === "railOutline") return { ...state, railOutline: updatedCurve };
+      if (curve === "apexRocker") return { ...state, apexRocker: updatedCurve };
+      if (crossSectionIdx !== -1) {
+        const newCrossSections =[...state.crossSections];
         newCrossSections[crossSectionIdx] = updatedCurve;
-        return { ...state, manualCrossSections: newCrossSections };
+        return { ...state, crossSections: newCrossSections };
       }
       return state;
     }
@@ -478,40 +481,19 @@ export const handleAction = (
   Effect.gen(function* () {
     yield* clientLog("debug", "[BoardBuilder] State Action processed", action);
     
-    if (action.type === "SET_EDIT_MODE") {
-      yield* clientLog("info", `[BoardBuilder] Edit mode changed to ${action.mode}`);
-    }
     if (action.type === "IMPORT_S3DX") {
-      yield* clientLog("info", "[BoardBuilder] Imported S3DX file and switched to manual mode", {
+      yield* clientLog("info", "[BoardBuilder] Imported S3DX file", {
         length: action.length,
         width: action.width,
         thickness: action.thickness
       });
     }
-    if (action.type === "SET_MANUAL_CURVES") {
-      yield* clientLog("info", "[BoardBuilder] Manual curves have been baked into state", {
+    if (action.type === "SET_CURVES") {
+      yield* clientLog("info", "[BoardBuilder] Curves have been baked into state", {
         hasOutline: !!action.outline,
         hasRockerTop: !!action.rockerTop,
         hasRockerBottom: !!action.rockerBottom,
         crossSectionsCount: action.crossSections?.length ?? 0
       });
-    }
-
-    if (action.type === "CONVERT_TO_MANUAL") {
-      yield* clientLog("info", "[BoardBuilder] Starting conversion from parametric to manual curves...");
-      
-      yield* bakeToManual(_state).pipe(
-        Effect.flatMap((manualData) => Effect.sync(() => {
-          _dispatch({
-            type: "SET_MANUAL_CURVES",
-            outline: manualData.outline,
-            rockerTop: manualData.rockerTop,
-            rockerBottom: manualData.rockerBottom,
-            crossSections: manualData.crossSections,
-          });
-          _dispatch({ type: "SET_EDIT_MODE", mode: "manual" });
-        })),
-        Effect.catchAll((e) => clientLog("error", "[BoardBuilder] Failed to bake manual curves", e))
-      );
     }
   });

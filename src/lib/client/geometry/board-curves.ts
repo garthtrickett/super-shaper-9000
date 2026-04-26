@@ -224,9 +224,9 @@ export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurve
   // 4. MESH END-CAPS
   // ====================================================================
   
-  if (model.tailType === "swallow") {
+  if (tailType === "swallow") {
       // Cut the swallow tail directly to the stringer
-      outline.push([0, 0, L/2 - model.swallowDepth]);
+      outline.push([0, 0, L/2 - ((model as any).swallowDepth || 4.5)]);
   } else {
       // Ensure absolute stringer closure for lofting
       const lastP = outline[outline.length - 1];

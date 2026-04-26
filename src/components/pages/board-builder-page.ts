@@ -107,9 +107,6 @@ export class BoardBuilderPage extends LitElement {
   }
 
   private _handleKeyDown = (e: KeyboardEvent) => {
-    // Only handle hotkeys if we are actively in manual sculpting mode
-    if (this.ctrl.model.editMode !== "manual") return;
-
     // Do not hijack Undo/Redo if the user is typing inside an input field (e.g., Node Inspector)
     const activeEl = document.activeElement;
     if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {

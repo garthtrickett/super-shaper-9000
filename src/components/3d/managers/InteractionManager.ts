@@ -252,7 +252,7 @@ export class InteractionManager {
       this.controls.profile.enabled = (camera === this.cameras.profile);
     }
 
-    if (this.boardState?.editMode === 'manual' && dist < 5) {
+    if (dist < 5) {
       const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
       this.mouse.copy(mouse);
       this.raycaster.setFromCamera(this.mouse, camera);

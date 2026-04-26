@@ -46,12 +46,15 @@ export class NodeInspector extends LitElement {
   private _getTargetCurve(): BezierCurveData | undefined {
     const sel = this.boardState?.selectedNode;
     if (!sel) return undefined;
-    if (sel.curve === "outline") return this.boardState.manualOutline;
-    if (sel.curve === "rockerTop") return this.boardState.manualRockerTop;
-    if (sel.curve === "rockerBottom") return this.boardState.manualRockerBottom;
+    if (sel.curve === "outline") return this.boardState.outline;
+    if (sel.curve === "rockerTop") return this.boardState.rockerTop;
+    if (sel.curve === "rockerBottom") return this.boardState.rockerBottom;
+    if (sel.curve === "apexOutline") return this.boardState.apexOutline;
+    if (sel.curve === "railOutline") return this.boardState.railOutline;
+    if (sel.curve === "apexRocker") return this.boardState.apexRocker;
     if (sel.curve.startsWith("crossSection_")) {
       const idx = parseInt(sel.curve.split("_")[1]!, 10);
-      return this.boardState.manualCrossSections?.[idx];
+      return this.boardState.crossSections?.[idx];
     }
     return undefined;
   }

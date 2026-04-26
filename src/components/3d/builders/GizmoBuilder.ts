@@ -84,15 +84,17 @@ export class GizmoBuilder {
             }
         };
 
-        drawGizmosForCurve(boardState.manualOutline, 'outline', 1);
-        drawGizmosForCurve(boardState.manualRockerTop, 'rockerTop', 2);
-        drawGizmosForCurve(boardState.manualRockerBottom, 'rockerBottom', 2);
+        if (boardState.showOutline !== false) drawGizmosForCurve(boardState.outline, 'outline', 1);
+        if (boardState.showRockerTop !== false) drawGizmosForCurve(boardState.rockerTop, 'rockerTop', 2);
+        if (boardState.showRockerBottom !== false) drawGizmosForCurve(boardState.rockerBottom, 'rockerBottom', 2);
+        if (boardState.showApexOutline !== false) drawGizmosForCurve(boardState.apexOutline, 'apexOutline', 1);
+        if (boardState.showRailOutline !== false) drawGizmosForCurve(boardState.railOutline, 'railOutline', 1);
+        if (boardState.showApexRocker !== false) drawGizmosForCurve(boardState.apexRocker, 'apexRocker', 2);
         
-        if (boardState.manualCrossSections) {
-            boardState.manualCrossSections.forEach((cs, idx) => {
+        if (boardState.showCrossSections !== false && boardState.crossSections) {
+            boardState.crossSections.forEach((cs, idx) => {
                 drawGizmosForCurve(cs, `crossSection_${idx}`, 3);
             });
         }
-    }
   }
 }

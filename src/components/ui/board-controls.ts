@@ -291,65 +291,34 @@ export class BoardControls extends LitElement {
           </div>
         </div>
 
-        ${this._renderAccordion("Core Dimensions", html`
-          ${this._renderSlider("Length", "length", 60, 96, 0.5, this.length, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Width", "width", 17, 24, 0.125, this.width, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Thickness", "thickness", 2, 3.5, 0.0625, this.thickness, "\"", this.editMode === 'manual')}
+        ${this._renderAccordion("Curve Tree", html`
+          <label class="flex items-center justify-between mb-2 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
+            <span class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Control Points</span>
+            <input type="checkbox" .checked=${this.showGizmos} @change=${(e: Event) => this._dispatchBoolean('showGizmos', (e.target as HTMLInputElement).checked)} class="w-4 h-4 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
+          </label>
+          <div class="h-px bg-zinc-800 my-2"></div>
+          ${[
+            { label: "Outline", key: "showOutline" },
+            { label: "Rocker Top", key: "showRockerTop" },
+            { label: "Rocker Bottom", key: "showRockerBottom" },
+            { label: "Apex Outline", key: "showApexOutline" },
+            { label: "Rail Outline (Tuck)", key: "showRailOutline" },
+            { label: "Apex Rocker", key: "showApexRocker" },
+            { label: "Cross Sections", key: "showCrossSections" }
+          ].map(c => html`
+            <label class="flex items-center justify-between mb-1 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
+              <span class="text-xs text-zinc-400">${c.label}</span>
+              <input type="checkbox" .checked=${(this as any)[c.key]} @change=${(e: Event) => this._dispatchBoolean(c.key, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
+            </label>
+          `)}
         `, true)}
 
-        ${this._renderAccordion("Outline & Tail", html`
-          ${this._renderSelect("Nose Shape", "noseShape",[{value: "pointy", label: "Standard Point"}, {value: "torpedo", label: "Beak"}, {value: "clipped", label: "Torpedo (Tomo)"}], this.noseShape, this.editMode === 'manual')}
-          ${this.noseShape === 'clipped' || this.noseShape === 'torpedo' ? html`
-            <div class="h-px bg-zinc-800 my-4"></div>
-            ${this._renderSlider("Nose Tip Width", "noseTipWidth", 1.0, 10.0, 0.25, this.noseTipWidth, "\"", this.editMode === 'manual')}
-            ${this.noseShape === 'torpedo' ? this._renderSlider("Tip Blend Length", "noseTipCurveZ", 0.1, 8.0, 0.25, this.noseTipCurveZ, "\"", this.editMode === 'manual') : ''}
-          ` : ''}
-          ${this.noseShape !== 'clipped' ? this._renderSlider("Nose Fullness (N12)", "noseWidth", 10.0, 16.0, 0.125, this.noseWidth, "\"", this.editMode === 'manual') : ''}
-          ${this._renderSlider("Wide Point Offset", "widePointOffset", -3, 3, 0.5, this.widePointOffset, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Tail Fullness (T12)", "tailWidth", 12.0, 17.0, 0.125, this.tailWidth, "\"", this.editMode === 'manual')}
-          ${this._renderSelect("Tail Type", "tailType",[{value: "squash", label: "Squash / Block"}, {value: "pintail", label: "Pintail"}, {value: "round", label: "Rounded Pin"}, {value: "torpedo", label: "Torpedo (Symmetrical)"}], this.tailType, this.editMode === 'manual')}
-          
-          ${this.tailType === 'swallow' || this.tailType === 'squash' || this.tailType === 'torpedo' ? html`
-            <div class="h-px bg-zinc-800 my-4"></div>
-            ${this.tailType === 'swallow' ? this._renderSlider("Swallow Depth", "swallowDepth", 2.0, 8.0, 0.25, this.swallowDepth, "\"", this.editMode === 'manual') : ''}
-            ${this._renderSlider("Tail Block Width", "tailBlockWidth", 2.0, 12.0, 0.25, this.tailBlockWidth, "\"", this.editMode === 'manual')}
-          ` : ''}
-        `, true)}
-
-        ${this._renderAccordion("Rocker & Foil", html`
-          ${this._renderSlider("Nose Rocker", "noseRocker", 3.0, 7.0, 0.1, this.noseRocker, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Tail Rocker", "tailRocker", 1.0, 3.5, 0.1, this.tailRocker, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Flat Spot Length", "rockerFlatSpotLength", 0, 36.0, 1.0, this.rockerFlatSpotLength, "\"", this.editMode === 'manual')}
-          <div class="h-px bg-zinc-800 my-4"></div>
-          ${this._renderSlider("Nose Thickness (N12)", "noseThickness", 0.75, 2.5, 0.0625, this.noseThickness, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Tail Thickness (T12)", "tailThickness", 0.75, 2.5, 0.0625, this.tailThickness, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Deck Dome", "deckDome", 0.4, 0.9, 0.05, this.deckDome, "", this.editMode === 'manual')}
-        `, false)}
-
-        ${this._renderAccordion("Rails & Cross-Sections", html`
-          <div class="grid grid-cols-3 gap-2 mb-6 bg-zinc-950 p-2 rounded-lg border border-zinc-800 opacity-${this.editMode === 'manual' ? '50' : '100'}">
-            ${this._renderSliceSVG("Shoulder", this.noseShape === 'clipped' ? 16.0 : this.noseWidth, this.noseThickness, this.apexRatio, false)}
-            ${this._renderSliceSVG("Center", this.width, this.thickness, this.apexRatio, false)}
-            ${this._renderSliceSVG("Hip", this.tailWidth, this.tailThickness, 0.05, this.hardEdgeLength >= 12)}
+        ${this._renderAccordion("Global Transforms", html`
+          <div class="flex gap-2">
+            <button class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Scale Width</button>
+            <button class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Scale Thickness</button>
           </div>
-          ${this._renderSlider("Rail Apex Height", "apexRatio", 0.2, 0.6, 0.02, this.apexRatio, "%", this.editMode === 'manual')}
-          ${this._renderSlider("Rail Fullness", "railFullness", 0.5, 0.9, 0.05, this.railFullness, "", this.editMode === 'manual')}
-          ${this._renderSlider("Hard Edge Starts At", "hardEdgeLength", 0, 36.0, 1.0, this.hardEdgeLength, "\"", this.editMode === 'manual')}
         `, true)}
-
-        ${this._renderAccordion("Bottom Contours", html`
-          ${this._renderSelect("Contour Flow", "bottomContour",[
-            {value: "flat", label: "Flat"},
-            {value: "single", label: "Single Concave"},
-            {value: "single_to_double", label: "Single to Double"},
-            {value: "vee_to_quad_channels", label: "Vee -> Quad-Inside-Single"}
-          ], this.bottomContour, this.editMode === 'manual')}
-          <div class="h-px bg-zinc-800 my-4"></div>
-          ${this._renderSlider("Entry Vee Depth", "veeDepth", 0, 0.5, 0.0625, this.veeDepth, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Single Concave Depth", "concaveDepth", 0, 0.5, 0.0625, this.concaveDepth, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Channel Depth", "channelDepth", 0, 0.5, 0.0625, this.channelDepth, "\"", this.editMode === 'manual')}
-          ${this._renderSlider("Channel Length (from tail)", "channelLength", 0, 36.0, 1.0, this.channelLength, "\"", this.editMode === 'manual')}
-        `, false)}
 
         ${this._renderAccordion("Fins & Placement", html`
           ${this._renderSelect("Setup", "finSetup",[

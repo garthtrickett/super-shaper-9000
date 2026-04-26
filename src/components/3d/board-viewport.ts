@@ -338,7 +338,7 @@ export class BoardViewport extends LitElement {
   }
 
   private _updateGizmoPositionsFromState() {
-    if (!this.boardState || this.boardState.editMode !== 'manual') return;
+    if (!this.boardState) return;
 
     const scale = 1 / 12;
     const gizmosByUserData = new Map<string, THREE.Mesh>();
@@ -361,10 +361,13 @@ export class BoardViewport extends LitElement {
       });
     };
 
-    updatePositionsForCurve(this.boardState.manualOutline, 'outline');
-    updatePositionsForCurve(this.boardState.manualRockerTop, 'rockerTop');
-    updatePositionsForCurve(this.boardState.manualRockerBottom, 'rockerBottom');
-    this.boardState.manualCrossSections?.forEach((cs, idx) => updatePositionsForCurve(cs, `crossSection_${idx}`));
+    updatePositionsForCurve(this.boardState.outline, 'outline');
+    updatePositionsForCurve(this.boardState.rockerTop, 'rockerTop');
+    updatePositionsForCurve(this.boardState.rockerBottom, 'rockerBottom');
+    updatePositionsForCurve(this.boardState.apexOutline, 'apexOutline');
+    updatePositionsForCurve(this.boardState.railOutline, 'railOutline');
+    updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
+    this.boardState.crossSections?.forEach((cs, idx) => updatePositionsForCurve(cs, `crossSection_${idx}`));
   }
 
   private updateGizmoHighlights() {

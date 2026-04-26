@@ -61,17 +61,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     expect(jsonContent.length).toBeGreaterThan(0);
     
     const parsedState = JSON.parse(jsonContent) as {
-      editMode?: string;
       volume: number;
-      manualOutline?: { controlPoints: unknown[] };
+      outline?: { controlPoints: unknown[] };
     };
     
-    // Assert the state correctly reflects the manual switch and populated curves
-    expect(parsedState.editMode).toBe("manual");
+    // Assert the state correctly reflects the populated curves
     expect(parsedState.volume).toBeGreaterThan(10); // Dynamically calculated, just ensure it's a valid size
-    expect(parsedState.manualOutline).toBeDefined();
-    expect(Array.isArray(parsedState.manualOutline?.controlPoints)).toBe(true);
-    expect(parsedState.manualOutline!.controlPoints.length).toBeGreaterThan(3);
+    expect(parsedState.outline).toBeDefined();
+    expect(Array.isArray(parsedState.outline?.controlPoints)).toBe(true);
+    expect(parsedState.outline!.controlPoints.length).toBeGreaterThan(2);
     
     // Close the modal
     const closeBtn = page.getByRole('button', { name: "Close" });

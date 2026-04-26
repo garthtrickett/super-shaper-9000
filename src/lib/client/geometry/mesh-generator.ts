@@ -526,7 +526,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
         const angle = (j / segmentsRadial) * Math.PI * 2;
         const cx = Math.cos(angle);
         const cy = Math.sin(angle);
-        const apexY = profile.botY + (profile.topY - profile.botY) * model.apexRatio;
+        const apexY = profile.botY + (profile.topY - profile.botY) * ((model as any).apexRatio || 0.3);
         
         const px_ellipse = Math.sign(cx) * Math.abs(cx) * halfWidth;
         const py_top_ellipse = apexY + Math.abs(cy) * (profile.topY - apexY);
