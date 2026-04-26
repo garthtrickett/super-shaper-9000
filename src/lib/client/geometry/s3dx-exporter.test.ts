@@ -32,7 +32,7 @@ describe("S3DX Exporter", () => {
 
     it("translates the stringer deck to Z_s3d = Total Thickness in cm", () => {
       // SS9000 Top is at Y = +T/2
-      const [x, y, z] = translateToShape3d([0, T / 2, 0], L, T);
+      const[x, y, z] = translateToShape3d([0, T / 2, 0], L, T);
       expect(z).to.be.closeTo(T * 2.54, 0.0001);
     });
     
@@ -44,44 +44,46 @@ describe("S3DX Exporter", () => {
 
     it("translates the left rail to Y_s3d = Negative Half Width in cm", () => {
       // SS9000 Left Rail is at X = -W/2
-      const [x, y, z] = translateToShape3d([-W / 2, 0, 0], L, T);
+      const[x, y, z] = translateToShape3d([-W / 2, 0, 0], L, T);
       expect(y).to.be.closeTo((-W / 2) * 2.54, 0.0001);
     });
   });
 
   describe("exportS3dx (XML Generation Pipeline)", () => {
     it("generates a valid XML skeleton with accurate cm conversions", async () => {
+      // Minimal mocked curves to bypass Rhino dependency in this test
+      const mockCurves: BoardCurves = {
+        outline: [[0, 0, -35], [9.375, 0, 0],[0, 0, 35]],
+        rockerTop: [[0, 1.25, -35], [0, 1.25, 0],[0, 1.25, 35]],
+        rockerBottom: [[0, -1.25, -35],[0, -1.25, 0], [0, -1.25, 35]]
+      };
+
       const mockModel = {
         length: 70,
         width: 18.75,
         thickness: 2.5,
-        tailType: "squash",
         volume: 30.5,
-        tailRocker: 1.6,
-        noseRocker: 5.2,
-        apexRatio: 0.35,
-        railFullness: 0.65,
-        deckDome: 0.65,
-        channelLength: 12.0,
-        veeDepth: 0.15,
-        concaveDepth: 0.25,
-        channelDepth: 0.1875,
-        bottomContour: "vee_to_quad_channels"
-      } as BoardModel;
-
-      // Minimal mocked curves to bypass Rhino dependency in this test
-      const mockCurves: BoardCurves = {
-        outline: [[0, 0, -35], [9.375, 0, 0], [0, 0, 35]],
-        rockerTop: [[0, 1.25, -35], [0, 1.25, 0], [0, 1.25, 35]],
-        rockerBottom: [[0, -1.25, -35], [0, -1.25, 0], [0, -1.25, 35]]
-      };
+        finSetup: "quad",
+        frontFinX: 1.25,
+        frontFinZ: 11,
+        rearFinX: 1.75,
+        rearFinZ: 5.5,
+        toeAngle: 3,
+        cantAngle: 6,
+        coreMaterial: "pu",
+        glassingSchedule: "heavy",
+        outline: { controlPoints:[], tangents1: [], tangents2: [] },
+        rockerTop: { controlPoints: [], tangents1:[], tangents2: [] },
+        rockerBottom: { controlPoints: [], tangents1: [], tangents2:[] },
+        crossSections:[]
+      } as unknown as BoardModel;
 
       const xml = await Effect.runPromise(exportS3dx(mockModel, mockCurves));
       
       // Verify XML Declarations & Metadata
       expect(xml).to.include('<?xml version="1.0" encoding="iso-8859-1"?>');
       expect(xml).to.include("<Shape3d_design>");
-      expect(xml).to.include("<Name>SuperShaper_70.0_squash</Name>");
+      expect(xml).to.include("<Name>SuperShaper_70.0</Name>");
       expect(xml).to.include("<Version>9</Version>");
       expect(xml).to.include("<Author>Super Shaper 9000</Author>");
 
@@ -92,9 +94,7 @@ describe("S3DX Exporter", () => {
       expect(xml).to.include("<Width>47.625</Width>");
       // 2.5 * 2.54 = 6.350 cm
       expect(xml).to.include("<Thickness>6.350</Thickness>");
-      // Rocker conversions
-      expect(xml).to.include("<Tail_rocker>4.064</Tail_rocker>"); // 1.6 * 2.54
-      expect(xml).to.include("<Nose_rocker>13.208</Nose_rocker>"); // 5.2 * 2.54
+      
       expect(xml).to.include("<Volume>30.500</Volume>");
 
       // Verify Step 2 Curve XML Tags were injected
