@@ -157,8 +157,8 @@ describe("MeshGeneratorService", () => {
       const curves = await generateBoardCurves(pinchedState);
       const mesh = MeshGeneratorService.generateMesh(pinchedState, curves);
       
-      const segmentsZ = 180;
-      const segmentsRadial = 48;
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
       
       // Check Nose (First ring, Z index 0)
       const noseRingY = mesh.vertices[1]!;
@@ -206,8 +206,8 @@ describe("MeshGeneratorService", () => {
       const curves = await generateBoardCurves(squashState);
       const mesh = MeshGeneratorService.generateMesh(squashState, curves);
 
-      const segmentsZ = 180;
-      const segmentsRadial = 48;
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
       const expectedHullVertices = (segmentsZ + 1) * (segmentsRadial + 1);
       const actualVerticesCount = mesh.vertices.length / 3;
 
@@ -369,8 +369,8 @@ describe("MeshGeneratorService", () => {
         
       const mesh = MeshGeneratorService.generateMesh(mockState, { outline:[], rockerTop:[], rockerBottom:[] });
         
-      // Radial segments = 96. Bottom goes from j=0 to 48. t=0.25 is j=24.
-      const jTuck = 24; 
+      // Radial segments = 96. Bottom stringer is j=0, Top is j=48. t=0.25 is j=12.
+      const jTuck = 12; 
       const vertexIdx = jTuck * 3;
       const xVal = Math.abs(mesh.vertices[vertexIdx]!);
         
@@ -394,7 +394,8 @@ describe("MeshGeneratorService", () => {
 
       const mesh = MeshGeneratorService.generateMesh(mockState, { outline:[], rockerTop:[], rockerBottom:[] });
         
-      const jChan = 24; // t=0.25
+      // j=12 is t=0.25. The evaluator should place it correctly in Y-space relative to the apex.
+      const jChan = 12;
       const vertexIdx = jChan * 3;
       const yVal = mesh.vertices[vertexIdx + 1]!;
         
@@ -449,18 +450,17 @@ describe("MeshGeneratorService", () => {
       });
 
       // Test the vertical bowtie assertion
-      const segmentsZ = 180;
-      const segmentsRadial = 48;
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
       
       let invertedCount = 0;
 
       for (let i = 0; i <= segmentsZ; i++) {
-        // Loop through one side of the board (e.g., right side, excluding stringer)
-        for (let j = 1; j < segmentsRadial / 2; j++) {
-            // The top vertex on the radial loop
-            const topIdx = i * (segmentsRadial + 1) + j;
-            // The corresponding bottom vertex is mirrored on the other side of the loop
-            const botIdx = i * (segmentsRadial + 1) + (segmentsRadial - j);
+        // In our radial loop (0..96), j=0 is Bottom Stringer, j=48 is Top Stringer.
+        // j in (0, 24) is the Bottom curve, and (48 - j) is the matching Top curve (Deck).
+        for (let j = 1; j < segmentsRadial / 4; j++) {
+            const botIdx = i * (segmentsRadial + 1) + j;
+            const topIdx = i * (segmentsRadial + 1) + (segmentsRadial / 2 - j);
 
             const topY = mesh.vertices[topIdx * 3 + 1]!;
             const botY = mesh.vertices[botIdx * 3 + 1]!;
@@ -486,8 +486,8 @@ describe("MeshGeneratorService", () => {
 
         const mesh = MeshGeneratorService.generateMesh(manualState, curves);
 
-        const segmentsZ = 180;
-        const segmentsRadial = 48;
+        const segmentsZ = 240;
+        const segmentsRadial = 96;
         const tailRingIndex = segmentsZ; // The very last ring
         const tailRingStartIndex = tailRingIndex * (segmentsRadial + 1);
 

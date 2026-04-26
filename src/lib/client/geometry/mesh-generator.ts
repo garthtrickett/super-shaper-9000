@@ -97,7 +97,7 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   }
 
   let tuckX = outlinePt[0];
-  let tuckY = botPt[1];
+  const tuckY = botPt[1];
   if (model.railOutline && model.railOutline.controlPoints.length > 0) {
     const railPt = evaluateBezierAtZ(model.railOutline, zInches);
     tuckX = railPt[0];
@@ -210,7 +210,6 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
 
   const pTuck = blend.evaluate(0.25);
   const sliceTuckX = Math.max(0.001, pTuck[0]);
-  const sliceTuckY = pTuck[1];
 
   for (let i = 0; i < 15; i++) {
     const tMid = (t0 + t1) / 2;
