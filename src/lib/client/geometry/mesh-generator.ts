@@ -10,6 +10,23 @@ export interface RawGeometryData {
   volumeLiters: number;
 }
 
+export const cubicInterpolate = (y0: number, y1: number, y2: number, y3: number, mu: number): number => {
+  const mu2 = mu * mu;
+  const a0 = -0.5 * y0 + 1.5 * y1 - 1.5 * y2 + 0.5 * y3;
+  const a1 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;
+  const a2 = -0.5 * y0 + 0.5 * y2;
+  const a3 = y1;
+  return a0 * mu * mu2 + a1 * mu2 + a2 * mu + a3;
+};
+
+export const cubicInterpolatePt = (p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D, t: number): Point3D => {
+  return [
+    cubicInterpolate(p0[0], p1[0], p2[0], p3[0], t),
+    cubicInterpolate(p0[1], p1[1], p2[1], p3[1], t),
+    cubicInterpolate(p0[2], p1[2], p2[2], p3[2], t)
+  ];
+};
+
 const colorHeatmap = (normalizedValue: number):[number, number, number] => {
   // 0.0 (thin) -> Blue (Hue 240), 1.0 (thick) -> Red (Hue 0)
   const hue = (1.0 - normalizedValue) * 240;
@@ -80,6 +97,12 @@ export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInch
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
   const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
 
+  const botPtForward = evaluateBezierAtZ(model.rockerBottom, zInches - 0.1);
+  const botPtBackward = evaluateBezierAtZ(model.rockerBottom, zInches + 0.1);
+  const dz = botPtBackward[2] - botPtForward[2];
+  const dy = botPtBackward[1] - botPtForward[1];
+  const rockerTangentAngle = Math.abs(dz) > 0.0001 ? Math.atan2(dy, dz) : 0;
+
   let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3; 
   if (model.apexRocker) {
     const apexPt = evaluateBezierAtZ(model.apexRocker, zInches);
@@ -92,7 +115,58 @@ export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInch
       apexY, 
       halfWidth: widthPt[0],
       apexHalfWidth: apexWidthPt[0],
-      tuckHalfWidth: tuckWidthPt[0]
+      tuckHalfWidth: tuckWidthPt[0],
+      rockerTangentAngle
+  };
+};
+
+export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInches: number) => {
+  if (crossSections.length === 0) return null;
+  const minZ = crossSections[0]!.controlPoints[0]![2];
+  const maxZ = crossSections[crossSections.length - 1]!.controlPoints[0]![2];
+  let k0 = 0;
+  let lerpFactor = 0;
+
+  if (zInches <= minZ) {
+    k0 = 0;
+    lerpFactor = 0;
+  } else if (zInches >= maxZ) {
+    k0 = crossSections.length - 1;
+    lerpFactor = 0;
+  } else {
+    for (let k = 0; k < crossSections.length - 1; k++) {
+      const z0 = crossSections[k]!.controlPoints[0]![2];
+      const z1 = crossSections[k + 1]!.controlPoints[0]![2];
+      if (zInches >= z0 && zInches <= z1) {
+        k0 = k;
+        lerpFactor = Math.abs(z1 - z0) < 0.0001 ? 0 : (zInches - z0) / (z1 - z0);
+        break;
+      }
+    }
+  }
+
+  const sM1 = crossSections[Math.max(0, k0 - 1)]!;
+  const s0 = crossSections[k0]!;
+  const s1 = crossSections[Math.min(crossSections.length - 1, k0 + 1)]!;
+  const s2 = crossSections[Math.min(crossSections.length - 1, k0 + 2)]!;
+
+  const getSliceY = (s: BezierCurveData, isTop: boolean) => isTop ? Math.max(...s.controlPoints.map(pt => pt[1])) : Math.min(...s.controlPoints.map(pt => pt[1]));
+  
+  const topY = cubicInterpolate(getSliceY(sM1, true), getSliceY(s0, true), getSliceY(s1, true), getSliceY(s2, true), lerpFactor);
+  const botY = cubicInterpolate(getSliceY(sM1, false), getSliceY(s0, false), getSliceY(s1, false), getSliceY(s2, false), lerpFactor);
+  const apexWidth = cubicInterpolate(sM1.controlPoints[2]?.[0] ?? 0, s0.controlPoints[2]?.[0] ?? 0, s1.controlPoints[2]?.[0] ?? 0, s2.controlPoints[2]?.[0] ?? 0, lerpFactor);
+  const tuckWidth = cubicInterpolate(sM1.controlPoints[1]?.[0] ?? 0, s0.controlPoints[1]?.[0] ?? 0, s1.controlPoints[1]?.[0] ?? 0, s2.controlPoints[1]?.[0] ?? 0, lerpFactor);
+
+  return {
+    sM1, s0, s1, s2, lerpFactor,
+    topY, botY, apexWidth, tuckWidth,
+    evaluate: (tMid: number) => {
+      const pM1 = evaluateBezier3D(sM1, tMid);
+      const pA = evaluateBezier3D(s0, tMid);
+      const pB = evaluateBezier3D(s1, tMid);
+      const pP2 = evaluateBezier3D(s2, tMid);
+      return cubicInterpolatePt(pM1, pA, pB, pP2, lerpFactor);
+    }
   };
 };
 
@@ -103,33 +177,8 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   
   const minZ = model.outline.controlPoints[0]![2];
   const maxZ = model.outline.controlPoints[model.outline.controlPoints.length - 1]![2];
-  let s0 = crossSections[0]!;
-  let s1 = crossSections[crossSections.length - 1]!;
-  let lerpFactor = 0;
-
-  const firstZ = crossSections[0]?.controlPoints[0]?.[2] ?? minZ;
-  const lastZ = crossSections[crossSections.length - 1]?.controlPoints[0]?.[2] ?? maxZ;
-
-  if (zInches <= firstZ) {
-    s0 = crossSections[0]!;
-    s1 = crossSections[0]!;
-    lerpFactor = 0;
-  } else if (zInches >= lastZ) {
-    s0 = crossSections[crossSections.length - 1]!;
-    s1 = crossSections[crossSections.length - 1]!;
-    lerpFactor = 0;
-  } else {
-    for (let k = 0; k < crossSections.length - 1; k++) {
-      const z0 = crossSections[k]!.controlPoints[0]![2];
-      const z1 = crossSections[k + 1]!.controlPoints[0]![2];
-      if (zInches >= z0 && zInches <= z1) {
-        s0 = crossSections[k]!;
-        s1 = crossSections[k + 1]!;
-        lerpFactor = Math.abs(z1 - z0) < 0.0001 ? 0 : (zInches - z0) / (z1 - z0);
-        break;
-      }
-    }
-  }
+  const blend = getCrossSectionBlendAtZ(crossSections, zInches);
+  if (!blend) return profile.botY;
 
   let t0 = 0; let t1 = 0.5; // Bottom half of cross-section
   let p =[0,0,0] as Point3D;
@@ -137,38 +186,24 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   
   for (let i = 0; i < 15; i++) {
     const tMid = (t0 + t1) / 2;
-    const pA = evaluateBezier3D(s0, tMid);
-    const pB = evaluateBezier3D(s1, tMid);
-    p =[
-      pA[0] + (pB[0] - pA[0]) * lerpFactor,
-      pA[1] + (pB[1] - pA[1]) * lerpFactor,
-      pA[2] + (pB[2] - pA[2]) * lerpFactor
-    ] as Point3D;
+    p = blend.evaluate(tMid);
     
-    const s0_apex_w = s0.controlPoints[2]?.[0] ?? 0;
-    const s1_apex_w = s1.controlPoints[2]?.[0] ?? 0;
-    const sliceApexWidth = s0_apex_w + (s1_apex_w - s0_apex_w) * lerpFactor;
-      
-    const s0_tuck_w = s0.controlPoints[1]?.[0] ?? 0;
-    const s1_tuck_w = s1.controlPoints[1]?.[0] ?? 0;
-    const sliceTuckWidth = s0_tuck_w + (s1_tuck_w - s0_tuck_w) * lerpFactor;
-      
     let scaledX = p[0];
-    if (sliceApexWidth > 1e-6) {
+    if (blend.apexWidth > 1e-6) {
       if (tMid <= 0.25) {
-         if (sliceTuckWidth > 1e-6) {
-           scaledX = p[0] * (profile.tuckHalfWidth / sliceTuckWidth);
+         if (blend.tuckWidth > 1e-6) {
+           scaledX = p[0] * (profile.tuckHalfWidth / blend.tuckWidth);
          }
       } else if (tMid <= 0.5) {
-         if (sliceApexWidth > sliceTuckWidth) {
-            const tX = (p[0] - sliceTuckWidth) / (sliceApexWidth - sliceTuckWidth);
+         if (blend.apexWidth > blend.tuckWidth) {
+            const tX = (p[0] - blend.tuckWidth) / (blend.apexWidth - blend.tuckWidth);
             const clampedTx = Math.max(0, Math.min(1, tX));
             scaledX = profile.tuckHalfWidth + clampedTx * (profile.apexHalfWidth - profile.tuckHalfWidth);
          } else {
             scaledX = profile.apexHalfWidth;
          }
       } else {
-         scaledX = p[0] * (profile.apexHalfWidth / sliceApexWidth);
+         scaledX = p[0] * (profile.apexHalfWidth / blend.apexWidth);
       }
     }
 
@@ -176,19 +211,16 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
     else t1 = tMid;
   }
   
-  const s0Top = Math.max(...s0.controlPoints.map(pt => pt[1]));
-  const s1Top = Math.max(...s1.controlPoints.map(pt => pt[1]));
-  const sliceTop = s0Top + (s1Top - s0Top) * lerpFactor;
-  const s0Bot = Math.min(...s0.controlPoints.map(pt => pt[1]));
-  const s1Bot = Math.min(...s1.controlPoints.map(pt => pt[1]));
-  const sliceBot = s0Bot + (s1Bot - s0Bot) * lerpFactor;
-  const sliceThickness = sliceTop - sliceBot;
-  
+  const sliceThickness = blend.topY - blend.botY;
   const currentThickness = profile.topY - profile.botY;
   
   if (Math.abs(sliceThickness) > 1e-6) {
-    const normY = (p[1] - sliceBot) / sliceThickness;
-    return profile.botY + normY * currentThickness;
+    const normY = (p[1] - blend.botY) / sliceThickness;
+    const cosAngle = Math.cos(profile.rockerTangentAngle);
+    const scaleFactor = cosAngle > 0.1 ? (1 / cosAngle) : 1;
+    const depthScale = 1 + (scaleFactor - 1) * (1 - normY);
+    
+    return profile.botY + (normY * currentThickness) * depthScale;
   }
   
   return profile.botY;
@@ -268,34 +300,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const profile = getBoardProfileAtZ(model, { outline: [], rockerTop:[], rockerBottom:[] }, zInches);
     const { topY, botY } = profile;
 
-    let s0 = crossSections[0]! || { controlPoints:[] };
-    let s1 = crossSections[crossSections.length - 1]! || { controlPoints:[] };
-    let lerpFactor = 0;
-
-    const firstZ = crossSections[0]?.controlPoints[0]?.[2] ?? minZ;
-    const lastZ = crossSections[crossSections.length - 1]?.controlPoints[0]?.[2] ?? maxZ;
-
-    if (zInches <= firstZ) {
-      s0 = crossSections[0]!;
-      s1 = crossSections[0]!;
-      lerpFactor = 0;
-    } else if (zInches >= lastZ) {
-      s0 = crossSections[crossSections.length - 1]!;
-      s1 = crossSections[crossSections.length - 1]!;
-      lerpFactor = 0;
-    } else {
-      for (let k = 0; k < crossSections.length - 1; k++) {
-        const z0 = crossSections[k]!.controlPoints[0]![2];
-        const z1 = crossSections[k + 1]!.controlPoints[0]![2];
-        if (zInches >= z0 && zInches <= z1) {
-          s0 = crossSections[k]!;
-          s1 = crossSections[k + 1]!;
-          lerpFactor = Math.abs(z1 - z0) < 0.0001 ? 0 : (zInches - z0) / (z1 - z0);
-          break;
-        }
-      }
-    }
-
+    const blend = getCrossSectionBlendAtZ(crossSections, zInches);
+    
     for (let j = 0; j <= segmentsRadial; j++) {
       let tCross = 0.5;
       let isRightSide = true;
@@ -304,18 +310,19 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       else if (j <= 27) { tCross = 0.5 - 0.5 * ((j - 18) / 9); isRightSide = false; }
       else tCross = 0.5 * ((j - 27) / 9);
 
-      const pA = evaluateBezier3D(s0, tCross);
-      const pB = evaluateBezier3D(s1, tCross);
-      const rawX = pA[0] + (pB[0] - pA[0]) * lerpFactor;
-      const rawY = pA[1] + (pB[1] - pA[1]) * lerpFactor;
+      if (!blend) {
+        vertices.push(0, botY * scale, zInches * scale);
+        uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
+        colors.push(0, 0, 1);
+        continue;
+      }
 
-      const s0_apex_w = s0.controlPoints[2]?.[0] ?? 0;
-      const s1_apex_w = s1.controlPoints[2]?.[0] ?? 0;
-      const sliceApexWidth = s0_apex_w + (s1_apex_w - s0_apex_w) * lerpFactor;
+      const p = blend.evaluate(tCross);
+      const rawX = p[0];
+      const rawY = p[1];
 
-      const s0_tuck_w = s0.controlPoints[1]?.[0] ?? 0;
-      const s1_tuck_w = s1.controlPoints[1]?.[0] ?? 0;
-      const sliceTuckWidth = s0_tuck_w + (s1_tuck_w - s0_tuck_w) * lerpFactor;
+      const sliceApexWidth = blend.apexWidth;
+      const sliceTuckWidth = blend.tuckWidth;
 
       let mappedX = rawX;
       if (sliceApexWidth > 1e-6) {
@@ -338,30 +345,30 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       
       const px = (isRightSide ? 1 : -1) * mappedX;
 
-      const s0Top = Math.max(...s0.controlPoints.map(p => p[1]));
-      const s1Top = Math.max(...s1.controlPoints.map(p => p[1]));
-      const sliceTop = s0Top + (s1Top - s0Top) * lerpFactor;
-      const s0Bot = Math.min(...s0.controlPoints.map(p => p[1]));
-      const s1Bot = Math.min(...s1.controlPoints.map(p => p[1]));
-      const sliceBot = s0Bot + (s1Bot - s0Bot) * lerpFactor;
+      const sliceTop = blend.topY;
+      const sliceBot = blend.botY;
       const sliceThickness = sliceTop - sliceBot;
       const currentThickness = topY - botY;
 
       let py = botY + currentThickness / 2;
+      const cosAngle = Math.cos(profile.rockerTangentAngle);
+      const scaleFactor = cosAngle > 0.1 ? (1 / cosAngle) : 1;
+
       if (Math.abs(sliceThickness) > 1e-6) {
           const normY = (rawY - sliceBot) / sliceThickness;
-          py = botY + normY * currentThickness;
+          const depthScale = 1 + (scaleFactor - 1) * (1 - normY);
+          py = botY + (normY * currentThickness) * depthScale;
       }
 
       const tOpposite = 1.0 - tCross;
-      const pAOpp = evaluateBezier3D(s0, tOpposite);
-      const pBOpp = evaluateBezier3D(s1, tOpposite);
-      const rawYOpp = pAOpp[1] + (pBOpp[1] - pAOpp[1]) * lerpFactor;
+      const pOpp = blend.evaluate(tOpposite);
+      const rawYOpp = pOpp[1];
 
       let pyOpp = botY + currentThickness / 2;
       if (Math.abs(sliceThickness) > 1e-6) {
           const normYOpp = (rawYOpp - sliceBot) / sliceThickness;
-          pyOpp = botY + normYOpp * currentThickness;
+          const depthScaleOpp = 1 + (scaleFactor - 1) * (1 - normYOpp);
+          pyOpp = botY + (normYOpp * currentThickness) * depthScaleOpp;
       }
 
       const localThickness = Math.abs(py - pyOpp);
