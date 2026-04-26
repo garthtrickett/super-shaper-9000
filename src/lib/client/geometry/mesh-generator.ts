@@ -244,8 +244,8 @@ const calculateVolume = (vertices: number[], indices: number[]): number => {
 // --- GENERATION ROUTINES ---
 
 const generateMesh = (model: BoardModel): RawGeometryData => {
-  const segmentsZ = 150;
-  const segmentsRadial = 36;
+  const segmentsZ = 180;
+  const segmentsRadial = 48;
   const vertices: number[] = [];
   const indices: number[] =[];
   const uvs: number[] =[];
@@ -263,22 +263,24 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
   // Loop one extra time to create the final collapsed seam at the nose and tail
   for (let i = 0; i <= segmentsZ; i++) {
-    const nz = i / segmentsZ;
+    // Use Cosine distribution to cluster segments at nose and tail tips where curvature is highest
+    const nz = (1 - Math.cos((i / segmentsZ) * Math.PI)) / 2;
     const zInches = minZ + nz * totalZ;
-    const vCoord = i / segmentsZ;
+    const vCoord = nz;
 
     const profile = getBoardProfileAtZ(model, { outline:[], rockerTop:[], rockerBottom:[] }, zInches);
     const { topY, botY } = profile;
 
     const blend = getCrossSectionBlendAtZ(crossSections, zInches);
     
+    const q = segmentsRadial / 4;
     for (let j = 0; j <= segmentsRadial; j++) {
       let tCross = 0.5;
       let isRightSide = true;
-      if (j <= 9) tCross = 0.5 + 0.5 * (j / 9);
-      else if (j <= 18) { tCross = 1.0 - 0.5 * ((j - 9) / 9); isRightSide = false; }
-      else if (j <= 27) { tCross = 0.5 - 0.5 * ((j - 18) / 9); isRightSide = false; }
-      else tCross = 0.5 * ((j - 27) / 9);
+      if (j <= q) tCross = 0.5 + 0.5 * (j / q);
+      else if (j <= q * 2) { tCross = 1.0 - 0.5 * ((j - q) / q); isRightSide = false; }
+      else if (j <= q * 3) { tCross = 0.5 - 0.5 * ((j - (q * 2)) / q); isRightSide = false; }
+      else tCross = 0.5 * ((j - (q * 3)) / q);
 
       if (!blend) {
         const py = botY + (topY - botY) / 2;
