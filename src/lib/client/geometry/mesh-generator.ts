@@ -101,7 +101,8 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   if (model.railOutline && model.railOutline.controlPoints.length > 0) {
     const railPt = evaluateBezierAtZ(model.railOutline, zInches);
     tuckX = railPt[0];
-    tuckY = railPt[1];
+    // We ignore railPt[1] (Y-axis) because Shape3D's curveDefTop1 is a flattened 2D projection.
+    // Keeping tuckY tied to botPt[1] ensures the bottom contour scaling remains stable.
   }
 
   return { 
@@ -172,12 +173,11 @@ export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInche
     s1 = crossSections[Math.min(crossSections.length - 1, k0 + 1)]!,
     s2 = crossSections[Math.min(crossSections.length - 1, k0 + 2)]!;
 
-  const tApexM1 = findApexT(sM1);
   const tApex0 = findApexT(s0);
   const tApex1 = findApexT(s1);
-  const tApex2 = findApexT(s2);
   
-  const tApex = cubicInterpolate(tApexM1, tApex0, tApex1, tApex2, lerpFactor);
+  // Use linear interpolation for the parameter T to prevent overshoot artifacts at sharp tail decks
+  const tApex = tApex0 + (tApex1 - tApex0) * lerpFactor;
 
   return {
     tApex: Math.max(0, Math.min(1, tApex)),
@@ -229,18 +229,11 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
     else t1 = tMid;
   }
 
-  let finalY = 0;
-  if (t0 <= 0.25) {
-    const rangeY = sliceTuckY - sliceBotY;
-    const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
-    finalY = profile.botY + normY * (profile.tuckY - profile.botY);
-  } else {
-    const rangeY = sliceApexY - sliceTuckY;
-    const normY = rangeY > 0.001 ? (p[1] - sliceTuckY) / rangeY : 0;
-    finalY = profile.tuckY + normY * (profile.apexY - profile.tuckY);
-  }
-
-  return finalY;
+  // Scale the evaluated Y coordinate proportionally between the bottom stringer and apex
+  const rangeY = sliceApexY - sliceBotY;
+  const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
+  
+  return profile.botY + normY * (profile.apexY - profile.botY);
 };
 
 export const MeshGeneratorService = {
@@ -268,8 +261,8 @@ const calculateVolume = (vertices: number[], indices: number[]): number => {
 };
 
 const generateMesh = (model: BoardModel): RawGeometryData => {
-  const segmentsZ = 180;
-  const segmentsRadial = 48;
+  const segmentsZ = 240;
+  const segmentsRadial = 96;
   const scale = 1 / 12;
   const vertices: number[] =[];
   const indices: number[] = [];
@@ -338,15 +331,18 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const profile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
-    let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5;
+    let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5, sliceTuckX = 0.8;
     if (blend) {
       const pBot = blend.evaluate(0.0);
       const pTop = blend.evaluate(1.0);
       const pApex = blend.evaluate(blend.tApex);
+      const pTuck = blend.evaluate(0.25); // t=0.25 is the physical tuck node in imported couples
+      
       sliceBotY = pBot[1];
       sliceTopY = pTop[1];
       sliceApexX = Math.max(0.001, pApex[0]);
       sliceApexY = pApex[1];
+      sliceTuckX = Math.max(0.001, pTuck[0]);
     }
 
     for (let j = 0; j <= segmentsRadial; j++) {
@@ -363,17 +359,31 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
       if (blend) {
         const p = blend.evaluate(t);
-        const normX = sliceApexX > 0.001 ? p[0] / sliceApexX : 0;
-        px = isStringer ? 0 : side * normX * profile.apexX;
         
-        if (p[1] >= sliceApexY) {
+        // Piecewise X-scaling ensures the 3D rail outline (Tuck) correctly bounds the slice,
+        // preventing sharp tail deck shoulders from being smoothed out by the apex width.
+        if (t <= 0.25) {
+          const normX = sliceTuckX > 0.001 ? p[0] / sliceTuckX : 0;
+          px = isStringer ? 0 : side * normX * profile.tuckX;
+        } else if (t <= blend.tApex) {
+          const rangeX = sliceApexX - sliceTuckX;
+          const normX = rangeX > 0.001 ? (p[0] - sliceTuckX) / rangeX : 0;
+          px = isStringer ? 0 : side * (profile.tuckX + normX * (profile.apexX - profile.tuckX));
+        } else {
+          const normX = sliceApexX > 0.001 ? p[0] / sliceApexX : 0;
+          px = isStringer ? 0 : side * normX * profile.apexX;
+        }
+        
+        // Y-scaling separated safely by the evaluated parameter T, not spatial Y,
+        // to prevent contour scrambling when evaluating steep shoulders.
+        if (t >= blend.tApex) {
           const rangeY = sliceTopY - sliceApexY;
           const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
           py = profile.apexY + normY * (profile.topY - profile.apexY);
         } else {
           const rangeY = sliceApexY - sliceBotY;
-          const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
-          py = profile.apexY - normY * (profile.apexY - profile.botY);
+          const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
+          py = profile.botY + normY * (profile.apexY - profile.botY);
         }
       }
 
