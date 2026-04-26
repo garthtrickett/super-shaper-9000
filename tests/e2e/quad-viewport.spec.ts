@@ -66,7 +66,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     const box = await canvas.boundingBox();
     expect(box).toBeDefined();
 
-    // Take a screenshot of the initial manual state before we drag anything
+    // Take a screenshot of the initial state before we drag anything
     await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { 
       maxDiffPixels: 2500,
       mask: [page.locator('button[title*="Flip"]')]

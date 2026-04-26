@@ -28,11 +28,11 @@ describe("BoardControls (UI Component)", () => {
       const select = el.querySelector("select") as HTMLSelectElement;
       expect(select).to.exist;
 
-      select.value = "pointy";
+      select.value = "thruster";
       select.dispatchEvent(new Event("change"));
 
       expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "noseShape", value: "pointy" });
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "finSetup", value: "thruster" });
     });
 
     it("should emit import-design event when Import JSON button is clicked", async () => {

@@ -27,21 +27,6 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await flipBtn.click(); // Flip to bottom
     await flipBtn.click(); // Flip back to top
 
-    // 4. Click "Unlock Manual Sculpting"
-    const unlockBtn = boardControls.getByRole('button', { name: /Unlock Manual Sculpting/i });
-    await expect(unlockBtn).toBeVisible();
-    await unlockBtn.click();
-
-    // 5. Verify UI switches to Manual Mode
-    // "Revert" button should appear
-    const revertBtn = boardControls.getByRole('button', { name: /Revert to Parametric/i });
-    await expect(revertBtn).toBeVisible();
-
-    // Structural sliders should be disabled (e.g., Length)
-    // Finding the first range input (which is Length)
-    const firstSlider = boardControls.locator('input[type="range"]').first();
-    await expect(firstSlider).toBeDisabled();
-
     // NOTE: Assertions for viewport camera toggle buttons have been removed.
     // The UI was updated to a permanent 4-way split view, making these buttons obsolete.
 

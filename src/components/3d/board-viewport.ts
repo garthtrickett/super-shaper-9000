@@ -1,3 +1,4 @@
+// File: src/components/3d/board-viewport.ts
 import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
@@ -44,7 +45,7 @@ export class BoardViewport extends LitElement {
 
   override firstUpdated() {
     this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup);
-    this.sceneManager = new SceneManager(this.canvas, [this.boardContainer]);
+    this.sceneManager = new SceneManager(this.canvas,[this.boardContainer]);
     this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup);
     this.interactionManager.initialize();
     this.sceneManager.startRenderLoop(() => {
@@ -198,7 +199,7 @@ export class BoardViewport extends LitElement {
       this.apexLineGroup.remove(child);
     }
     const mat = new THREE.LineBasicMaterial({ color: 0x34d399, depthTest: false, transparent: true, opacity: 0.9 });
-    const ptsRight: THREE.Vector3[] = []; const ptsLeft: THREE.Vector3[] = [];
+    const ptsRight: THREE.Vector3[] =[]; const ptsLeft: THREE.Vector3[] =[];
     const steps = 100;
     const minZ = this.boardState?.outline ? this.boardState.outline.controlPoints[0]![2] : curves.outline[0]![2];
     const maxZ = this.boardState?.outline ? this.boardState.outline.controlPoints[this.boardState.outline.controlPoints.length - 1]![2] : curves.outline[curves.outline.length - 1]![2];
@@ -227,7 +228,7 @@ export class BoardViewport extends LitElement {
         const pts: THREE.Vector3[] = this.sampleBezierCurve(cs, 40).map(p => new THREE.Vector3(p[0]*scale, p[1]*scale, p[2]*scale));
         const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z)).reverse();
         leftPts.pop();
-        const fullPts = [...leftPts, ...pts];
+        const fullPts =[...leftPts, ...pts];
         if (fullPts[0]) fullPts.push(fullPts[0].clone());
         const hue = 0.66 * (1 - (idx / (crossSections.length - 1)));
         const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
@@ -240,8 +241,8 @@ export class BoardViewport extends LitElement {
     }
   }
   
-  private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40): [number, number, number][] {
-      const pts: [number, number, number][] = [];
+  private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40):[number, number, number][] {
+      const pts:[number, number, number][] =[];
       const numSegments = bezier.controlPoints.length - 1;
       if (numSegments < 1) return pts;
       for (let i = 0; i <= steps; i++) {
@@ -324,7 +325,7 @@ export class BoardViewport extends LitElement {
   };
 
   override render() {
-    const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
+    const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l-5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
     const collapseIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>`;
     const renderQuadrantOverlay = (id: ViewportId, label: string) => html`
       <div class="relative w-full h-full pointer-events-none">

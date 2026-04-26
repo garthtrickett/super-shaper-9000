@@ -1,10 +1,11 @@
+// File: src/lib/client/geometry/board-curves.ts
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { BoardModel, BezierCurveData } from "../../../components/pages/board-builder-page.logic";
 
 export interface BoardCurves {
   outline: [number, number, number][];
   rockerTop:[number, number, number][];
-  rockerBottom: [number, number, number][];
+  rockerBottom:[number, number, number][];
 }
 
 export const deps = {};
@@ -36,6 +37,7 @@ const sampleCurve = (bezier: BezierCurveData | undefined, steps: number = 100): 
 };
 
 export const generateBoardCurves = async (model: BoardModel): Promise<BoardCurves> => {
+  // Parametric generation is removed. We now just sample the existing Bezier curves from the model.
   return {
     outline: sampleCurve(model.outline),
     rockerTop: sampleCurve(model.rockerTop),

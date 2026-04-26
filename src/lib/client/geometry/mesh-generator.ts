@@ -71,184 +71,113 @@ const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): Point3D =>
 
 // --- PARAMETRIC HELPERS ---
 
-export const getParametricOutlineWidth = (zInches: number, curves: BoardCurves) => {
-  if (!curves.outline.length) return 0;
-  for (let i = 0; i < curves.outline.length - 1; i++) {
-    const p1 = curves.outline[i]!;
-    const p2 = curves.outline[i + 1]!;
-    if (zInches >= p1[2] && zInches <= p2[2]) {
-      if (p2[2] === p1[2]) return Math.max(p1[0], p2[0]);
-      const t = (zInches - p1[2]) / (p2[2] - p1[2]);
-      return p1[0] + t * (p2[0] - p1[0]);
-    }
-  }
-  return 0;
-};
-
-export const getParametricRockerY = (zInches: number, isTop: boolean, curves: BoardCurves) => {
-  const pts = isTop ? curves.rockerTop : curves.rockerBottom;
-  if (!pts.length) return 0;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p1 = pts[i]!;
-    const p2 = pts[i + 1]!;
-    if (zInches >= p1[2] && zInches <= p2[2]) {
-      const tCurve = (zInches - p1[2]) / (p2[2] - p1[2]);
-      return p1[1] + tCurve * (p2[1] - p1[1]);
-    }
-  }
-  return zInches <= pts[0]![2] ? pts[0]![1] : pts[pts.length - 1]![1];
-};
-
-export const getParametricApexRatio = (zInches: number, maxZ: number, apexRatio: number, hardEdgeLength: number) => {
-  const distFromTail = Math.max(0, maxZ - zInches);
-  let currentApex = apexRatio;
-  if (distFromTail < hardEdgeLength) {
-    const blendZone = 6.0;
-    const blendEnd = Math.max(0, hardEdgeLength - blendZone);
-    if (distFromTail <= blendEnd) {
-      currentApex = 0.02;
-    } else {
-      const t = (distFromTail - blendEnd) / blendZone;
-      currentApex = 0.02 + t * (apexRatio - 0.02);
-    }
-  }
-  return currentApex;
-};
-
 // --- UNIFIED ABSTRACTION API ---
 
 export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInches: number) => {
-  if (model.outline && model.rockerTop && model.rockerBottom) {
-    const widthPt = evaluateBezierAtZ(model.outline, zInches);
-    const apexWidthPt = model.apexOutline ? evaluateBezierAtZ(model.apexOutline, zInches) : widthPt;
+  const widthPt = evaluateBezierAtZ(model.outline, zInches);
+  const apexWidthPt = model.apexOutline ? evaluateBezierAtZ(model.apexOutline, zInches) : widthPt;
 
-    const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
-    const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
+  const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
+  const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
 
-    // Provide safe defaults for deleted parametric fields until Step 2 cleans this up entirely
-    const apexRatio = (model as any).apexRatio || 0.3;
-    let apexY = botPt[1] + (topPt[1] - botPt[1]) * apexRatio; 
-    if (model.apexRocker) {
-      const apexPt = evaluateBezierAtZ(model.apexRocker, zInches);
-      apexY = apexPt[1];
-    }
-
-    return { 
-        topY: topPt[1], 
-        botY: botPt[1], 
-        apexY, 
-        halfWidth: widthPt[0],
-        apexHalfWidth: apexWidthPt[0]
-    };
+  let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3; 
+  if (model.apexRocker) {
+    const apexPt = evaluateBezierAtZ(model.apexRocker, zInches);
+    apexY = apexPt[1];
   }
-  
-  const topY = getParametricRockerY(zInches, true, curves);
-  const botY = getParametricRockerY(zInches, false, curves);
-  const halfWidth = getParametricOutlineWidth(zInches, curves);
-  const thickness = Math.max(0, topY - botY);
-  const maxZ = curves.outline.length > 0 ? curves.outline[curves.outline.length - 1]![2] : 0;
-  const apexRatio = getParametricApexRatio(zInches, maxZ, (model as any).apexRatio || 0.3, (model as any).hardEdgeLength || 18.0);
-  return { topY, botY, apexY: botY + thickness * apexRatio, halfWidth, apexHalfWidth: halfWidth };
-};
 
-export const calculateBottomContourOffset = (model: BoardModel, nz: number, tailDist: number, nx: number, widthFade: number) => {
-  const smoothStep = (edge0: number, edge1: number, x: number) => {
-    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-    return t * t * (3 - 2 * t);
+  return { 
+      topY: topPt[1], 
+      botY: botPt[1], 
+      apexY, 
+      halfWidth: widthPt[0],
+      apexHalfWidth: apexWidthPt[0]
   };
-  const channelLength = (model as any).channelLength || 0;
-  const veeDepth = (model as any).veeDepth || 0;
-  const concaveDepth = (model as any).concaveDepth || 0;
-  const channelDepth = (model as any).channelDepth || 0;
-  const bottomContour = (model as any).bottomContour || "flat";
-
-  const blendVee = 1 - smoothStep(0.05, 0.4, nz);
-  const blendConcave = smoothStep(0.15, 0.3, nz);
-  let blendChannels = 0;
-  if (tailDist <= channelLength + 6.0) {
-    blendChannels = 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist);
-  }
-
-  let contourOffset = 0;
-  if (bottomContour === "vee_to_quad_channels") {
-    const veeOffset = -veeDepth * (1 - nx) * blendVee;
-    const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
-    let channelProfile = 0;
-    if (nx >= 0.2 && nx <= 0.8) {
-      const u = (nx - 0.2) / 0.6;
-      channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
-    }
-    const channelOffset = channelDepth * channelProfile * blendChannels;
-    contourOffset = (veeOffset + concaveOffset + channelOffset) * widthFade;
-  } else if (bottomContour === "single_to_double") {
-    const single = concaveDepth * (1 - nx * nx);
-    const double = concaveDepth * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
-    contourOffset = (single * (1 - nz) + double * nz) * widthFade;
-  } else if (bottomContour === "single") {
-    contourOffset = concaveDepth * (1 - nx * nx) * widthFade;
-  }
-  return contourOffset;
 };
 
 export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: number, zInches: number) => {
+  const crossSections = model.crossSections ||[];
   const profile = getBoardProfileAtZ(model, curves, zInches);
-  const { topY, botY, apexY, halfWidth } = profile;
-  if (halfWidth <= 0.001) return botY;
+  if (crossSections.length === 0 || profile.halfWidth <= 0.001) return profile.botY;
+  
+  const minZ = model.outline.controlPoints[0]![2];
+  const maxZ = model.outline.controlPoints[model.outline.controlPoints.length - 1]![2];
+  let s0 = crossSections[0]!;
+  let s1 = crossSections[crossSections.length - 1]!;
+  let lerpFactor = 0;
 
-  let nx = Math.abs(xInches) / halfWidth;
-  if (nx > 1) nx = 1;
+  const firstZ = crossSections[0]?.controlPoints[0]?.[2] ?? minZ;
+  const lastZ = crossSections[crossSections.length - 1]?.controlPoints[0]?.[2] ?? maxZ;
 
-  const maxZ = model.outline ? 
-    model.outline.controlPoints[model.outline.controlPoints.length - 1]![2] : 
-    curves.outline[curves.outline.length - 1]![2];
-  const minZ = model.outline ? 
-    model.outline.controlPoints[0]![2] : curves.outline[0]![2];
-  const totalZ = maxZ - minZ;
-  const nz = (zInches - minZ) / totalZ;
-  const tailDist = Math.max(0, maxZ - zInches);
-  const noseDist = Math.max(0, zInches - minZ);
-
-  const railFullness = (model as any).railFullness || 0.65;
-  const deckDome = (model as any).deckDome || 0.65;
-  let railExp = 1.5 - railFullness;
-  let deckExp = deckDome;
-  const relaxZone = 2.0;
-  if (noseDist < relaxZone) {
-    const t = noseDist / relaxZone;
-    railExp = 1.0 - t * (1.0 - railExp);
-    deckExp = 1.0 - t * (1.0 - deckExp);
-  } else if (tailDist < relaxZone) {
-    const t = tailDist / relaxZone;
-    railExp = 1.0 - t * (1.0 - railExp);
-    deckExp = 1.0 - t * (1.0 - deckExp);
+  if (zInches <= firstZ) {
+    s0 = crossSections[0]!;
+    s1 = crossSections[0]!;
+    lerpFactor = 0;
+  } else if (zInches >= lastZ) {
+    s0 = crossSections[crossSections.length - 1]!;
+    s1 = crossSections[crossSections.length - 1]!;
+    lerpFactor = 0;
+  } else {
+    for (let k = 0; k < crossSections.length - 1; k++) {
+      const z0 = crossSections[k]!.controlPoints[0]![2];
+      const z1 = crossSections[k + 1]!.controlPoints[0]![2];
+      if (zInches >= z0 && zInches <= z1) {
+        s0 = crossSections[k]!;
+        s1 = crossSections[k + 1]!;
+        lerpFactor = Math.abs(z1 - z0) < 0.0001 ? 0 : (zInches - z0) / (z1 - z0);
+        break;
+      }
+    }
   }
 
-  const abs_cx = Math.pow(nx, 1 / railExp);
-  const clamped_cx = Math.min(1, abs_cx);
-  const abs_cy = Math.sqrt(1 - clamped_cx * clamped_cx);
-  const pyTop = apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
-  let py = apexY - Math.pow(abs_cy, 0.5) * (apexY - botY);
+  let t0 = 0; let t1 = 0.5; // Bottom half of cross-section
+  let p =[0,0,0];
+  const targetX = Math.abs(xInches);
+  
+  for (let i = 0; i < 15; i++) {
+    const tMid = (t0 + t1) / 2;
+    const pA = evaluateBezier3D(s0, tMid);
+    const pB = evaluateBezier3D(s1, tMid);
+    p =[
+      pA[0] + (pB[0] - pA[0]) * lerpFactor,
+      pA[1] + (pB[1] - pA[1]) * lerpFactor,
+      pA[2] + (pB[2] - pA[2]) * lerpFactor
+    ];
+    
+    const s0_apex_w = s0.controlPoints[2]![0];
+    const s1_apex_w = s1.controlPoints[2]![0];
+    const sliceApexWidth = s0_apex_w + (s1_apex_w - s0_apex_w) * lerpFactor;
+    
+    const scaleFactor = Math.abs(sliceApexWidth) > 1e-6 ? profile.apexHalfWidth / sliceApexWidth : 0;
+    const scaledX = p[0] * scaleFactor;
 
-  const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
-  let contourOffset = calculateBottomContourOffset(model, nz, tailDist, nx, widthFade);
-  contourOffset *= abs_cy; 
-  py += contourOffset;
-
-  const MIN_CORE_THICKNESS = 0.05;
-  if (py > pyTop - MIN_CORE_THICKNESS) {
-    py = pyTop - MIN_CORE_THICKNESS;
+    if (scaledX < targetX) t0 = tMid;
+    else t1 = tMid;
   }
-  return py;
+  
+  const s0Top = Math.max(...s0.controlPoints.map(pt => pt[1]));
+  const s1Top = Math.max(...s1.controlPoints.map(pt => pt[1]));
+  const sliceTop = s0Top + (s1Top - s0Top) * lerpFactor;
+  const s0Bot = Math.min(...s0.controlPoints.map(pt => pt[1]));
+  const s1Bot = Math.min(...s1.controlPoints.map(pt => pt[1]));
+  const sliceBot = s0Bot + (s1Bot - s0Bot) * lerpFactor;
+  const sliceThickness = sliceTop - sliceBot;
+  
+  const currentThickness = profile.topY - profile.botY;
+  
+  if (Math.abs(sliceThickness) > 1e-6) {
+    const normY = (p[1] - sliceBot) / sliceThickness;
+    return profile.botY + normY * currentThickness;
+  }
+  
+  return profile.botY;
 };
 
 // --- GENERATOR ORCHESTRATOR ---
 
 export const MeshGeneratorService = {
   generateMesh: (model: BoardModel, curves: BoardCurves): RawGeometryData => {
-    if (model.outline) {
-      return generateManualMesh(model);
-    }
-    return generateParametricMesh(model, curves);
+    return generateMesh(model);
   },
   getBoardProfileAtZ,
   getBottomYAt
