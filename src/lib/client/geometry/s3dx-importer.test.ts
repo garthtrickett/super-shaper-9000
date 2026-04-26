@@ -161,5 +161,31 @@ describe("S3DX Importer", () => {
         expect((err as Error).message).to.include("Missing core dimensions");
       }
     });
+
+    it("ensures WitcherDaily.s3dx outline has no negative widths after import", async () => {
+      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+      const xml = await response.text();
+      const result = await Effect.runPromise(parseS3dx(xml));
+      
+      const { outline, railOutline, apexOutline } = result;
+
+      const checkCurve = (curve: BezierCurveData, name: string) => {
+        let hasNegative = false;
+        curve.controlPoints.forEach(p => {
+          if (p[0] < 0) hasNegative = true;
+        });
+        curve.tangents1.forEach(p => {
+          if (p[0] < 0) hasNegative = true;
+        });
+        curve.tangents2.forEach(p => {
+          if (p[0] < 0) hasNegative = true;
+        });
+        expect(hasNegative, `Curve '${name}' should not have negative X (width) values`).to.be.false;
+      };
+      
+      checkCurve(outline, "outline");
+      checkCurve(railOutline, "railOutline");
+      checkCurve(apexOutline, "apexOutline");
+    });
   });
 });

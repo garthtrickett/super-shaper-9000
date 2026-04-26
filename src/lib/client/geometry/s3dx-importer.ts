@@ -101,7 +101,11 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
             
             const pt = translateFromShape3d([x, y, z], lengthInches, thicknessInches);
             
-            if (isOutline) pt[1] = 0; // Force Y to 0 for outline
+            if (isOutline) {
+              pt[1] = 0; // Force Y to 0 for outline
+              // CLAMP: Shape3D curves can overshoot the centerline, creating negative width.
+              if (pt[0] < 0) pt[0] = 0;
+            }
             if (isRocker) pt[0] = 0; // Force X to 0 for rockers
   
             points.push(pt);
