@@ -53,7 +53,7 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
 
   const P0 = bezier.controlPoints[segmentIdx] ||[0, 0, 0];
   const P1 = bezier.controlPoints[segmentIdx + 1] ||[0, 0, 0];
-  const T0 = bezier.tangents2[segmentIdx] || [0, 0, 0];
+  const T0 = bezier.tangents2[segmentIdx] ||[0, 0, 0];
   const T1 = bezier.tangents1[segmentIdx + 1] || [0, 0, 0];
 
   const u = 1 - localT;
@@ -274,7 +274,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const vertices: number[] =[];
   const indices: number[] = [];
   const uvs: number[] =[];
-  const colors: number[] = [];
+  const colors: number[] =[];
   const normals: number[] =[];
 
   const outline = model.outline;
@@ -460,39 +460,39 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  // STEP 4: Generate End Caps (Nose and Tail) if they possess physical dimensions
-  // Only cap if the width is greater than zero. If width is 0, the hull already collapses onto a vertical line.
+  // STEP 4: Generate End Caps (Nose and Tail) using Robust Triangle Fans
   const noseNeedsCap = noseProfile.halfWidth >= 1e-3;
   const tailNeedsCap = tailProfile.halfWidth >= 1e-3;
-  const halfRadial = Math.floor(segmentsRadial / 2);
 
   if (noseNeedsCap) {
     const ringStartIndex = 0;
     const capVertexStartIndex = vertices.length / 3;
 
+    // 1. Calculate and push the central pivot vertex for the Nose fan
+    const botY = vertexGrid[0]![0]!.pos.y;
+    const topY = vertexGrid[0]![segmentsRadial / 2]!.pos.y;
+    const centerY = botY + (topY - botY) / 2;
+    
+    vertices.push(0, centerY, minZ * scale);
+    uvs.push(0.5, 0); // Center UV
+    colors.push(1, 1, 1);
+    normals.push(0, 0, -1); // Nose faces backwards (-Z)
+    
+    const centerIdx = capVertexStartIndex;
+    const perimeterStartIdx = centerIdx + 1;
+
+    // 2. Push perimeter vertices
     for (let j = 0; j <= segmentsRadial; j++) {
       const hullIndex = ringStartIndex + j;
       vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
       uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
       colors.push(colors[hullIndex * 3]!, colors[hullIndex * 3 + 1]!, colors[hullIndex * 3 + 2]!);
-      normals.push(0, 0, -1); // Nose faces backwards (-Z)
+      normals.push(0, 0, -1);
     }
 
-    for (let j = 0; j < halfRadial; j++) {
-      const a = capVertexStartIndex + j;
-      const b = capVertexStartIndex + j + 1;
-      const c = capVertexStartIndex + segmentsRadial - j;
-      const d = capVertexStartIndex + segmentsRadial - (j + 1);
-      
-      if (j === 0) {
-        // Bottom stringer (a and c are identical), omit degenerate triangle
-        indices.push(a, d, b);
-      } else if (j === halfRadial - 1) {
-        // Top stringer (b and d are identical), omit degenerate triangle
-        indices.push(a, c, b);
-      } else {
-        indices.push(a, d, b, a, c, d); // Reversed winding for front face
-      }
+    // 3. Build fan indices (Winding: Center -> Next -> Current for -Z outward normal)
+    for (let j = 0; j < segmentsRadial; j++) {
+      indices.push(centerIdx, perimeterStartIdx + j + 1, perimeterStartIdx + j);
     }
   }
 
@@ -500,29 +500,31 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const ringStartIndex = segmentsZ * (segmentsRadial + 1);
     const capVertexStartIndex = vertices.length / 3;
 
+    // 1. Calculate and push the central pivot vertex for the Tail fan
+    const botY = vertexGrid[segmentsZ]![0]!.pos.y;
+    const topY = vertexGrid[segmentsZ]![segmentsRadial / 2]!.pos.y;
+    const centerY = botY + (topY - botY) / 2;
+
+    vertices.push(0, centerY, maxZ * scale);
+    uvs.push(0.5, 1); // Center UV
+    colors.push(1, 1, 1);
+    normals.push(0, 0, 1); // Tail faces forwards (+Z)
+
+    const centerIdx = capVertexStartIndex;
+    const perimeterStartIdx = centerIdx + 1;
+
+    // 2. Push perimeter vertices
     for (let j = 0; j <= segmentsRadial; j++) {
       const hullIndex = ringStartIndex + j;
       vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
       uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
       colors.push(colors[hullIndex * 3]!, colors[hullIndex * 3 + 1]!, colors[hullIndex * 3 + 2]!);
-      normals.push(0, 0, 1); // Tail faces forwards (+Z)
+      normals.push(0, 0, 1);
     }
 
-    for (let j = 0; j < halfRadial; j++) {
-      const a = capVertexStartIndex + j;
-      const b = capVertexStartIndex + j + 1;
-      const c = capVertexStartIndex + segmentsRadial - j;
-      const d = capVertexStartIndex + segmentsRadial - (j + 1);
-      
-      if (j === 0) {
-        // Bottom stringer (a and c are identical), omit degenerate triangle
-        indices.push(a, b, d);
-      } else if (j === halfRadial - 1) {
-        // Top stringer (b and d are identical), omit degenerate triangle
-        indices.push(a, b, c);
-      } else {
-        indices.push(a, b, d, a, d, c); // Standard winding for back face
-      }
+    // 3. Build fan indices (Winding: Center -> Current -> Next for +Z outward normal)
+    for (let j = 0; j < segmentsRadial; j++) {
+      indices.push(centerIdx, perimeterStartIdx + j, perimeterStartIdx + j + 1);
     }
   }
 

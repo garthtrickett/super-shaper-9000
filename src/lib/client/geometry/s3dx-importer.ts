@@ -220,6 +220,33 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     }
     // --- END FIX ---
 
+    // 5. Enforce Z-Monotonicity to prevent curve folding (Swallow-tail overshoot bug)
+    // If a tangent extends past its neighboring anchor in the Z axis, the mesh generator's
+    // binary search will fail, resulting in bloated, rounded off squash tails.
+    const enforceZMonotonicity = (curve: BezierCurveData) => {
+      for (let i = 0; i < curve.controlPoints.length; i++) {
+        const p = curve.controlPoints[i]!;
+        const t1 = curve.tangents1[i];
+        const t2 = curve.tangents2[i];
+
+        if (t1) {
+          if (t1[2] > p[2]) t1[2] = p[2];
+          if (i > 0 && t1[2] < curve.controlPoints[i - 1]![2]) {
+            t1[2] = curve.controlPoints[i - 1]![2];
+          }
+        }
+
+        if (t2) {
+          if (t2[2] < p[2]) t2[2] = p[2];
+          if (i < curve.controlPoints.length - 1 && t2[2] > curve.controlPoints[i + 1]![2]) {
+            t2[2] = curve.controlPoints[i + 1]![2];
+          }
+        }
+      }
+    };
+
+[outline, railOutline, apexOutline, rockerBottom, rockerTop, apexRocker].forEach(enforceZMonotonicity);
+
     // Allow the mesh generator to handle all slices, including microscopic ones. It now has tip-blending logic.
     const cleanCrossSections = crossSections;
 

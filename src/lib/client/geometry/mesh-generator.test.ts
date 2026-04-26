@@ -430,5 +430,30 @@ describe("MeshGeneratorService", () => {
         // A value near 0 would indicate a collapsed point. We check that it's greater than a reasonable threshold.
         expect(maxTailWidth).to.be.greaterThan(0.04, "The tail should not collapse to a point.");
     });
+
+    it("prevents tangent Z-overshoot (folding) which causes wide, rounded squash tails", async () => {
+      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+      const xml = await response.text();
+      const importedData = await runClientPromise(parseS3dx(xml));
+      
+      const tailP = importedData.outline.controlPoints[importedData.outline.controlPoints.length - 1]!;
+      const prevT2 = importedData.outline.tangents2[importedData.outline.controlPoints.length - 2]!;
+      
+      // The tangent from the wide point towards the tail should NOT extend past the tail itself
+      expect(prevT2[2]).to.be.at.most(tailP[2] + 0.001, "Tangent T2 overshot the tail anchor, causing a folded curve.");
+      
+      // Test the mesh generator's evaluation at the exact tail
+      // The WitcherDaily tail is 1.559 cm half-width (0.614 inches)
+      const mockState: BoardModel = { ...INITIAL_STATE, ...importedData };
+      const curves = await generateBoardCurves(mockState);
+      
+      const tailProfile = MeshGeneratorService.getBoardProfileAtZ(
+         mockState, curves, tailP[2]
+      );
+      
+      // If the bug exists, the binary search will fail and return a bloated width.
+      // If fixed, it should exactly match the anchor point (0.614 inches)
+      expect(tailProfile.halfWidth).to.be.closeTo(0.614, 0.01, "Tail evaluated too wide! Binary search failed due to Z-folding.");
+    });
   });
 });
