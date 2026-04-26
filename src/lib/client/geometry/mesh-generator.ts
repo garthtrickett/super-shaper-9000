@@ -197,28 +197,50 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
   if (!blend || profile.halfWidth <= 0.001) return profile.botY;
 
-  const pApex = blend.evaluate(blend.tApex);
+  // Match the strict 5-point structural anchoring (0.5 = Apex)
+  const pApex = blend.evaluate(0.5);
   const sliceApexX = Math.max(0.001, pApex[0]);
   const sliceApexY = pApex[1];
   const sliceBotY = blend.evaluate(0.0)[1];
 
   let t0 = 0,
-    t1 = blend.tApex,
+    t1 = 0.5,
     p = [0, 0, 0] as Point3D;
   const targetX = Math.abs(xInches);
+
+  const pTuck = blend.evaluate(0.25);
+  const sliceTuckX = Math.max(0.001, pTuck[0]);
+  const sliceTuckY = pTuck[1];
 
   for (let i = 0; i < 15; i++) {
     const tMid = (t0 + t1) / 2;
     p = blend.evaluate(tMid);
-    const normX = p[0] / sliceApexX;
-    const mappedX = normX * profile.apexX;
+    
+    let mappedX = 0;
+    if (tMid <= 0.25) {
+      mappedX = (p[0] / sliceTuckX) * profile.tuckX;
+    } else {
+      const rangeX = sliceApexX - sliceTuckX;
+      const normX = rangeX > 0.001 ? (p[0] - sliceTuckX) / rangeX : 0;
+      mappedX = profile.tuckX + normX * (profile.apexX - profile.tuckX);
+    }
+
     if (mappedX < targetX) t0 = tMid;
     else t1 = tMid;
   }
 
-  const rangeY = sliceApexY - sliceBotY;
-  const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
-  return profile.apexY - normY * (profile.apexY - profile.botY);
+  let finalY = 0;
+  if (t0 <= 0.25) {
+    const rangeY = sliceTuckY - sliceBotY;
+    const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
+    finalY = profile.botY + normY * (profile.tuckY - profile.botY);
+  } else {
+    const rangeY = sliceApexY - sliceTuckY;
+    const normY = rangeY > 0.001 ? (p[1] - sliceTuckY) / rangeY : 0;
+    finalY = profile.tuckY + normY * (profile.apexY - profile.tuckY);
+  }
+
+  return finalY;
 };
 
 export const MeshGeneratorService = {
