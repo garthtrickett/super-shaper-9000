@@ -211,19 +211,7 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
     else t1 = tMid;
   }
   
-  const sliceThickness = blend.topY - blend.botY;
-  const currentThickness = profile.topY - profile.botY;
-  
-  if (Math.abs(sliceThickness) > 1e-6) {
-    const normY = (p[1] - blend.botY) / sliceThickness;
-    const cosAngle = Math.cos(profile.rockerTangentAngle);
-    const scaleFactor = cosAngle > 0.1 ? (1 / cosAngle) : 1;
-    const depthScale = 1 + (scaleFactor - 1) * (1 - normY);
-    
-    return profile.botY + (normY * currentThickness) * depthScale;
-  }
-  
-  return profile.botY;
+  return p[1];
 };
 
 // --- GENERATOR ORCHESTRATOR ---
