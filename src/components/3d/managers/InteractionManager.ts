@@ -139,10 +139,10 @@ export class InteractionManager {
       const curveName = this.draggedGizmo.userData.curve as string;
       const worldNormal = new THREE.Vector3();
       
-      if (curveName === 'outline') {
+      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
           worldNormal.set(0, 1, 0).transformDirection(this.draggedGizmo.parent!.matrixWorld);
       }
-      else if (curveName.startsWith('rocker')) {
+      else if (curveName.startsWith('rocker') || curveName === 'apexRocker') {
           worldNormal.set(1, 0, 0).transformDirection(this.draggedGizmo.parent!.matrixWorld);
       }
       else if (curveName.startsWith('crossSection')) {
@@ -210,10 +210,19 @@ export class InteractionManager {
       const curveName = userData.curve;
       const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
 
-      if (curveName === 'outline') inInches.y = 0;
-      if (curveName === 'rockerTop' || curveName === 'rockerBottom') inInches.x = 0;
+      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') inInches.y = 0;
+      if (curveName === 'rockerTop' || curveName === 'rockerBottom' || curveName === 'apexRocker') inInches.x = 0;
       if (curveName.startsWith('crossSection_')) inInches.z = userData.origZ;
-      if ((curveName === 'rockerTop' || curveName === 'rockerBottom') && isEndNode) inInches.x = 0;
+      
+      if (isEndNode && userData.type === "anchor") {
+        if (curveName.startsWith('crossSection_') || curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
+          inInches.x = 0;
+        }
+      }
+      
+      if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_'))) {
+        if (inInches.x < 0) inInches.x = 0;
+      }
 
       target.copy(inInches).multiplyScalar(1/12);
       this.draggedGizmo.position.copy(target);

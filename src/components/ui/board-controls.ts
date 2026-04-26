@@ -234,9 +234,15 @@ export class BoardControls extends LitElement {
         `, true)}
 
         ${this._renderAccordion("Global Transforms", html`
-          <div class="flex gap-2">
-            <button class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Scale Width</button>
-            <button class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Scale Thickness</button>
+          <div class="flex flex-col gap-2">
+            <div class="flex gap-2">
+              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_WIDTH', factor: 1.05 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Width +5%</button>
+              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_WIDTH', factor: 0.95 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Width -5%</button>
+            </div>
+            <div class="flex gap-2">
+              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_THICKNESS', factor: 1.05 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Thick +5%</button>
+              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_THICKNESS', factor: 0.95 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Thick -5%</button>
+            </div>
           </div>
         `, true)}
 

@@ -223,9 +223,46 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       return { ...action.state };
     case "SELECT_NODE":
       return { ...state, selectedNode: action.node };
-    case "SCALE_WIDTH":
-    case "SCALE_THICKNESS":
-      return state; // Placeholder
+    case "SCALE_WIDTH": {
+      const scaleCurveWidth = (curve: BezierCurveData | undefined): BezierCurveData | undefined => {
+        if (!curve) return undefined;
+        return {
+          controlPoints: curve.controlPoints.map(p => [p[0] * action.factor, p[1], p[2]]),
+          tangents1: curve.tangents1.map(p => [p[0] * action.factor, p[1], p[2]]),
+          tangents2: curve.tangents2.map(p => [p[0] * action.factor, p[1], p[2]]),
+        };
+      };
+      
+      const newState = {
+        ...state,
+        width: state.width * action.factor,
+        outline: scaleCurveWidth(state.outline)!,
+        railOutline: scaleCurveWidth(state.railOutline),
+        apexOutline: scaleCurveWidth(state.apexOutline),
+        crossSections: state.crossSections.map(cs => scaleCurveWidth(cs)!),
+      };
+      return pushHistory(newState);
+    }
+    case "SCALE_THICKNESS": {
+      const scaleCurveThickness = (curve: BezierCurveData | undefined): BezierCurveData | undefined => {
+        if (!curve) return undefined;
+        return {
+          controlPoints: curve.controlPoints.map(p => [p[0], p[1] * action.factor, p[2]]),
+          tangents1: curve.tangents1.map(p => [p[0], p[1] * action.factor, p[2]]),
+          tangents2: curve.tangents2.map(p => [p[0], p[1] * action.factor, p[2]]),
+        };
+      };
+      
+      const newState = {
+        ...state,
+        thickness: state.thickness * action.factor,
+        rockerTop: scaleCurveThickness(state.rockerTop)!,
+        rockerBottom: scaleCurveThickness(state.rockerBottom)!,
+        apexRocker: scaleCurveThickness(state.apexRocker),
+        crossSections: state.crossSections.map(cs => scaleCurveThickness(cs)!),
+      };
+      return pushHistory(newState);
+    }
     case "UPDATE_NODE_EXACT": {
       const { curve, index, anchor, tangent1, tangent2 } = action;
       let targetCurve: BezierCurveData | undefined;
@@ -250,7 +287,19 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         tangents2: [...targetCurve.tangents2],
       };
 
-      if (anchor) updatedCurve.controlPoints[index] = [...anchor];
+      if (anchor) {
+        updatedCurve.controlPoints[index] =[...anchor];
+        if (crossSectionIdx !== -1 && (index === 0 || index === targetCurve.controlPoints.length - 1)) {
+          updatedCurve.controlPoints[index]![0] = 0;
+        }
+        if ((curve === "outline" || curve === "apexOutline" || curve === "railOutline") && (index === 0 || index === targetCurve.controlPoints.length - 1)) {
+          updatedCurve.controlPoints[index]![0] = 0;
+        }
+
+        if (curve === "outline" || curve === "apexOutline" || curve === "railOutline" || crossSectionIdx !== -1) {
+          if (updatedCurve.controlPoints[index]![0] < 0) updatedCurve.controlPoints[index]![0] = 0;
+        }
+      }
       if (tangent1) updatedCurve.tangents1[index] = [...tangent1];
       if (tangent2) updatedCurve.tangents2[index] = [...tangent2];
 
@@ -355,11 +404,24 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         tangents2: [...targetCurve.tangents2],
       };
 
-      if (curve === "outline") position[1] = 0;
-      if (curve === "rockerTop" || curve === "rockerBottom") position[0] = 0;
+      if (curve === "outline" || curve === "apexOutline" || curve === "railOutline") position[1] = 0;
+      if (curve === "rockerTop" || curve === "rockerBottom" || curve === "apexRocker") position[0] = 0;
       if (crossSectionIdx !== -1) position[2] = targetCurve.controlPoints[index]![2];
 
-      const vec3Sub = (a: Point3D, b: Point3D): Point3D => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+      if (nodeType === "anchor") {
+        if (crossSectionIdx !== -1 && (index === 0 || index === targetCurve.controlPoints.length - 1)) {
+          position[0] = 0;
+        }
+        if ((curve === "outline" || curve === "apexOutline" || curve === "railOutline") && (index === 0 || index === targetCurve.controlPoints.length - 1)) {
+          position[0] = 0;
+        }
+        
+        if (curve === "outline" || curve === "apexOutline" || curve === "railOutline" || crossSectionIdx !== -1) {
+          if (position[0] < 0) position[0] = 0;
+        }
+      }
+
+      const vec3Sub = (a: Point3D, b: Point3D): Point3D =>[a[0]-b[0], a[1]-b[1], a[2]-b[2]];
       const vec3Add = (a: Point3D, b: Point3D): Point3D => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
       const vec3Len = (v: Point3D): number => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
       const vec3Scale = (v: Point3D, s: number): Point3D => [v[0]*s, v[1]*s, v[2]*s];

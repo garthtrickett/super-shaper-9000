@@ -69,7 +69,7 @@ export class BoardViewport extends LitElement {
           if (this.boardState[k] !== oldState[k]) {
             if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker'].includes(k)) {
               isManualDragUpdate = true;
-            } else if (!['volume', 'selectedNode', 'showGizmos', 'showOutline', 'showRockerTop', 'showRockerBottom', 'showApexOutline', 'showRailOutline', 'showApexRocker', 'showCrossSections', 'showHeatmap', 'showZebra', 'showApexLine'].includes(k)) {
+            } else if (!['volume', 'selectedNode', 'showGizmos', 'showHeatmap', 'showZebra', 'showApexLine'].includes(k)) {
               needsFullGeometryUpdate = true;
               isManualDragUpdate = false;
               break;
@@ -155,12 +155,49 @@ export class BoardViewport extends LitElement {
         return line;
     };
     
+    const matApexOutline = new THREE.LineBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.25 });
+    const matRailOutline = new THREE.LineBasicMaterial({ color: 0xec4899, transparent: true, opacity: 0.25 });
+    const matApexRocker = new THREE.LineBasicMaterial({ color: 0xeab308, transparent: true, opacity: 0.25 });
+
+    const activeApexOutline = this.boardState?.apexOutline ? this.sampleBezierCurve(this.boardState.apexOutline, 100) : null;
+    const activeRailOutline = this.boardState?.railOutline ? this.sampleBezierCurve(this.boardState.railOutline, 100) : null;
+    const activeApexRocker = this.boardState?.apexRocker ? this.sampleBezierCurve(this.boardState.apexRocker, 100) : null;
+
+    const build3DLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false) => {
+        const geometry = new THREE.BufferGeometry();
+        const vertices = new Float32Array(pts.length * 3);
+        pts.forEach((p, i) => {
+            vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
+            vertices[i*3+1] = p[1] * scale;
+            vertices[i*3+2] = p[2] * scale;
+        });
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        const line = new THREE.Line(geometry, mat);
+        line.layers.set(layerIndex);
+        return line;
+    };
+
     if (this.boardState?.showOutline !== false) {
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, true));
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, true));
     }
+
+    if (activeApexOutline && this.boardState?.showApexOutline !== false) {
+      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, false));
+      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, true));
+    }
+
+    if (activeRailOutline && this.boardState?.showRailOutline !== false) {
+      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, false));
+      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, true));
+    }
+
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, false));
     if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false, false));
+
+    if (activeApexRocker && this.boardState?.showApexRocker !== false) {
+      this.wireframeGroup.add(build3DLine(activeApexRocker, matApexRocker, 2, false));
+    }
   }
   
   private buildSolidMesh(curves: BoardCurves, _scale: number) {

@@ -213,6 +213,7 @@ export class BoardBuilderPage extends LitElement {
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
+          @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this.ctrl.propose({ type: e.detail.type, factor: e.detail.factor })}
         ></board-controls>
 
         <div class="absolute top-4 right-4 z-10 flex gap-2">
