@@ -86,9 +86,27 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
   const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
   const outlinePt = evaluateBezierAtZ(model.outline, zInches);
+  const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
   let apexX = outlinePt[0];
   let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3;
+  let tuckY = botPt[1];
+
+  if (blend) {
+    const pBot = blend.evaluate(0.0);
+    const pTop = blend.evaluate(1.0);
+    const pApex = blend.evaluate(blend.tApex);
+    const pTuck = blend.evaluate(0.25);
+    
+    const sliceThick = Math.max(0.001, pTop[1] - pBot[1]);
+    const apexFrac = (pApex[1] - pBot[1]) / sliceThick;
+    const tuckFrac = (pTuck[1] - pBot[1]) / sliceThick;
+
+    const worldThick = topPt[1] - botPt[1];
+    apexY = botPt[1] + worldThick * apexFrac;
+    tuckY = botPt[1] + worldThick * tuckFrac;
+  }
+
   if (model.apexOutline && model.apexOutline.controlPoints.length > 0) {
     apexX = evaluateBezierAtZ(model.apexOutline, zInches)[0];
   }
@@ -97,17 +115,11 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   }
 
   let tuckX = outlinePt[0];
-  const tuckY = botPt[1];
   if (model.railOutline && model.railOutline.controlPoints.length > 0) {
-    const railPt = evaluateBezierAtZ(model.railOutline, zInches);
-    tuckX = railPt[0];
-    // We ignore railPt[1] (Y-axis) because Shape3D's curveDefTop1 is a flattened 2D projection.
-    // Keeping tuckY tied to botPt[1] ensures the bottom contour scaling remains stable.
+    tuckX = evaluateBezierAtZ(model.railOutline, zInches)[0];
   }
 
   const finalApexX = Math.max(0.001, apexX);
-  // Enforce rail integrity: the rail tuck (bottom edge) cannot be wider than the apex.
-  // This prevents self-intersecting geometry (folded rails) during sharp tail transitions.
   const finalTuckX = Math.min(Math.max(0, tuckX), finalApexX);
 
   return { 
@@ -335,18 +347,19 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const profile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
-    let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5, sliceTuckX = 0.8;
+    let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5, sliceTuckX = 0.8, sliceTuckY = 0.2;
     if (blend) {
       const pBot = blend.evaluate(0.0);
       const pTop = blend.evaluate(1.0);
       const pApex = blend.evaluate(blend.tApex);
-      const pTuck = blend.evaluate(0.25); // t=0.25 is the physical tuck node in imported couples
+      const pTuck = blend.evaluate(0.25);
       
       sliceBotY = pBot[1];
       sliceTopY = pTop[1];
       sliceApexX = Math.max(0.001, pApex[0]);
       sliceApexY = pApex[1];
       sliceTuckX = Math.max(0.001, pTuck[0]);
+      sliceTuckY = pTuck[1];
     }
 
     for (let j = 0; j <= segmentsRadial; j++) {
@@ -378,16 +391,20 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           px = isStringer ? 0 : side * normX * profile.apexX;
         }
         
-        // Y-scaling separated safely by the evaluated parameter T, not spatial Y,
-        // to prevent contour scrambling when evaluating steep shoulders.
-        if (t >= blend.tApex) {
+        // 3-Piece Piecewise Y-scaling ensures vertical features (channels, tucked rails,
+        // sharp shoulders) are correctly preserved relative to global rocker boundaries.
+        if (t <= 0.25) {
+          const rangeY = sliceTuckY - sliceBotY;
+          const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
+          py = profile.botY + normY * (profile.tuckY - profile.botY);
+        } else if (t <= blend.tApex) {
+          const rangeY = sliceApexY - sliceTuckY;
+          const normY = rangeY > 0.001 ? (p[1] - sliceTuckY) / rangeY : 0;
+          py = profile.tuckY + normY * (profile.apexY - profile.tuckY);
+        } else {
           const rangeY = sliceTopY - sliceApexY;
           const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
           py = profile.apexY + normY * (profile.topY - profile.apexY);
-        } else {
-          const rangeY = sliceApexY - sliceBotY;
-          const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
-          py = profile.botY + normY * (profile.apexY - profile.botY);
         }
       }
 
