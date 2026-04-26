@@ -207,8 +207,12 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
 
     const addCap = (isNose: boolean) => {
-      const z = isNose ? minZ : maxZ, profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, z);
-      if (profile.halfWidth < 0.01) return;
+      const z = isNose ? minZ : maxZ;
+      const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, z);
+      // If the tip/tail has no width, the main loop already welded the vertices, so we don't need a cap.
+      if (profile.halfWidth < 0.01) {
+        return;
+      }
 
       const ringStart = (isNose ? 0 : segmentsZ) * (segmentsRadial + 1), capStart = vertices.length / 3;
       for (let j = 0; j <= segmentsRadial; j++) {
