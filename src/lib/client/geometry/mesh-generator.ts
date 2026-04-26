@@ -274,32 +274,27 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
   const totalZ = maxZ - minZ;
 
-  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
-    const originalRingStart = ringIndex * (segmentsRadial + 1);
-    const newRingStart = vertices.length / 3;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const origV = originalRingStart + j;
-      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
-      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
-      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
-    }
-
-    const fanCenterIdx = newRingStart + 27; 
-    for (let j = 0; j < segmentsRadial; j++) {
-      const p1 = newRingStart + j;
-      const p2 = newRingStart + j + 1;
-      if (isNose) indices.push(fanCenterIdx, p1, p2);
-      else indices.push(fanCenterIdx, p2, p1);
-    }
-  };
+  const tipBlendZone = 2.0; // Blend into mathematically continuous points within 2 inches of tip
 
   for (let i = 0; i < segmentsZ; i++) {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
 
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop:[], rockerBottom:[] }, zInches);
+    const profile = getBoardProfileAtZ(model, { outline:[], rockerTop:[], rockerBottom:[] }, zInches);
     const { topY, botY } = profile;
 
+    const distToNose = Math.max(0, zInches - minZ);
+    const distToTail = Math.max(0, maxZ - zInches);
+    let tipBlend = 1.0;
+    if (distToNose < tipBlendZone) {
+      const t = distToNose / tipBlendZone;
+      tipBlend = t * t * (3 - 2 * t); // C2 continuous easing
+    } else if (distToTail < tipBlendZone) {
+      const t = distToTail / tipBlendZone;
+      tipBlend = t * t * (3 - 2 * t);
+    }
+
+    const isTip = i === 0 || i === segmentsZ - 1;
     const blend = getCrossSectionBlendAtZ(crossSections, zInches);
     
     for (let j = 0; j <= segmentsRadial; j++) {
@@ -310,8 +305,9 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       else if (j <= 27) { tCross = 0.5 - 0.5 * ((j - 18) / 9); isRightSide = false; }
       else tCross = 0.5 * ((j - 27) / 9);
 
-      if (!blend) {
-        vertices.push(0, botY * scale, zInches * scale);
+      if (!blend || isTip) {
+        const py = botY + (topY - botY) / 2;
+        vertices.push(0, py * scale, zInches * scale);
         uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
         colors.push(0, 0, 1);
         continue;
@@ -326,11 +322,11 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
       let mappedX = rawX;
       if (sliceApexWidth > 1e-6) {
-        if (tCross <= 0.25) {
+        if (tCross <= 0.25 || tCross >= 0.75) {
           if (sliceTuckWidth > 1e-6) {
             mappedX = rawX * (profile.tuckHalfWidth / sliceTuckWidth);
           }
-        } else if (tCross <= 0.5) {
+        } else {
           if (sliceApexWidth > sliceTuckWidth) {
             const tX = (rawX - sliceTuckWidth) / (sliceApexWidth - sliceTuckWidth);
             const clampedTx = Math.max(0, Math.min(1, tX));
@@ -338,11 +334,10 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           } else {
             mappedX = profile.apexHalfWidth;
           }
-        } else {
-          mappedX = rawX * (profile.apexHalfWidth / sliceApexWidth);
         }
       }
       
+      mappedX *= tipBlend;
       const px = (isRightSide ? 1 : -1) * mappedX;
 
       const sliceTop = blend.topY;
@@ -359,6 +354,10 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           const depthScale = 1 + (scaleFactor - 1) * (1 - normY);
           py = botY + (normY * currentThickness) * depthScale;
       }
+      
+      // Smoothly blend Y coordinate to center of board at absolute tips to prevent creases
+      const centerY = botY + currentThickness / 2;
+      py = centerY + (py - centerY) * tipBlend;
 
       const tOpposite = 1.0 - tCross;
       const pOpp = blend.evaluate(tOpposite);
@@ -370,6 +369,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           const depthScaleOpp = 1 + (scaleFactor - 1) * (1 - normYOpp);
           pyOpp = botY + (normYOpp * currentThickness) * depthScaleOpp;
       }
+      pyOpp = centerY + (pyOpp - centerY) * tipBlend;
 
       const localThickness = Math.abs(py - pyOpp);
       const normT = Math.max(0, Math.min(1, localThickness / model.thickness));
@@ -390,31 +390,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       indices.push(a, b, d);
       indices.push(a, d, c);
     }
-  }
-
-  const noseProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, minZ);
-  if (noseProfile.halfWidth < 0.1) {
-    const centerY = ((noseProfile.topY + noseProfile.botY) / 2) * scale;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const idx = j * 3;
-      vertices[idx] = 0;
-      vertices[idx + 1] = centerY;
-    }
-  } else {
-    buildEndCap(true, 0, minZ, noseProfile.topY, noseProfile.botY);
-  }
-
-  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
-  if (tailProfile.halfWidth < 0.1) {
-    const centerY = ((tailProfile.topY + tailProfile.botY) / 2) * scale;
-    const ringIndex = segmentsZ - 1;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const idx = (ringIndex * (segmentsRadial + 1) + j) * 3;
-      vertices[idx] = 0;
-      vertices[idx + 1] = centerY;
-    }
-  } else {
-    buildEndCap(false, segmentsZ - 1, maxZ, tailProfile.topY, tailProfile.botY);
   }
 
   return {
