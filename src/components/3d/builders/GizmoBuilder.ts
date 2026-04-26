@@ -28,7 +28,7 @@ export class GizmoBuilder {
 
     const anchorGeo = new THREE.SphereGeometry(0.4 * scale, 16, 16);
     const handleGeo = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
-    const lineMat = new THREE.LineDashedMaterial({ color: 0x52525b, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
+    const lineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
 
     const getZHeight = (curveName: string, yInches: number, zInches: number) => {
         if (['outline', 'apexOutline'].includes(curveName)) {

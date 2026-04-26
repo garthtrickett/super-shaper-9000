@@ -26,7 +26,7 @@ export class SceneManager {
   constructor(private canvas: HTMLCanvasElement, groups: THREE.Group[]) {
     // 1. Scene setup
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x09090b); // matches zinc-950
+    this.scene.background = new THREE.Color(0xf1f5f9); // slate-100 for high contrast with white board
 
     // 2. Camera setup
     const aspect = canvas.clientWidth / canvas.clientHeight;
@@ -124,10 +124,10 @@ export class SceneManager {
     pmremGenerator.compileEquirectangularShader();
     this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment()).texture;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
     dirLight.position.set(3, 8, -5);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
@@ -139,7 +139,7 @@ export class SceneManager {
     this.scene.add(bottomLight);
 
     const floorGeo = new THREE.PlaneGeometry(50, 50);
-    const floorMat = new THREE.ShadowMaterial({ opacity: 0.5 });
+    const floorMat = new THREE.ShadowMaterial({ opacity: 0.15 });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -1.0;
@@ -154,8 +154,8 @@ export class SceneManager {
   private setupGrids() {
     const createCADGrid = (layer: number, rotationX: number, rotationZ: number, positionOffset: THREE.Vector3) => {
       const group = new THREE.Group();
-      const major = new THREE.GridHelper(20, 20, 0x3f3f46, 0x27272a);
-      const minor = new THREE.GridHelper(20, 80, 0x27272a, 0x18181b);
+      const major = new THREE.GridHelper(20, 20, 0x94a3b8, 0xcbd5e1);
+      const minor = new THREE.GridHelper(20, 80, 0xcbd5e1, 0xe2e8f0);
       [major, minor].forEach(grid => {
         grid.renderOrder = -1;
         (grid.material as THREE.Material).depthWrite = false;

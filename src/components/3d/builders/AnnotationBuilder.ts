@@ -23,7 +23,7 @@ export class AnnotationBuilder {
       canvas.height = 128;
       const ctx = canvas.getContext('2d')!;
       ctx.font = 'bold 42px monospace';
-      ctx.fillStyle = '#60a5fa'; // Tailwind blue-400
+      ctx.fillStyle = '#2563eb'; // Tailwind blue-600
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, 128, 64);
@@ -48,7 +48,7 @@ export class AnnotationBuilder {
         new THREE.Vector3().copy(p2).addScaledVector(tickDir, -tickLen)
       ];
       const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      const mat = new THREE.LineBasicMaterial({ color: 0x3b82f6, depthTest: false, transparent: true, opacity: 0.6 });
+      const mat = new THREE.LineBasicMaterial({ color: 0x2563eb, depthTest: false, transparent: true, opacity: 0.5 });
       return new THREE.Line(geo, mat);
     };
 

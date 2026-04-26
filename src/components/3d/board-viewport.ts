@@ -40,9 +40,9 @@ export class BoardViewport extends LitElement {
   private zebraOffset = 0;
   private latestCurves?: BoardCurves;
     
-  private matAnchor = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false });
-  private matHandle = new THREE.MeshBasicMaterial({ color: 0xa1a1aa, depthTest: false });
-  private matSelected = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false });
+  private matAnchor = new THREE.MeshBasicMaterial({ color: 0x2563eb, depthTest: false });
+  private matHandle = new THREE.MeshBasicMaterial({ color: 0x71717a, depthTest: false });
+  private matSelected = new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false });
 
   override firstUpdated() {
     this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup);
@@ -130,8 +130,8 @@ export class BoardViewport extends LitElement {
   }
   
   private buildWireframe(curves: BoardCurves, scale: number) {
-    const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.15 });
-    const matRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.15 });
+    const matOutline = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.85 });
+    const matRocker = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.85 });
     const activeOutline = this.boardState?.outline ? this.sampleBezierCurve(this.boardState.outline, 100) : curves.outline;
     const activeRockerTop = this.boardState?.rockerTop ? this.sampleBezierCurve(this.boardState.rockerTop, 100) : curves.rockerTop;
     const activeRockerBottom = this.boardState?.rockerBottom ? this.sampleBezierCurve(this.boardState.rockerBottom, 100) : curves.rockerBottom;
@@ -157,9 +157,9 @@ export class BoardViewport extends LitElement {
         return line;
     };
     
-    const matApexOutline = new THREE.LineBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.25 });
-    const matRailOutline = new THREE.LineBasicMaterial({ color: 0xec4899, transparent: true, opacity: 0.25 });
-    const matApexRocker = new THREE.LineBasicMaterial({ color: 0xeab308, transparent: true, opacity: 0.25 });
+    const matApexOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
+    const matRailOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
+    const matApexRocker = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
 
     const activeApexOutline = this.boardState?.apexOutline ? this.sampleBezierCurve(this.boardState.apexOutline, 100) : null;
     const activeRailOutline = this.boardState?.railOutline ? this.sampleBezierCurve(this.boardState.railOutline, 100) : null;
@@ -224,9 +224,19 @@ export class BoardViewport extends LitElement {
       this.dispatchEvent(new CustomEvent("volume-calculated", { detail: { volume: meshData.volumeLiters }, bubbles: true, composed: true }));
     }
     const { map, bumpMap } = this.textureManager.getBoardTextures();
-    const standardMat = new THREE.MeshPhysicalMaterial({ map, bumpMap, bumpScale: 0.005, roughness: 0.4, metalness: 0.0, clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.5, side: THREE.DoubleSide });
-    const heatmapMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, side: THREE.DoubleSide });
-    const zebraMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1.0, roughness: 0.0, envMap: this.textureManager.getZebraTexture(), side: THREE.DoubleSide });
+    const standardMat = new THREE.MeshPhysicalMaterial({ 
+      map, bumpMap, bumpScale: 0.005, roughness: 0.4, metalness: 0.0, 
+      clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.5, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    const heatmapMat = new THREE.MeshStandardMaterial({ 
+      vertexColors: true, roughness: 0.8, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    const zebraMat = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff, metalness: 1.0, roughness: 0.0, envMap: this.textureManager.getZebraTexture(), side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
     let activeMat: THREE.Material = standardMat;
     if (this.boardState!.showHeatmap) activeMat = heatmapMat;
     else if (this.boardState!.showZebra) activeMat = zebraMat;
@@ -248,7 +258,7 @@ export class BoardViewport extends LitElement {
       child.geometry.dispose(); (child.material as THREE.Material).dispose();
       this.apexLineGroup.remove(child);
     }
-    const mat = new THREE.LineBasicMaterial({ color: 0x34d399, depthTest: false, transparent: true, opacity: 0.9 });
+    const mat = new THREE.LineBasicMaterial({ color: 0x0ea5e9, depthTest: false, transparent: true, opacity: 0.9 });
     const ptsRight: THREE.Vector3[] =[]; const ptsLeft: THREE.Vector3[] =[];
     const steps = 100;
     const minZ = this.boardState?.outline ? this.boardState.outline.controlPoints[0]![2] : curves.outline[0]![2];
@@ -280,9 +290,8 @@ export class BoardViewport extends LitElement {
         leftPts.pop();
         const fullPts =[...leftPts, ...pts];
         if (fullPts[0]) fullPts.push(fullPts[0].clone());
-        const hue = 0.66 * (1 - (idx / (crossSections.length - 1)));
-        const color = new THREE.Color().setHSL(hue, 0.8, 0.6);
-        const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6, depthWrite: false });
+        const color = new THREE.Color(0x94a3b8);
+        const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4, depthWrite: false });
         const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(fullPts), mat);
         line.layers.set(3);
         line.userData = { isSlice: true, curveName: `crossSection_${idx}`, defaultColor: color.getHex() };
