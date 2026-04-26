@@ -5,12 +5,12 @@ import "./board-viewport";
 import type { BoardViewport } from "./board-viewport";
 
 describe("BoardViewport (3D Component)", () => {
-  it("should render a canvas element inside its shadow DOM", async () => {
+  it("should render a canvas element in the light DOM", async () => {
     const el = await fixture<BoardViewport>(
       html`<board-viewport></board-viewport>`
     );
     
-    const canvas = el.shadowRoot?.querySelector("canvas");
+    const canvas = el.querySelector("canvas");
     expect(canvas).to.exist;
     expect(canvas?.tagName.toLowerCase()).to.equal("canvas");
   });
