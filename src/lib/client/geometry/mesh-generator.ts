@@ -235,7 +235,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     if (blend) {
       const pBot = blend.evaluate(0.0);
       const pTop = blend.evaluate(1.0);
-      const pApex = blend.evaluate(0.5);
+      const pApex = blend.evaluate(blend.tApex);
       
       sliceBotY = pBot[1];
       sliceTopY = pTop[1];
