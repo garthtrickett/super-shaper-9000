@@ -96,5 +96,34 @@ describe("MeshGeneratorService", () => {
       
       expect(invertedCount).to.equal(0, `Found ${invertedCount} inverted vertex pairs (Deck Y < Bottom Y)`);
     });
+
+    it("generates a wide tail for WitcherDaily instead of a point", async () => {
+        const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+        const xml = await response.text();
+        const importedData = await runClientPromise(parseS3dx(xml));
+        const manualState: BoardModel = { ...INITIAL_STATE, ...importedData };
+        const curves = await generateBoardCurves(manualState);
+
+        const mesh = MeshGeneratorService.generateMesh(manualState, curves);
+
+        const segmentsZ = 150;
+        const segmentsRadial = 36;
+        const tailRingIndex = segmentsZ - 1;
+        const tailRingStartIndex = tailRingIndex * (segmentsRadial + 1);
+
+        // Find the widest point on the tail ring
+        let maxTailWidth = 0;
+        for (let j = 0; j <= segmentsRadial; j++) {
+            const vertexIndex = (tailRingStartIndex + j) * 3;
+            const x = Math.abs(mesh.vertices[vertexIndex]!); // Width is the X coordinate
+            if (x > maxTailWidth) {
+                maxTailWidth = x;
+            }
+        }
+
+        // The WitcherDaily tail is wide. A value of nearly 0 would indicate a collapsed point.
+        // The actual width is ~1.55 inches, which is ~0.13 feet.
+        expect(maxTailWidth).to.be.greaterThan(0.1, "The tail should not collapse to a point.");
+    });
   });
 });

@@ -274,25 +274,12 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
   const totalZ = maxZ - minZ;
 
-  const tipBlendZone = 2.0; // Blend into mathematically continuous points within 2 inches of tip
-
   for (let i = 0; i < segmentsZ; i++) {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
 
     const profile = getBoardProfileAtZ(model, { outline:[], rockerTop:[], rockerBottom:[] }, zInches);
     const { topY, botY } = profile;
-
-    const distToNose = Math.max(0, zInches - minZ);
-    const distToTail = Math.max(0, maxZ - zInches);
-    let tipBlend = 1.0;
-    if (distToNose < tipBlendZone) {
-      const t = distToNose / tipBlendZone;
-      tipBlend = t * t * (3 - 2 * t); // C2 continuous easing
-    } else if (distToTail < tipBlendZone) {
-      const t = distToTail / tipBlendZone;
-      tipBlend = t * t * (3 - 2 * t);
-    }
 
     const blend = getCrossSectionBlendAtZ(crossSections, zInches);
     
@@ -336,7 +323,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         }
       }
       
-      mappedX *= tipBlend;
       const px = (isRightSide ? 1 : -1) * mappedX;
 
       const sliceTop = blend.topY;
@@ -353,10 +339,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           const depthScale = 1 + (scaleFactor - 1) * (1 - normY);
           py = botY + (normY * currentThickness) * depthScale;
       }
-      
-      // Smoothly blend Y coordinate to center of board at absolute tips to prevent creases
-      const centerY = botY + currentThickness / 2;
-      py = centerY + (py - centerY) * tipBlend;
 
       const tOpposite = 1.0 - tCross;
       const pOpp = blend.evaluate(tOpposite);
@@ -368,7 +350,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           const depthScaleOpp = 1 + (scaleFactor - 1) * (1 - normYOpp);
           pyOpp = botY + (normYOpp * currentThickness) * depthScaleOpp;
       }
-      pyOpp = centerY + (pyOpp - centerY) * tipBlend;
 
       const localThickness = Math.abs(py - pyOpp);
       const normT = Math.max(0, Math.min(1, localThickness / model.thickness));
