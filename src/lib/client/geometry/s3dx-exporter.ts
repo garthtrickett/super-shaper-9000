@@ -165,15 +165,26 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
     const topY = getRockerY(zInches, true);
     const botY = getRockerY(zInches, false);
     
+    const extModel = model as unknown as {
+      apexRatio?: number;
+      railFullness?: number;
+      deckDome?: number;
+      channelLength?: number;
+      bottomContour?: string;
+      veeDepth?: number;
+      concaveDepth?: number;
+      channelDepth?: number;
+    };
+
     const thickness = Math.max(0, topY - botY);
-    const apexY = botY + thickness * ((model as any).apexRatio || 0.3);
+    const apexY = botY + thickness * (extModel.apexRatio || 0.3);
 
     const tailDist = Math.max(0, maxZ - zInches);
     const noseDist = Math.max(0, zInches - minZ);
 
     // Polar relaxation to prevent creases at tips
-    let railExp = 1.5 - ((model as any).railFullness || 0.65);
-    let deckExp = ((model as any).deckDome || 0.65);
+    let railExp = 1.5 - (extModel.railFullness || 0.65);
+    let deckExp = (extModel.deckDome || 0.65);
     const relaxZone = 2.0;
     if (noseDist < relaxZone) {
       const frac = noseDist / relaxZone;
@@ -188,7 +199,7 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
     const nz = (zInches - minZ) / L;
     const blendVee = 1 - smoothStep(0.05, 0.4, nz);
     const blendConcave = smoothStep(0.15, 0.3, nz);
-    const channelLength = (model as any).channelLength || 12;
+    const channelLength = extModel.channelLength || 12;
     const blendChannels = tailDist <= channelLength + 6.0 ? 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist) : 0;
     const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
 
@@ -205,21 +216,21 @@ export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): strin
       const py = apexY - Math.pow(abs_cy, 0.5) * (apexY - botY);
       
       let offset = 0;
-      const bottomContour = (model as any).bottomContour || "vee_to_quad_channels";
+      const bottomContour = extModel.bottomContour || "vee_to_quad_channels";
       if (bottomContour === "vee_to_quad_channels") {
-        const vee = -((model as any).veeDepth || 0.15) * (1 - nx) * blendVee;
-        const conc = ((model as any).concaveDepth || 0.25) * (1 - nx * nx) * blendConcave;
+        const vee = -(extModel.veeDepth || 0.15) * (1 - nx) * blendVee;
+        const conc = (extModel.concaveDepth || 0.25) * (1 - nx * nx) * blendConcave;
         let chan = 0;
         if (nx >= 0.2 && nx <= 0.8) {
-          chan = ((model as any).channelDepth || 0.125) * Math.pow(Math.sin(((nx - 0.2) / 0.6) * Math.PI * 2), 2) * blendChannels;
+          chan = (extModel.channelDepth || 0.125) * Math.pow(Math.sin(((nx - 0.2) / 0.6) * Math.PI * 2), 2) * blendChannels;
         }
         offset = (vee + conc + chan) * widthFade;
       } else if (bottomContour === "single_to_double") {
-        const single = ((model as any).concaveDepth || 0.25) * (1 - nx * nx);
-        const double = ((model as any).concaveDepth || 0.25) * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
+        const single = (extModel.concaveDepth || 0.25) * (1 - nx * nx);
+        const double = (extModel.concaveDepth || 0.25) * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
         offset = (single * (1 - nz) + double * nz) * widthFade;
       } else if (bottomContour === "single") {
-        offset = ((model as any).concaveDepth || 0.25) * (1 - nx * nx) * widthFade;
+        offset = (extModel.concaveDepth || 0.25) * (1 - nx * nx) * widthFade;
       }
       
       return py + (offset * abs_cy);

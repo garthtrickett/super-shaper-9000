@@ -175,8 +175,8 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   const profile = getBoardProfileAtZ(model, curves, zInches);
   if (crossSections.length === 0 || profile.halfWidth <= 0.001) return profile.botY;
   
-  const minZ = model.outline.controlPoints[0]![2];
-  const maxZ = model.outline.controlPoints[model.outline.controlPoints.length - 1]![2];
+  // const minZ = model.outline.controlPoints[0]![2];
+  // const maxZ = model.outline.controlPoints[model.outline.controlPoints.length - 1]![2];
   const blend = getCrossSectionBlendAtZ(crossSections, zInches);
   if (!blend) return profile.botY;
 
