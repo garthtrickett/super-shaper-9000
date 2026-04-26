@@ -231,13 +231,13 @@ const calculateVolume = (vertices: number[], indices: number[]): number => {
     const iA = indices[i]! * 3,
       iB = indices[i + 1]! * 3,
       iC = indices[i + 2]! * 3;
-    const p1 = [vertices[iA]!, vertices[iA + 1]!, vertices[iA + 2]!],
-      p2 = [vertices[iB]!, vertices[iB + 1]!, vertices[iB + 2]!],
-      p3 = [vertices[iC]!, vertices[iC + 1]!, vertices[iC + 2]!];
+    const p1x = vertices[iA]!, p1y = vertices[iA + 1]!, p1z = vertices[iA + 2]!;
+    const p2x = vertices[iB]!, p2y = vertices[iB + 1]!, p2z = vertices[iB + 2]!;
+    const p3x = vertices[iC]!, p3y = vertices[iC + 1]!, p3z = vertices[iC + 2]!;
     vol +=
-      (p1[0] * (p2[1] * p3[2] - p2[2] * p3[1]) +
-        p1[1] * (p2[2] * p3[0] - p2[0] * p3[2]) +
-        p1[2] * (p2[0] * p3[1] - p2[1] * p3[0])) /
+      (p1x * (p2y * p3z - p2z * p3y) +
+        p1y * (p2z * p3x - p2x * p3z) +
+        p1z * (p2x * p3y - p2y * p3x)) /
       6.0;
   }
   return Math.abs(vol) * 1728 * 0.0163871;
