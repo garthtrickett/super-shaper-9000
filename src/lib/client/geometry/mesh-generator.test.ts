@@ -370,6 +370,9 @@ describe("MeshGeneratorService", () => {
           
           if (botY > topY + 0.001) { // 0.001 tolerance for floating point
             invertedCount++;
+            if (invertedCount < 5) { // Log first few inversions
+              console.log(`Inversion at Z-slice ${i}, radial point ${j}:`, { topY, botY });
+            }
           }
         }
       }

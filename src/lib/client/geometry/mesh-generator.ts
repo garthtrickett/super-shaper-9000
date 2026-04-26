@@ -375,35 +375,27 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  // --- FILL END CAPS (Nose & Tail) ---
-  // Create central polar vertices for closing the nose and tail holes smoothly
   const noseProf = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, minZ);
+  if (noseProf.halfWidth > 0.01) {
+    const idxNoseCenter = vertices.length / 3;
+    vertices.push(0, ((noseProf.topY + noseProf.botY) / 2) * scale, minZ * scale);
+    uvs.push(0.5, 0); colors.push(0,0,1);
+
+    for (let j = 0; j < segmentsRadial; j++) {
+      indices.push(idxNoseCenter, j + 1, j);
+    }
+  }
+
   const tailProf = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, maxZ);
-  
-  const idxNoseCenter = vertices.length / 3;
-  vertices.push(0, ((noseProf.topY + noseProf.botY) / 2) * scale, minZ * scale);
-  uvs.push(0.5, 0);
-  const [nr, ng, nb] = colorHeatmap(Math.abs(noseProf.topY - noseProf.botY) / model.thickness);
-  colors.push(nr, ng, nb);
-
-  const idxTailCenter = vertices.length / 3;
-  vertices.push(0, ((tailProf.topY + tailProf.botY) / 2) * scale, maxZ * scale);
-  uvs.push(0.5, 1);
-  const [tr, tg, tb] = colorHeatmap(Math.abs(tailProf.topY - tailProf.botY) / model.thickness);
-  colors.push(tr, tg, tb);
-
-  // Fan out from centers to the rings
-  for (let j = 0; j < segmentsRadial; j++) {
-    // Nose Cap (Front)
-    const n1 = j;
-    const n2 = j + 1;
-    indices.push(idxNoseCenter, n2, n1);
-
-    // Tail Cap (Back)
-    const tBase = segmentsZ * (segmentsRadial + 1);
-    const t1 = tBase + j;
-    const t2 = tBase + j + 1;
-    indices.push(idxTailCenter, t1, t2);
+  if (tailProf.halfWidth > 0.01) {
+      const idxTailCenter = vertices.length / 3;
+      vertices.push(0, ((tailProf.topY + tailProf.botY) / 2) * scale, maxZ * scale);
+      uvs.push(0.5, 1); colors.push(0,0,1);
+      
+      const tBase = segmentsZ * (segmentsRadial + 1);
+      for (let j = 0; j < segmentsRadial; j++) {
+          indices.push(idxTailCenter, tBase + j, tBase + j + 1);
+      }
   }
 
   return {
