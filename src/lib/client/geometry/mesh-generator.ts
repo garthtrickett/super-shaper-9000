@@ -113,6 +113,37 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   };
 };
 
+const findApexT = (bezier: BezierCurveData): number => {
+  let bestT = 0.5;
+  let maxX = -Infinity;
+  const steps = 20;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = evaluateBezier3D(bezier, t);
+    if (p[0] > maxX) {
+      maxX = p[0];
+      bestT = t;
+    }
+  }
+  let searchT = bestT;
+  let stepSize = 1.0 / steps;
+  for (let refinement = 0; refinement < 3; refinement++) {
+    stepSize /= 10;
+    const startT = Math.max(0, searchT - stepSize * 5);
+    const endT = Math.min(1, searchT + stepSize * 5);
+    maxX = -Infinity;
+    for (let t = startT; t <= endT; t += stepSize) {
+      const p = evaluateBezier3D(bezier, t);
+      if (p[0] > maxX) {
+        maxX = p[0];
+        bestT = t;
+      }
+    }
+    searchT = bestT;
+  }
+  return bestT;
+};
+
 export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInches: number) => {
   if (crossSections.length === 0) return null;
   const minZ = crossSections[0]!.controlPoints[0]![2];
@@ -138,7 +169,16 @@ export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInche
     s0 = crossSections[k0]!,
     s1 = crossSections[Math.min(crossSections.length - 1, k0 + 1)]!,
     s2 = crossSections[Math.min(crossSections.length - 1, k0 + 2)]!;
+
+  const tApexM1 = findApexT(sM1);
+  const tApex0 = findApexT(s0);
+  const tApex1 = findApexT(s1);
+  const tApex2 = findApexT(s2);
+  
+  const tApex = cubicInterpolate(tApexM1, tApex0, tApex1, tApex2, lerpFactor);
+
   return {
+    tApex: Math.max(0, Math.min(1, tApex)),
     evaluate: (tMid: number) =>
       cubicInterpolatePt(
         evaluateBezier3D(sM1, tMid),
