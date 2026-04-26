@@ -13,11 +13,11 @@ describe("BoardControls (UI Component)", () => {
       const input = el.querySelector('input[type="range"]') as HTMLInputElement;
       expect(input).to.exist;
       
-      input.value = "80";
+      input.value = "10";
       input.dispatchEvent(new Event("input"));
 
       expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 80 });
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "frontFinZ", value: 10 });
     });
 
     it("should emit string-changed event when select is changed", async () => {

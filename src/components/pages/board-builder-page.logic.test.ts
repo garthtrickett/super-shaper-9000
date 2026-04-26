@@ -3,9 +3,9 @@ import { update, INITIAL_STATE, type BoardAction, type BoardModel, type BezierCu
 
 describe("Board Builder Logic (SAM Reducer)", () => {
   const mockCurve: BezierCurveData = {
-    controlPoints: [[0, 0, 0]],
-    tangents1: [[0, 0, 0]],
-    tangents2: [[0, 0, 0]]
+    controlPoints: [[0, 0, 0],[0, 0, 0], [0, 0, 0]],
+    tangents1: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+    tangents2: [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
   };
 
   describe("Undo / Redo History Stack", () => {
@@ -28,31 +28,31 @@ describe("Board Builder Logic (SAM Reducer)", () => {
       state = update(state, {
         type: "UPDATE_NODE_EXACT",
         curve: "outline",
-        index: 0,
+        index: 1,
         anchor: [10, 0, 0]
       });
 
       expect(state.historyIndex).to.equal(1);
-      expect(state.outline?.controlPoints[0]![0]).to.equal(10);
+      expect(state.outline?.controlPoints[1]![0]).to.equal(10);
 
       // 3. UNDO
       state = update(state, { type: "UNDO" });
       expect(state.historyIndex).to.equal(0);
-      expect(state.outline?.controlPoints[0]![0]).to.equal(0); // Back to original
+      expect(state.outline?.controlPoints[1]![0]).to.equal(0); // Back to original
 
       // 4. REDO
       state = update(state, { type: "REDO" });
       expect(state.historyIndex).to.equal(1);
-      expect(state.outline?.controlPoints[0]![0]).to.equal(10); // Forward to edit
+      expect(state.outline?.controlPoints[1]![0]).to.equal(10); // Forward to edit
     });
 
     it("drops redo futures when a new timeline branch is created", () => {
       let state = update(INITIAL_STATE, { type: "SET_CURVES", outline: mockCurve });
 
       // State 1:[10, 0, 0]
-      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 0, anchor: [10, 0, 0] });
+      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 1, anchor:[10, 0, 0] });
       // State 2: [20, 0, 0]
-      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 0, anchor:[20, 0, 0] });
+      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 1, anchor:[20, 0, 0] });
 
       expect(state.history?.length).to.equal(3); // [Init, State 1, State 2]
       expect(state.historyIndex).to.equal(2);
@@ -63,12 +63,12 @@ describe("Board Builder Logic (SAM Reducer)", () => {
       expect(state.historyIndex).to.equal(0);
 
       // Branch the timeline! Make a new edit from Init.
-      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 0, anchor: [99, 0, 0] });
+      state = update(state, { type: "UPDATE_NODE_EXACT", curve: "outline", index: 1, anchor:[99, 0, 0] });
 
       // The futures (State 1 and State 2) should be destroyed.
       expect(state.history?.length).to.equal(2); // [Init, New State]
       expect(state.historyIndex).to.equal(1);
-      expect(state.outline?.controlPoints[0]![0]).to.equal(99);
+      expect(state.outline?.controlPoints[1]![0]).to.equal(99);
     });
   });
 
@@ -79,16 +79,16 @@ describe("Board Builder Logic (SAM Reducer)", () => {
       state = update(state, {
         type: "UPDATE_NODE_EXACT",
         curve: "outline",
-        index: 0,
+        index: 1,
         anchor: [1, 1, 1],
         tangent1:[2, 2, 2],
         tangent2: [3, 3, 3]
       });
 
       const out = state.outline!;
-      expect(out.controlPoints[0]).to.deep.equal([1, 1, 1]);
-      expect(out.tangents1[0]).to.deep.equal([2, 2, 2]);
-      expect(out.tangents2[0]).to.deep.equal([3, 3, 3]);
+      expect(out.controlPoints[1]).to.deep.equal([1, 1, 1]);
+      expect(out.tangents1[1]).to.deep.equal([2, 2, 2]);
+      expect(out.tangents2[1]).to.deep.equal([3, 3, 3]);
     });
   });
 });
