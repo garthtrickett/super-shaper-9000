@@ -226,9 +226,23 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       vertices.push(0, ((profile.topY + profile.botY) / 2) * scale, z * scale);
       uvs.push(0.5, isNose ? 0 : 1); colors.push(0,0,1);
 
+      let skippedInCap = 0;
       for (let j = 0; j < segmentsRadial; j++) {
         const p1 = capStart + j, p2 = p1 + 1;
+        
+        const v1x = vertices[p1 * 3], v1y = vertices[p1 * 3 + 1], v1z = vertices[p1 * 3 + 2];
+        const v2x = vertices[p2 * 3], v2y = vertices[p2 * 3 + 1], v2z = vertices[p2 * 3 + 2];
+
+        // Skip if the edge of the cap is actually just a single point (pinched tip)
+        if (v1x === v2x && v1y === v2y && v1z === v2z) {
+            skippedInCap++;
+            continue;
+        }
+
         if (isNose) indices.push(centerIdx, p2, p1); else indices.push(centerIdx, p1, p2);
+      }
+      if (skippedInCap > 0) {
+          console.debug(`[MeshGen] Skipped ${skippedInCap} degenerate triangles in ${isNose ? 'Nose' : 'Tail'} cap`);
       }
     };
 
