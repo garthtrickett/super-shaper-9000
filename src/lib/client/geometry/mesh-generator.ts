@@ -294,7 +294,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       tipBlend = t * t * (3 - 2 * t);
     }
 
-    const isTip = i === 0 || i === segmentsZ - 1;
     const blend = getCrossSectionBlendAtZ(crossSections, zInches);
     
     for (let j = 0; j <= segmentsRadial; j++) {
@@ -305,7 +304,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       else if (j <= 27) { tCross = 0.5 - 0.5 * ((j - 18) / 9); isRightSide = false; }
       else tCross = 0.5 * ((j - 27) / 9);
 
-      if (!blend || isTip) {
+      if (!blend) {
         const py = botY + (topY - botY) / 2;
         vertices.push(0, py * scale, zInches * scale);
         uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
