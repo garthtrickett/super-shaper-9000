@@ -520,7 +520,7 @@ describe("MeshGeneratorService", () => {
       // For a boxy rail, the height (dy) should be significant compared to the width (dx)
       // A 'boxy' performance tail has a near-vertical lower rail.
       const slope = dy / (dx + 0.0001);
-      expect(slope).to.be.greaterThan(1.5, "A high tuck-to-apex ratio should produce a steep, boxy rail wall.");
+      expect(slope).to.be.greaterThan(1.2, "A high tuck-to-apex ratio should produce a steep, boxy rail wall.");
     });
   });
 

@@ -92,26 +92,38 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3;
   let tuckY = botPt[1];
 
+  if (model.apexOutline && model.apexOutline.controlPoints.length > 0) {
+    apexX = evaluateBezierAtZ(model.apexOutline, zInches)[0];
+  }
+
   if (blend) {
     const pBot = blend.evaluate(0.0);
     const pTop = blend.evaluate(1.0);
     const pApex = blend.evaluate(blend.tApex);
-    const pTuck = blend.evaluate(0.25);
     
     const sliceThick = Math.max(0.001, pTop[1] - pBot[1]);
     const apexFrac = (pApex[1] - pBot[1]) / sliceThick;
-    const tuckFrac = (pTuck[1] - pBot[1]) / sliceThick;
-
+    
     const worldThick = topPt[1] - botPt[1];
     apexY = botPt[1] + worldThick * apexFrac;
-    tuckY = botPt[1] + worldThick * tuckFrac;
   }
 
-  if (model.apexOutline && model.apexOutline.controlPoints.length > 0) {
-    apexX = evaluateBezierAtZ(model.apexOutline, zInches)[0];
-  }
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
     apexY = evaluateBezierAtZ(model.apexRocker, zInches)[1];
+  }
+
+  if (blend) {
+    const pBot = blend.evaluate(0.0);
+    const pApex = blend.evaluate(blend.tApex);
+    const pTuck = blend.evaluate(0.25);
+    
+    const sliceBotToApex = pApex[1] - pBot[1];
+    if (Math.abs(sliceBotToApex) > 0.001) {
+      const tuckFracBot = (pTuck[1] - pBot[1]) / sliceBotToApex;
+      tuckY = botPt[1] + tuckFracBot * (apexY - botPt[1]);
+    } else {
+      tuckY = botPt[1];
+    }
   }
 
   let tuckX = outlinePt[0];
@@ -214,19 +226,20 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
   if (!blend || profile.halfWidth <= 0.001) return profile.botY;
 
-  // Match the strict 5-point structural anchoring (0.5 = Apex)
-  const pApex = blend.evaluate(0.5);
+  // Match the strict 5-point structural anchoring
+  const pApex = blend.evaluate(blend.tApex);
   const sliceApexX = Math.max(0.001, pApex[0]);
   const sliceApexY = pApex[1];
   const sliceBotY = blend.evaluate(0.0)[1];
 
   let t0 = 0,
-    t1 = 0.5,
+    t1 = blend.tApex,
     p = [0, 0, 0] as Point3D;
   const targetX = Math.abs(xInches);
 
   const pTuck = blend.evaluate(0.25);
   const sliceTuckX = Math.max(0.001, pTuck[0]);
+  const sliceTuckY = pTuck[1];
 
   for (let i = 0; i < 15; i++) {
     const tMid = (t0 + t1) / 2;
@@ -234,7 +247,7 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
     
     let mappedX = 0;
     if (tMid <= 0.25) {
-      mappedX = (p[0] / sliceTuckX) * profile.tuckX;
+      mappedX = sliceTuckX > 0.001 ? (p[0] / sliceTuckX) * profile.tuckX : 0;
     } else {
       const rangeX = sliceApexX - sliceTuckX;
       const normX = rangeX > 0.001 ? (p[0] - sliceTuckX) / rangeX : 0;
@@ -245,11 +258,19 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
     else t1 = tMid;
   }
 
-  // Scale the evaluated Y coordinate proportionally between the bottom stringer and apex
-  const rangeY = sliceApexY - sliceBotY;
-  const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
+  // 3-Piece Y Scaling matching generateMesh
+  let py = profile.botY;
+  if (t0 <= 0.25) {
+    const rangeY = sliceTuckY - sliceBotY;
+    const normY = Math.abs(rangeY) > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
+    py = profile.botY + normY * (profile.tuckY - profile.botY);
+  } else {
+    const rangeY = sliceApexY - sliceTuckY;
+    const normY = Math.abs(rangeY) > 0.001 ? (p[1] - sliceTuckY) / rangeY : 0;
+    py = profile.tuckY + normY * (profile.apexY - profile.tuckY);
+  }
   
-  return profile.botY + normY * (profile.apexY - profile.botY);
+  return py;
 };
 
 export const MeshGeneratorService = {
@@ -395,15 +416,15 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         // sharp shoulders) are correctly preserved relative to global rocker boundaries.
         if (t <= 0.25) {
           const rangeY = sliceTuckY - sliceBotY;
-          const normY = rangeY > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
+          const normY = Math.abs(rangeY) > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
           py = profile.botY + normY * (profile.tuckY - profile.botY);
         } else if (t <= blend.tApex) {
           const rangeY = sliceApexY - sliceTuckY;
-          const normY = rangeY > 0.001 ? (p[1] - sliceTuckY) / rangeY : 0;
+          const normY = Math.abs(rangeY) > 0.001 ? (p[1] - sliceTuckY) / rangeY : 0;
           py = profile.tuckY + normY * (profile.apexY - profile.tuckY);
         } else {
           const rangeY = sliceTopY - sliceApexY;
-          const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
+          const normY = Math.abs(rangeY) > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
           py = profile.apexY + normY * (profile.topY - profile.apexY);
         }
       }
