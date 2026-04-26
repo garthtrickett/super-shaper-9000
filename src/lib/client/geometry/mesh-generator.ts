@@ -354,6 +354,15 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
+  const getArea = (p1x: number, p1y: number, p1z: number, p2x: number, p2y: number, p2z: number, p3x: number, p3y: number, p3z: number) => {
+    const abx = p2x - p1x, aby = p2y - p1y, abz = p2z - p1z;
+    const acx = p3x - p1x, acy = p3y - p1y, acz = p3z - p1z;
+    const crossX = aby * acz - abz * acy;
+    const crossY = abz * acx - abx * acz;
+    const crossZ = abx * acy - aby * acx;
+    return 0.5 * Math.sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+  };
+
   // The main loop now runs one extra time, so we need one extra segment for the indices.
   for (let i = 0; i < segmentsZ; i++) {
     for (let j = 0; j < segmentsRadial; j++) {
@@ -361,8 +370,18 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const b = i * (segmentsRadial + 1) + (j + 1);
       const c = (i + 1) * (segmentsRadial + 1) + j;
       const d = (i + 1) * (segmentsRadial + 1) + (j + 1);
-      indices.push(a, b, d);
-      indices.push(a, d, c);
+
+      const vAx = vertices[a * 3]!, vAy = vertices[a * 3 + 1]!, vAz = vertices[a * 3 + 2]!;
+      const vBx = vertices[b * 3]!, vBy = vertices[b * 3 + 1]!, vBz = vertices[b * 3 + 2]!;
+      const vCx = vertices[c * 3]!, vCy = vertices[c * 3 + 1]!, vCz = vertices[c * 3 + 2]!;
+      const vDx = vertices[d * 3]!, vDy = vertices[d * 3 + 1]!, vDz = vertices[d * 3 + 2]!;
+
+      if (getArea(vAx, vAy, vAz, vBx, vBy, vBz, vDx, vDy, vDz) > 1e-6) {
+        indices.push(a, b, d);
+      }
+      if (getArea(vAx, vAy, vAz, vDx, vDy, vDz, vCx, vCy, vCz) > 1e-6) {
+        indices.push(a, d, c);
+      }
     }
   }
 

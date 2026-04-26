@@ -178,8 +178,8 @@ describe("MeshGeneratorService", () => {
       }
       expect(nosePinched).to.be.true;
 
-      // Check Tail (Last ring, Z index segmentsZ - 1)
-      const tailRingStartIndex = (segmentsZ - 1) * (segmentsRadial + 1);
+      // Check Tail (Last ring, Z index segmentsZ)
+      const tailRingStartIndex = segmentsZ * (segmentsRadial + 1);
       const tailRingY = mesh.vertices[tailRingStartIndex * 3 + 1];
       let tailPinched = true;
       for (let j = 0; j <= segmentsRadial; j++) {
