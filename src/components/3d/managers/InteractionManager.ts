@@ -206,7 +206,7 @@ export class InteractionManager {
       
       const inInches = target.clone().multiplyScalar(12);
 
-      const userData = this.draggedGizmo.userData as { curve: string; index: number; maxIndex: number; origZ: number; };
+      const userData = this.draggedGizmo.userData as { type: 'anchor' | 'tangent1' | 'tangent2'; curve: string; index: number; maxIndex: number; origZ: number; };
       const curveName = userData.curve;
       const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
 
