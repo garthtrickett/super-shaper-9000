@@ -100,11 +100,39 @@ describe("MeshGeneratorService", () => {
         }
       }
 
-      const boundaryEdges = [];
+      const boundaryEdges =[];
       for (const [edge, count] of edgeCounts.entries()) {
         if (count === 1) {
           boundaryEdges.push(edge);
         }
+      }
+
+      if (boundaryEdges.length > 0) {
+        console.warn(`\n🚨 WATERTIGHTNESS FAILURE: Detected ${boundaryEdges.length} boundary edges!`);
+        console.warn("These edges only belong to 1 face, meaning there is a hole in the mesh.");
+        
+        // Group boundary edges by their Z coordinate to see if they are clustered at tip/tail
+        const zCounts = new Map<string, number>();
+        boundaryEdges.forEach(edge => {
+          const[v1, v2] = edge.split("::");
+          if (v1 && v2) {
+             const z1 = v1.split(",")[2];
+             const z2 = v2.split(",")[2];
+             if (z1) zCounts.set(z1, (zCounts.get(z1) || 0) + 1);
+             if (z2 && z2 !== z1) zCounts.set(z2, (zCounts.get(z2) || 0) + 1);
+          }
+        });
+
+        console.warn("Boundary edge Z-coordinate distribution:");
+        for (const [z, count] of zCounts.entries()) {
+           console.warn(`  Z = ${z} : ${count} edges involving this Z`);
+        }
+
+        console.warn("Sample of boundary edges (First 5):");
+        for (let i = 0; i < Math.min(5, boundaryEdges.length); i++) {
+          console.warn(`  ${boundaryEdges[i]}`);
+        }
+        console.warn("\n");
       }
 
       // If this fails, the mesh is missing end-caps at the nose/tail, 
