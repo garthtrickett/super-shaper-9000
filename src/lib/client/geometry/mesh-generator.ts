@@ -279,14 +279,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const zInches = minZ + nz * totalZ;
     const vCoord = i / segmentsZ;
 
-    // Create a fade-out zone at the tips to make the rails more boxy, which helps with sharp corners
-    let smoothFade = 1.0;
-    if (i < 3) smoothFade = i / 3.0;
-    else if (i > segmentsZ - 3) smoothFade = (segmentsZ - i) / 3.0;
-
-    const profile = getBoardProfileAtZ(model, { outline:[], rockerTop:[], rockerBottom:[] }, zInches);
-    const vCoord = i / (segmentsZ - 1);
-    
     let smoothFade = 1.0;
     if (i < 3) smoothFade = i / 3;
     else if (i > segmentsZ - 4) smoothFade = (segmentsZ - 1 - i) / 3;
