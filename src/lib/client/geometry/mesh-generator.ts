@@ -209,12 +209,17 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const addCap = (isNose: boolean) => {
       const z = isNose ? minZ : maxZ;
       const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, z);
-      // If the tip/tail has no width, the main loop already welded the vertices, so we don't need a cap.
-      if (profile.halfWidth < 0.01) {
+      
+      // If halfWidth is zero, the vertices for this ring are already welded to a point.
+      // A cap would just create more degenerate triangles.
+      if (profile.halfWidth < 1e-3) {
+        console.info(`[MeshGen] Skipping cap for ${isNose ? 'Nose' : 'Tail'} due to zero width.`);
         return;
       }
 
-      const ringStart = (isNose ? 0 : segmentsZ) * (segmentsRadial + 1), capStart = vertices.length / 3;
+      const ringStart = (isNose ? 0 : segmentsZ) * (segmentsRadial + 1);
+      const capStart = vertices.length / 3;
+      
       for (let j = 0; j <= segmentsRadial; j++) {
         const idx = (ringStart + j) * 3;
         vertices.push(vertices[idx]!, vertices[idx+1]!, vertices[idx+2]!);
@@ -224,8 +229,31 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
       const centerIdx = vertices.length / 3;
       vertices.push(0, ((profile.topY + profile.botY) / 2) * scale, z * scale);
-      uvs.push(0.5, isNose ? 0 : 1); colors.push(0,0,1);
+      uvs.push(0.5, isNose ? 0 : 1);
+      colors.push(0, 0, 1);
 
+      let skippedInCap = 0;
+      for (let j = 0; j < segmentsRadial; j++) {
+        const p1 = capStart + j;
+        const p2 = p1 + 1;
+
+        // Check if this segment of the cap ring is collapsed (pointy tip)
+        const v1x = vertices[p1 * 3]!, v1y = vertices[p1 * 3 + 1]!, v1z = vertices[p1 * 3 + 2]!;
+        const v2x = vertices[p2 * 3]!, v2y = vertices[p2 * 3 + 1]!, v2z = vertices[p2 * 3 + 2]!;
+        
+        if (Math.abs(v1x - v2x) < 1e-9 && Math.abs(v1y - v2y) < 1e-9 && Math.abs(v1z - v2z) < 1e-9) {
+          skippedInCap++;
+          continue;
+        }
+
+        if (isNose) indices.push(centerIdx, p2, p1);
+        else indices.push(centerIdx, p1, p2);
+      }
+
+      if (skippedInCap > 0) {
+        console.info(`[MeshGen] Skipped ${skippedInCap} degenerate triangles in ${isNose ? 'Nose' : 'Tail'} cap.`);
+      }
+    };
       let skippedInCap = 0;
       for (let j = 0; j < segmentsRadial; j++) {
         const p1 = capStart + j, p2 = p1 + 1;
