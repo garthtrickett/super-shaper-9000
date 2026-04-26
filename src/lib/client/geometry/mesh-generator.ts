@@ -299,16 +299,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const zInches = minZ + ((1 - Math.cos((i / segmentsZ) * Math.PI)) / 2) * (maxZ - minZ);
     const vCoord = sliceArcLengths[i]! / totalArcLength;
 
-    // Implement Geometric Tip Fading (1.5" fade zone for smooth closure)
-    const tailDist = Math.max(0, maxZ - zInches);
-    const noseDist = Math.max(0, zInches - minZ);
-    const fadeZone = 1.5;
-    let fadeFactor = 1.0;
-    if (noseDist < fadeZone) fadeFactor = noseDist / fadeZone;
-    if (tailDist < fadeZone) fadeFactor = Math.min(fadeFactor, tailDist / fadeZone);
-    fadeFactor = fadeFactor * fadeFactor * (3 - 2 * fadeFactor); // Smoothstep
-    
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
+    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
     let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5;
@@ -322,41 +313,35 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       sliceApexY = pApex[1];
     }
 
-    const isPinchedTip = (i === 0 || i === segmentsZ) && profile.halfWidth < 1e-3;
-
-    for (let j = 0; j <= segmentsRadial; j++) {
-      let t = 0.0, side = 1.0;
-      const isStringer = j === 0 || j === segmentsRadial / 2 || j === segmentsRadial;
-      if (j <= segmentsRadial / 2) {
-        t = j / (segmentsRadial / 2);
-      } else {
-        t = 1.0 - (j - segmentsRadial / 2) / (segmentsRadial / 2);
-        side = -1.0;
-      }
-
-      let px = 0, py = profile.botY + (profile.topY - profile.botY) / 2;
-      if (isPinchedTip) {
-        px = 0;
-      } else if (blend && profile.halfWidth > 0.001) {
-        const p = blend.evaluate(t);
-        const normX = p[0] / sliceApexX;
-        px = isStringer ? 0 : side * normX * profile.apexX;
-        if (p[1] >= sliceApexY) {
-          const rangeY = sliceTopY - sliceApexY;
-          const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
-          py = profile.apexY + normY * (profile.topY - profile.apexY);
+      for (let j = 0; j <= segmentsRadial; j++) {
+        let t = 0.0, side = 1.0;
+        const isStringer = j === 0 || j === segmentsRadial / 2 || j === segmentsRadial;
+        if (j <= segmentsRadial / 2) {
+          t = j / (segmentsRadial / 2);
         } else {
-          const rangeY = sliceApexY - sliceBotY;
-          const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
-          py = profile.apexY - normY * (profile.apexY - profile.botY);
+          t = 1.0 - (j - segmentsRadial / 2) / (segmentsRadial / 2);
+          side = -1.0;
         }
-          
-        // Apply tip fade to aggressively pinch the rail into a flat edge at the tips
-        const centerY = profile.botY + (profile.topY - profile.botY) / 2;
-        py = centerY + (py - centerY) * fadeFactor;
-      }
 
-      const pos = new THREE.Vector3(px * scale, py * scale, zInches * scale);
+        let px = 0, py = profile.botY + (profile.topY - profile.botY) / 2;
+
+        if (blend) {
+          const p = blend.evaluate(t);
+          const normX = sliceApexX > 0.001 ? p[0] / sliceApexX : 0;
+          px = isStringer ? 0 : side * normX * profile.apexX;
+          
+          if (p[1] >= sliceApexY) {
+            const rangeY = sliceTopY - sliceApexY;
+            const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
+            py = profile.apexY + normY * (profile.topY - profile.apexY);
+          } else {
+            const rangeY = sliceApexY - sliceBotY;
+            const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
+            py = profile.apexY - normY * (profile.apexY - profile.botY);
+          }
+        }
+
+        const pos = new THREE.Vector3(px * scale, py * scale, zInches * scale);
       const uv = new THREE.Vector2(j / segmentsRadial, vCoord);
       const color = new THREE.Color(...colorHeatmap(Math.max(0, Math.min(1, (profile.topY - profile.botY) / model.thickness))));
       ring.push({ pos, color, uv });
@@ -376,17 +361,28 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const tangentR = new THREE.Vector3();
       const normal = new THREE.Vector3();
 
-      if (i === 0) { normal.set(0, 0, -1); }
-      else if (i === segmentsZ) { normal.set(0, 0, 1); }
-      else {
+      // Extrapolate Hull Z tangents for the absolute tips instead of forcing flat normals
+      if (i === 0) {
+        tangentZ.subVectors(vertexGrid[1]![j]!.pos, vertexGrid[0]![j]!.pos);
+      } else if (i === segmentsZ) {
+        tangentZ.subVectors(vertexGrid[segmentsZ]![j]!.pos, vertexGrid[segmentsZ - 1]![j]!.pos);
+      } else {
         tangentZ.subVectors(vertexGrid[i + 1]![j]!.pos, vertexGrid[i - 1]![j]!.pos);
-        if (j > 0 && j < segmentsRadial) {
-            tangentR.subVectors(vertexGrid[i]![j + 1]!.pos, vertexGrid[i]![j - 1]!.pos);
-        } else {
-            tangentR.subVectors(vertexGrid[i]![1]!.pos, vertexGrid[i]![segmentsRadial - 1]!.pos);
-        }
-        normal.crossVectors(tangentR, tangentZ).normalize();
       }
+
+      if (j > 0 && j < segmentsRadial) {
+          tangentR.subVectors(vertexGrid[i]![j + 1]!.pos, vertexGrid[i]![j - 1]!.pos);
+      } else {
+          tangentR.subVectors(vertexGrid[i]![1]!.pos, vertexGrid[i]![segmentsRadial - 1]!.pos);
+      }
+      
+      normal.crossVectors(tangentR, tangentZ).normalize();
+      
+      // Fallback if tangent calculation fails at a perfectly sharp mathematical point
+      if (isNaN(normal.x)) {
+        normal.set(0, j > segmentsRadial / 4 && j < segmentsRadial * 0.75 ? 1 : -1, 0);
+      }
+
       normals.push(normal.x, normal.y, normal.z);
     }
   }
@@ -402,18 +398,23 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  // STEP 4: Generate Tail Cap if needed (wide tails)
+  // STEP 4: Generate End Caps (Nose and Tail) if they possess physical dimensions
+  const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, minZ);
   const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
-  if (tailProfile.halfWidth >= 1e-3) {
-    const finalRingStartIndex = segmentsZ * (segmentsRadial + 1);
+  
+  const noseNeedsCap = noseProfile.halfWidth >= 1e-3 || (noseProfile.topY - noseProfile.botY) >= 1e-3;
+  const tailNeedsCap = tailProfile.halfWidth >= 1e-3 || (tailProfile.topY - tailProfile.botY) >= 1e-3;
+
+  if (noseNeedsCap) {
+    const ringStartIndex = 0;
     const capVertexStartIndex = vertices.length / 3;
 
     for (let j = 0; j <= segmentsRadial; j++) {
-      const hullIndex = finalRingStartIndex + j;
+      const hullIndex = ringStartIndex + j;
       vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
       uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
       colors.push(colors[hullIndex * 3]!, colors[hullIndex * 3 + 1]!, colors[hullIndex * 3 + 2]!);
-      normals.push(0, 0, 1);
+      normals.push(0, 0, -1); // Nose faces backwards (-Z)
     }
 
     for (let j = 0; j < segmentsRadial / 2; j++) {
@@ -421,7 +422,28 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const b = capVertexStartIndex + j + 1;
       const c = capVertexStartIndex + segmentsRadial - j;
       const d = capVertexStartIndex + segmentsRadial - (j + 1);
-      indices.push(a, d, b, a, c, d);
+      indices.push(a, b, d, a, d, c); // Reversed winding for front face
+    }
+  }
+
+  if (tailNeedsCap) {
+    const ringStartIndex = segmentsZ * (segmentsRadial + 1);
+    const capVertexStartIndex = vertices.length / 3;
+
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const hullIndex = ringStartIndex + j;
+      vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
+      uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
+      colors.push(colors[hullIndex * 3]!, colors[hullIndex * 3 + 1]!, colors[hullIndex * 3 + 2]!);
+      normals.push(0, 0, 1); // Tail faces forwards (+Z)
+    }
+
+    for (let j = 0; j < segmentsRadial / 2; j++) {
+      const a = capVertexStartIndex + j;
+      const b = capVertexStartIndex + j + 1;
+      const c = capVertexStartIndex + segmentsRadial - j;
+      const d = capVertexStartIndex + segmentsRadial - (j + 1);
+      indices.push(a, d, b, a, c, d); // Standard winding for back face
     }
   }
 
