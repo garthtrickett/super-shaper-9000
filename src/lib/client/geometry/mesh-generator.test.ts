@@ -249,6 +249,84 @@ describe("MeshGeneratorService", () => {
       
       expect(degenerateCount).to.equal(0, `Found ${degenerateCount} degenerate (zero-area) triangles. The generator should skip end-caps if the ring is completely pinched.`);
     });
+
+    it("should have correct winding order for tail-cap triangles (outward facing normals)", async () => {
+      // This test specifically checks for "inside-out" polygons at the tail, which would appear as a hole.
+      const squashState: BoardModel = {
+        ...INITIAL_STATE,
+        outline: {
+          ...INITIAL_STATE.outline,
+          controlPoints: [
+            INITIAL_STATE.outline.controlPoints[0]!,
+            INITIAL_STATE.outline.controlPoints[1]!,
+            [4, 0, 35], // 8-inch wide squash tail at Z=35 (the very end of the board)
+          ],
+          // Make sure the tangent at the end is flat for a proper squash
+          tangents1: [...INITIAL_STATE.outline.tangents1.slice(0, 2), [4, 0, 33]],
+          tangents2: [...INITIAL_STATE.outline.tangents2.slice(0, 2), [4, 0, 35]],
+        },
+      };
+
+      const curves = await generateBoardCurves(squashState);
+      const mesh = MeshGeneratorService.generateMesh(squashState, curves);
+
+      const tailZInFeet = squashState.length / 2 / 12; // The mesh vertices are in feet
+
+      let inwardFacingTriangles = 0;
+      const tailTriangles = [];
+
+      for (let i = 0; i < mesh.indices.length; i += 3) {
+        const idxA = mesh.indices[i]! * 3;
+        const idxB = mesh.indices[i + 1]! * 3;
+        const idxC = mesh.indices[i + 2]! * 3;
+
+        const vA = new THREE.Vector3(
+          mesh.vertices[idxA]!,
+          mesh.vertices[idxA + 1]!,
+          mesh.vertices[idxA + 2]!,
+        );
+        const vB = new THREE.Vector3(
+          mesh.vertices[idxB]!,
+          mesh.vertices[idxB + 1]!,
+          mesh.vertices[idxB + 2]!,
+        );
+        const vC = new THREE.Vector3(
+          mesh.vertices[idxC]!,
+          mesh.vertices[idxC + 1]!,
+          mesh.vertices[idxC + 2]!,
+        );
+
+        // A tail-cap triangle has an average Z very close to the tail end.
+        const avgZ = (vA.z + vB.z + vC.z) / 3;
+
+        if (Math.abs(avgZ - tailZInFeet) < 0.05) {
+          tailTriangles.push({ vA, vB, vC });
+        }
+      }
+
+      // If there are no triangles at the tail, the end cap wasn't generated at all.
+      expect(tailTriangles.length).to.be.greaterThan(
+        0,
+        "No triangles were generated for the tail end-cap.",
+      );
+
+      for (const { vA, vB, vC } of tailTriangles) {
+        // The tail cap exists on a plane. For it to be visible from the back, its normal should point in the +Z direction.
+        const edge1 = new THREE.Vector3().subVectors(vB, vA);
+        const edge2 = new THREE.Vector3().subVectors(vC, vA);
+        const normal = new THREE.Vector3().crossVectors(edge1, edge2);
+
+        // If the normal's Z component is negative, it's facing inward and will be culled.
+        if (normal.z < 0) {
+          inwardFacingTriangles++;
+        }
+      }
+
+      expect(inwardFacingTriangles).to.equal(
+        0,
+        `Found ${inwardFacingTriangles} tail-cap triangles with incorrect winding order (inward-facing normals), which appear as holes.`,
+      );
+    });
   });
 
   describe("Imported S3DX Edge Cases", () => {
