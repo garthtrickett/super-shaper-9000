@@ -81,17 +81,36 @@ const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): Point3D =>
 };
 
 export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInches: number) => {
-  const widthPt = evaluateBezierAtZ(model.outline, zInches);
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
   const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
+  const outlinePt = evaluateBezierAtZ(model.outline, zInches);
 
+  let apexX = outlinePt[0];
   let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3;
-  if (model.apexRocker) {
-    const apexPt = evaluateBezierAtZ(model.apexRocker, zInches);
-    apexY = apexPt[1];
+  if (model.apexOutline && model.apexOutline.controlPoints.length > 0) {
+    apexX = evaluateBezierAtZ(model.apexOutline, zInches)[0];
+  }
+  if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
+    apexY = evaluateBezierAtZ(model.apexRocker, zInches)[1];
   }
 
-  return { topY: topPt[1], botY: botPt[1], apexY, halfWidth: Math.max(0, widthPt[0]) };
+  let tuckX = outlinePt[0];
+  let tuckY = botPt[1];
+  if (model.railOutline && model.railOutline.controlPoints.length > 0) {
+    const railPt = evaluateBezierAtZ(model.railOutline, zInches);
+    tuckX = railPt[0];
+    tuckY = railPt[1];
+  }
+
+  return { 
+    topY: topPt[1], 
+    botY: botPt[1], 
+    apexX: Math.max(0, apexX),
+    apexY, 
+    tuckX: Math.max(0, tuckX),
+    tuckY,
+    halfWidth: Math.max(0, outlinePt[0]) 
+  };
 };
 
 export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInches: number) => {
