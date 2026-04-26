@@ -20,6 +20,13 @@ export class BoardControls extends LitElement {
   @property({ type: Boolean }) showHeatmap = false;
   @property({ type: Boolean }) showZebra = false;
   @property({ type: Boolean }) showApexLine = false;
+  @property({ type: Boolean }) showOutline = true;
+  @property({ type: Boolean }) showRockerTop = true;
+  @property({ type: Boolean }) showRockerBottom = true;
+  @property({ type: Boolean }) showApexOutline = true;
+  @property({ type: Boolean }) showRailOutline = true;
+  @property({ type: Boolean }) showApexRocker = true;
+  @property({ type: Boolean }) showCrossSections = true;
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -228,7 +235,7 @@ export class BoardControls extends LitElement {
           ].map(c => html`
             <label class="flex items-center justify-between mb-1 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
               <span class="text-xs text-zinc-400">${c.label}</span>
-              <input type="checkbox" .checked=${(this as any)[c.key]} @change=${(e: Event) => this._dispatchBoolean(c.key, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
+              <input type="checkbox" .checked=${Boolean((this as unknown as Record<string, boolean>)[c.key])} @change=${(e: Event) => this._dispatchBoolean(c.key, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
             </label>
           `)}
         `, true)}

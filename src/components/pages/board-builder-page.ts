@@ -210,6 +210,13 @@ export class BoardBuilderPage extends LitElement {
           .showHeatmap=${state.showHeatmap ?? false}
           .showZebra=${state.showZebra ?? false}
           .showApexLine=${state.showApexLine ?? false}
+          .showOutline=${state.showOutline ?? true}
+          .showRockerTop=${state.showRockerTop ?? true}
+          .showRockerBottom=${state.showRockerBottom ?? true}
+          .showApexOutline=${state.showApexOutline ?? true}
+          .showRailOutline=${state.showRailOutline ?? true}
+          .showApexRocker=${state.showApexRocker ?? true}
+          .showCrossSections=${state.showCrossSections ?? true}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}

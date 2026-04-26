@@ -290,14 +290,14 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       if (anchor) {
         updatedCurve.controlPoints[index] =[...anchor];
         if (crossSectionIdx !== -1 && (index === 0 || index === targetCurve.controlPoints.length - 1)) {
-          updatedCurve.controlPoints[index]![0] = 0;
+          updatedCurve.controlPoints[index][0] = 0;
         }
         if ((curve === "outline" || curve === "apexOutline" || curve === "railOutline") && (index === 0 || index === targetCurve.controlPoints.length - 1)) {
-          updatedCurve.controlPoints[index]![0] = 0;
+          updatedCurve.controlPoints[index][0] = 0;
         }
 
         if (curve === "outline" || curve === "apexOutline" || curve === "railOutline" || crossSectionIdx !== -1) {
-          if (updatedCurve.controlPoints[index]![0] < 0) updatedCurve.controlPoints[index]![0] = 0;
+          if (updatedCurve.controlPoints[index][0] < 0) updatedCurve.controlPoints[index][0] = 0;
         }
       }
       if (tangent1) updatedCurve.tangents1[index] = [...tangent1];
@@ -322,7 +322,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
     case "UNDO": {
       if (!state.history || state.historyIndex === undefined || state.historyIndex <= 0) return state;
       const newIndex = state.historyIndex - 1;
-      const snap = state.history[newIndex]! as ManualSnapshot;
+      const snap = state.history[newIndex]!;
       return {
         ...state,
         historyIndex: newIndex,
@@ -338,7 +338,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
     case "REDO": {
       if (!state.history || state.historyIndex === undefined || state.historyIndex >= state.history.length - 1) return state;
       const newIndex = state.historyIndex + 1;
-      const snap = state.history[newIndex]! as ManualSnapshot;
+      const snap = state.history[newIndex]!;
       return {
         ...state,
         historyIndex: newIndex,
