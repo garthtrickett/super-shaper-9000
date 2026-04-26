@@ -213,8 +213,8 @@ export class BoardViewport extends LitElement {
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
     geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
+    geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
     geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
-    geom.computeVertexNormals();
     if (Math.abs(this.boardState!.volume - meshData.volumeLiters) > 0.05) {
       this.dispatchEvent(new CustomEvent("volume-calculated", { detail: { volume: meshData.volumeLiters }, bubbles: true, composed: true }));
     }

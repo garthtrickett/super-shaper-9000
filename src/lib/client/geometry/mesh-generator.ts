@@ -451,6 +451,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const tailCenterIdx = vertices.length / 3;
       
       vertices.push(tailCenterX, tailCenterY, maxZ * scale);
+      normals.push(0, 0, 1);
       uvs.push(0.5, 0.5);
       colors.push(0, 0, 1);
 
@@ -460,6 +461,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           const vx = vertices[srcIdx * 3]!;
           const vy = vertices[srcIdx * 3 + 1]!;
           vertices.push(vx, vy, vertices[srcIdx * 3 + 2]!);
+          normals.push(0, 0, 1);
           
           const u = tailWidth > 0 ? (vx - tailMinX) / tailWidth : 0.5;
           const v = tailHeight > 0 ? (vy - tailMinY) / tailHeight : 0.5;
@@ -478,6 +480,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     indices: new Uint32Array(indices),
     uvs: new Float32Array(uvs),
     colors: new Float32Array(colors),
+    normals: new Float32Array(normals),
     volumeLiters: calculateVolume(vertices, indices)
   };
 };
