@@ -139,6 +139,23 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     const rockerTop = reverseCurve(extractBezier("StrDeck", false, true));
     const apexRocker = reverseCurve(extractBezier("curveDefSide2", false, true));
 
+    // Post-process outline curves to enforce C1 continuity at tips, fixing the 'bowtie' artifact.
+    const fixOutlineTangents = (curve: BezierCurveData) => {
+        if (curve.controlPoints.length > 1) {
+            const last = curve.controlPoints.length - 1;
+            // Nose (Index 0)
+            if (curve.tangents1[0]) curve.tangents1[0][0] = 0;
+            if (curve.tangents2[0]) curve.tangents2[0][0] = 0;
+            // Tail (Last Index)
+            if (curve.tangents1[last]) curve.tangents1[last][0] = 0;
+            if (curve.tangents2[last]) curve.tangents2[last][0] = 0;
+        }
+    };
+
+    fixOutlineTangents(outline);
+    fixOutlineTangents(railOutline);
+    fixOutlineTangents(apexOutline);
+
     // 4. Extract Cross Sections (Couples)
     const crossSections: BezierCurveData[] =[];
     let coupleIdx = 0;
