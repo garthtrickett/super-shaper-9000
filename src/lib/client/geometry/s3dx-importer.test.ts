@@ -1,6 +1,7 @@
 import { expect } from "@open-wc/testing";
 import { Effect } from "effect";
 import { translateFromShape3d, parseS3dx } from "./s3dx-importer";
+import type { BezierCurveData, Point3D } from "../../../components/pages/board-builder-page.logic";
 
 describe("S3DX Importer", () => {
   describe("translateFromShape3d (Coordinate Inversion)", () => {
@@ -171,13 +172,13 @@ describe("S3DX Importer", () => {
 
       const checkCurve = (curve: BezierCurveData, name: string) => {
         let hasNegative = false;
-        curve.controlPoints.forEach(p => {
+        curve.controlPoints.forEach((p: Point3D) => {
           if (p[0] < 0) hasNegative = true;
         });
-        curve.tangents1.forEach(p => {
+        curve.tangents1.forEach((p: Point3D) => {
           if (p[0] < 0) hasNegative = true;
         });
-        curve.tangents2.forEach(p => {
+        curve.tangents2.forEach((p: Point3D) => {
           if (p[0] < 0) hasNegative = true;
         });
         expect(hasNegative, `Curve '${name}' should not have negative X (width) values`).to.be.false;

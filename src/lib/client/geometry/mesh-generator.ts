@@ -277,6 +277,11 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   for (let i = 0; i < segmentsZ; i++) {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
+    const vCoord = i / (segmentsZ - 1);
+    
+    let smoothFade = 1.0;
+    if (i < 3) smoothFade = i / 3;
+    else if (i > segmentsZ - 4) smoothFade = (segmentsZ - 1 - i) / 3;
 
     const profile = getBoardProfileAtZ(model, { outline:[], rockerTop:[], rockerBottom:[] }, zInches);
     const { topY, botY } = profile;
@@ -451,7 +456,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const tailCenterIdx = vertices.length / 3;
       
       vertices.push(tailCenterX, tailCenterY, maxZ * scale);
-      normals.push(0, 0, 1);
       uvs.push(0.5, 0.5);
       colors.push(0, 0, 1);
 
@@ -461,7 +465,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           const vx = vertices[srcIdx * 3]!;
           const vy = vertices[srcIdx * 3 + 1]!;
           vertices.push(vx, vy, vertices[srcIdx * 3 + 2]!);
-          normals.push(0, 0, 1);
           
           const u = tailWidth > 0 ? (vx - tailMinX) / tailWidth : 0.5;
           const v = tailHeight > 0 ? (vy - tailMinY) / tailHeight : 0.5;
@@ -480,7 +483,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     indices: new Uint32Array(indices),
     uvs: new Float32Array(uvs),
     colors: new Float32Array(colors),
-    normals: new Float32Array(normals),
     volumeLiters: calculateVolume(vertices, indices)
   };
 };

@@ -233,14 +233,14 @@ describe("MeshGeneratorService", () => {
         const b = [mesh.vertices[idxB]!, mesh.vertices[idxB+1]!, mesh.vertices[idxB+2]!];
         const c = [mesh.vertices[idxC]!, mesh.vertices[idxC+1]!, mesh.vertices[idxC+2]!];
 
-        const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-        const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        const ab = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
+        const ac =[c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
         const cross = [
-          ab[1]*ac[2] - ab[2]*ac[1],
-          ab[2]*ac[0] - ab[0]*ac[2],
-          ab[0]*ac[1] - ab[1]*ac[0]
+          ab[1]!*ac[2]! - ab[2]!*ac[1]!,
+          ab[2]!*ac[0]! - ab[0]!*ac[2]!,
+          ab[0]!*ac[1]! - ab[1]!*ac[0]!
         ];
-        const area = 0.5 * Math.sqrt(cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2]);
+        const area = 0.5 * Math.sqrt(cross[0]!*cross[0]! + cross[1]!*cross[1]! + cross[2]!*cross[2]!);
 
         if (area < 1e-6) { // Tolerance for floating point
           degenerateCount++;
