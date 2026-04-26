@@ -53,6 +53,114 @@ describe("MeshGeneratorService", () => {
     expect(hasInvalidNumber).to.be.false;
   });
 
+  describe("Mesh Watertightness and Topology (Holes at Tip/Tail)", () => {
+    it("should generate a watertight mesh (no boundary edges or holes at tip and tail)", async () => {
+      const curves = await generateBoardCurves(INITIAL_STATE);
+      const mesh = MeshGeneratorService.generateMesh(INITIAL_STATE, curves);
+
+      const edgeCounts = new Map<string, number>();
+
+      // Since multiple vertices can exist at the exact same spatial coordinate (e.g., collapsed tip),
+      // we must check watertightness by spatial position, not just array index.
+      // We will hash the coordinates with a small tolerance.
+      const getVertexHash = (index: number) => {
+        const x = mesh.vertices[index * 3]!.toFixed(4);
+        const y = mesh.vertices[index * 3 + 1]!.toFixed(4);
+        const z = mesh.vertices[index * 3 + 2]!.toFixed(4);
+        return `${x},${y},${z}`;
+      };
+
+      const getEdgeKey = (idx1: number, idx2: number) => {
+        const hash1 = getVertexHash(idx1);
+        const hash2 = getVertexHash(idx2);
+        // Sort to ensure undirected edge matching
+        return hash1 < hash2 ? `${hash1}::${hash2}` : `${hash2}::${hash1}`;
+      };
+
+      for (let i = 0; i < mesh.indices.length; i += 3) {
+        const a = mesh.indices[i]!;
+        const b = mesh.indices[i+1]!;
+        const c = mesh.indices[i+2]!;
+
+        // Ignore degenerate triangles (where 2 or more vertices share the same spatial position)
+        const hashA = getVertexHash(a);
+        const hashB = getVertexHash(b);
+        const hashC = getVertexHash(c);
+
+        if (hashA === hashB || hashB === hashC || hashC === hashA) continue;
+
+        const edges =[
+          getEdgeKey(a, b),
+          getEdgeKey(b, c),
+          getEdgeKey(c, a)
+        ];
+
+        for (const edge of edges) {
+          edgeCounts.set(edge, (edgeCounts.get(edge) || 0) + 1);
+        }
+      }
+
+      const boundaryEdges = [];
+      for (const [edge, count] of edgeCounts.entries()) {
+        if (count === 1) {
+          boundaryEdges.push(edge);
+        }
+      }
+
+      // If this fails, the mesh is missing end-caps at the nose/tail, 
+      // or the loops don't perfectly converge into a point!
+      expect(boundaryEdges.length).to.equal(0, `Found ${boundaryEdges.length} boundary edges indicating holes in the mesh.`);
+    });
+
+    it("should collapse the tip and tail into single points if thickness is forced to 0", async () => {
+      // By forcing thickness to 0 at the nose and tail, we can check if the generator converges them properly.
+      const pinchedState = {
+        ...INITIAL_STATE,
+        rockerTop: {
+          ...INITIAL_STATE.rockerTop,
+          controlPoints: [
+[0, 0, -35], // Pinched Nose
+            INITIAL_STATE.rockerTop.controlPoints[1]!,
+            [0, 0, 35]   // Pinched Tail
+          ] as [number, number, number][]
+        },
+        rockerBottom: {
+          ...INITIAL_STATE.rockerBottom,
+          controlPoints: [
+            [0, 0, -35], // Pinched Nose
+            INITIAL_STATE.rockerBottom.controlPoints[1]!,
+[0, 0, 35]   // Pinched Tail
+          ] as [number, number, number][]
+        }
+      };
+
+      const curves = await generateBoardCurves(pinchedState);
+      const mesh = MeshGeneratorService.generateMesh(pinchedState, curves);
+      
+      const segmentsZ = 150;
+      const segmentsRadial = 36;
+      
+      // Check Nose (First ring, Z index 0)
+      const noseRingY = mesh.vertices[1]; // y coord of first vertex
+      let nosePinched = true;
+      for (let j = 0; j <= segmentsRadial; j++) {
+        const y = mesh.vertices[j * 3 + 1];
+        if (Math.abs(y! - noseRingY!) > 0.001) nosePinched = false;
+      }
+      expect(nosePinched).to.be.true;
+
+      // Check Tail (Last ring, Z index segmentsZ - 1)
+      const tailRingStartIndex = (segmentsZ - 1) * (segmentsRadial + 1);
+      const tailRingY = mesh.vertices[tailRingStartIndex * 3 + 1];
+      let tailPinched = true;
+      for (let j = 0; j <= segmentsRadial; j++) {
+        const y = mesh.vertices[(tailRingStartIndex + j) * 3 + 1];
+        if (Math.abs(y! - tailRingY!) > 0.001) tailPinched = false;
+      }
+      expect(tailPinched).to.be.true;
+    });
+  });
+
   describe("Imported S3DX Edge Cases", () => {
     it("does not create a vertical bowtie (crease) at the tail for WitcherDaily", async () => {
       const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
