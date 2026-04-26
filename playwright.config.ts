@@ -8,6 +8,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
   // fullyParallel: true,
+  updateSnapshots: process.env.CI ? 'none' : 'all',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
