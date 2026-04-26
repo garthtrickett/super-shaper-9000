@@ -189,6 +189,69 @@ describe("MeshGeneratorService", () => {
     });
   });
 
+    it("should use independent vertices for end-caps to prevent smooth-shading 'X' artifacts", async () => {
+      // Create a squash tail state so we have a flat surface to test
+      const squashState = {
+        ...INITIAL_STATE,
+        outline: {
+          ...INITIAL_STATE.outline,
+          controlPoints: [
+[0, 0, -35], 
+            INITIAL_STATE.outline.controlPoints[1]!,
+[3, 0, 35] // 6 inch wide squash tail
+          ] as [number, number, number][]
+        }
+      };
+      const curves = await generateBoardCurves(squashState);
+      const mesh = MeshGeneratorService.generateMesh(squashState, curves);
+
+      const segmentsZ = 150;
+      const segmentsRadial = 36;
+      const expectedHullVertices = segmentsZ * (segmentsRadial + 1);
+      const actualVerticesCount = mesh.vertices.length / 3;
+
+      // Currently, it only adds 2 center vertices and reuses the hull's boundary rings.
+      // This causes normals to be averaged across the 90-degree edge, creating a nasty "X" shadow.
+      expect(actualVerticesCount).to.be.greaterThan(
+        expectedHullVertices + 2, 
+        "End-caps must use duplicated vertices to maintain sharp 90-degree edges. Sharing vertices causes smooth-shading 'X' artifacts."
+      );
+    });
+
+    it("should not generate degenerate (zero-area) triangles when the tip is pinched to 0 width", async () => {
+      // INITIAL_STATE has exactly 0 width at both the nose and tail.
+      // Creating a triangle fan on a 1D vertical line produces zero-area triangles.
+      const curves = await generateBoardCurves(INITIAL_STATE);
+      const mesh = MeshGeneratorService.generateMesh(INITIAL_STATE, curves);
+
+      let degenerateCount = 0;
+      for (let i = 0; i < mesh.indices.length; i += 3) {
+        const idxA = mesh.indices[i]! * 3;
+        const idxB = mesh.indices[i+1]! * 3;
+        const idxC = mesh.indices[i+2]! * 3;
+
+        const a = [mesh.vertices[idxA]!, mesh.vertices[idxA+1]!, mesh.vertices[idxA+2]!];
+        const b = [mesh.vertices[idxB]!, mesh.vertices[idxB+1]!, mesh.vertices[idxB+2]!];
+        const c = [mesh.vertices[idxC]!, mesh.vertices[idxC+1]!, mesh.vertices[idxC+2]!];
+
+        const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        const ac = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        const cross = [
+          ab[1]*ac[2] - ab[2]*ac[1],
+          ab[2]*ac[0] - ab[0]*ac[2],
+          ab[0]*ac[1] - ab[1]*ac[0]
+        ];
+        const area = 0.5 * Math.sqrt(cross[0]*cross[0] + cross[1]*cross[1] + cross[2]*cross[2]);
+
+        if (area < 1e-6) { // Tolerance for floating point
+          degenerateCount++;
+        }
+      }
+      
+      expect(degenerateCount).to.equal(0, `Found ${degenerateCount} degenerate (zero-area) triangles. The generator should skip end-caps if the ring is completely pinched.`);
+    });
+  });
+
   describe("Imported S3DX Edge Cases", () => {
     it("does not create a vertical bowtie (crease) at the tail for WitcherDaily", async () => {
       const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
