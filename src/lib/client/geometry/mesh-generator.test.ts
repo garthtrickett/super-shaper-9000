@@ -423,6 +423,58 @@ describe("MeshGeneratorService", () => {
         
       expect(blend!.tApex).to.be.closeTo(blend10!.tApex, 0.0001, "tApex should use linear interpolation, avoiding cubic undershoot artifacts.");
     });
+
+    it("enforces rail integrity at the tail by preventing the tuck line from folding over the apex", async () => {
+      // Simulate a messy import where the rail tuck is mathematically wider than the apex
+      const messyState: BoardModel = {
+        ...INITIAL_STATE,
+        outline: mockBezier([[10, 0, 35]]),      // Apex at 10
+        railOutline: mockBezier([[15, 0, 35]]),  // Tuck at 15 (FOLDED RAIL BUG)
+      };
+
+      const profile = MeshGeneratorService.getBoardProfileAtZ(messyState, { outline: [], rockerTop: [], rockerBottom: [] }, 35);
+
+      // The profile evaluator should clamp tuckX to be <= apexX
+      expect(profile.tuckX).to.be.at.most(profile.apexX, "The evaluator must clamp the Tuck line to be within the Apex width to prevent rail folding.");
+    });
+
+    it("aligns the tail-cap center vertex perfectly between the top and bottom rockers", async () => {
+      const curves = await generateBoardCurves(INITIAL_STATE);
+      const mesh = MeshGeneratorService.generateMesh(INITIAL_STATE, curves);
+
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
+        
+      // The tail cap center vertex is the very last vertex pushed into the array
+      const lastVertIdx = (mesh.vertices.length / 3) - 1;
+      const tailCenterY = mesh.vertices[lastVertIdx * 3 + 1]!;
+
+      // Get expected rockers at the tail (maxZ)
+      const maxZ = INITIAL_STATE.outline.controlPoints[INITIAL_STATE.outline.controlPoints.length - 1]![2];
+      const profile = MeshGeneratorService.getBoardProfileAtZ(INITIAL_STATE, curves, maxZ);
+      const expectedMidPoint = (profile.topY + profile.botY) / 2 * (1 / 12);
+
+      expect(tailCenterY).to.be.closeTo(expectedMidPoint, 0.0001, "Tail cap center must be perfectly vertically centered to avoid asymmetrical end-blocks.");
+    });
+
+    it("ensures precise hull closure where the last ring perfectly aligns with the tail anchor Z", async () => {
+      const curves = await generateBoardCurves(INITIAL_STATE);
+      const mesh = MeshGeneratorService.generateMesh(INITIAL_STATE, curves);
+
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
+        
+      // Tail ring starts at i=segmentsZ
+      const tailRingStartIdx = segmentsZ * (segmentsRadial + 1);
+      const tailAnchorZ = INITIAL_STATE.outline.controlPoints[INITIAL_STATE.outline.controlPoints.length - 1]![2] * (1 / 12);
+
+      // Sample several points on the last ring of the hull
+      const sampleIndices = [0, segmentsRadial / 4, segmentsRadial / 2];
+      for (const j of sampleIndices) {
+        const vertexZ = mesh.vertices[(tailRingStartIdx + j) * 3 + 2]!;
+        expect(vertexZ).to.be.closeTo(tailAnchorZ, 0.00001, `Hull vertex at j=${j} must perfectly align with the tail anchor Z-plane.`);
+      }
+    });
   });
 
   describe("Imported S3DX Edge Cases", () => {
