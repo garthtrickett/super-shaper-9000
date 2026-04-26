@@ -22,7 +22,7 @@ export const cubicInterpolate = (y0: number, y1: number, y2: number, y3: number,
 };
 
 export const cubicInterpolatePt = (p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D, t: number): Point3D => {
-  return [
+  return[
     cubicInterpolate(p0[0], p1[0], p2[0], p3[0], t),
     cubicInterpolate(p0[1], p1[1], p2[1], p3[1], t),
     cubicInterpolate(p0[2], p1[2], p2[2], p3[2], t)
@@ -40,19 +40,19 @@ const colorHeatmap = (normalizedValue: number): [number, number, number] => {
     if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
     return p;
   };
-  return [hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
+  return[hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
 };
 
 const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const numSegments = bezier.controlPoints.length - 1;
-  if (numSegments <= 0) return bezier.controlPoints[0] || [0, 0, 0];
+  if (numSegments <= 0) return bezier.controlPoints[0] ||[0, 0, 0];
   const scaledT = t * numSegments;
   let segmentIdx = Math.floor(scaledT);
   if (segmentIdx >= numSegments) segmentIdx = numSegments - 1;
   const localT = scaledT - segmentIdx;
 
-  const P0 = bezier.controlPoints[segmentIdx] || [0, 0, 0];
-  const P1 = bezier.controlPoints[segmentIdx + 1] || [0, 0, 0];
+  const P0 = bezier.controlPoints[segmentIdx] ||[0, 0, 0];
+  const P1 = bezier.controlPoints[segmentIdx + 1] ||[0, 0, 0];
   const T0 = bezier.tangents2[segmentIdx] || [0, 0, 0];
   const T1 = bezier.tangents1[segmentIdx + 1] || [0, 0, 0];
 
@@ -62,7 +62,7 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const uuu = uu * u;
   const ttt = tt * localT;
 
-  return [
+  return[
     uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0],
     uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1],
     uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2]
@@ -249,11 +249,11 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const segmentsZ = 180;
   const segmentsRadial = 48;
   const scale = 1 / 12;
-  const vertices: number[] = [];
+  const vertices: number[] =[];
   const indices: number[] = [];
-  const uvs: number[] = [];
+  const uvs: number[] =[];
   const colors: number[] = [];
-  const normals: number[] = [];
+  const normals: number[] =[];
 
   const outline = model.outline;
   if (!outline || outline.controlPoints.length === 0)
@@ -269,6 +269,9 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const minZ = outline.controlPoints[0]![2];
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
 
+  const noseProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, minZ);
+  const tailProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, maxZ);
+
   // --- STEP 0: PRE-CALCULATE ARC LENGTH FOR V-COORDINATE ---
   // This maps UV.v to cumulative 3D distance to prevent texture warping at the tips.
   const sliceArcLengths = new Float32Array(segmentsZ + 1);
@@ -278,7 +281,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   for (let i = 0; i <= segmentsZ; i++) {
     const nz = (1 - Math.cos((i / segmentsZ) * Math.PI)) / 2;
     const zInches = minZ + nz * (maxZ - minZ);
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
+    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, zInches);
     
     // Using centerline vertical average as the arc-length spine
     const cy = (profile.topY + profile.botY) / 2;
@@ -291,15 +294,26 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     lastCenterPos.copy(currentCenterPos);
   }
 
-  const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] = [];
+  const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] =[];
 
   // STEP 1: Generate all vertex positions for the hull
   for (let i = 0; i <= segmentsZ; i++) {
     const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
     const zInches = minZ + ((1 - Math.cos((i / segmentsZ) * Math.PI)) / 2) * (maxZ - minZ);
     const vCoord = sliceArcLengths[i]! / totalArcLength;
+    
+    // Implement Geometric Tip Fading (1.5" fade zone for smooth closure of pointed tips)
+    let fadeFactor = 1.0;
+    const fadeZone = 1.5;
+    if (noseProfile.halfWidth < 1e-3 && (zInches - minZ) < fadeZone) {
+      fadeFactor = Math.min(fadeFactor, (zInches - minZ) / fadeZone);
+    }
+    if (tailProfile.halfWidth < 1e-3 && (maxZ - zInches) < fadeZone) {
+      fadeFactor = Math.min(fadeFactor, (maxZ - zInches) / fadeZone);
+    }
+    fadeFactor = fadeFactor * fadeFactor * (3 - 2 * fadeFactor); // Smoothstep
 
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, zInches);
+    const profile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
     let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5;
@@ -313,35 +327,45 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       sliceApexY = pApex[1];
     }
 
-      for (let j = 0; j <= segmentsRadial; j++) {
-        let t = 0.0, side = 1.0;
-        const isStringer = j === 0 || j === segmentsRadial / 2 || j === segmentsRadial;
-        if (j <= segmentsRadial / 2) {
-          t = j / (segmentsRadial / 2);
+    for (let j = 0; j <= segmentsRadial; j++) {
+      let t = 0.0, side = 1.0;
+      const isStringer = j === 0 || j === segmentsRadial / 2 || j === segmentsRadial;
+      if (j <= segmentsRadial / 2) {
+        t = j / (segmentsRadial / 2);
+      } else {
+        t = 1.0 - (j - segmentsRadial / 2) / (segmentsRadial / 2);
+        side = -1.0;
+      }
+
+      let px = 0, py = profile.botY + (profile.topY - profile.botY) / 2;
+
+      if (blend) {
+        const p = blend.evaluate(t);
+        const normX = sliceApexX > 0.001 ? p[0] / sliceApexX : 0;
+        px = isStringer ? 0 : side * normX * profile.apexX;
+        
+        if (p[1] >= sliceApexY) {
+          const rangeY = sliceTopY - sliceApexY;
+          const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
+          py = profile.apexY + normY * (profile.topY - profile.apexY);
         } else {
-          t = 1.0 - (j - segmentsRadial / 2) / (segmentsRadial / 2);
-          side = -1.0;
+          const rangeY = sliceApexY - sliceBotY;
+          const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
+          py = profile.apexY - normY * (profile.apexY - profile.botY);
         }
+      }
 
-        let px = 0, py = profile.botY + (profile.topY - profile.botY) / 2;
+      // Smoothly pinch the thickness to a point at the absolute tips
+      const centerY = profile.botY + (profile.topY - profile.botY) / 2;
+      py = centerY + (py - centerY) * fadeFactor;
 
-        if (blend) {
-          const p = blend.evaluate(t);
-          const normX = sliceApexX > 0.001 ? p[0] / sliceApexX : 0;
-          px = isStringer ? 0 : side * normX * profile.apexX;
-          
-          if (p[1] >= sliceApexY) {
-            const rangeY = sliceTopY - sliceApexY;
-            const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
-            py = profile.apexY + normY * (profile.topY - profile.apexY);
-          } else {
-            const rangeY = sliceApexY - sliceBotY;
-            const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
-            py = profile.apexY - normY * (profile.apexY - profile.botY);
-          }
-        }
+      // Force exact 0 at the absolute tips to prevent hash mismatch boundary edges
+      if ((i === 0 && noseProfile.halfWidth < 1e-3) || (i === segmentsZ && tailProfile.halfWidth < 1e-3)) {
+        px = 0;
+        py = centerY;
+      }
 
-        const pos = new THREE.Vector3(px * scale, py * scale, zInches * scale);
+      const pos = new THREE.Vector3(px * scale, py * scale, zInches * scale);
       const uv = new THREE.Vector2(j / segmentsRadial, vCoord);
       const color = new THREE.Color(...colorHeatmap(Math.max(0, Math.min(1, (profile.topY - profile.botY) / model.thickness))));
       ring.push({ pos, color, uv });
@@ -379,8 +403,10 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       normal.crossVectors(tangentR, tangentZ).normalize();
       
       // Fallback if tangent calculation fails at a perfectly sharp mathematical point
-      if (isNaN(normal.x)) {
-        normal.set(0, j > segmentsRadial / 4 && j < segmentsRadial * 0.75 ? 1 : -1, 0);
+      if (isNaN(normal.x) || normal.lengthSq() < 0.0001) {
+        if (i === 0) normal.set(0, 0, -1);
+        else if (i === segmentsZ) normal.set(0, 0, 1);
+        else normal.set(0, j > segmentsRadial / 4 && j < segmentsRadial * 0.75 ? 1 : -1, 0);
       }
 
       normals.push(normal.x, normal.y, normal.z);
@@ -389,19 +415,30 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
   // STEP 3: Generate Hull Indices
   for (let i = 0; i < segmentsZ; i++) {
+    const isNosePinched = i === 0 && noseProfile.halfWidth < 1e-3;
+    const isTailPinched = i === segmentsZ - 1 && tailProfile.halfWidth < 1e-3;
+
     for (let j = 0; j < segmentsRadial; j++) {
       const a = i * (segmentsRadial + 1) + j;
       const b = a + 1;
       const c = (i + 1) * (segmentsRadial + 1) + j;
       const d = c + 1;
-      indices.push(a, b, d, a, d, c);
+      
+      if (isNosePinched) {
+        // a and b are identical points at the nose tip.
+        // Omit the degenerate (a, b, d) triangle.
+        indices.push(a, d, c);
+      } else if (isTailPinched) {
+        // c and d are identical points at the tail tip.
+        // Omit the degenerate (a, d, c) triangle.
+        indices.push(a, b, d);
+      } else {
+        indices.push(a, b, d, a, d, c);
+      }
     }
   }
 
   // STEP 4: Generate End Caps (Nose and Tail) if they possess physical dimensions
-  const noseProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, minZ);
-  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
-  
   // Only cap if the width is greater than zero. If width is 0, the hull already collapses onto a vertical line.
   const noseNeedsCap = noseProfile.halfWidth >= 1e-3;
   const tailNeedsCap = tailProfile.halfWidth >= 1e-3;
