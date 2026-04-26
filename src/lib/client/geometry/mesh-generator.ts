@@ -361,6 +361,50 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
+  // --- Cap the Nose (-Z) ---
+  const noseRingStartIndex = 0;
+  let noseCenterX = 0, noseCenterY = 0;
+  for (let j = 0; j < segmentsRadial; j++) {
+      noseCenterX += vertices[(noseRingStartIndex + j) * 3]!;
+      noseCenterY += vertices[(noseRingStartIndex + j) * 3 + 1]!;
+  }
+  noseCenterX /= segmentsRadial;
+  noseCenterY /= segmentsRadial;
+  
+  const noseCenterIdx = vertices.length / 3;
+  vertices.push(noseCenterX, noseCenterY, minZ * scale);
+  uvs.push(0.5, 0);
+  colors.push(0, 0, 1);
+
+  for (let j = 0; j < segmentsRadial; j++) {
+      const v0 = noseRingStartIndex + j;
+      const v1 = noseRingStartIndex + j + 1;
+      // Reverse winding for the front face to point outwards (-Z)
+      indices.push(noseCenterIdx, v1, v0);
+  }
+
+  // --- Cap the Tail (+Z) ---
+  const tailRingStartIndex = (segmentsZ - 1) * (segmentsRadial + 1);
+  let tailCenterX = 0, tailCenterY = 0;
+  for (let j = 0; j < segmentsRadial; j++) {
+      tailCenterX += vertices[(tailRingStartIndex + j) * 3]!;
+      tailCenterY += vertices[(tailRingStartIndex + j) * 3 + 1]!;
+  }
+  tailCenterX /= segmentsRadial;
+  tailCenterY /= segmentsRadial;
+
+  const tailCenterIdx = vertices.length / 3;
+  vertices.push(tailCenterX, tailCenterY, maxZ * scale);
+  uvs.push(0.5, 1);
+  colors.push(0, 0, 1);
+
+  for (let j = 0; j < segmentsRadial; j++) {
+      const v0 = tailRingStartIndex + j;
+      const v1 = tailRingStartIndex + j + 1;
+      // Standard winding for the back face to point outwards (+Z)
+      indices.push(tailCenterIdx, v0, v1);
+  }
+
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
