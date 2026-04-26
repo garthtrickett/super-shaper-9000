@@ -113,9 +113,9 @@ export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInch
       topY: topPt[1], 
       botY: botPt[1], 
       apexY, 
-      halfWidth: widthPt[0],
-      apexHalfWidth: apexWidthPt[0],
-      tuckHalfWidth: tuckWidthPt[0],
+      halfWidth: Math.max(0, widthPt[0]),
+      apexHalfWidth: Math.max(0, apexWidthPt[0]),
+      tuckHalfWidth: Math.max(0, tuckWidthPt[0]),
       rockerTangentAngle
   };
 };

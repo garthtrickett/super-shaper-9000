@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { BoardCurves } from "../../../lib/client/geometry/board-curves"; 
+import { MeshGeneratorService } from "../../../lib/client/geometry/mesh-generator"; 
 import type { BoardModel, BezierCurveData } from "../../pages/board-builder-page.logic";
 import { clientLog } from "../../../lib/client/clientLog";
 import { runClientUnscoped } from "../../../lib/client/runtime";
