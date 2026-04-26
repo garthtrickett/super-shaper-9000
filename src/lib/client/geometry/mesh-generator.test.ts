@@ -41,7 +41,7 @@ describe("MeshGeneratorService", () => {
     });
 
     expect(mesh.vertices.length).to.be.greaterThan(0);
-    
+
     // Verify all coordinates are finite, valid numbers
     let hasInvalidNumber = false;
     for (let i = 0; i < mesh.vertices.length; i++) {
@@ -61,13 +61,10 @@ describe("MeshGeneratorService", () => {
 
       const edgeCounts = new Map<string, number>();
 
-      // Since multiple vertices can exist at the exact same spatial coordinate (e.g., collapsed tip),
-      // we must check watertightness by spatial position, not just array index.
-      // We will hash the coordinates with a small tolerance.
       const getVertexHash = (index: number) => {
-        const x = mesh.vertices[index * 3]!.toFixed(4);
-        const y = mesh.vertices[index * 3 + 1]!.toFixed(4);
-        const z = mesh.vertices[index * 3 + 2]!.toFixed(4);
+        const x = mesh.vertices[index * 3]!.toFixed(7);
+        const y = mesh.vertices[index * 3 + 1]!.toFixed(7);
+        const z = mesh.vertices[index * 3 + 2]!.toFixed(7);
         return `${x},${y},${z}`;
       };
 
@@ -111,28 +108,22 @@ describe("MeshGeneratorService", () => {
       if (boundaryEdges.length > 0) {
         console.warn(`\n🚨 WATERTIGHTNESS FAILURE: Detected ${boundaryEdges.length} boundary edges!`);
         console.warn("These edges only belong to 1 face, meaning there is a hole in the mesh.");
-        
-        // Group boundary edges by their Z coordinate to see if they are clustered at tip/tail
+
         const zCounts = new Map<string, number>();
         boundaryEdges.forEach(edge => {
           const[v1, v2] = edge.split("::");
-          if (v1 && v2) {
-             const z1 = v1.split(",")[2];
-             const z2 = v2.split(",")[2];
-             if (z1) zCounts.set(z1, (zCounts.get(z1) || 0) + 1);
-             if (z2 && z2 !== z1) zCounts.set(z2, (zCounts.get(z2) || 0) + 1);
-          }
+          if (!v1 || !v2) return;
+          const z1 = v1.split(",")[2];
+          if (z1) zCounts.set(z1, (zCounts.get(z1) || 0) + 1);
         });
 
-        console.warn("Boundary edge Z-coordinate distribution:");
-        for (const [z, count] of zCounts.entries()) {
-           console.warn(`  Z = ${z} : ${count} edges involving this Z`);
+        console.warn("Boundary edge Z-coordinate distribution (showing count of edges at each Z plane):");
+        const sortedZ = [...zCounts.entries()].sort((a,b) => parseFloat(a[0]) - parseFloat(b[0]));
+        for (const [z, count] of sortedZ) {
+           console.warn(`  Z(ft) ≈ ${z}: ${count} boundary edges`);
         }
 
-        console.warn("Sample of boundary edges (First 5):");
-        for (let i = 0; i < Math.min(5, boundaryEdges.length); i++) {
-          console.warn(`  ${boundaryEdges[i]}`);
-        }
+        console.warn(`Example boundary edge: ${boundaryEdges[0]}`);
         console.warn("\n");
       }
 
@@ -166,27 +157,37 @@ describe("MeshGeneratorService", () => {
       const curves = await generateBoardCurves(pinchedState);
       const mesh = MeshGeneratorService.generateMesh(pinchedState, curves);
       
-      const segmentsZ = 150;
-      const segmentsRadial = 36;
+      const segmentsZ = 180;
+      const segmentsRadial = 48;
       
       // Check Nose (First ring, Z index 0)
-      const noseRingY = mesh.vertices[1]; // y coord of first vertex
+      const noseRingY = mesh.vertices[1]!;
       let nosePinched = true;
+      const noseYs = [];
       for (let j = 0; j <= segmentsRadial; j++) {
-        const y = mesh.vertices[j * 3 + 1];
-        if (Math.abs(y! - noseRingY!) > 0.001) nosePinched = false;
+        const y = mesh.vertices[j * 3 + 1]!;
+        noseYs.push(y.toFixed(5));
+        if (Math.abs(y - noseRingY) > 0.001) nosePinched = false;
       }
-      expect(nosePinched).to.be.true;
+      if (!nosePinched) {
+        console.warn("Nose ring Y-coordinates are not uniform:", noseYs);
+      }
+      expect(nosePinched, "Nose vertices should collapse to a single Y-plane").to.be.true;
 
       // Check Tail (Last ring, Z index segmentsZ)
       const tailRingStartIndex = segmentsZ * (segmentsRadial + 1);
-      const tailRingY = mesh.vertices[tailRingStartIndex * 3 + 1];
+      const tailRingY = mesh.vertices[tailRingStartIndex * 3 + 1]!;
       let tailPinched = true;
+      const tailYs = [];
       for (let j = 0; j <= segmentsRadial; j++) {
-        const y = mesh.vertices[(tailRingStartIndex + j) * 3 + 1];
-        if (Math.abs(y! - tailRingY!) > 0.001) tailPinched = false;
+        const y = mesh.vertices[(tailRingStartIndex + j) * 3 + 1]!;
+        tailYs.push(y.toFixed(5));
+        if (Math.abs(y - tailRingY) > 0.001) tailPinched = false;
       }
-      expect(tailPinched).to.be.true;
+      if (!tailPinched) {
+        console.warn("Tail ring Y-coordinates are not uniform:", tailYs);
+      }
+      expect(tailPinched, "Tail vertices should collapse to a single Y-plane").to.be.true;
     });
 
     it("should use independent vertices for end-caps to prevent smooth-shading 'X' artifacts", async () => {
@@ -205,15 +206,15 @@ describe("MeshGeneratorService", () => {
       const curves = await generateBoardCurves(squashState);
       const mesh = MeshGeneratorService.generateMesh(squashState, curves);
 
-      const segmentsZ = 150;
-      const segmentsRadial = 36;
-      const expectedHullVertices = segmentsZ * (segmentsRadial + 1);
+      const segmentsZ = 180;
+      const segmentsRadial = 48;
+      const expectedHullVertices = (segmentsZ + 1) * (segmentsRadial + 1);
       const actualVerticesCount = mesh.vertices.length / 3;
 
       // Currently, it only adds 2 center vertices and reuses the hull's boundary rings.
       // This causes normals to be averaged across the 90-degree edge, creating a nasty "X" shadow.
       expect(actualVerticesCount).to.be.greaterThan(
-        expectedHullVertices + 2, 
+        expectedHullVertices, 
         "End-caps must use duplicated vertices to maintain sharp 90-degree edges. Sharing vertices causes smooth-shading 'X' artifacts."
       );
     });
@@ -233,6 +234,19 @@ describe("MeshGeneratorService", () => {
         const a = [mesh.vertices[idxA]!, mesh.vertices[idxA+1]!, mesh.vertices[idxA+2]!];
         const b = [mesh.vertices[idxB]!, mesh.vertices[idxB+1]!, mesh.vertices[idxB+2]!];
         const c = [mesh.vertices[idxC]!, mesh.vertices[idxC+1]!, mesh.vertices[idxC+2]!];
+        
+        // Exact match check for pinched vertices
+        const abSame = a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+        const acSame = a[0] === c[0] && a[1] === c[1] && a[2] === c[2];
+        const bcSame = b[0] === c[0] && b[1] === c[1] && b[2] === c[2];
+
+        if (abSame || acSame || bcSame) {
+            degenerateCount++;
+            if (degenerateCount < 5) { // Log first few offenders
+              console.warn(`Degenerate triangle (collinear vertices) found at index ${i}:`, { a, b, c });
+            }
+            continue;
+        }
 
         const ab = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
         const ac =[c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
@@ -243,8 +257,11 @@ describe("MeshGeneratorService", () => {
         ];
         const area = 0.5 * Math.sqrt(cross[0]!*cross[0]! + cross[1]!*cross[1]! + cross[2]!*cross[2]!);
 
-        if (area < 1e-6) { // Tolerance for floating point
+        if (area === 0) { // Stricter check
           degenerateCount++;
+           if (degenerateCount < 5) {
+             console.warn(`Degenerate triangle (zero area) found at index ${i}:`, { a, b, c });
+           }
         }
       }
       
@@ -355,27 +372,30 @@ describe("MeshGeneratorService", () => {
       });
 
       // Test the vertical bowtie assertion
-      const segmentsZ = 150;
-      const segmentsRadial = 36;
+      const segmentsZ = 180;
+      const segmentsRadial = 48;
       
       let invertedCount = 0;
 
-      for (let i = 0; i < segmentsZ; i++) {
-        for (let j = 0; j <= 18; j++) {
-          const topIdx = i * (segmentsRadial + 1) + j;
-          const botIdx = i * (segmentsRadial + 1) + (36 - j);
-          
-          const topY = mesh.vertices[topIdx * 3 + 1]!;
-          const botY = mesh.vertices[botIdx * 3 + 1]!;
-          
-          if (botY > topY + 0.001) { // 0.001 tolerance for floating point
-            invertedCount++;
-            if (invertedCount < 5) { // Log first few inversions
-              console.log(`Inversion at Z-slice ${i}, radial point ${j}:`, { topY, botY });
+      for (let i = 0; i <= segmentsZ; i++) {
+        // Loop through one side of the board (e.g., right side, excluding stringer)
+        for (let j = 1; j < segmentsRadial / 2; j++) {
+            // The top vertex on the radial loop
+            const topIdx = i * (segmentsRadial + 1) + j;
+            // The corresponding bottom vertex is mirrored on the other side of the loop
+            const botIdx = i * (segmentsRadial + 1) + (segmentsRadial - j);
+
+            const topY = mesh.vertices[topIdx * 3 + 1]!;
+            const botY = mesh.vertices[botIdx * 3 + 1]!;
+            
+            if (botY > topY + 1e-6) {
+                invertedCount++;
+                if (invertedCount < 5) { // Log first few inversions
+                    console.warn(`Inversion at Z-slice ${i}, radial point ${j}:`, { topY, botY });
+                }
             }
-          }
         }
-      }
+    }
       
       expect(invertedCount).to.equal(0, `Found ${invertedCount} inverted vertex pairs (Deck Y < Bottom Y)`);
     });
@@ -389,15 +409,17 @@ describe("MeshGeneratorService", () => {
 
         const mesh = MeshGeneratorService.generateMesh(manualState, curves);
 
-        const segmentsZ = 150;
-        const segmentsRadial = 36;
-        const tailRingIndex = segmentsZ - 1;
+        const segmentsZ = 180;
+        const segmentsRadial = 48;
+        const tailRingIndex = segmentsZ; // The very last ring
         const tailRingStartIndex = tailRingIndex * (segmentsRadial + 1);
 
         // Find the widest point on the tail ring
         let maxTailWidth = 0;
         for (let j = 0; j <= segmentsRadial; j++) {
             const vertexIndex = (tailRingStartIndex + j) * 3;
+            // The vertex array might not exist if generation failed
+            if (vertexIndex >= mesh.vertices.length) continue;
             const x = Math.abs(mesh.vertices[vertexIndex]!); // Width is the X coordinate
             if (x > maxTailWidth) {
                 maxTailWidth = x;

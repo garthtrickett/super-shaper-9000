@@ -63,10 +63,13 @@ export class TextureManager {
       ctx.fillStyle = "#fdfcf8";
       ctx.fillRect(0, 0, 1024, 1024);
 
-      // Dark wood stringer (U=0.25 and U=0.75 mappings)
+      // Dark wood stringer (U=0.0, U=0.5, U=1.0 mappings)
       ctx.fillStyle = "#4a3320";
-      ctx.fillRect(256 - 3, 0, 6, 1024);
-      ctx.fillRect(768 - 3, 0, 6, 1024);
+      // Bottom stringer (wrap edges)
+      ctx.fillRect(0, 0, 3, 1024);
+      ctx.fillRect(1024 - 3, 0, 3, 1024);
+      // Deck stringer (center)
+      ctx.fillRect(512 - 3, 0, 6, 1024);
 
       // Subtle brushed lines (foam cell texture direction)
       ctx.fillStyle = "rgba(0,0,0,0.02)";
