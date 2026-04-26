@@ -475,6 +475,53 @@ describe("MeshGeneratorService", () => {
         expect(vertexZ).to.be.closeTo(tailAnchorZ, 0.00001, `Hull vertex at j=${j} must perfectly align with the tail anchor Z-plane.`);
       }
     });
+
+    it("ensures rail normals at the apex point outwards (X-dominant) for clean reflections", async () => {
+      const curves = await generateBoardCurves(INITIAL_STATE);
+      const mesh = MeshGeneratorService.generateMesh(INITIAL_STATE, curves);
+
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
+        
+      // Sample the wide point (Apex) at the midpoint of the board (Z-slice 120)
+      // In the radial loop, j=24 is exactly t=0.5 (the Apex)
+      const sliceIdx = 120;
+      const apexJ = 24;
+      const vertIdx = (sliceIdx * (segmentsRadial + 1) + apexJ);
+
+      const nx = Math.abs(mesh.normals[vertIdx * 3]!);
+      const ny = Math.abs(mesh.normals[vertIdx * 3 + 1]!);
+
+      // At the apex, the normal should be pointing almost entirely in X (outward).
+      // If NY is high, the rail is 'leaning' too much, ruining the reflections.
+      expect(nx).to.be.greaterThan(0.9, "Rail apex normal should be primarily horizontal.");
+      expect(ny).to.be.lessThan(0.2, "Rail apex normal should have minimal vertical tilt for sharp CAD highlights.");
+    });
+
+    it("produces steeper (boxier) rail walls when the tuck-to-apex ratio is high", async () => {
+      // Setup a 'Boxy' tail slice (Tuck is 90% of Apex width)
+      const boxyState: BoardModel = {
+        ...INITIAL_STATE,
+        outline: mockBezier([[10, 0, 35]]),
+        railOutline: mockBezier([[9, 0, 35]]), 
+        crossSections: [mockBezier([[0,0,0], [9,0,0], [10,2,0], [9,4,0], [0,4,0]])]
+      };
+
+      const curves = await generateBoardCurves(boxyState);
+      const mesh = MeshGeneratorService.generateMesh(boxyState, curves);
+
+      // Evaluate the slope between Tuck (j=12) and Apex (j=24)
+      const vTuckIdx = 12 * 3;
+      const vApexIdx = 24 * 3;
+
+      const dx = Math.abs(mesh.vertices[vApexIdx]! - mesh.vertices[vTuckIdx]!);
+      const dy = Math.abs(mesh.vertices[vApexIdx + 1]! - mesh.vertices[vTuckIdx + 1]!);
+
+      // For a boxy rail, the height (dy) should be significant compared to the width (dx)
+      // A 'boxy' performance tail has a near-vertical lower rail.
+      const slope = dy / (dx + 0.0001);
+      expect(slope).to.be.greaterThan(1.5, "A high tuck-to-apex ratio should produce a steep, boxy rail wall.");
+    });
   });
 
   describe("Imported S3DX Edge Cases", () => {
