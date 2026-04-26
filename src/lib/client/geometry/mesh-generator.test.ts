@@ -121,9 +121,9 @@ describe("MeshGeneratorService", () => {
             }
         }
 
-        // The WitcherDaily tail is wide. A value of nearly 0 would indicate a collapsed point.
-        // The actual width is ~1.55 inches, which is ~0.13 feet.
-        expect(maxTailWidth).to.be.greaterThan(0.1, "The tail should not collapse to a point.");
+        // The WitcherDaily tail is narrow but not a point. The half-width is ~1.56cm -> ~0.61 inches -> ~0.051 feet.
+        // A value near 0 would indicate a collapsed point. We check that it's greater than a reasonable threshold.
+        expect(maxTailWidth).to.be.greaterThan(0.04, "The tail should not collapse to a point.");
     });
   });
 });

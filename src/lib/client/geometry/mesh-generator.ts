@@ -304,23 +304,12 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const rawY = p[1];
 
       const sliceApexWidth = blend.apexWidth;
-      const sliceTuckWidth = blend.tuckWidth;
 
       let mappedX = rawX;
-      if (sliceApexWidth > 1e-6) {
-        if (tCross <= 0.25 || tCross >= 0.75) {
-          if (sliceTuckWidth > 1e-6) {
-            mappedX = rawX * (profile.tuckHalfWidth / sliceTuckWidth);
-          }
-        } else {
-          if (sliceApexWidth > sliceTuckWidth) {
-            const tX = (rawX - sliceTuckWidth) / (sliceApexWidth - sliceTuckWidth);
-            const clampedTx = Math.max(0, Math.min(1, tX));
-            mappedX = profile.tuckHalfWidth + clampedTx * (profile.apexHalfWidth - profile.tuckHalfWidth);
-          } else {
-            mappedX = profile.apexHalfWidth;
-          }
-        }
+      // Simplified Lofting: Scale the entire cross-section based on the apex guide curve.
+      // This is more robust than multi-guide interpolation and prevents collapsing.
+      if (sliceApexWidth > 1e-6 && profile.apexHalfWidth > 1e-6) {
+          mappedX = rawX * (profile.apexHalfWidth / sliceApexWidth);
       }
       
       const px = (isRightSide ? 1 : -1) * mappedX;
