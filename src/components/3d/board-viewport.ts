@@ -38,6 +38,7 @@ export class BoardViewport extends LitElement {
   private sliceLinesGroup = new THREE.Group();
   private apexLineGroup = new THREE.Group();
   private zebraOffset = 0;
+  private latestCurves?: BoardCurves;
     
   private matAnchor = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false });
   private matHandle = new THREE.MeshBasicMaterial({ color: 0xa1a1aa, depthTest: false });
@@ -98,6 +99,7 @@ export class BoardViewport extends LitElement {
   private async _updateGeometry() {
     if (!this.boardState) return;
     const curves: BoardCurves = await generateBoardCurves(this.boardState);
+    this.latestCurves = curves;
     if (!curves.outline || curves.outline.length === 0) return;
     
     while (this.wireframeGroup.children.length > 0) {
@@ -119,7 +121,7 @@ export class BoardViewport extends LitElement {
 
     this.buildSolidMesh(curves, scale);
     FinBuilder.build(this.finGroup, this.boardState, curves, scale);
-    GizmoBuilder.build(this.gizmoGroup, this.boardState, scale, this.matAnchor, this.matHandle);
+    GizmoBuilder.build(this.gizmoGroup, this.boardState, curves, scale, this.matAnchor, this.matHandle);
     this.buildSliceLines(curves, scale);
     this.buildApexLine(curves, scale);
     AnnotationBuilder.build(this.annotationGroup, this.boardState, scale);
@@ -163,13 +165,19 @@ export class BoardViewport extends LitElement {
     const activeRailOutline = this.boardState?.railOutline ? this.sampleBezierCurve(this.boardState.railOutline, 100) : null;
     const activeApexRocker = this.boardState?.apexRocker ? this.sampleBezierCurve(this.boardState.apexRocker, 100) : null;
 
-    const build3DLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false) => {
+    const build3DLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false, yType: 'raw' | 'apex' | 'tuck' = 'raw') => {
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => {
+            const zInches = p[2];
             vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
-            vertices[i*3+1] = p[1] * scale;
-            vertices[i*3+2] = p[2] * scale;
+            
+            let py = p[1];
+            if (yType === 'apex') py = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zInches).apexY;
+            else if (yType === 'tuck') py = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zInches).botY;
+            
+            vertices[i*3+1] = py * scale;
+            vertices[i*3+2] = zInches * scale;
         });
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
         const line = new THREE.Line(geometry, mat);
@@ -183,13 +191,13 @@ export class BoardViewport extends LitElement {
     }
 
     if (activeApexOutline && this.boardState?.showApexOutline !== false) {
-      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, false));
-      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, true));
+      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, false, 'apex'));
+      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, true, 'apex'));
     }
 
     if (activeRailOutline && this.boardState?.showRailOutline !== false) {
-      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, false));
-      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, true));
+      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, false, 'tuck'));
+      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, true, 'tuck'));
     }
 
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, false));
@@ -298,7 +306,7 @@ export class BoardViewport extends LitElement {
   }
 
   private _updateGizmoPositionsFromState() {
-    if (!this.boardState) return;
+    if (!this.boardState || !this.latestCurves) return;
     const scale = 1 / 12;
     const gizmosByUserData = new Map<string, THREE.Mesh>();
     this.gizmoGroup.children.forEach(child => {
@@ -307,12 +315,24 @@ export class BoardViewport extends LitElement {
         gizmosByUserData.set(`${curve}-${index}-${type}`, child as THREE.Mesh);
       }
     });
+
+    const getZHeight = (curveName: string, yInches: number, zInches: number) => {
+        if (['outline', 'apexOutline'].includes(curveName)) {
+            return MeshGeneratorService.getBoardProfileAtZ(this.boardState!, this.latestCurves!, zInches).apexY;
+        }
+        if (curveName === 'railOutline') {
+            return MeshGeneratorService.getBoardProfileAtZ(this.boardState!, this.latestCurves!, zInches).botY;
+        }
+        return yInches;
+    };
+
     const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
       if (!curveData) return;
       curveData.controlPoints.forEach((cp, i) => {
-        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
-        const t1 = curveData.tangents1[i]; if (t1) gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, t1[1] * scale, t1[2] * scale);
-        const t2 = curveData.tangents2[i]; if (t2) gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, t2[1] * scale, t2[2] * scale);
+        const cpY = getZHeight(curveName, cp[1], cp[2]);
+        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cpY * scale, cp[2] * scale);
+        const t1 = curveData.tangents1[i]; if (t1) gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, getZHeight(curveName, t1[1], t1[2]) * scale, t1[2] * scale);
+        const t2 = curveData.tangents2[i]; if (t2) gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, getZHeight(curveName, t2[1], t2[2]) * scale, t2[2] * scale);
       });
     };
     updatePositionsForCurve(this.boardState.outline, 'outline');

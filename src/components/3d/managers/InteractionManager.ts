@@ -204,27 +204,35 @@ export class InteractionManager {
       // Convert world target back to local coordinates so the UI updates correctly
       this.draggedGizmo.parent!.worldToLocal(target);
       
-      const inInches = target.clone().multiplyScalar(12);
+      const rawInches = target.clone().multiplyScalar(12);
+      const stateInches = rawInches.clone();
 
       const userData = this.draggedGizmo.userData as { type: 'anchor' | 'tangent1' | 'tangent2'; curve: string; index: number; maxIndex: number; origZ: number; };
       const curveName = userData.curve;
       const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
 
-      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') inInches.y = 0;
-      if (curveName === 'rockerTop' || curveName === 'rockerBottom' || curveName === 'apexRocker') inInches.x = 0;
-      if (curveName.startsWith('crossSection_')) inInches.z = userData.origZ;
+      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') stateInches.y = 0;
+      if (curveName === 'rockerTop' || curveName === 'rockerBottom' || curveName === 'apexRocker') stateInches.x = 0;
+      if (curveName.startsWith('crossSection_')) stateInches.z = userData.origZ;
       
       if (isEndNode && userData.type === "anchor") {
         if (curveName.startsWith('crossSection_') || curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
-          inInches.x = 0;
+          stateInches.x = 0;
         }
       }
       
       if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_'))) {
-        if (inInches.x < 0) inInches.x = 0;
+        if (stateInches.x < 0) stateInches.x = 0;
       }
 
-      target.copy(inInches).multiplyScalar(1/12);
+      // Propagate the clamped state coordinates to the event payload
+      target.copy(stateInches).multiplyScalar(1/12);
+      
+      // Preserve visual Y height for outline curves so they don't snap to 0 visually while dragging
+      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
+          target.y = this.draggedGizmo.position.y;
+      }
+      
       this.draggedGizmo.position.copy(target);
     }
   }
