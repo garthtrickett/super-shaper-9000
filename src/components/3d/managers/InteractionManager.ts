@@ -118,7 +118,7 @@ export class InteractionManager {
       this.controls.profile.enabled = (camera === this.cameras.profile);
     }
 
-    if (this.boardState?.editMode !== 'manual' || this.boardState?.showGizmos === false) return;
+    if (this.boardState?.showGizmos === false) return;
 
     this.mouse.copy(mouse);
     this.raycaster.setFromCamera(this.mouse, camera);

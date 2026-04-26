@@ -36,7 +36,7 @@ export class BoardBuilderPage extends LitElement {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `SuperShaper_${this.ctrl.model.length.toFixed(1)}_${this.ctrl.model.tailType}.s3dx`;
+      a.download = `SuperShaper_${this.ctrl.model.length.toFixed(1)}.s3dx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -194,29 +194,6 @@ export class BoardBuilderPage extends LitElement {
           .width=${state.width}
           .thickness=${state.thickness}
           .volume=${state.volume}
-          .noseWidth=${state.noseWidth}
-          .tailWidth=${state.tailWidth}
-          .noseShape=${state.noseShape}
-          .tailType=${state.tailType}
-          .swallowDepth=${state.swallowDepth}
-          .noseTipWidth=${state.noseTipWidth}
-          .noseTipCurveZ=${state.noseTipCurveZ}
-          .tailBlockWidth=${state.tailBlockWidth}
-          .widePointOffset=${state.widePointOffset}
-          .noseRocker=${state.noseRocker}
-          .tailRocker=${state.tailRocker}
-          .noseThickness=${state.noseThickness}
-          .tailThickness=${state.tailThickness}
-          .rockerFlatSpotLength=${state.rockerFlatSpotLength}
-          .deckDome=${state.deckDome}
-          .apexRatio=${state.apexRatio}
-          .railFullness=${state.railFullness}
-          .hardEdgeLength=${state.hardEdgeLength}
-          .veeDepth=${state.veeDepth}
-          .concaveDepth=${state.concaveDepth}
-          .channelDepth=${state.channelDepth}
-          .channelLength=${state.channelLength}
-          .bottomContour=${state.bottomContour}
           .finSetup=${state.finSetup}
           .frontFinZ=${state.frontFinZ}
           .frontFinX=${state.frontFinX}
@@ -229,7 +206,6 @@ export class BoardBuilderPage extends LitElement {
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
           @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => this.ctrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value })}
-          .editMode=${state.editMode || "parametric"}
           .showGizmos=${state.showGizmos ?? true}
           .showHeatmap=${state.showHeatmap ?? false}
           .showZebra=${state.showZebra ?? false}
@@ -237,30 +213,26 @@ export class BoardBuilderPage extends LitElement {
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
-          @convert-to-manual=${() => this.ctrl.propose({ type: "CONVERT_TO_MANUAL" })}
-          @revert-to-parametric=${() => this.ctrl.propose({ type: "SET_EDIT_MODE", mode: "parametric" })}
         ></board-controls>
 
-        ${state.editMode === 'manual' ? html`
-          <div class="absolute top-4 right-4 z-10 flex gap-2">
-            <button 
-              @click=${() => this.ctrl.propose({ type: "UNDO" })}
-              ?disabled=${!state.manualHistory || state.historyIndex === undefined || state.historyIndex <= 0}
-              class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
-              title="Undo (Cmd/Ctrl + Z)"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
-            </button>
-            <button 
-              @click=${() => this.ctrl.propose({ type: "REDO" })}
-              ?disabled=${!state.manualHistory || state.historyIndex === undefined || state.historyIndex >= state.manualHistory.length - 1}
-              class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
-              title="Redo (Cmd/Ctrl + Shift + Z)"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path></svg>
-            </button>
-          </div>
-        ` : ''}
+        <div class="absolute top-4 right-4 z-10 flex gap-2">
+          <button 
+            @click=${() => this.ctrl.propose({ type: "UNDO" })}
+            ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex <= 0}
+            class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+            title="Undo (Cmd/Ctrl + Z)"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
+          </button>
+          <button 
+            @click=${() => this.ctrl.propose({ type: "REDO" })}
+            ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex >= (state.history?.length || 0) - 1}
+            class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
+            title="Redo (Cmd/Ctrl + Shift + Z)"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"></path></svg>
+          </button>
+        </div>
 
         <!-- Render the 3D scene taking up the full remaining area -->
         <board-viewport 
@@ -271,9 +243,9 @@ export class BoardBuilderPage extends LitElement {
             this.ctrl.propose({ type: "SELECT_NODE", node: e.detail.node });
           }}
           @gizmo-drag-ended=${() => this.ctrl.propose({ type: "SAVE_HISTORY_SNAPSHOT" })}
-          @gizmo-dragged=${(e: CustomEvent<{ userData: { type: 'anchor'|'tangent1'|'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+          @gizmo-dragged=${(e: CustomEvent<{ userData: { type: 'anchor'|'tangent1'|'tangent2', curve: string, index: number }, position:[number, number, number] }>) => {
             this.ctrl.propose({
-              type: "UPDATE_MANUAL_NODE_POSITION",
+              type: "UPDATE_NODE_POSITION",
               curve: e.detail.userData.curve,
               nodeType: e.detail.userData.type,
               index: e.detail.userData.index,

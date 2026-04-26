@@ -9,7 +9,7 @@ export interface RawGeometryData {
   volumeLiters: number;
 }
 
-const colorHeatmap = (normalizedValue: number): [number, number, number] => {
+const colorHeatmap = (normalizedValue: number):[number, number, number] => {
   // 0.0 (thin) -> Blue (Hue 240), 1.0 (thick) -> Red (Hue 0)
   const hue = (1.0 - normalizedValue) * 240;
   const h = hue / 360;
@@ -118,16 +118,18 @@ export const getParametricApexRatio = (zInches: number, maxZ: number, apexRatio:
 // --- UNIFIED ABSTRACTION API ---
 
 export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInches: number) => {
-  if (model.editMode === "manual" && model.manualOutline && model.manualRockerTop && model.manualRockerBottom) {
-    const widthPt = evaluateBezierAtZ(model.manualOutline, zInches);
-    const apexWidthPt = model.manualApexOutline ? evaluateBezierAtZ(model.manualApexOutline, zInches) : widthPt;
+  if (model.outline && model.rockerTop && model.rockerBottom) {
+    const widthPt = evaluateBezierAtZ(model.outline, zInches);
+    const apexWidthPt = model.apexOutline ? evaluateBezierAtZ(model.apexOutline, zInches) : widthPt;
 
-    const topPt = evaluateBezierAtZ(model.manualRockerTop, zInches);
-    const botPt = evaluateBezierAtZ(model.manualRockerBottom, zInches);
+    const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
+    const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
 
-    let apexY = botPt[1] + (topPt[1] - botPt[1]) * model.apexRatio; 
-    if (model.manualApexRocker) {
-      const apexPt = evaluateBezierAtZ(model.manualApexRocker, zInches);
+    // Provide safe defaults for deleted parametric fields until Step 2 cleans this up entirely
+    const apexRatio = (model as any).apexRatio || 0.3;
+    let apexY = botPt[1] + (topPt[1] - botPt[1]) * apexRatio; 
+    if (model.apexRocker) {
+      const apexPt = evaluateBezierAtZ(model.apexRocker, zInches);
       apexY = apexPt[1];
     }
 
@@ -145,7 +147,7 @@ export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInch
   const halfWidth = getParametricOutlineWidth(zInches, curves);
   const thickness = Math.max(0, topY - botY);
   const maxZ = curves.outline.length > 0 ? curves.outline[curves.outline.length - 1]![2] : 0;
-  const apexRatio = getParametricApexRatio(zInches, maxZ, model.apexRatio, model.hardEdgeLength);
+  const apexRatio = getParametricApexRatio(zInches, maxZ, (model as any).apexRatio || 0.3, (model as any).hardEdgeLength || 18.0);
   return { topY, botY, apexY: botY + thickness * apexRatio, halfWidth, apexHalfWidth: halfWidth };
 };
 
@@ -154,30 +156,36 @@ export const calculateBottomContourOffset = (model: BoardModel, nz: number, tail
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
   };
+  const channelLength = (model as any).channelLength || 0;
+  const veeDepth = (model as any).veeDepth || 0;
+  const concaveDepth = (model as any).concaveDepth || 0;
+  const channelDepth = (model as any).channelDepth || 0;
+  const bottomContour = (model as any).bottomContour || "flat";
+
   const blendVee = 1 - smoothStep(0.05, 0.4, nz);
   const blendConcave = smoothStep(0.15, 0.3, nz);
   let blendChannels = 0;
-  if (tailDist <= model.channelLength + 6.0) {
-    blendChannels = 1.0 - smoothStep(model.channelLength, model.channelLength + 6.0, tailDist);
+  if (tailDist <= channelLength + 6.0) {
+    blendChannels = 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist);
   }
 
   let contourOffset = 0;
-  if (model.bottomContour === "vee_to_quad_channels") {
-    const veeOffset = -model.veeDepth * (1 - nx) * blendVee;
-    const concaveOffset = model.concaveDepth * (1 - nx * nx) * blendConcave;
+  if (bottomContour === "vee_to_quad_channels") {
+    const veeOffset = -veeDepth * (1 - nx) * blendVee;
+    const concaveOffset = concaveDepth * (1 - nx * nx) * blendConcave;
     let channelProfile = 0;
     if (nx >= 0.2 && nx <= 0.8) {
       const u = (nx - 0.2) / 0.6;
       channelProfile = Math.pow(Math.sin(u * Math.PI * 2), 2);
     }
-    const channelOffset = model.channelDepth * channelProfile * blendChannels;
+    const channelOffset = channelDepth * channelProfile * blendChannels;
     contourOffset = (veeOffset + concaveOffset + channelOffset) * widthFade;
-  } else if (model.bottomContour === "single_to_double") {
-    const single = model.concaveDepth * (1 - nx * nx);
-    const double = model.concaveDepth * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
+  } else if (bottomContour === "single_to_double") {
+    const single = concaveDepth * (1 - nx * nx);
+    const double = concaveDepth * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
     contourOffset = (single * (1 - nz) + double * nz) * widthFade;
-  } else if (model.bottomContour === "single") {
-    contourOffset = model.concaveDepth * (1 - nx * nx) * widthFade;
+  } else if (bottomContour === "single") {
+    contourOffset = concaveDepth * (1 - nx * nx) * widthFade;
   }
   return contourOffset;
 };
@@ -190,18 +198,20 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   let nx = Math.abs(xInches) / halfWidth;
   if (nx > 1) nx = 1;
 
-  const maxZ = model.editMode === "manual" && model.manualOutline ? 
-    model.manualOutline.controlPoints[model.manualOutline.controlPoints.length - 1]![2] : 
+  const maxZ = model.outline ? 
+    model.outline.controlPoints[model.outline.controlPoints.length - 1]![2] : 
     curves.outline[curves.outline.length - 1]![2];
-  const minZ = model.editMode === "manual" && model.manualOutline ? 
-    model.manualOutline.controlPoints[0]![2] : curves.outline[0]![2];
+  const minZ = model.outline ? 
+    model.outline.controlPoints[0]![2] : curves.outline[0]![2];
   const totalZ = maxZ - minZ;
   const nz = (zInches - minZ) / totalZ;
   const tailDist = Math.max(0, maxZ - zInches);
   const noseDist = Math.max(0, zInches - minZ);
 
-  let railExp = 1.5 - model.railFullness;
-  let deckExp = model.deckDome;
+  const railFullness = (model as any).railFullness || 0.65;
+  const deckDome = (model as any).deckDome || 0.65;
+  let railExp = 1.5 - railFullness;
+  let deckExp = deckDome;
   const relaxZone = 2.0;
   if (noseDist < relaxZone) {
     const t = noseDist / relaxZone;
@@ -235,7 +245,7 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
 
 export const MeshGeneratorService = {
   generateMesh: (model: BoardModel, curves: BoardCurves): RawGeometryData => {
-    if (model.editMode === "manual" && model.manualOutline) {
+    if (model.outline) {
       return generateManualMesh(model);
     }
     return generateParametricMesh(model, curves);
@@ -272,7 +282,7 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
   const colors: number[] =[];
   const scale = 1 / 12;
 
-  const deckCurve = model.deckDome;
+  const deckCurve = (model as any).deckDome || 0.65;
   const bottomCurve = 0.5;
   const minZ = curves.outline[0]![2];
   const maxZ = curves.outline[segmentsZ - 1]![2];
@@ -305,7 +315,7 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
     const tailDist = Math.max(0, maxZ - zInches);
     const noseDist = Math.max(0, zInches - minZ);
 
-    const targetRailExp = 1.5 - model.railFullness;
+    const targetRailExp = 1.5 - ((model as any).railFullness || 0.65);
     let railExp = targetRailExp;
     let deckExp = deckCurve;
     const relaxZone = 2.0;
@@ -322,7 +332,7 @@ const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeom
     const topY = getParametricRockerY(zInches, true, curves);
     const botY = getParametricRockerY(zInches, false, curves);
     const thickness = Math.max(0, topY - botY);
-    const apexY = botY + thickness * getParametricApexRatio(zInches, maxZ, model.apexRatio, model.hardEdgeLength);
+    const apexY = botY + thickness * getParametricApexRatio(zInches, maxZ, (model as any).apexRatio || 0.3, (model as any).hardEdgeLength || 18.0);
     const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
 
     for (let j = 0; j <= segmentsRadial; j++) {
@@ -410,13 +420,13 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
   const segmentsZ = 150;
   const segmentsRadial = 36;
   const vertices: number[] = [];
-  const indices: number[] = [];
+  const indices: number[] =[];
   const uvs: number[] = [];
-  const colors: number[] = [];
+  const colors: number[] =[];
   const scale = 1 / 12;
 
-  const outline = model.manualOutline!;
-  const crossSections = model.manualCrossSections || [];
+  const outline = model.outline;
+  const crossSections = model.crossSections || [];
   const minZ = outline.controlPoints[0]![2];
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
   const totalZ = maxZ - minZ;

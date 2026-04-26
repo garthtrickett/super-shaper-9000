@@ -12,26 +12,25 @@ describe("MeshGeneratorService", () => {
     // A slice where the top and bottom are incredibly close together (thickness approaching 0).
     const manualState: BoardModel = {
       ...INITIAL_STATE,
-      editMode: "manual",
-      manualOutline: {
-        controlPoints: [[0, 0, -10], [5, 0, 0], [0, 0, 10]],
-        tangents1: [[0, 0, -10], [5, 0, 0], [0, 0, 10]],
-        tangents2: [[0, 0, -10], [5, 0, 0], [0, 0, 10]],
+      outline: {
+        controlPoints: [[0, 0, -10],[5, 0, 0], [0, 0, 10]],
+        tangents1: [[0, 0, -10], [5, 0, 0],[0, 0, 10]],
+        tangents2: [[0, 0, -10],[5, 0, 0], [0, 0, 10]],
       },
-      manualRockerTop: {
-        controlPoints: [[0, 1, -10], [0, 1, 0], [0, 1, 10]],
+      rockerTop: {
+        controlPoints: [[0, 1, -10],[0, 1, 0], [0, 1, 10]],
         tangents1: [[0, 1, -10], [0, 1, 0], [0, 1, 10]],
-        tangents2: [[0, 1, -10], [0, 1, 0], [0, 1, 10]],
+        tangents2: [[0, 1, -10],[0, 1, 0], [0, 1, 10]],
       },
-      manualRockerBottom: {
-        controlPoints: [[0, 0.999, -10], [0, 0.999, 0], [0, 0.999, 10]], // EXTREMELY thin
-        tangents1: [[0, 0.999, -10], [0, 0.999, 0], [0, 0.999, 10]],
-        tangents2: [[0, 0.999, -10], [0, 0.999, 0], [0, 0.999, 10]],
+      rockerBottom: {
+        controlPoints: [[0, 0.999, -10],[0, 0.999, 0], [0, 0.999, 10]], // EXTREMELY thin
+        tangents1: [[0, 0.999, -10], [0, 0.999, 0],[0, 0.999, 10]],
+        tangents2: [[0, 0.999, -10], [0, 0.999, 0],[0, 0.999, 10]],
       },
-      manualCrossSections: [{
-        controlPoints: [[0, 1.5, 0], [1, 1.5, 0], [2, 2, 0], [1, 2.5, 0], [0, 2.5, 0]], // Concave pushes bot up
-        tangents1: [[0, 1.5, 0], [1, 1.5, 0], [2, 2, 0], [1, 2.5, 0], [0, 2.5, 0]],
-        tangents2: [[0, 1.5, 0], [1, 1.5, 0], [2, 2, 0], [1, 2.5, 0], [0, 2.5, 0]],
+      crossSections: [{
+        controlPoints: [[0, 1.5, 0], [1, 1.5, 0],[2, 2, 0], [1, 2.5, 0], [0, 2.5, 0]], // Concave pushes bot up
+        tangents1: [[0, 1.5, 0],[1, 1.5, 0], [2, 2, 0],[1, 2.5, 0], [0, 2.5, 0]],
+        tangents2: [[0, 1.5, 0], [1, 1.5, 0],[2, 2, 0], [1, 2.5, 0], [0, 2.5, 0]],
       }]
     };
 
@@ -62,14 +61,13 @@ describe("MeshGeneratorService", () => {
       
       const manualState: BoardModel = {
         ...INITIAL_STATE,
-        editMode: "manual",
         length: importedData.length,
         width: importedData.width,
         thickness: importedData.thickness,
-        manualOutline: importedData.outline,
-        manualRockerTop: importedData.rockerTop,
-        manualRockerBottom: importedData.rockerBottom,
-        manualCrossSections: importedData.crossSections
+        outline: importedData.outline,
+        rockerTop: importedData.rockerTop,
+        rockerBottom: importedData.rockerBottom,
+        crossSections: importedData.crossSections
       };
 
       const mesh = MeshGeneratorService.generateMesh(manualState, {
@@ -102,19 +100,19 @@ describe("MeshGeneratorService", () => {
 
   describe("Contour Compositing", () => {
     it("yields 0 offset for flat bottom contour", () => {
-      const model: BoardModel = { ...INITIAL_STATE, bottomContour: "flat" };
+      const model = { ...INITIAL_STATE, bottomContour: "flat" } as unknown as BoardModel;
       const offset = calculateBottomContourOffset(model, 0.5, 35, 0, 1);
       expect(offset).to.equal(0);
     });
 
     it("yields maximum concave depth at the stringer (nx=0) for single concave", () => {
-      const model: BoardModel = { ...INITIAL_STATE, bottomContour: "single", concaveDepth: 0.25 };
+      const model = { ...INITIAL_STATE, bottomContour: "single", concaveDepth: 0.25 } as unknown as BoardModel;
       const offset = calculateBottomContourOffset(model, 0.5, 35, 0, 1.0);
       expect(offset).to.equal(0.25);
     });
 
     it("yields 0 depth at the rails (nx=1) for single concave, fading out correctly", () => {
-      const model: BoardModel = { ...INITIAL_STATE, bottomContour: "single", concaveDepth: 0.25 };
+      const model = { ...INITIAL_STATE, bottomContour: "single", concaveDepth: 0.25 } as unknown as BoardModel;
       const offset = calculateBottomContourOffset(model, 0.5, 35, 1.0, 1.0);
       expect(offset).to.equal(0);
     });
@@ -132,11 +130,10 @@ describe("MeshGeneratorService", () => {
       const manualCurves = await runClientPromise(bakeToManual(INITIAL_STATE));
       const manualState: BoardModel = {
         ...INITIAL_STATE,
-        editMode: "manual",
-        manualOutline: manualCurves.outline,
-        manualRockerTop: manualCurves.rockerTop,
-        manualRockerBottom: manualCurves.rockerBottom,
-        manualCrossSections: manualCurves.crossSections
+        outline: manualCurves.outline,
+        rockerTop: manualCurves.rockerTop,
+        rockerBottom: manualCurves.rockerBottom,
+        crossSections: manualCurves.crossSections
       };
 
       // 3. Generate Manual Mesh (utilizes Bezier formulas rather than raw points)
