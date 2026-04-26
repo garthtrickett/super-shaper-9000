@@ -25,7 +25,6 @@ def perfect_replace(whole_lines, part_lines, replace_lines):
     part_len = len(part_lines)
 
     if part_len == 0:
-        # Special case for completely new files
         return "".join(replace_lines + whole_lines)
 
     for i in range(len(whole_lines) - part_len + 1):
@@ -35,12 +34,10 @@ def perfect_replace(whole_lines, part_lines, replace_lines):
     return None
 
 def match_but_for_leading_whitespace(whole_lines, part_lines):
-    """Helper for Strategy 2: Checks if lines match ignoring leading whitespace."""
     num = len(whole_lines)
     if not all(whole_lines[i].lstrip() == part_lines[i].lstrip() for i in range(num)):
         return None
 
-    # Check if the offset difference is uniform across all non-empty lines
     add = set(
         whole_lines[i][: len(whole_lines[i]) - len(part_lines[i])]
         for i in range(num)
@@ -56,8 +53,7 @@ def replace_part_with_missing_leading_whitespace(whole_lines, part_lines, replac
     if not part_lines:
         return None
 
-    # Outdent everything in part_lines and replace_lines by the max fixed amount possible
-    leading =[len(p) - len(p.lstrip()) for p in part_lines if p.strip()] +[
+    leading = [len(p) - len(p.lstrip()) for p in part_lines if p.strip()] + [
         len(p) - len(p.lstrip()) for p in replace_lines if p.strip()
     ]
 
@@ -74,8 +70,7 @@ def replace_part_with_missing_leading_whitespace(whole_lines, part_lines, replac
         if add_leading is None:
             continue
 
-        # Re-indent the replacement lines to match the original file's context
-        adjusted_replace =[add_leading + rline if rline.strip() else rline for rline in replace_lines]
+        adjusted_replace = [add_leading + rline if rline.strip() else rline for rline in replace_lines]
         res = whole_lines[:i] + adjusted_replace + whole_lines[i + num_part_lines :]
         return "".join(res)
     return None
@@ -113,7 +108,14 @@ def replace_closest_edit_distance(whole_lines, part, part_lines, replace_lines):
     if not part_lines:
         return None
 
-    similarity_thresh = 0.8
+    # --- SAFETY CATCH: Prevent O(N^2) infinite stalling on massive blocks ---
+    if len(part_lines) > 103:
+        print(f"    ⚠️  Block is too large for fuzzy matching ({len(part_lines)} lines). Skipping to prevent stall.", flush=True)
+        return None
+
+    print(f"    🔍 Strict match failed. Falling back to fuzzy matching (target: {len(part_lines)} lines)...", flush=True)
+
+    similarity_thresh = 0.58
     max_similarity = 0
     most_similar_chunk_start = -1
     most_similar_chunk_end = -1
@@ -135,8 +137,10 @@ def replace_closest_edit_distance(whole_lines, part, part_lines, replace_lines):
                 most_similar_chunk_end = i + length
 
     if max_similarity < similarity_thresh:
+        print(f"    ❌ Fuzzy match failed. Best similarity found: {max_similarity*100:.1f}% (requires {similarity_thresh*100:.1f}%)", flush=True)
         return None
 
+    print(f"    ✅ Fuzzy match succeeded with {max_similarity*100:.1f}% similarity.", flush=True)
     modified_whole = (
         whole_lines[:most_similar_chunk_start]
         + replace_lines
@@ -173,7 +177,7 @@ def replace_most_similar_chunk(whole, part, replace):
     res = try_dotdotdots(whole, part, replace)
     if res: return res, "Elision (...) match"
 
-    # 5. Try fuzzy matching
+    # 5. Try fuzzy matching (will safely exit if block is too large)
     res = replace_closest_edit_distance(whole_lines, part, part_lines, replace_lines)
     if res: return res, "Fuzzy sequence match (>80% similarity)"
 
@@ -184,11 +188,11 @@ def replace_most_similar_chunk(whole, part, replace):
 def parse_diff_blocks(diff_text):
     """Parses SEARCH/REPLACE blocks using robust Aider regexes."""
     lines = diff_text.splitlines(keepends=True)
-    blocks =[]
+    blocks = []
     i = 0
     while i < len(lines):
         if HEAD_RE.match(lines[i].strip()):
-            search_lines =[]
+            search_lines = []
             i += 1
             while i < len(lines) and not DIVIDER_RE.match(lines[i].strip()):
                 search_lines.append(lines[i])
@@ -196,7 +200,7 @@ def parse_diff_blocks(diff_text):
             
             if i >= len(lines): break # Malformed block
             
-            replace_lines =[]
+            replace_lines = []
             i += 1
             while i < len(lines) and not UPDATED_RE.match(lines[i].strip()):
                 replace_lines.append(lines[i])
@@ -211,7 +215,7 @@ def apply_diffs(json_str):
     
     clean_json = json_str.strip()
 
-    # Robustly extract JSON block using regex to ignore "42069" or conversational text
+    # Robustly extract JSON block using regex
     json_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", clean_json, re.DOTALL)
     if json_match:
         clean_json = json_match.group(1)
@@ -224,7 +228,6 @@ def apply_diffs(json_str):
         
         if start_idx != -1:
             clean_json = clean_json[start_idx:]
-            # Also strip trailing text after the last '}' or ']'
             end_idx = max(clean_json.rfind('}'), clean_json.rfind(']'))
             if end_idx != -1:
                 clean_json = clean_json[:end_idx+1]
@@ -232,19 +235,18 @@ def apply_diffs(json_str):
     try:
         data = json.loads(clean_json.strip())
     except json.JSONDecodeError as e:
-        print(f"❌ Failed to decode JSON: {e}")
-        # Return 2 instead of False to indicate a syntax/parsing error
-        sys.exit(2)
+        print(f"❌ Failed to decode JSON: {e}", flush=True)
+        return False
 
-    print(f"🤖 Summary: {data.get('summary', 'No summary provided')}")
+    print(f"🤖 Summary: {data.get('summary', 'No summary provided')}", flush=True)
     planned_updates = {}
 
-    for file_entry in data.get("files",[]):
+    for file_entry in data.get("files", []):
         path = file_entry.get("file_path")
         diff_text = file_entry.get("code_diff", "")
         
         if not os.path.exists(path):
-            print(f"⚠️  File not found, creating new file: {path}")
+            print(f"⚠️  File not found, creating new file: {path}", flush=True)
             content = ""
         else:
             with open(path, "r", encoding="utf-8") as f:
@@ -252,18 +254,26 @@ def apply_diffs(json_str):
 
         blocks = parse_diff_blocks(diff_text)
         if not blocks:
-            print(f"⚠️  Warning: No valid SEARCH/REPLACE blocks found for {path}")
+            print(f"⚠️  Warning: No valid SEARCH/REPLACE blocks found for {path}", flush=True)
             continue
 
+        print(f"📄 Processing {path} ({len(blocks)} blocks)...", flush=True)
+
         for i, (search_part, replacement) in enumerate(blocks, 1):
+            # If the file is new/empty and search is non-empty, treat it as a creation
+            if not content.strip() and search_part.strip():
+                content = replacement
+                print(f"  ✨ [SUCCESS] Block {i} (Initial file creation)", flush=True)
+                continue
+
             new_content, strategy = replace_most_similar_chunk(content, search_part, replacement)
             
-            if new_content:
+            if new_content is not None:
                 content = new_content
-                print(f"  ✨ [SUCCESS] {path} Block {i} ({strategy})")
+                print(f"  ✨ [SUCCESS] Block {i} ({strategy})", flush=True)
             else:
-                print(f"  ❌ [FAIL] {path} Block {i}")
-                print(f"     Target snippet could not be matched safely.")
+                print(f"  ❌ [FAIL] Block {i} failed to match.", flush=True)
+                print(f"     Target snippet could not be matched safely.", flush=True)
                 return False
 
         planned_updates[path] = content
@@ -273,7 +283,7 @@ def apply_diffs(json_str):
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(new_content)
-        print(f"✅ Applied all changes to {path}")
+        print(f"✅ Applied all changes to {path}", flush=True)
         
     return True
 
@@ -284,5 +294,5 @@ if __name__ == "__main__":
             success = apply_diffs(f.read())
             sys.exit(0 if success else 1)
     else:
-        print(f"❌ File not found: {target_file}")
+        print(f"❌ File not found: {target_file}", flush=True)
         sys.exit(1)

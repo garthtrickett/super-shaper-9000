@@ -1,4 +1,4 @@
-// File: src/components/3d/board-viewport.ts
+// src/components/3d/board-viewport.ts
 import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
@@ -214,7 +214,9 @@ export class BoardViewport extends LitElement {
     geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
     geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
     geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
-    geom.computeVertexNormals();
+    // ✅ USE ANALYTICAL NORMALS: Replaced geom.computeVertexNormals()
+    geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
+
     if (meshData.colors && meshData.colors.length > 0) {
       geom.setAttribute('color', new THREE.BufferAttribute(meshData.colors, 3));
     }

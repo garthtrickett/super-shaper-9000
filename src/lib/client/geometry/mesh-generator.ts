@@ -1,4 +1,5 @@
 // src/lib/client/geometry/mesh-generator.ts
+import * as THREE from "three";
 import type { BoardModel, BezierCurveData, Point3D } from "../../../components/pages/board-builder-page.logic";
 import type { BoardCurves } from "./board-curves";
 
@@ -7,6 +8,7 @@ export interface RawGeometryData {
   indices: Uint32Array;
   uvs: Float32Array;
   colors: Float32Array;
+  normals: Float32Array;
   volumeLiters: number;
 }
 
@@ -244,13 +246,14 @@ const calculateVolume = (vertices: number[], indices: number[]): number => {
 };
 
 const generateMesh = (model: BoardModel): RawGeometryData => {
-  const segmentsZ = 180,
-    segmentsRadial = 48,
-    scale = 1 / 12;
-  const vertices: number[] = [],
-    indices: number[] = [],
-    uvs: number[] = [],
-    colors: number[] = [];
+  const segmentsZ = 180;
+  const segmentsRadial = 48;
+  const scale = 1 / 12;
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  const uvs: number[] = [];
+  const colors: number[] = [];
+  const normals: number[] = [];
 
   const outline = model.outline;
   if (!outline || outline.controlPoints.length === 0)
@@ -259,41 +262,62 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       indices: new Uint32Array(),
       uvs: new Float32Array(),
       colors: new Float32Array(),
+      normals: new Float32Array(),
       volumeLiters: 0,
     };
 
-  const minZ = outline.controlPoints[0]![2],
-    maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2],
-    totalZ = maxZ - minZ;
+  const minZ = outline.controlPoints[0]![2];
+  const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
+
+  // --- STEP 0: PRE-CALCULATE ARC LENGTH FOR V-COORDINATE ---
+  // This maps UV.v to cumulative 3D distance to prevent texture warping at the tips.
+  const sliceArcLengths = new Float32Array(segmentsZ + 1);
+  let totalArcLength = 0;
+  let lastCenterPos = new THREE.Vector3();
 
   for (let i = 0; i <= segmentsZ; i++) {
-    const nz = (1 - Math.cos((i / segmentsZ) * Math.PI)) / 2,
-      zInches = minZ + nz * totalZ,
-      vCoord = nz;
+    const nz = (1 - Math.cos((i / segmentsZ) * Math.PI)) / 2;
+    const zInches = minZ + nz * (maxZ - minZ);
+    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
+    
+    // Using centerline vertical average as the arc-length spine
+    const cy = (profile.topY + profile.botY) / 2;
+    const currentCenterPos = new THREE.Vector3(0, cy * scale, zInches * scale);
+    
+    if (i > 0) {
+      totalArcLength += currentCenterPos.distanceTo(lastCenterPos);
+    }
+    sliceArcLengths[i] = totalArcLength;
+    lastCenterPos.copy(currentCenterPos);
+  }
+
+  const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] = [];
+
+  // STEP 1: Generate all vertex positions for the hull
+  for (let i = 0; i <= segmentsZ; i++) {
+    const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
+    const zInches = minZ + ((1 - Math.cos((i / segmentsZ) * Math.PI)) / 2) * (maxZ - minZ);
+    const vCoord = sliceArcLengths[i]! / totalArcLength;
+    
     const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
-    let sliceTopY = 1.0,
-      sliceBotY = 0.0,
-      sliceApexX = 1.0,
-      sliceApexY = 0.5;
-
+    let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5;
     if (blend) {
       const pBot = blend.evaluate(0.0);
       const pTop = blend.evaluate(1.0);
       const pApex = blend.evaluate(blend.tApex);
-      
       sliceBotY = pBot[1];
       sliceTopY = pTop[1];
       sliceApexX = Math.max(0.001, pApex[0]);
       sliceApexY = pApex[1];
     }
 
-    for (let j = 0; j <= segmentsRadial; j++) {
-      let t = 0.0,
-        side = 1.0;
-      const isStringer = j === 0 || j === segmentsRadial / 2 || j === segmentsRadial;
+    const isPinchedTip = (i === 0 || i === segmentsZ) && profile.halfWidth < 1e-3;
 
+    for (let j = 0; j <= segmentsRadial; j++) {
+      let t = 0.0, side = 1.0;
+      const isStringer = j === 0 || j === segmentsRadial / 2 || j === segmentsRadial;
       if (j <= segmentsRadial / 2) {
         t = j / (segmentsRadial / 2);
       } else {
@@ -301,15 +325,13 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         side = -1.0;
       }
 
-      let px = 0,
-        py = profile.botY + (profile.topY - profile.botY) / 2;
-        
-      if (blend && profile.halfWidth > 0.001) {
+      let px = 0, py = profile.botY + (profile.topY - profile.botY) / 2;
+      if (isPinchedTip) {
+        px = 0;
+      } else if (blend && profile.halfWidth > 0.001) {
         const p = blend.evaluate(t);
-        
         const normX = p[0] / sliceApexX;
         px = isStringer ? 0 : side * normX * profile.apexX;
-        
         if (p[1] >= sliceApexY) {
           const rangeY = sliceTopY - sliceApexY;
           const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
@@ -321,119 +343,81 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         }
       }
 
-      vertices.push(px * scale, py * scale, zInches * scale);
-      uvs.push(j / segmentsRadial, vCoord);
-      const [r, g, b] = colorHeatmap(Math.max(0, Math.min(1, (profile.topY - profile.botY) / model.thickness)));
-      colors.push(r, g, b);
+      const pos = new THREE.Vector3(px * scale, py * scale, zInches * scale);
+      const uv = new THREE.Vector2(j / segmentsRadial, vCoord);
+      const color = new THREE.Color(...colorHeatmap(Math.max(0, Math.min(1, (profile.topY - profile.botY) / model.thickness))));
+      ring.push({ pos, color, uv });
+    }
+    vertexGrid.push(ring);
+  }
+
+  // STEP 2: Calculate analytical normals and populate final arrays
+  for (let i = 0; i <= segmentsZ; i++) {
+    for (let j = 0; j <= segmentsRadial; j++) {
+      const { pos, color, uv } = vertexGrid[i]![j]!;
+      vertices.push(pos.x, pos.y, pos.z);
+      colors.push(color.r, color.g, color.b);
+      uvs.push(uv.x, uv.y);
+
+      const tangentZ = new THREE.Vector3();
+      const tangentR = new THREE.Vector3();
+      const normal = new THREE.Vector3();
+
+      if (i === 0) { normal.set(0, 0, -1); }
+      else if (i === segmentsZ) { normal.set(0, 0, 1); }
+      else {
+        tangentZ.subVectors(vertexGrid[i + 1]![j]!.pos, vertexGrid[i - 1]![j]!.pos);
+        if (j > 0 && j < segmentsRadial) {
+            tangentR.subVectors(vertexGrid[i]![j + 1]!.pos, vertexGrid[i]![j - 1]!.pos);
+        } else {
+            tangentR.subVectors(vertexGrid[i]![1]!.pos, vertexGrid[i]![segmentsRadial - 1]!.pos);
+        }
+        normal.crossVectors(tangentR, tangentZ).normalize();
+      }
+      normals.push(normal.x, normal.y, normal.z);
     }
   }
 
-  console.info(`[MeshGen] Starting index generation. Hull vertices: ${vertices.length / 3}`);
-
-  let skippedInHull = 0;
+  // STEP 3: Generate Hull Indices
   for (let i = 0; i < segmentsZ; i++) {
     for (let j = 0; j < segmentsRadial; j++) {
       const a = i * (segmentsRadial + 1) + j;
       const b = a + 1;
       const c = (i + 1) * (segmentsRadial + 1) + j;
       const d = c + 1;
-
-      const checkDegenerate = (idx1: number, idx2: number, idx3: number) => {
-        const v1x = vertices[idx1 * 3]!,
-          v1y = vertices[idx1 * 3 + 1]!,
-          v1z = vertices[idx1 * 3 + 2]!;
-        const v2x = vertices[idx2 * 3]!,
-          v2y = vertices[idx2 * 3 + 1]!,
-          v2z = vertices[idx2 * 3 + 2]!;
-        const v3x = vertices[idx3 * 3]!,
-          v3y = vertices[idx3 * 3 + 1]!,
-          v3z = vertices[idx3 * 3 + 2]!;
-
-        const isSame = (ax: number, ay: number, az: number, bx: number, by: number, bz: number) =>
-          Math.abs(ax - bx) < 1e-9 && Math.abs(ay - by) < 1e-9 && Math.abs(az - bz) < 1e-9;
-
-        if (isSame(v1x, v1y, v1z, v2x, v2y, v2z)) return true;
-        if (isSame(v2x, v2y, v2z, v3x, v3y, v3z)) return true;
-        if (isSame(v1x, v1y, v1z, v3x, v3y, v3z)) return true;
-        return false;
-      };
-
-      if (!checkDegenerate(a, b, d)) {
-        indices.push(a, b, d);
-      } else {
-        skippedInHull++;
-      }
-
-      if (!checkDegenerate(a, d, c)) {
-        indices.push(a, d, c);
-      } else {
-        skippedInHull++;
-      }
+      indices.push(a, b, d, a, d, c);
     }
   }
 
-  if (skippedInHull > 0) {
-    console.info(`[MeshGen] Skipped ${skippedInHull} degenerate triangles in hull (collapsed slices).`);
-  }
-
-  const addCap = (isNose: boolean) => {
-    const z = isNose ? minZ : maxZ;
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, z);
-
-    if (profile.halfWidth < 1e-3) {
-      console.info(`[MeshGen] Skipping cap for ${isNose ? "Nose" : "Tail"} due to zero width.`);
-      return;
-    }
-
-    const ringStart = (isNose ? 0 : segmentsZ) * (segmentsRadial + 1);
-    const capStart = vertices.length / 3;
+  // STEP 4: Generate Tail Cap if needed (wide tails)
+  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop:[], rockerBottom:[] }, maxZ);
+  if (tailProfile.halfWidth >= 1e-3) {
+    const finalRingStartIndex = segmentsZ * (segmentsRadial + 1);
+    const capVertexStartIndex = vertices.length / 3;
 
     for (let j = 0; j <= segmentsRadial; j++) {
-      const idx = (ringStart + j) * 3;
-      vertices.push(vertices[idx]!, vertices[idx + 1]!, vertices[idx + 2]!);
-      uvs.push(uvs[(ringStart + j) * 2]!, uvs[(ringStart + j) * 2 + 1]!);
-      colors.push(colors[(ringStart + j) * 3]!, colors[(ringStart + j) * 3 + 1]!, colors[(ringStart + j) * 3 + 2]!);
+      const hullIndex = finalRingStartIndex + j;
+      vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
+      uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
+      colors.push(colors[hullIndex * 3]!, colors[hullIndex * 3 + 1]!, colors[hullIndex * 3 + 2]!);
+      normals.push(0, 0, 1);
     }
 
-    const centerIdx = vertices.length / 3;
-    vertices.push(0, ((profile.topY + profile.botY) / 2) * scale, z * scale);
-    uvs.push(0.5, isNose ? 0 : 1);
-    colors.push(0, 0, 1);
-
-    let skippedInCap = 0;
-    for (let j = 0; j < segmentsRadial; j++) {
-      const p1 = capStart + j;
-      const p2 = p1 + 1;
-
-      const v1x = vertices[p1 * 3]!,
-        v1y = vertices[p1 * 3 + 1]!,
-        v1z = vertices[p1 * 3 + 2]!;
-      const v2x = vertices[p2 * 3]!,
-        v2y = vertices[p2 * 3 + 1]!,
-        v2z = vertices[p2 * 3 + 2]!;
-
-      if (Math.abs(v1x - v2x) < 1e-9 && Math.abs(v1y - v2y) < 1e-9 && Math.abs(v1z - v2z) < 1e-9) {
-        skippedInCap++;
-        continue;
-      }
-
-      if (isNose) indices.push(centerIdx, p2, p1);
-      else indices.push(centerIdx, p1, p2);
+    for (let j = 0; j < segmentsRadial / 2; j++) {
+      const a = capVertexStartIndex + j;
+      const b = capVertexStartIndex + j + 1;
+      const c = capVertexStartIndex + segmentsRadial - j;
+      const d = capVertexStartIndex + segmentsRadial - (j + 1);
+      indices.push(a, d, b, a, c, d);
     }
-
-    if (skippedInCap > 0) {
-      console.info(`[MeshGen] Skipped ${skippedInCap} degenerate triangles in ${isNose ? "Nose" : "Tail"} cap.`);
-    }
-  };
-
-  addCap(true);
-  addCap(false);
+  }
 
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
     uvs: new Float32Array(uvs),
     colors: new Float32Array(colors),
+    normals: new Float32Array(normals),
     volumeLiters: calculateVolume(vertices, indices),
   };
 };
