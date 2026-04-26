@@ -30,7 +30,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // NOTE: Assertions for viewport camera toggle buttons have been removed.
     // The UI was updated to a permanent 4-way split view, making these buttons obsolete.
 
-    // 6. Export JSON
+    // 4. Export JSON
     const exportBtn = boardControls.getByRole('button', { name: /Export JSON/i });
     await exportBtn.click();
 

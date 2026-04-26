@@ -7,29 +7,6 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) width = 18.75;
   @property({ type: Number }) thickness = 2.5;
   @property({ type: Number }) volume = 30.5;
-  @property({ type: Number }) noseWidth = 13.5;
-  @property({ type: Number }) tailWidth = 14.0;
-  @property({ type: String }) tailType = "round";
-  @property({ type: Number }) swallowDepth = 4.5;
-  @property({ type: Number }) noseTipWidth = 4.0;
-  @property({ type: Number }) noseTipCurveZ = 1.5;
-  @property({ type: Number }) tailBlockWidth = 6.0;
-  @property({ type: String }) noseShape = "clipped";
-  @property({ type: Number }) widePointOffset = 2.0;
-  @property({ type: Number }) noseRocker = 5.2;
-  @property({ type: Number }) tailRocker = 1.6;
-  @property({ type: Number }) noseThickness = 1.45;
-  @property({ type: Number }) tailThickness = 1.35;
-  @property({ type: Number }) rockerFlatSpotLength = 20.0;
-  @property({ type: Number }) deckDome = 0.65;
-  @property({ type: Number }) apexRatio = 0.35;
-  @property({ type: Number }) railFullness = 0.65;
-  @property({ type: Number }) hardEdgeLength = 18.0;
-  @property({ type: Number }) veeDepth = 0.15;
-  @property({ type: Number }) concaveDepth = 0.25;
-  @property({ type: Number }) channelDepth = 0.1875;
-  @property({ type: Number }) channelLength = 18.0;
-  @property({ type: String }) bottomContour = "vee_to_quad_channels";
   @property({ type: String }) finSetup = "quad";
   @property({ type: Number }) frontFinZ = 11.0;
   @property({ type: Number }) frontFinX = 1.25;
@@ -39,7 +16,6 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) cantAngle = 6.0;
   @property({ type: String }) coreMaterial = "pu";
   @property({ type: String }) glassingSchedule = "heavy";
-  @property({ type: String }) editMode = "parametric";
   @property({ type: Boolean }) showGizmos = true;
   @property({ type: Boolean }) showHeatmap = false;
   @property({ type: Boolean }) showZebra = false;
@@ -132,50 +108,6 @@ export class BoardControls extends LitElement {
             </div>
           </div>
         </div>
-    `;
-  }
-
-  // Real-time declarative SVG cross-section generator
-  private _renderSliceSVG(label: string, w: number, t: number, apex: number, isHard: boolean) {
-    const scale = 3.5;
-    const cx = 50;
-    const cy = 25;
-    const topY = t / 2;
-    const botY = -t / 2;
-    const apexY = botY + (t * apex);
-    
-    let d = "";
-    for (let i = 0; i <= 40; i++) {
-        const angle = (i / 40) * Math.PI * 2;
-        const cosA = Math.cos(angle);
-        const sinA = Math.sin(angle);
-        const px = Math.pow(Math.abs(cosA), 1.5 - this.railFullness) * (w / 2) * Math.sign(cosA);
-        
-        let py = 0;
-        if (sinA >= 0) {
-            py = apexY + Math.pow(Math.abs(sinA), this.deckDome) * (topY - apexY);
-        } else {
-            py = apexY - Math.pow(Math.abs(sinA), isHard ? 0.05 : 0.5) * (apexY - botY);
-        }
-        
-        const sx = cx + px * scale;
-        const sy = cy - py * scale;
-        if (i === 0) d += `M ${sx} ${sy} `;
-        else d += `L ${sx} ${sy} `;
-    }
-    d += "Z";
-
-    // Apex reference line
-    const apexLineY = cy - apexY * scale;
-
-    return html`
-      <div class="flex flex-col items-center">
-        <span class="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">${label}</span>
-        <svg viewBox="0 0 100 50" class="w-full h-12 overflow-visible">
-          <path d="${d}" class="stroke-blue-500 fill-blue-500/10" stroke-width="1" stroke-linejoin="round" />
-          <line x1="0" y1="${apexLineY}" x2="100" y2="${apexLineY}" stroke="#52525b" stroke-width="0.5" stroke-dasharray="2 2" />
-        </svg>
-      </div>
     `;
   }
 

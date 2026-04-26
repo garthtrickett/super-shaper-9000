@@ -23,7 +23,7 @@ test.describe('Quad Viewport CAD Interface', () => {
   });
 
   test('should only allow camera orbiting in the perspective view', async ({ page }) => {
-    const canvas = await page.locator('board-viewport canvas');
+    const canvas = page.locator('board-viewport canvas');
     const box = await canvas.boundingBox();
     expect(box).toBeDefined();
 
@@ -57,38 +57,33 @@ test.describe('Quad Viewport CAD Interface', () => {
   });
 
   test('should update 3D model when dragging a gizmo in a 2D view', async ({ page }) => {
-    // --- 1. Enter manual mode ---
-    await page.getByRole('button', { name: 'Unlock Manual Sculpting' }).click();
-    // Wait for gizmos to be generated and rendered
-    await page.waitForTimeout(1000);
-
-    const canvas = await page.locator('board-viewport canvas');
+    const canvas = page.locator('board-viewport canvas');
     const box = await canvas.boundingBox();
     expect(box).toBeDefined();
 
     // Take a screenshot of the initial state before we drag anything
     await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { 
       maxDiffPixels: 2500,
-      mask: [page.locator('button[title*="Flip"]')]
+      mask:[page.locator('button[title*="Flip"]')]
     });
 
-    // --- 2. Dynamically locate the 3D Gizmo from the application state ---
+    // --- 1. Dynamically locate the 3D Gizmo from the application state ---
     // This perfectly calculates the projection matrix equivalent to find the 2px sphere.
     const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & {
         boardState?: {
-          manualOutline?: {
-            controlPoints: [number, number, number][];
+          outline?: {
+            controlPoints:[number, number, number][];
           };
         };
       };
 
       const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
-      if (!viewport || !viewport.boardState || !viewport.boardState.manualOutline) return null;
+      if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
 
-      const outline = viewport.boardState.manualOutline;
-      // Index 3 is t=0.5 (Z=0, Wide Point)
-      const cp = outline.controlPoints[3];
+      const outline = viewport.boardState.outline;
+      // Index 1 is the wide point in the middle of the board
+      const cp = outline.controlPoints[1];
       if (!cp) return null;
 
       const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');

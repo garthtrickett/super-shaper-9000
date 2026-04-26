@@ -1,3 +1,4 @@
+// src/lib/client/geometry/mesh-generator.ts
 import type { BoardModel, BezierCurveData, Point3D } from "../../../components/pages/board-builder-page.logic";
 import type { BoardCurves } from "./board-curves";
 
@@ -21,7 +22,7 @@ const colorHeatmap = (normalizedValue: number):[number, number, number] => {
     if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
     return p;
   };
-  return [hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
+  return[hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
 };
 
 // --- BEZIER EVALUATION HELPERS ---
@@ -69,13 +70,12 @@ const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): Point3D =>
   return p;
 };
 
-// --- PARAMETRIC HELPERS ---
-
 // --- UNIFIED ABSTRACTION API ---
 
 export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInches: number) => {
   const widthPt = evaluateBezierAtZ(model.outline, zInches);
   const apexWidthPt = model.apexOutline ? evaluateBezierAtZ(model.apexOutline, zInches) : widthPt;
+  const tuckWidthPt = model.railOutline ? evaluateBezierAtZ(model.railOutline, zInches) : widthPt;
 
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
   const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
@@ -91,7 +91,8 @@ export const getBoardProfileAtZ = (model: BoardModel, curves: BoardCurves, zInch
       botY: botPt[1], 
       apexY, 
       halfWidth: widthPt[0],
-      apexHalfWidth: apexWidthPt[0]
+      apexHalfWidth: apexWidthPt[0],
+      tuckHalfWidth: tuckWidthPt[0]
   };
 };
 
@@ -131,7 +132,7 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   }
 
   let t0 = 0; let t1 = 0.5; // Bottom half of cross-section
-  let p =[0,0,0];
+  let p =[0,0,0] as Point3D;
   const targetX = Math.abs(xInches);
   
   for (let i = 0; i < 15; i++) {
@@ -142,14 +143,34 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
       pA[0] + (pB[0] - pA[0]) * lerpFactor,
       pA[1] + (pB[1] - pA[1]) * lerpFactor,
       pA[2] + (pB[2] - pA[2]) * lerpFactor
-    ];
+    ] as Point3D;
     
-    const s0_apex_w = s0.controlPoints[2]![0];
-    const s1_apex_w = s1.controlPoints[2]![0];
+    const s0_apex_w = s0.controlPoints[2]?.[0] ?? 0;
+    const s1_apex_w = s1.controlPoints[2]?.[0] ?? 0;
     const sliceApexWidth = s0_apex_w + (s1_apex_w - s0_apex_w) * lerpFactor;
-    
-    const scaleFactor = Math.abs(sliceApexWidth) > 1e-6 ? profile.apexHalfWidth / sliceApexWidth : 0;
-    const scaledX = p[0] * scaleFactor;
+      
+    const s0_tuck_w = s0.controlPoints[1]?.[0] ?? 0;
+    const s1_tuck_w = s1.controlPoints[1]?.[0] ?? 0;
+    const sliceTuckWidth = s0_tuck_w + (s1_tuck_w - s0_tuck_w) * lerpFactor;
+      
+    let scaledX = p[0];
+    if (sliceApexWidth > 1e-6) {
+      if (tMid <= 0.25) {
+         if (sliceTuckWidth > 1e-6) {
+           scaledX = p[0] * (profile.tuckHalfWidth / sliceTuckWidth);
+         }
+      } else if (tMid <= 0.5) {
+         if (sliceApexWidth > sliceTuckWidth) {
+            const tX = (p[0] - sliceTuckWidth) / (sliceApexWidth - sliceTuckWidth);
+            const clampedTx = Math.max(0, Math.min(1, tX));
+            scaledX = profile.tuckHalfWidth + clampedTx * (profile.apexHalfWidth - profile.tuckHalfWidth);
+         } else {
+            scaledX = profile.apexHalfWidth;
+         }
+      } else {
+         scaledX = p[0] * (profile.apexHalfWidth / sliceApexWidth);
+      }
+    }
 
     if (scaledX < targetX) t0 = tMid;
     else t1 = tMid;
@@ -176,7 +197,7 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
 // --- GENERATOR ORCHESTRATOR ---
 
 export const MeshGeneratorService = {
-  generateMesh: (model: BoardModel, curves: BoardCurves): RawGeometryData => {
+  generateMesh: (model: BoardModel, _curves: BoardCurves): RawGeometryData => {
     return generateMesh(model);
   },
   getBoardProfileAtZ,
@@ -202,160 +223,21 @@ const calculateVolume = (vertices: number[], indices: number[]): number => {
 
 // --- GENERATION ROUTINES ---
 
-const generateParametricMesh = (model: BoardModel, curves: BoardCurves): RawGeometryData => {
-  const segmentsZ = curves.outline.length;
-  const segmentsRadial = 36;
-  const vertices: number[] = [];
-  const indices: number[] = [];
-  const uvs: number[] =[];
-  const colors: number[] =[];
-  const scale = 1 / 12;
-
-  const deckCurve = (model as any).deckDome || 0.65;
-  const bottomCurve = 0.5;
-  const minZ = curves.outline[0]![2];
-  const maxZ = curves.outline[segmentsZ - 1]![2];
-  const totalZ = maxZ - minZ;
-
-  const buildEndCap = (isNose: boolean, ringIndex: number, _zInches: number, _topY: number, _botY: number) => {
-    const originalRingStart = ringIndex * (segmentsRadial + 1);
-    const newRingStart = vertices.length / 3;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const origV = originalRingStart + j;
-      vertices.push(vertices[origV * 3]!, vertices[origV * 3 + 1]!, vertices[origV * 3 + 2]!);
-      uvs.push(uvs[origV * 2]!, uvs[origV * 2 + 1]!);
-      colors.push(colors[origV * 3]!, colors[origV * 3 + 1]!, colors[origV * 3 + 2]!);
-    }
-
-    const fanCenterIdx = newRingStart + 27; 
-    for (let j = 0; j < segmentsRadial; j++) {
-      const p1 = newRingStart + j;
-      const p2 = newRingStart + j + 1;
-      if (isNose) indices.push(fanCenterIdx, p1, p2);
-      else indices.push(fanCenterIdx, p2, p1);
-    }
-  };
-
-  for (let i = 0; i < segmentsZ; i++) {
-    const p = curves.outline[i]!;
-    const halfWidth = p[0];
-    const zInches = p[2];
-    const nz = (zInches - minZ) / totalZ;
-    const tailDist = Math.max(0, maxZ - zInches);
-    const noseDist = Math.max(0, zInches - minZ);
-
-    const targetRailExp = 1.5 - ((model as any).railFullness || 0.65);
-    let railExp = targetRailExp;
-    let deckExp = deckCurve;
-    const relaxZone = 2.0;
-    if (noseDist < relaxZone) {
-      const t = noseDist / relaxZone;
-      railExp = 1.0 - t * (1.0 - targetRailExp);
-      deckExp = 1.0 - t * (1.0 - deckCurve);
-    } else if (tailDist < relaxZone) {
-      const t = tailDist / relaxZone;
-      railExp = 1.0 - t * (1.0 - targetRailExp);
-      deckExp = 1.0 - t * (1.0 - deckCurve);
-    }
-
-    const topY = getParametricRockerY(zInches, true, curves);
-    const botY = getParametricRockerY(zInches, false, curves);
-    const thickness = Math.max(0, topY - botY);
-    const apexY = botY + thickness * getParametricApexRatio(zInches, maxZ, (model as any).apexRatio || 0.3, (model as any).hardEdgeLength || 18.0);
-    const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
-
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const angle = (j / segmentsRadial) * Math.PI * 2;
-      const cx = Math.cos(angle);
-      const cy = Math.sin(angle);
-      const abs_cx = Math.abs(cx);
-      const abs_cy = Math.abs(cy);
-      const signX = cx < 0 ? -1 : 1;
-
-      const px = signX * Math.pow(abs_cx, railExp) * halfWidth;
-      const pyTop = apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
-      
-      let pyBot = apexY - Math.pow(abs_cy, bottomCurve) * (apexY - botY);
-      if (halfWidth > 0.001) {
-        const nx = px / halfWidth;
-        let contourOffset = calculateBottomContourOffset(model, nz, tailDist, Math.abs(nx), widthFade);
-        contourOffset *= abs_cy;
-        pyBot += contourOffset;
-      }
-      if (pyBot > pyTop - 0.05) pyBot = pyTop - 0.05;
-
-      const py = cy >= 0 ? pyTop : pyBot;
-
-      const localThickness = Math.max(0, pyTop - pyBot);
-      const normT = Math.max(0, Math.min(1, localThickness / model.thickness));
-      const [r, g, b] = colorHeatmap(normT);
-
-      vertices.push(px * scale, py * scale, zInches * scale);
-      uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
-      colors.push(r, g, b);
-    }
-  }
-
-  for (let i = 0; i < segmentsZ - 1; i++) {
-    for (let j = 0; j < segmentsRadial; j++) {
-      const a = i * (segmentsRadial + 1) + j;
-      const b = i * (segmentsRadial + 1) + (j + 1);
-      const c = (i + 1) * (segmentsRadial + 1) + j;
-      const d = (i + 1) * (segmentsRadial + 1) + (j + 1);
-      indices.push(a, b, d);
-      indices.push(a, d, c);
-    }
-  }
-
-  const noseWidth = getParametricOutlineWidth(minZ, curves);
-  if (noseWidth < 0.1) {
-    const noseTopY = getParametricRockerY(minZ, true, curves);
-    const noseBotY = getParametricRockerY(minZ, false, curves);
-    const centerY = ((noseTopY + noseBotY) / 2) * scale;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const idx = j * 3;
-      vertices[idx] = 0;
-      vertices[idx + 1] = centerY;
-    }
-  } else {
-    buildEndCap(true, 0, minZ, getParametricRockerY(minZ, true, curves), getParametricRockerY(minZ, false, curves));
-  }
-
-  const tailWidth = getParametricOutlineWidth(maxZ, curves);
-  if (tailWidth < 0.1) {
-    const tailTopY = getParametricRockerY(maxZ, true, curves);
-    const tailBotY = getParametricRockerY(maxZ, false, curves);
-    const centerY = ((tailTopY + tailBotY) / 2) * scale;
-    const ringIndex = segmentsZ - 1;
-    for (let j = 0; j <= segmentsRadial; j++) {
-      const idx = (ringIndex * (segmentsRadial + 1) + j) * 3;
-      vertices[idx] = 0;
-      vertices[idx + 1] = centerY;
-    }
-  } else {
-    buildEndCap(false, segmentsZ - 1, maxZ, getParametricRockerY(maxZ, true, curves), getParametricRockerY(maxZ, false, curves));
-  }
-
-  return {
-    vertices: new Float32Array(vertices),
-    indices: new Uint32Array(indices),
-    uvs: new Float32Array(uvs),
-    colors: new Float32Array(colors),
-    volumeLiters: calculateVolume(vertices, indices)
-  };
-};
-
-const generateManualMesh = (model: BoardModel): RawGeometryData => {
+const generateMesh = (model: BoardModel): RawGeometryData => {
   const segmentsZ = 150;
   const segmentsRadial = 36;
   const vertices: number[] = [];
   const indices: number[] =[];
-  const uvs: number[] = [];
+  const uvs: number[] =[];
   const colors: number[] =[];
   const scale = 1 / 12;
 
   const outline = model.outline;
-  const crossSections = model.crossSections || [];
+  const crossSections = model.crossSections ||[];
+  if (!outline || outline.controlPoints.length === 0) {
+    return { vertices: new Float32Array(), indices: new Uint32Array(), uvs: new Float32Array(), colors: new Float32Array(), volumeLiters: 0 };
+  }
+
   const minZ = outline.controlPoints[0]![2];
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
   const totalZ = maxZ - minZ;
@@ -383,21 +265,11 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     const nz = i / (segmentsZ - 1);
     const zInches = minZ + nz * totalZ;
 
-    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
-    const { topY, botY, halfWidth } = profile;
+    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop:[], rockerBottom:[] }, zInches);
+    const { topY, botY } = profile;
 
-    const noseDist = zInches - minZ;
-    const tailDist = maxZ - zInches;
-    const relaxZone = 2.0; 
-    let relaxFactor = 0;
-    if (noseDist < relaxZone && relaxZone > 0) {
-      relaxFactor = 1.0 - noseDist / relaxZone;
-    } else if (tailDist < relaxZone && relaxZone > 0) {
-      relaxFactor = 1.0 - tailDist / relaxZone;
-    }
-
-    let s0 = crossSections[0]! || { controlPoints: [] };
-    let s1 = crossSections[crossSections.length - 1]! || { controlPoints: [] };
+    let s0 = crossSections[0]! || { controlPoints:[] };
+    let s1 = crossSections[crossSections.length - 1]! || { controlPoints:[] };
     let lerpFactor = 0;
 
     const firstZ = crossSections[0]?.controlPoints[0]?.[2] ?? minZ;
@@ -437,11 +309,34 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const rawX = pA[0] + (pB[0] - pA[0]) * lerpFactor;
       const rawY = pA[1] + (pB[1] - pA[1]) * lerpFactor;
 
-      const s0_apex_w = s0.controlPoints[2]![0];
-      const s1_apex_w = s1.controlPoints[2]![0];
+      const s0_apex_w = s0.controlPoints[2]?.[0] ?? 0;
+      const s1_apex_w = s1.controlPoints[2]?.[0] ?? 0;
       const sliceApexWidth = s0_apex_w + (s1_apex_w - s0_apex_w) * lerpFactor;
-      const scaleFactor = Math.abs(sliceApexWidth) > 1e-6 ? profile.apexHalfWidth / sliceApexWidth : 0;
-      const px_manual = (isRightSide ? 1 : -1) * rawX * scaleFactor;
+
+      const s0_tuck_w = s0.controlPoints[1]?.[0] ?? 0;
+      const s1_tuck_w = s1.controlPoints[1]?.[0] ?? 0;
+      const sliceTuckWidth = s0_tuck_w + (s1_tuck_w - s0_tuck_w) * lerpFactor;
+
+      let mappedX = rawX;
+      if (sliceApexWidth > 1e-6) {
+        if (tCross <= 0.25) {
+          if (sliceTuckWidth > 1e-6) {
+            mappedX = rawX * (profile.tuckHalfWidth / sliceTuckWidth);
+          }
+        } else if (tCross <= 0.5) {
+          if (sliceApexWidth > sliceTuckWidth) {
+            const tX = (rawX - sliceTuckWidth) / (sliceApexWidth - sliceTuckWidth);
+            const clampedTx = Math.max(0, Math.min(1, tX));
+            mappedX = profile.tuckHalfWidth + clampedTx * (profile.apexHalfWidth - profile.tuckHalfWidth);
+          } else {
+            mappedX = profile.apexHalfWidth;
+          }
+        } else {
+          mappedX = rawX * (profile.apexHalfWidth / sliceApexWidth);
+        }
+      }
+      
+      const px = (isRightSide ? 1 : -1) * mappedX;
 
       const s0Top = Math.max(...s0.controlPoints.map(p => p[1]));
       const s1Top = Math.max(...s1.controlPoints.map(p => p[1]));
@@ -452,28 +347,10 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
       const sliceThickness = sliceTop - sliceBot;
       const currentThickness = topY - botY;
 
-      let py_manual = botY + currentThickness / 2;
+      let py = botY + currentThickness / 2;
       if (Math.abs(sliceThickness) > 1e-6) {
           const normY = (rawY - sliceBot) / sliceThickness;
-          py_manual = botY + normY * currentThickness;
-      }
-
-      let px = px_manual;
-      let py = py_manual;
-
-      if (relaxFactor > 0) {
-        const angle = (j / segmentsRadial) * Math.PI * 2;
-        const cx = Math.cos(angle);
-        const cy = Math.sin(angle);
-        const apexY = profile.botY + (profile.topY - profile.botY) * ((model as any).apexRatio || 0.3);
-        
-        const px_ellipse = Math.sign(cx) * Math.abs(cx) * halfWidth;
-        const py_top_ellipse = apexY + Math.abs(cy) * (profile.topY - apexY);
-        const py_bot_ellipse = apexY - Math.abs(cy) * (apexY - profile.botY);
-        const py_ellipse = cy >= 0 ? py_top_ellipse : py_bot_ellipse;
-
-        px = px_manual * (1 - relaxFactor) + px_ellipse * relaxFactor;
-        py = py_manual * (1 - relaxFactor) + py_ellipse * relaxFactor;
+          py = botY + normY * currentThickness;
       }
 
       const tOpposite = 1.0 - tCross;
@@ -508,7 +385,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, minZ);
+  const noseProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, minZ);
   if (noseProfile.halfWidth < 0.1) {
     const centerY = ((noseProfile.topY + noseProfile.botY) / 2) * scale;
     for (let j = 0; j <= segmentsRadial; j++) {
@@ -520,7 +397,7 @@ const generateManualMesh = (model: BoardModel): RawGeometryData => {
     buildEndCap(true, 0, minZ, noseProfile.topY, noseProfile.botY);
   }
 
-  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, maxZ);
+  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
   if (tailProfile.halfWidth < 0.1) {
     const centerY = ((tailProfile.topY + tailProfile.botY) / 2) * scale;
     const ringIndex = segmentsZ - 1;
