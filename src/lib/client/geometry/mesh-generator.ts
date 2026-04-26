@@ -227,13 +227,20 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom: [] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
-    let sliceWidthAtApex = 1.0,
-      sliceTopY = 1.0,
-      sliceBotY = 0.0;
+    let sliceTopY = 1.0,
+      sliceBotY = 0.0,
+      sliceApexX = 1.0,
+      sliceApexY = 0.5;
+
     if (blend) {
-      sliceWidthAtApex = Math.max(0.001, blend.evaluate(0.5)[0]);
-      sliceTopY = blend.evaluate(1.0)[1];
-      sliceBotY = blend.evaluate(0.0)[1];
+      const pBot = blend.evaluate(0.0);
+      const pTop = blend.evaluate(1.0);
+      const pApex = blend.evaluate(0.5);
+      
+      sliceBotY = pBot[1];
+      sliceTopY = pTop[1];
+      sliceApexX = Math.max(0.001, pApex[0]);
+      sliceApexY = pApex[1];
     }
 
     for (let j = 0; j <= segmentsRadial; j++) {
@@ -250,12 +257,22 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
       let px = 0,
         py = profile.botY + (profile.topY - profile.botY) / 2;
-      if (blend && profile.halfWidth > 0.01) {
-        const p = blend.evaluate(t),
-          sT = Math.abs(sliceTopY - sliceBotY);
-        if (sT > 0.001) py = profile.botY + ((p[1] - sliceBotY) / sT) * (profile.topY - profile.botY);
-
-        px = isStringer ? 0 : side * p[0] * (profile.halfWidth / sliceWidthAtApex);
+        
+      if (blend && profile.halfWidth > 0.001) {
+        const p = blend.evaluate(t);
+        
+        const normX = p[0] / sliceApexX;
+        px = isStringer ? 0 : side * normX * profile.apexX;
+        
+        if (p[1] >= sliceApexY) {
+          const rangeY = sliceTopY - sliceApexY;
+          const normY = rangeY > 0.001 ? (p[1] - sliceApexY) / rangeY : 0;
+          py = profile.apexY + normY * (profile.topY - profile.apexY);
+        } else {
+          const rangeY = sliceApexY - sliceBotY;
+          const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
+          py = profile.apexY - normY * (profile.apexY - profile.botY);
+        }
       }
 
       vertices.push(px * scale, py * scale, zInches * scale);
