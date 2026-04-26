@@ -5,7 +5,6 @@ import * as THREE from "three";
 import type { BoardModel, BezierCurveData } from "../pages/board-builder-page.logic";
 import { generateBoardCurves, type BoardCurves } from "../../lib/client/geometry/board-curves";
 import { MeshGeneratorService } from "../../lib/client/geometry/mesh-generator";
-import { extractCrossSectionsSS9000 } from "../../lib/client/geometry/manual-baker";
 import { TextureManager } from "./managers/TextureManager";
 import { AnnotationBuilder } from "./builders/AnnotationBuilder";
 import { FinBuilder } from "./builders/FinBuilder";
@@ -222,7 +221,7 @@ export class BoardViewport extends LitElement {
       child.geometry.dispose(); (child.material as THREE.Material).dispose();
       this.sliceLinesGroup.remove(child);
     }
-    const crossSections = this.boardState!.crossSections || extractCrossSectionsSS9000(this.boardState!, curves);
+    const crossSections = this.boardState!.crossSections ||[];
     if (this.boardState?.showCrossSections !== false) {
       crossSections.forEach((cs, idx) => {
         const pts: THREE.Vector3[] = this.sampleBezierCurve(cs, 40).map(p => new THREE.Vector3(p[0]*scale, p[1]*scale, p[2]*scale));
