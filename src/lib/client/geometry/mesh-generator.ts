@@ -105,12 +105,17 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
     // Keeping tuckY tied to botPt[1] ensures the bottom contour scaling remains stable.
   }
 
+  const finalApexX = Math.max(0.001, apexX);
+  // Enforce rail integrity: the rail tuck (bottom edge) cannot be wider than the apex.
+  // This prevents self-intersecting geometry (folded rails) during sharp tail transitions.
+  const finalTuckX = Math.min(Math.max(0, tuckX), finalApexX);
+
   return { 
     topY: topPt[1], 
     botY: botPt[1], 
-    apexX: Math.max(0, apexX),
+    apexX: finalApexX,
     apexY, 
-    tuckX: Math.max(0, tuckX),
+    tuckX: finalTuckX,
     tuckY,
     halfWidth: Math.max(0, outlinePt[0]) 
   };
