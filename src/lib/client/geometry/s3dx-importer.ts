@@ -158,9 +158,10 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     crossSections.sort((a, b) => (a.controlPoints[0]?.[2] || 0) - (b.controlPoints[0]?.[2] || 0));
 
     // --- FIX FOR SLICE Y-OFFSET ---
-    // Shape3D slices are stored with Z=0 at the local bottom stringer.
-    // translateFromShape3d maps this to y = -thickness/2.
-    // We must shift them up to match the actual Rocker Bottom curve.
+    // Shape3D couples are sometimes stored with Z=0 at the bottom of the bounding box,
+    // not necessarily the bottom stringer (e.g., in a deep Vee, the stringer is lower).
+    // We must calculate the strict delta needed to snap Node 0 (the bottom stringer)
+    // perfectly onto the Rocker Bottom curve at this slice's Z location.
     const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
       const numSegments = bezier.controlPoints.length - 1;
       if (numSegments <= 0) return bezier.controlPoints[0] || [0, 0, 0];
@@ -203,7 +204,11 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       if (slice.controlPoints.length === 0) continue;
       const sliceZ = slice.controlPoints[0]![2];
       const rockerY = getRockerYAtZ(rockerBottom, sliceZ);
-      const shiftY = rockerY + (thicknessInches / 2);
+      
+      // The bottom stringer of the slice must perfectly align with the rocker bottom.
+      // We calculate the delta between the rocker's Y and the slice's bottom stringer Y.
+      const localStringerY = slice.controlPoints[0]![1];
+      const shiftY = rockerY - localStringerY;
 
       const shiftPoint = (pt: Point3D) => {
         if (pt) pt[1] += shiftY;
