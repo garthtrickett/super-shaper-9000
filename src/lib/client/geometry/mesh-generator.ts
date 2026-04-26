@@ -155,22 +155,28 @@ export const getBottomYAt = (model: BoardModel, curves: BoardCurves, xInches: nu
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
   if (!blend || profile.halfWidth <= 0.001) return profile.botY;
 
-  const sliceWidthAtApex = Math.max(0.001, blend.evaluate(0.5)[0]);
+  const pApex = blend.evaluate(blend.tApex);
+  const sliceApexX = Math.max(0.001, pApex[0]);
+  const sliceApexY = pApex[1];
+  const sliceBotY = blend.evaluate(0.0)[1];
+
   let t0 = 0,
-    t1 = 0.5,
+    t1 = blend.tApex,
     p = [0, 0, 0] as Point3D;
   const targetX = Math.abs(xInches);
 
   for (let i = 0; i < 15; i++) {
     const tMid = (t0 + t1) / 2;
     p = blend.evaluate(tMid);
-    if (p[0] * (profile.halfWidth / sliceWidthAtApex) < targetX) t0 = tMid;
+    const normX = p[0] / sliceApexX;
+    const mappedX = normX * profile.apexX;
+    if (mappedX < targetX) t0 = tMid;
     else t1 = tMid;
   }
 
-  const sliceThickness = Math.abs(blend.evaluate(1.0)[1] - blend.evaluate(0.0)[1]);
-  if (sliceThickness < 0.001) return profile.botY;
-  return profile.botY + ((p[1] - blend.evaluate(0.0)[1]) / sliceThickness) * (profile.topY - profile.botY);
+  const rangeY = sliceApexY - sliceBotY;
+  const normY = rangeY > 0.001 ? (sliceApexY - p[1]) / rangeY : 0;
+  return profile.apexY - normY * (profile.apexY - profile.botY);
 };
 
 export const MeshGeneratorService = {
