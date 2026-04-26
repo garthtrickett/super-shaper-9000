@@ -142,23 +142,23 @@ describe("MeshGeneratorService", () => {
 
     it("should collapse the tip and tail into single points if thickness is forced to 0", async () => {
       // By forcing thickness to 0 at the nose and tail, we can check if the generator converges them properly.
-      const pinchedState = {
+      const pinchedState: BoardModel = {
         ...INITIAL_STATE,
         rockerTop: {
           ...INITIAL_STATE.rockerTop,
           controlPoints: [
-[0, 0, -35], // Pinched Nose
+            [0, 0, -35], // Pinched Nose
             INITIAL_STATE.rockerTop.controlPoints[1]!,
             [0, 0, 35]   // Pinched Tail
-          ] as [number, number, number][]
+          ]
         },
         rockerBottom: {
           ...INITIAL_STATE.rockerBottom,
           controlPoints: [
             [0, 0, -35], // Pinched Nose
             INITIAL_STATE.rockerBottom.controlPoints[1]!,
-[0, 0, 35]   // Pinched Tail
-          ] as [number, number, number][]
+            [0, 0, 35]   // Pinched Tail
+          ]
         }
       };
 
@@ -187,19 +187,18 @@ describe("MeshGeneratorService", () => {
       }
       expect(tailPinched).to.be.true;
     });
-  });
 
     it("should use independent vertices for end-caps to prevent smooth-shading 'X' artifacts", async () => {
       // Create a squash tail state so we have a flat surface to test
-      const squashState = {
+      const squashState: BoardModel = {
         ...INITIAL_STATE,
         outline: {
           ...INITIAL_STATE.outline,
           controlPoints: [
-[0, 0, -35], 
+            [0, 0, -35], 
             INITIAL_STATE.outline.controlPoints[1]!,
-[3, 0, 35] // 6 inch wide squash tail
-          ] as [number, number, number][]
+            [3, 0, 35] // 6 inch wide squash tail
+          ]
         }
       };
       const curves = await generateBoardCurves(squashState);
@@ -266,7 +265,10 @@ describe("MeshGeneratorService", () => {
         outline: importedData.outline,
         rockerTop: importedData.rockerTop,
         rockerBottom: importedData.rockerBottom,
-        crossSections: importedData.crossSections
+        crossSections: importedData.crossSections,
+        railOutline: importedData.railOutline,
+        apexOutline: importedData.apexOutline,
+        apexRocker: importedData.apexRocker
       };
 
       const mesh = MeshGeneratorService.generateMesh(manualState, {

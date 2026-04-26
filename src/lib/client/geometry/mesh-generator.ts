@@ -361,48 +361,94 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  // --- Cap the Nose (-Z) ---
-  const noseRingStartIndex = 0;
-  let noseCenterX = 0, noseCenterY = 0;
-  for (let j = 0; j < segmentsRadial; j++) {
-      noseCenterX += vertices[(noseRingStartIndex + j) * 3]!;
-      noseCenterY += vertices[(noseRingStartIndex + j) * 3 + 1]!;
-  }
-  noseCenterX /= segmentsRadial;
-  noseCenterY /= segmentsRadial;
+  // --- END CAPS (Using duplicated vertices for sharp 90-degree normals) ---
   
-  const noseCenterIdx = vertices.length / 3;
-  vertices.push(noseCenterX, noseCenterY, minZ * scale);
-  uvs.push(0.5, 0);
-  colors.push(0, 0, 1);
-
+  // Nose (-Z)
+  const noseRingStartIndex = 0;
+  let noseMinX = Infinity, noseMaxX = -Infinity;
+  let noseMinY = Infinity, noseMaxY = -Infinity;
   for (let j = 0; j < segmentsRadial; j++) {
-      const v0 = noseRingStartIndex + j;
-      const v1 = noseRingStartIndex + j + 1;
-      // Reverse winding for the front face to point outwards (-Z)
-      indices.push(noseCenterIdx, v1, v0);
+      const x = vertices[(noseRingStartIndex + j) * 3]!;
+      const y = vertices[(noseRingStartIndex + j) * 3 + 1]!;
+      noseMinX = Math.min(noseMinX, x);
+      noseMaxX = Math.max(noseMaxX, x);
+      noseMinY = Math.min(noseMinY, y);
+      noseMaxY = Math.max(noseMaxY, y);
+  }
+  const noseWidth = noseMaxX - noseMinX;
+  const noseHeight = noseMaxY - noseMinY;
+
+  // Only cap if it's actually an open hole (like a blunt nose or squash tail). 
+  // If it's a pin tail (width ~ 0), the left and right sides spatially seal themselves!
+  if (noseWidth > 1e-4) {
+      const noseCenterX = (noseMinX + noseMaxX) / 2;
+      const noseCenterY = (noseMinY + noseMaxY) / 2;
+      const noseCenterIdx = vertices.length / 3;
+      
+      vertices.push(noseCenterX, noseCenterY, minZ * scale);
+      uvs.push(0.5, 0.5);
+      colors.push(0, 0, 1);
+
+      const capRingStartIdx = vertices.length / 3;
+      for (let j = 0; j <= segmentsRadial; j++) {
+          const srcIdx = noseRingStartIndex + j;
+          const vx = vertices[srcIdx * 3]!;
+          const vy = vertices[srcIdx * 3 + 1]!;
+          vertices.push(vx, vy, vertices[srcIdx * 3 + 2]!);
+          
+          const u = noseWidth > 0 ? (vx - noseMinX) / noseWidth : 0.5;
+          const v = noseHeight > 0 ? (vy - noseMinY) / noseHeight : 0.5;
+          uvs.push(u, v);
+          colors.push(colors[srcIdx * 3]!, colors[srcIdx * 3 + 1]!, colors[srcIdx * 3 + 2]!);
+      }
+
+      for (let j = 0; j < segmentsRadial; j++) {
+          // Reverse winding for Nose (-Z facing)
+          indices.push(noseCenterIdx, capRingStartIdx + j + 1, capRingStartIdx + j);
+      }
   }
 
-  // --- Cap the Tail (+Z) ---
+  // Tail (+Z)
   const tailRingStartIndex = (segmentsZ - 1) * (segmentsRadial + 1);
-  let tailCenterX = 0, tailCenterY = 0;
+  let tailMinX = Infinity, tailMaxX = -Infinity;
+  let tailMinY = Infinity, tailMaxY = -Infinity;
   for (let j = 0; j < segmentsRadial; j++) {
-      tailCenterX += vertices[(tailRingStartIndex + j) * 3]!;
-      tailCenterY += vertices[(tailRingStartIndex + j) * 3 + 1]!;
+      const x = vertices[(tailRingStartIndex + j) * 3]!;
+      const y = vertices[(tailRingStartIndex + j) * 3 + 1]!;
+      tailMinX = Math.min(tailMinX, x);
+      tailMaxX = Math.max(tailMaxX, x);
+      tailMinY = Math.min(tailMinY, y);
+      tailMaxY = Math.max(tailMaxY, y);
   }
-  tailCenterX /= segmentsRadial;
-  tailCenterY /= segmentsRadial;
+  const tailWidth = tailMaxX - tailMinX;
+  const tailHeight = tailMaxY - tailMinY;
 
-  const tailCenterIdx = vertices.length / 3;
-  vertices.push(tailCenterX, tailCenterY, maxZ * scale);
-  uvs.push(0.5, 1);
-  colors.push(0, 0, 1);
+  if (tailWidth > 1e-4) {
+      const tailCenterX = (tailMinX + tailMaxX) / 2;
+      const tailCenterY = (tailMinY + tailMaxY) / 2;
+      const tailCenterIdx = vertices.length / 3;
+      
+      vertices.push(tailCenterX, tailCenterY, maxZ * scale);
+      uvs.push(0.5, 0.5);
+      colors.push(0, 0, 1);
 
-  for (let j = 0; j < segmentsRadial; j++) {
-      const v0 = tailRingStartIndex + j;
-      const v1 = tailRingStartIndex + j + 1;
-      // Standard winding for the back face to point outwards (+Z)
-      indices.push(tailCenterIdx, v0, v1);
+      const capRingStartIdx = vertices.length / 3;
+      for (let j = 0; j <= segmentsRadial; j++) {
+          const srcIdx = tailRingStartIndex + j;
+          const vx = vertices[srcIdx * 3]!;
+          const vy = vertices[srcIdx * 3 + 1]!;
+          vertices.push(vx, vy, vertices[srcIdx * 3 + 2]!);
+          
+          const u = tailWidth > 0 ? (vx - tailMinX) / tailWidth : 0.5;
+          const v = tailHeight > 0 ? (vy - tailMinY) / tailHeight : 0.5;
+          uvs.push(u, v);
+          colors.push(colors[srcIdx * 3]!, colors[srcIdx * 3 + 1]!, colors[srcIdx * 3 + 2]!);
+      }
+
+      for (let j = 0; j < segmentsRadial; j++) {
+          // Standard winding for Tail (+Z facing)
+          indices.push(tailCenterIdx, capRingStartIdx + j, capRingStartIdx + j + 1);
+      }
   }
 
   return {
