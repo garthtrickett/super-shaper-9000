@@ -324,7 +324,18 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const scaleFactor = cosAngle > 0.1 ? (1 / cosAngle) : 1;
 
       if (Math.abs(sliceThickness) > 1e-6) {
-          const normY = (rawY - sliceBot) / sliceThickness;
+          let normY = (rawY - sliceBot) / sliceThickness;
+          let boxNormY = 0;
+          if (j === 0 || j === 18 || j === 36) {
+              boxNormY = currentThickness > 1e-6 ? (profile.apexY - botY) / currentThickness : 0.5;
+          } else if (j > 0 && j < 18) {
+              boxNormY = 1.0;
+          } else {
+              boxNormY = 0.0;
+          }
+          // Taper into a pure box edge at the tip
+          normY = normY * smoothFade + boxNormY * (1 - smoothFade);
+
           const depthScale = 1 + (scaleFactor - 1) * (1 - normY);
           py = botY + (normY * currentThickness) * depthScale;
       }
@@ -335,7 +346,18 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
       let pyOpp = botY + currentThickness / 2;
       if (Math.abs(sliceThickness) > 1e-6) {
-          const normYOpp = (rawYOpp - sliceBot) / sliceThickness;
+          let normYOpp = (rawYOpp - sliceBot) / sliceThickness;
+          let boxNormYOpp = 0;
+          if (Math.abs(tOpposite - 0.5) < 1e-6) {
+              boxNormYOpp = currentThickness > 1e-6 ? (profile.apexY - botY) / currentThickness : 0.5;
+          } else if (tOpposite > 0.5) {
+              boxNormYOpp = 1.0;
+          } else {
+              boxNormYOpp = 0.0;
+          }
+          // Taper into a pure box edge at the tip
+          normYOpp = normYOpp * smoothFade + boxNormYOpp * (1 - smoothFade);
+
           const depthScaleOpp = 1 + (scaleFactor - 1) * (1 - normYOpp);
           pyOpp = botY + (normYOpp * currentThickness) * depthScaleOpp;
       }
@@ -345,7 +367,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const [r, g, b] = colorHeatmap(normT);
 
       vertices.push(px * scale, py * scale, zInches * scale);
-      uvs.push(j / segmentsRadial, i / (segmentsZ - 1));
+      uvs.push(j / segmentsRadial, vCoord);
       colors.push(r, g, b);
     }
   }
