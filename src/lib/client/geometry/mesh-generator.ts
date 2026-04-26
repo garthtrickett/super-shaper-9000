@@ -399,11 +399,13 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   }
 
   // STEP 4: Generate End Caps (Nose and Tail) if they possess physical dimensions
-  const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, minZ);
+  const noseProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, minZ);
   const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
   
-  const noseNeedsCap = noseProfile.halfWidth >= 1e-3 || (noseProfile.topY - noseProfile.botY) >= 1e-3;
-  const tailNeedsCap = tailProfile.halfWidth >= 1e-3 || (tailProfile.topY - tailProfile.botY) >= 1e-3;
+  // Only cap if the width is greater than zero. If width is 0, the hull already collapses onto a vertical line.
+  const noseNeedsCap = noseProfile.halfWidth >= 1e-3;
+  const tailNeedsCap = tailProfile.halfWidth >= 1e-3;
+  const halfRadial = Math.floor(segmentsRadial / 2);
 
   if (noseNeedsCap) {
     const ringStartIndex = 0;
@@ -417,12 +419,21 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       normals.push(0, 0, -1); // Nose faces backwards (-Z)
     }
 
-    for (let j = 0; j < segmentsRadial / 2; j++) {
+    for (let j = 0; j < halfRadial; j++) {
       const a = capVertexStartIndex + j;
       const b = capVertexStartIndex + j + 1;
       const c = capVertexStartIndex + segmentsRadial - j;
       const d = capVertexStartIndex + segmentsRadial - (j + 1);
-      indices.push(a, b, d, a, d, c); // Reversed winding for front face
+      
+      if (j === 0) {
+        // Bottom stringer (a and c are identical), omit degenerate triangle
+        indices.push(a, d, b);
+      } else if (j === halfRadial - 1) {
+        // Top stringer (b and d are identical), omit degenerate triangle
+        indices.push(a, c, b);
+      } else {
+        indices.push(a, d, b, a, c, d); // Reversed winding for front face
+      }
     }
   }
 
@@ -438,12 +449,21 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       normals.push(0, 0, 1); // Tail faces forwards (+Z)
     }
 
-    for (let j = 0; j < segmentsRadial / 2; j++) {
+    for (let j = 0; j < halfRadial; j++) {
       const a = capVertexStartIndex + j;
       const b = capVertexStartIndex + j + 1;
       const c = capVertexStartIndex + segmentsRadial - j;
       const d = capVertexStartIndex + segmentsRadial - (j + 1);
-      indices.push(a, d, b, a, c, d); // Standard winding for back face
+      
+      if (j === 0) {
+        // Bottom stringer (a and c are identical), omit degenerate triangle
+        indices.push(a, b, d);
+      } else if (j === halfRadial - 1) {
+        // Top stringer (b and d are identical), omit degenerate triangle
+        indices.push(a, b, c);
+      } else {
+        indices.push(a, b, d, a, d, c); // Standard winding for back face
+      }
     }
   }
 
