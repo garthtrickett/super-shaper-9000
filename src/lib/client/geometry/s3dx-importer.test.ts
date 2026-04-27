@@ -230,11 +230,10 @@ describe("S3DX Importer", () => {
         };
 
         const actualWidth = evaluateBezierAtZ(result.outline, targetZ_ss);
-        const baseOutlineWidth = 16.931 / 2.54;
+        const wingWidth = 18.946 / 2.54;
 
-        // Until we implement 3D Layer composite math, we expect the importer to yield the base outline
-        expect(actualWidth).to.be.closeTo(baseOutlineWidth, 0.1, 
-          "The imported outline currently yields the base curve. 3D Layer compositing is required to see the full wing."
+        expect(actualWidth).to.be.closeTo(wingWidth, 0.1, 
+          "The imported outline should reflect the 3D Layer (Wing) width, not the base outline."
         );
       });
     }
