@@ -5,14 +5,14 @@ import type { BoardControls } from "./board-controls";
 
 describe("BoardControls (UI Component)", () => {
   describe("Event Dispatching", () => {
-    it("should emit number-changed event when slider is moved", async () => {
+    it("should emit number-changed event when length slider is moved", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
       el.addEventListener("number-changed", spy);
 
-      // We query for a specific generic slider (e.g. Length) because Fin sliders map to update-fin-dimension now
+      // Find the length slider specifically (it has max=120 or step=0.5 typically, but we can grab the first one since it's Length)
       const inputs = Array.from(el.querySelectorAll('input[type="range"]')) as HTMLInputElement[];
-      const lengthInput = inputs.find(i => i.max === "120" || i.step === "0.5"); // Length slider properties
+      const lengthInput = inputs[0];
       expect(lengthInput).to.exist;
       
       lengthInput!.value = "72";
@@ -22,19 +22,20 @@ describe("BoardControls (UI Component)", () => {
       expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 72 });
     });
 
-    it("should emit string-changed event when select is changed", async () => {
+    it("should emit update-fin-layout event when fin setup select is changed", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
-      el.addEventListener("string-changed", spy);
+      el.addEventListener("update-fin-layout", spy);
 
-      const select = el.querySelector("select") as HTMLSelectElement;
-      expect(select).to.exist;
+      const selects = Array.from(el.querySelectorAll("select")) as HTMLSelectElement[];
+      const setupSelect = selects.find(s => s.innerHTML.includes("Thruster"));
+      expect(setupSelect).to.exist;
 
-      select.value = "thruster";
-      select.dispatchEvent(new Event("change"));
+      setupSelect!.value = "thruster";
+      setupSelect!.dispatchEvent(new Event("change"));
 
       expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "finSetup", value: "thruster" });
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ setup: "thruster" });
     });
 
     it("should emit import-design event when Import JSON button is clicked", async () => {

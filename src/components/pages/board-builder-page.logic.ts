@@ -381,6 +381,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       };
       return pushHistory(newState);
     }
+    }
     case "UPDATE_NODE_POSITION": {
       const { curve, index, nodeType, position } = action;
       let targetCurve: BezierCurveData | undefined;
