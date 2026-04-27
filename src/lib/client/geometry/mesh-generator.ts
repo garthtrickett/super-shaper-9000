@@ -152,7 +152,7 @@ export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInche
 
   return {
     tApex: Math.max(0, Math.min(1, tApex)),
-    evaluate: (tMid: number) => {
+    evaluate: (tMid: number): Point3D => {
       const p0 = evaluateBezier3D(s0, tMid);
       const p1 = evaluateBezier3D(s1, tMid);
       return [
@@ -488,7 +488,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
   const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] = [];
   const noseWidth = evaluateCompositeOutlineAtZ(model, noseZ, 0)[0];
-  const tailWidth = evaluateCompositeOutlineAtZ(model, tipZ, 1)[0];
 
   for (let i = 0; i <= segmentsV; i++) {
     const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
@@ -525,7 +524,10 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         if (leftJ === 0 || leftJ === segmentsU / 2) isStringer = true;
       }
 
-      let [px, py, pz] = getPointAtUV(model, u, v_outer, zInches, innerX);
+      const point = getPointAtUV(model, u, v_outer, zInches, innerX);
+      let px = point[0];
+      const py = point[1];
+      const pz = point[2];
       
       if (isStringer) px = innerX;
       px *= side;
