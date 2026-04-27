@@ -41,6 +41,7 @@ export interface ImportedS3dxData {
   rockerTop: BezierCurveData;
   apexRocker: BezierCurveData;
   crossSections: BezierCurveData[];
+  outlineLayers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
 }
 
 export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Error> =>
@@ -83,8 +84,7 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     const thicknessInches = thicknessCm * CM_TO_INCHES;
 
     // 2. Helper to extract Bezier Curve from a parent node
-    const extractBezier = (parentSelector: string, isOutline: boolean = false, isRocker: boolean = false): BezierCurveData => {
-      const parent = doc.querySelector(parentSelector);
+    const extractBezier = (parent: Element | null, isOutline: boolean = false, isRocker: boolean = false): BezierCurveData => {
       if (!parent) return { controlPoints: [], tangents1: [], tangents2:[] };
 
       const parsePoints = (subTag: string): Point3D[] => {
@@ -131,26 +131,49 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
 
     // 3. Extract Main Curves
     // Shape3D stores points from Tail to Nose. SS9000 requires Nose to Tail (increasing Z).
-    const outline = reverseCurve(extractBezier("Otl", true, false));
-    const railOutline = reverseCurve(extractBezier("curveDefTop1", true, false));
-    const apexOutline = reverseCurve(extractBezier("curveDefTop2", true, false));
-    const rockerBottom = reverseCurve(extractBezier("StrBot", false, true));
-    const rockerTop = reverseCurve(extractBezier("StrDeck", false, true));
-    const apexRocker = reverseCurve(extractBezier("curveDefSide2", false, true));
+    const outline = reverseCurve(extractBezier(doc.querySelector("Otl"), true, false));
+    const railOutline = reverseCurve(extractBezier(doc.querySelector("curveDefTop1"), true, false));
+    const apexOutline = reverseCurve(extractBezier(doc.querySelector("curveDefTop2"), true, false));
+    const rockerBottom = reverseCurve(extractBezier(doc.querySelector("StrBot"), false, true));
+    const rockerTop = reverseCurve(extractBezier(doc.querySelector("StrDeck"), false, true));
+    const apexRocker = reverseCurve(extractBezier(doc.querySelector("curveDefSide2"), false, true));
 
     // 4. Extract Cross Sections (Couples)
     const crossSections: BezierCurveData[] =[];
     let coupleIdx = 0;
     while (true) {
-      const coupleSelector = `Couples_${coupleIdx}`;
-      const coupleNode = doc.querySelector(coupleSelector);
+      const coupleNode = doc.querySelector(`Couples_${coupleIdx}`);
       if (!coupleNode) break;
 
-      const sliceBezier = extractBezier(coupleSelector, false, false);
+      const sliceBezier = extractBezier(coupleNode, false, false);
       if (sliceBezier.controlPoints.length > 0) {
         crossSections.push(sliceBezier);
       }
       coupleIdx++;
+    }
+
+    // 5. Extract 3D Layers (Calques)
+    const layers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[] =[];
+    let calqueIdx = 0;
+    while (true) {
+      const calqueNode = doc.querySelector(`Calque_${calqueIdx}`);
+      if (!calqueNode) break;
+
+      const actif = calqueNode.querySelector("Actif")?.textContent;
+      if (actif === "1") {
+        const name = calqueNode.querySelector("Nom")?.textContent || `Layer ${calqueIdx}`;
+        
+        const otlExtNode = calqueNode.querySelector("OtlExt > Bezier3d");
+        const otlIntNode = calqueNode.querySelector("OtlInt > Bezier3d");
+        
+        const otlExt = otlExtNode ? reverseCurve(extractBezier(calqueNode.querySelector("OtlExt"), true, false)) : { controlPoints: [], tangents1: [], tangents2:[] };
+        const otlInt = otlIntNode ? reverseCurve(extractBezier(calqueNode.querySelector("OtlInt"), true, false)) : { controlPoints: [], tangents1:[], tangents2:[] };
+        
+        if (otlExt.controlPoints.length > 0 || otlInt.controlPoints.length > 0) {
+          layers.push({ name, otlExt, otlInt });
+        }
+      }
+      calqueIdx++;
     }
     
     // Sort cross sections from Nose to Tail (increasing Z)
@@ -245,6 +268,7 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       rockerBottom,
       rockerTop,
       apexRocker,
-      crossSections
+      crossSections,
+      outlineLayers: layers
     };
   });

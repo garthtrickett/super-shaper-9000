@@ -36,6 +36,11 @@ export const BoardModelSchema = S.Struct({
   history: S.optional(S.Array(S.Unknown)),
   historyIndex: S.optional(S.Number),
   outline: BezierCurveSchema,
+  outlineLayers: S.optional(S.Array(S.Struct({
+    name: S.String,
+    otlExt: BezierCurveSchema,
+    otlInt: BezierCurveSchema
+  }))),
   railOutline: S.optional(BezierCurveSchema),
   apexOutline: S.optional(BezierCurveSchema),
   rockerTop: BezierCurveSchema,
@@ -72,6 +77,7 @@ export type SelectedNode = {
 
 export interface ManualSnapshot {
   outline: BezierCurveData;
+  outlineLayers?: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
   railOutline?: BezierCurveData;
   apexOutline?: BezierCurveData;
   rockerTop: BezierCurveData;
@@ -188,7 +194,7 @@ export type BoardAction =
   | { type: "REDO" }
   | { type: "SCALE_WIDTH"; factor: number }
   | { type: "SCALE_THICKNESS"; factor: number }
-  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[] };
+  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[]; outlineLayers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[] };
 
 const pushHistory = (currentState: BoardModel): BoardModel => {
   const snapshot: ManualSnapshot = {
@@ -377,7 +383,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         rockerTop: action.rockerTop,
         rockerBottom: action.rockerBottom,
         apexRocker: action.apexRocker,
-        crossSections: action.crossSections
+        crossSections: action.crossSections,
+        outlineLayers: action.outlineLayers
       };
       return pushHistory(newState);
     }

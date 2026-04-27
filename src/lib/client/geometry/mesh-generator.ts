@@ -181,6 +181,31 @@ export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInche
   };
 };
 
+export const evaluateCompositeOutlineAtZ = (model: BoardModel, zInches: number, hintT: number = 0.5): Point3D => {
+  const basePt = evaluateBezierAtZ(model.outline, zInches, hintT);
+  
+  if (!model.outlineLayers || model.outlineLayers.length === 0) return basePt;
+
+  let finalX = basePt[0];
+  
+  for (const layer of model.outlineLayers) {
+    if (layer.otlExt && layer.otlExt.controlPoints.length > 0) {
+      const minZ = layer.otlExt.controlPoints[0]![2];
+      const maxZ = layer.otlExt.controlPoints[layer.otlExt.controlPoints.length - 1]![2];
+      
+      const z0 = Math.min(minZ, maxZ);
+      const z1 = Math.max(minZ, maxZ);
+      
+      if (zInches >= z0 - 0.01 && zInches <= z1 + 0.01) {
+        const extPt = evaluateBezierAtZ(layer.otlExt, zInches, hintT);
+        finalX = extPt[0];
+      }
+    }
+  }
+  
+  return [finalX, basePt[1], basePt[2]];
+};
+
 const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number, hintT: number = 0.5): Point3D => {
   let bestT = hintT;
   let minErr = Infinity;
@@ -236,8 +261,9 @@ export const getPointAtUV = (
   overrideZ?: number, 
   innerX: number = 0
 ): Point3D => {
-  const outPt = evaluateBezier3D(model.outline, v);
-  const zInches = overrideZ !== undefined ? overrideZ : outPt[2];
+  const basePt = evaluateBezier3D(model.outline, v);
+  const zInches = overrideZ !== undefined ? overrideZ : basePt[2];
+  const outPt = evaluateCompositeOutlineAtZ(model, zInches, v);
 
   // Z-evaluate using v as a hintT to ensure we pick the correct branch on folded tails
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches, v);
@@ -444,6 +470,37 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   zRings.sort((a, b) => a - b);
   segmentsV = zRings.length - 1;
 
+  // Inject critical Z coordinates (Control Points) to capture razor sharp wings and swallow tails
+  const zRings: number[] =[];
+  for (let i = 0; i <= segmentsV; i++) {
+    const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
+    zRings.push(noseZ + vParam * (tipZ - noseZ));
+  }
+
+  // Detect wings (vertical steps in the outline) and inject micro-slices to render sharp walls
+  model.outline.controlPoints.forEach(p => {
+    if (Math.abs(p[2] - noseZ) > 0.1 && Math.abs(p[2] - tipZ) > 0.1) {
+      zRings.push(p[2] - 0.001);
+      zRings.push(p[2]);
+      zRings.push(p[2] + 0.001);
+    }
+  });
+
+  if (model.outlineLayers) {
+    model.outlineLayers.forEach(layer => {
+      layer.otlExt.controlPoints.forEach(p => {
+        if (Math.abs(p[2] - noseZ) > 0.1 && Math.abs(p[2] - tipZ) > 0.1) {
+          zRings.push(p[2] - 0.001);
+          zRings.push(p[2]);
+          zRings.push(p[2] + 0.001);
+        }
+      });
+    });
+  }
+
+  zRings.sort((a, b) => a - b);
+  segmentsV = zRings.length - 1;
+
   const sliceArcLengths = new Float32Array(segmentsV + 1);
   let totalArcLength = 0;
   const lastCenterPos = new THREE.Vector3();
@@ -466,13 +523,13 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   }
 
   const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] = [];
-
-  const noseWidth = evaluateBezier3D(model.outline, 0)[0];
-  const tailWidth = evaluateBezier3D(model.outline, 1)[0];
+  const noseWidth = evaluateCompositeOutlineAtZ(model, noseZ, 0)[0];
+  const tailWidth = evaluateCompositeOutlineAtZ(model, tipZ, 1)[0];
 
   for (let i = 0; i <= segmentsV; i++) {
     const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
     const zInches = zRings[i]!;
+    const vCoord = sliceArcLengths[i]! / totalArcLength;
     const vCoord = sliceArcLengths[i]! / totalArcLength;
     
     const v_outer = findVAtZ(model.outline, zInches, 0, v_tip);
@@ -565,7 +622,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const pushTriangle = (i1: number, i2: number, i3: number) => {
     indices.push(i1, i2, i3);
   };
-
   for (let i = 0; i < segmentsV; i++) {
     const z0 = zRings[i]!;
     const z1 = zRings[i + 1]!;
@@ -800,7 +856,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInches: number, hintT: number = 0.5) => {
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches, hintT);
   const botPt = evaluateBezierAtZ(model.rockerBottom, zInches, hintT);
-  const outlinePt = evaluateBezierAtZ(model.outline, zInches, hintT);
+  const outlinePt = evaluateCompositeOutlineAtZ(model, zInches, hintT);
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
   // Prevent vertical bowtie inversion (Deck Y < Bottom Y) caused by cubic Bezier overshoot at the tail
@@ -924,4 +980,5 @@ export const MeshGeneratorService = {
   getPointAtUV,
   getBoardProfileAtZ,
   getBottomYAt,
+  evaluateCompositeOutlineAtZ,
 };
