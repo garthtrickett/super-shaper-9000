@@ -263,23 +263,19 @@ This document outlines best practices for writing maintainable TypeScript code. 
 
 ---
 
-## GRUG's Guidelines
+## GRUG's Guidelines (Language-Agnostic Functional Principles)
 
-1.  **Generics:** Use caution. Limit generics to container classes where they add the most value.
-2.  **Closures:** Good for abstracting operations over collections, but use sparingly.
-3.  **Logging:**
-    *   Log major logical branches (if/for).
-    *   Include request IDs for distributed requests.
-    *   Use dynamic log levels and per-user logging for debugging.
-4.  **Parsing:** Recursive descent is preferred.
-5.  **Concurrency:** Prefer simple models like stateless handlers or independent job queues.
-6.  **Testing:**
-    *   Write tests after the prototype firms up.
-    *   **Integration Tests:** The sweet spot; high-level correctness but low-level enough to debug.
-    *   **E2E Tests:** Maintain a small, curated suite for common features and edge cases.
-7.  **Mocking:** Avoid if possible. If necessary, keep it coarse-grained at system boundaries.
-8.  **Refactoring:** Keep steps small. The system should work at all times.
-9.  **Microservices:** Avoid introducing network calls unless necessary; they add significant complexity.
+1.  **Calculation vs. Execution (The Reducer Rule):** Separate logic into "Pure Calculation" (math, data transformation, Reducers) and "Impure Execution" (Disk I/O, Network, DOM updates, `Effect` runners). A Reducer/Update function must be a "Mathematical Vat." Given the same State and Action, it *must* return the same result every time. It cannot ask the filesystem for a file or a clock for the time.
+2.  **Expression-Based Coding:** Avoid creating temporary `let` or `var` variables that stay in scope longer than needed. Use expressions to return values directly from logic blocks.
+    *   *Good:* `const result = condition ? A : B;`
+    *   *Bad:* `let result; if (condition) { result = A; } else { result = B; }`
+3.  **The "Anti-Manager" Pattern:** Logic should follow the data, not be trapped in a stateful "Manager" class. Forbid classes like `ValidationService`, `MeshHelper`, or `AuthManager`. Use Top-Level Functions (in TS) or Pure Functions on Structs (in Rust) instead of instantiable "Service" classes. If a piece of code doesn't hold its own long-running mutable state, it shouldn't be a class/object.
+4.  **Railway Oriented Programming (ROP):** Do not use Exceptions for control flow. If a function can fail, the failure is a *valid return type*. Return a "Box" (`Effect`, `Either`, `Result`) that contains either the Success or the Error. The caller is forced by the compiler to handle both.
+5.  **Next-Action Predicates (NAPs):** The state should describe *what* should be happening, and a separate "Observer" layer should make it happen. (e.g., If `state.needs_volume_recalc === true`, the UI doesn't call the volume function directly. Instead, a background thread or a reactive effect notices the state change and triggers the calculation automatically).
+6.  **Exhaustive Matching:** Ensure every possible Action/State is handled exhaustively by the compiler.
+7.  **Generics:** Use caution. Limit generics to container classes where they add the most value.
+8.  **Testing:** Write tests after the prototype firms up. Integration Tests are the sweet spot. Maintain a small, curated suite for E2E. Avoid mocking if possible.
+9.  **Refactoring:** Keep steps small. The system should work at all times.
 
 ---
 
