@@ -1,8 +1,10 @@
 import { expect } from "@open-wc/testing";
 import { Effect } from "effect";
 import { translateToShape3d, exportS3dx } from "./s3dx-exporter";
-import type { BoardModel } from "../../../components/pages/board-builder-page.logic";
-import type { BoardCurves } from "./board-curves";
+import { parseS3dx } from "./s3dx-importer";
+import { generateBoardCurves, type BoardCurves } from "./board-curves";
+import { INITIAL_STATE, type BoardModel, type BezierCurveData } from "../../../components/pages/board-builder-page.logic";
+import { runClientPromise } from "../runtime";
 
 describe("S3DX Exporter", () => {
   describe("translateToShape3d (World Coordinate Mapping)", () => {
@@ -116,6 +118,72 @@ describe("S3DX Exporter", () => {
       // Verify Step 3 Slices were injected using exact array length (1 mock slice)
       expect(xml).to.include("<Number_of_slices>1</Number_of_slices>");
       expect(xml).to.include("<Couples_0>");
+    });
+  });
+
+  describe("Integration: Export-Import Round Trip", () => {
+    it("preserves geometric integrity of WitcherDaily within tolerances after full round-trip", async () => {
+      // 1. Import canonical ground truth
+      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+      expect(response.ok).to.be.true;
+      const originalXml = await response.text();
+      const groundTruth = await runClientPromise(parseS3dx(originalXml));
+
+      // 2. Create BoardModel
+      const mockModel: BoardModel = {
+        ...INITIAL_STATE,
+        length: groundTruth.length,
+        width: groundTruth.width,
+        thickness: groundTruth.thickness,
+        outline: groundTruth.outline,
+        rockerTop: groundTruth.rockerTop,
+        rockerBottom: groundTruth.rockerBottom,
+        crossSections: groundTruth.crossSections,
+        railOutline: groundTruth.railOutline,
+        apexOutline: groundTruth.apexOutline,
+        apexRocker: groundTruth.apexRocker,
+      };
+
+      // 3. Generate Curves and Export
+      const curves = await generateBoardCurves(mockModel);
+      const exportedXml = await runClientPromise(exportS3dx(mockModel, curves));
+
+      // 4. Import the newly generated XML
+      const roundTripData = await runClientPromise(parseS3dx(exportedXml));
+
+      // 5. Tolerance-based assertions
+      const TOLERANCE = 0.05; // 0.05 inches tolerance
+
+      // Dimensions
+      expect(roundTripData.length).to.be.closeTo(groundTruth.length, TOLERANCE, "Length mismatch");
+      expect(roundTripData.width).to.be.closeTo(groundTruth.width, TOLERANCE, "Width mismatch");
+      expect(roundTripData.thickness).to.be.closeTo(groundTruth.thickness, TOLERANCE, "Thickness mismatch");
+
+      // Helper to check curve points
+      const expectCurvesClose = (c1: BezierCurveData | undefined, c2: BezierCurveData | undefined, name: string) => {
+        if (!c1 || !c2) {
+          expect(!!c1).to.equal(!!c2, `${name} curve presence mismatch`);
+          return;
+        }
+        expect(c2.controlPoints.length).to.equal(c1.controlPoints.length, `${name} point count mismatch`);
+        for (let i = 0; i < c1.controlPoints.length; i++) {
+          expect(c2.controlPoints[i]![0]).to.be.closeTo(c1.controlPoints[i]![0], TOLERANCE, `${name} CP[${i}].x mismatch`);
+          expect(c2.controlPoints[i]![1]).to.be.closeTo(c1.controlPoints[i]![1], TOLERANCE, `${name} CP[${i}].y mismatch`);
+          expect(c2.controlPoints[i]![2]).to.be.closeTo(c1.controlPoints[i]![2], TOLERANCE, `${name} CP[${i}].z mismatch`);
+        }
+      };
+
+      expectCurvesClose(groundTruth.outline, roundTripData.outline, "Outline");
+      expectCurvesClose(groundTruth.rockerTop, roundTripData.rockerTop, "RockerTop");
+      expectCurvesClose(groundTruth.rockerBottom, roundTripData.rockerBottom, "RockerBottom");
+      expectCurvesClose(groundTruth.railOutline, roundTripData.railOutline, "RailOutline");
+      expectCurvesClose(groundTruth.apexOutline, roundTripData.apexOutline, "ApexOutline");
+      expectCurvesClose(groundTruth.apexRocker, roundTripData.apexRocker, "ApexRocker");
+      
+      expect(roundTripData.crossSections.length).to.equal(groundTruth.crossSections.length, "CrossSections count mismatch");
+      for (let j = 0; j < groundTruth.crossSections.length; j++) {
+        expectCurvesClose(groundTruth.crossSections[j], roundTripData.crossSections[j], `CrossSection[${j}]`);
+      }
     });
   });
 });
