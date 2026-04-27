@@ -371,6 +371,45 @@ describe("MeshGeneratorService", () => {
         `Found ${inwardFacingTriangles} tail-cap triangles with incorrect winding order (inward-facing normals), which appear as holes.`,
       );
     });
+
+    it("preserves swallow tail cutouts by not generating a web of foam between the prongs", async () => {
+      const response = await fetch(`/src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx`);
+      const xml = await response.text();
+      const importedData = await runClientPromise(parseS3dx(xml));
+      const manualState: BoardModel = { ...INITIAL_STATE, ...importedData };
+      const curves = await generateBoardCurves(manualState);
+      const mesh = MeshGeneratorService.generateMesh(manualState, curves);
+
+      // In gh-60-winged-swallow:
+      // Notch Z = 34.641
+      // Tip Z = 35.692
+      // At Z = 35.0, the board should be split into two prongs.
+      // There should be NO vertices with X=0 at Z=35.0.
+      
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
+      
+      let minXAt35 = Infinity;
+
+      for (let i = 0; i <= segmentsZ; i++) {
+        // Z is in feet in the generated mesh (vertices array), so we multiply by 12 to get inches
+        const ringZ = mesh.vertices[i * (segmentsRadial + 1) * 3 + 2]! * 12;
+        
+        // Find the ring closest to Z = 35.0 inches
+        if (Math.abs(ringZ - 35.0) < 0.2) {
+          // Check all vertices in this ring
+          for (let j = 0; j <= segmentsRadial; j++) {
+            const x = Math.abs(mesh.vertices[(i * (segmentsRadial + 1) + j) * 3]! * 12);
+            if (x < minXAt35) minXAt35 = x;
+          }
+        }
+      }
+
+      // If the swallow tail is rendered correctly, the minimum X at Z=35.0 should be > 0.
+      // E.g. minX should be around the inner edge of the cutout (e.g. X > 1.0).
+      // If it's a web, minX will be 0.
+      expect(minXAt35).to.be.greaterThan(0.5, "Found geometry at X=0 inside the swallow tail cutout. The tail is rendering as a solid block (square tail) instead of a swallow.");
+    });
   });
 
   describe("Tail Shape & Detail Preservation (Piecewise Scaling & Interpolation)", () => {
