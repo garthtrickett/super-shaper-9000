@@ -77,6 +77,34 @@ export const translateBezierToShape3d = (
   };
 };
 
+const wrapInBezierDef = (
+  tag: string,
+  bezier3dXml: string,
+  top: number,
+  npCouple: number,
+  name: string
+): string => {
+    // Inject the name into the bezier3d block
+    const namedBezier3dXml = bezier3dXml.replace(/<Name>.*<\/Name>/, `<Name>${name}</Name>`);
+
+    return `		<${tag}>
+			<BezierDef>
+				<Top>${top}</Top>
+				<NpCouple>${npCouple}</NpCouple>
+				<Edited>1</Edited>
+				<Displayed>1</Displayed>
+				<DisplayCurvature>0</DisplayCurvature>
+				<DisplayCurvatureRadius>0</DisplayCurvatureRadius>
+				<DisplayCurvatureRadiusDir>0</DisplayCurvatureRadiusDir>
+				<DisplayGuidelines>0</DisplayGuidelines>
+				<Color>0</Color>
+				<FixedRelativeTo>-1</FixedRelativeTo>
+				<BezDiffHorthoValide>1</BezDiffHorthoValide>
+${namedBezier3dXml}
+			</BezierDef>
+		</${tag}>`;
+};
+
 export const exportS3dx = (
   model: BoardModel,
   curves: BoardCurves
@@ -88,25 +116,53 @@ export const exportS3dx = (
     );
 
     // Translate the exact Bezier curves to Shape3d World Coordinates
-    // Shape3D requires the Outline curve to be strictly 2D at Z=0
     const otlBezier = translateBezierToShape3d(model.outline, model.length, model.thickness, true, true);
     const botBezier = translateBezierToShape3d(model.rockerBottom, model.length, model.thickness, false, true);
     const deckBezier = translateBezierToShape3d(model.rockerTop, model.length, model.thickness, false, true);
+    const railOutlineBezier = model.railOutline ? translateBezierToShape3d(model.railOutline, model.length, model.thickness, true, true) : undefined;
+    const apexOutlineBezier = model.apexOutline ? translateBezierToShape3d(model.apexOutline, model.length, model.thickness, true, true) : undefined;
+    const apexRockerBezier = model.apexRocker ? translateBezierToShape3d(model.apexRocker, model.length, model.thickness, false, true) : undefined;
 
     const slicesXml = model.crossSections.map((cs, idx) => {
-      // Cross sections are not reversed because they are purely lateral
       const s3dSlice = translateBezierToShape3d(cs, model.length, model.thickness, false, false);
       const centerZ = s3dSlice.controlPoints.length > 0 ? s3dSlice.controlPoints[s3dSlice.controlPoints.length - 1]![2] : 0;
       return serializeCoupleXML(idx, s3dSlice, centerZ);
     }).join("\n");
 
+    const otlXml = serializeBezier3d("Otl", "", 1, otlBezier, model.length, false, 6);
+    const botXml = serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier, model.length, true, 0);
+    const deckXml = serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier, model.length, true, 0);
+
+    let curveDefs = "\t\t<nbcdTop>15</nbcdTop>\n";
+    if (railOutlineBezier) {
+        const railXml = serializeBezier3d("Bezier3d", "Rail", 1, railOutlineBezier, model.length, false, 6);
+        curveDefs += wrapInBezierDef("curveDefTop1", railXml, 1, 1, "Rail");
+    }
+    if (apexOutlineBezier) {
+        const apexXml = serializeBezier3d("Bezier3d", "Apex", 1, apexOutlineBezier, model.length, false, 6);
+        curveDefs += wrapInBezierDef("curveDefTop2", apexXml, 1, 2, "Apex");
+    }
+
+    curveDefs += "\n\t\t<nbcdSide>15</nbcdSide>\n";
+    const botSideXml = serializeBezier3d("Bezier3d", "Stringer Bot", 2, botBezier, model.length, true, 0);
+    curveDefs += wrapInBezierDef("curveDefSide0", botSideXml, 0, 0, "Stringer Bot");
+    
+    if (apexRockerBezier) {
+      const apexRockerXml = serializeBezier3d("Bezier3d", "Apex", 2, apexRockerBezier, model.length, true, 0);
+      curveDefs += wrapInBezierDef("curveDefSide2", apexRockerXml, 0, 2, "Apex");
+    }
+
+    const deckSideXml = serializeBezier3d("Bezier3d", "Stringer Top", 2, deckBezier, model.length, true, 0);
+    curveDefs += wrapInBezierDef("curveDefSide4", deckSideXml, 0, 4, "Stringer Top");
+
     yield* clientLog("debug", "[s3dx-exporter] Bezier Curves Translated", {
       outlineAnchors: otlBezier.controlPoints.length,
       bottomAnchors: botBezier.controlPoints.length,
-      crossSections: model.crossSections.length
+      crossSections: model.crossSections.length,
+      railOutline: railOutlineBezier?.controlPoints.length ?? 0,
+      apexOutline: apexOutlineBezier?.controlPoints.length ?? 0
     });
     
-    // Generate Fin Box and Leash Plug XML
     const plugsAndFinsXML = generatePlugsAndFinsXML(model, curves);
 
     // XML Serialization & Metadata Injection
@@ -125,9 +181,10 @@ export const exportS3dx = (
 		<Nose_rocker>0.000</Nose_rocker>
 		<Volume>${model.volume.toFixed(3)}</Volume>
 		<Symmetry>6</Symmetry>
-${serializeBezier3d("Otl", "", 1, otlBezier, model.length)}
-${serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier, model.length)}
-${serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier, model.length)}
+${otlXml}
+${botXml}
+${deckXml}
+${curveDefs}
 		<Number_of_slices>${model.crossSections.length}</Number_of_slices>
 ${slicesXml}
 ${plugsAndFinsXML}
@@ -138,55 +195,54 @@ ${plugsAndFinsXML}
 /**
  * Serializes a mapped Bezier curve into Shape3d's proprietary XML format.
  */
-const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DBezier, boardLengthInches: number): string => {
+const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DBezier, boardLengthInches: number, isOpen: boolean, symmetry: number): string => {
   const centerLengthCm = (boardLengthInches / 2) * INCHES_TO_CM;
   
   const formatPt = (p:[number, number, number]) => 
     `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
   
-  const buildPoly = (pts:[number, number, number][], overridePlan: number = plan, overrideSymmetry: number = tag === "Otl" ? 6 : 0) => 
-    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${pts.length}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Symmetry_center>\n\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${centerLengthCm.toFixed(6)}</x><y>0.000000</y><z>0.000000</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>\n\t\t\t\t\t\t</Symmetry_center>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
+  const buildPoly = (pts:[number, number, number][], overridePlan: number = plan) => 
+    `					<Polygone3d>\n						<Nb_of_points>${pts.length}</Nb_of_points>\n						<Open>1</Open>\n						<Symmetry>${symmetry}</Symmetry>\n						<Symmetry_center>\n							<Point3d>\n								<x>${centerLengthCm.toFixed(6)}</x><y>0.000000</y><z>0.000000</z><u>-1.000000</u><color>0</color>\n							</Point3d>\n						</Symmetry_center>\n						<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n					</Polygone3d>`;
 
-  const tangM = `\t\t\t\t<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as[number,number,number]), 0, 0)}\n\t\t\t\t</Tangents_m>`;
+  const tangM = `				<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as[number,number,number]), 0)}\n				</Tangents_m>`;
   
   const getControlType = (i: number, total: number) => {
-    // End points are '32', intermediate points are '0'
     if (i === 0 || i === total - 1) return 32;
     return 0;
   };
 
-  const getTangentType = (i: number, total: number, curveType: 'outline' | 'rocker' ) => {
+  const getTangentType = (i: number, total: number) => {
     if (i === 0 || i === total - 1) return 0;
-    if (curveType === 'outline') {
+    if (plan === 1) { // Outlines
       return 2;
-    } else {
+    } else { // Rockers
       return 32;
     }
   };
 
   const controlTypes = bezier.controlPoints.map((_, i) => 
-    `\t\t\t\t<Control_type_point_${i}> ${getControlType(i, bezier.controlPoints.length)} </Control_type_point_${i}>`
+    `				<Control_type_point_${i}> ${getControlType(i, bezier.controlPoints.length)} </Control_type_point_${i}>`
   ).join("\n");
   
   const tangentTypes = bezier.controlPoints.map((_, i) => 
-    `\t\t\t\t<Tangent_type_point_${i}> ${getTangentType(i, bezier.controlPoints.length, tag === 'Otl' ? 'outline' : 'rocker')} </Tangent_type_point_${i}>`
+    `				<Tangent_type_point_${i}> ${getTangentType(i, bezier.controlPoints.length)} </Tangent_type_point_${i}>`
   ).join("\n");
 
-  return `\t\t<${tag}>
-\t\t\t<Bezier3d>
-\t\t\t\t<Name>${name}</Name>
-\t\t\t\t<Degree>3</Degree>
-\t\t\t\t<Open>${tag === "Otl" ? 0 : 1}</Open>
-\t\t\t\t<Symmetry>${tag === "Otl" ? 6 : 0}</Symmetry>
-\t\t\t\t<Plan>${plan}</Plan>
-\t\t\t\t<Control_points>\n${buildPoly(bezier.controlPoints)}\n\t\t\t\t</Control_points>
-\t\t\t\t<Tangents_1>\n${buildPoly(bezier.tangents1)}\n\t\t\t\t</Tangents_1>
-\t\t\t\t<Tangents_2>\n${buildPoly(bezier.tangents2)}\n\t\t\t\t</Tangents_2>
+  return `		<${tag}>
+			<Bezier3d>
+				<Name>${name}</Name>
+				<Degree>3</Degree>
+				<Open>${isOpen ? 1 : 0}</Open>
+				<Symmetry>${symmetry}</Symmetry>
+				<Plan>${plan}</Plan>
+				<Control_points>\n${buildPoly(bezier.controlPoints)}\n				</Control_points>
+				<Tangents_1>\n${buildPoly(bezier.tangents1)}\n				</Tangents_1>
+				<Tangents_2>\n${buildPoly(bezier.tangents2)}\n				</Tangents_2>
 ${tangM}
 ${controlTypes}
 ${tangentTypes}
-\t\t\t</Bezier3d>
-\t\t</${tag}>`;
+			</Bezier3d>
+		</${tag}>`;
 };
 
 const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): string => {
