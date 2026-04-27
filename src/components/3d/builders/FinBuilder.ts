@@ -120,23 +120,31 @@ export class FinBuilder {
         const vUp = new THREE.Vector3().crossVectors(vBackward, vRight).normalize();
         
         const rotationMatrix = new THREE.Matrix4().makeBasis(vRight, vUp, vBackward);
+        finContainer.quaternion.setFromRotationMatrix(rotationMatrix);
+
         // 5. Apply Toe and Cant locally to the perfectly flush container
-        if (!box.isCenter) {
-            const cantRad = box.cantAngle * Math.PI / 180;
-            const toeRad = box.toeAngle * Math.PI / 180;
+        if (!isCenter) {
+            const cantRad = boardState.cantAngle * Math.PI / 180;
+            const toeRad = boardState.toeAngle * Math.PI / 180;
             
-            finContainer.rotateZ(box.isRight ? cantRad : -cantRad);
-            finContainer.rotateY(box.isRight ? toeRad : -toeRad);
+            finContainer.rotateZ(isRight ? cantRad : -cantRad);
+            finContainer.rotateY(isRight ? toeRad : -toeRad);
         }
         
         group.add(finContainer);
     };
 
     // Render all fins in the parametric model
-    boardState.boxes?.forEach(box => {
-        if (box.type === "fin") {
-            mountFin(box);
-        }
-    });
+    if (boardState.finSetup === 'thruster' || boardState.finSetup === 'quad' || boardState.finSetup === 'twin') {
+      mountFin(boardState.frontFinZ, boardState.frontFinX, true, false, false);
+      mountFin(boardState.frontFinZ, boardState.frontFinX, false, false, false);
+    }
+    
+    if (boardState.finSetup === 'thruster') {
+      mountFin(boardState.rearFinZ, 0, false, true, false);
+    } else if (boardState.finSetup === 'quad') {
+      mountFin(boardState.rearFinZ, boardState.rearFinX, true, false, true);
+      mountFin(boardState.rearFinZ, boardState.rearFinX, false, false, true);
+    }
   }
 }

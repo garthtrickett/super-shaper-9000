@@ -355,5 +355,5 @@ ${formatPt(refPointS3D)}</PointCenter>
 \t\t</Box_${i}>`;
   }).join('\n');
 
-  return `<Nb_Boxes>${exportBoxes.length}</Nb_Boxes>\n${boxesXML}`;
+  return `<Nb_Boxes>${boxConfigs.length}</Nb_Boxes>\n${boxesXML}`;
 };

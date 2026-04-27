@@ -22,10 +22,10 @@ describe("BoardControls (UI Component)", () => {
       expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 72 });
     });
 
-    it("should emit update-fin-layout event when fin setup select is changed", async () => {
+    it("should emit string-changed event when fin setup select is changed", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
-      el.addEventListener("update-fin-layout", spy);
+      el.addEventListener("string-changed", spy);
 
       const selects = Array.from(el.querySelectorAll("select")) as HTMLSelectElement[];
       const setupSelect = selects.find(s => s.innerHTML.includes("Thruster"));
@@ -35,7 +35,7 @@ describe("BoardControls (UI Component)", () => {
       setupSelect!.dispatchEvent(new Event("change"));
 
       expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ setup: "thruster" });
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "finSetup", value: "thruster" });
     });
 
     it("should emit import-design event when Import JSON button is clicked", async () => {

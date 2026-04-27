@@ -194,11 +194,15 @@ export class BoardBuilderPage extends LitElement {
           .width=${state.width}
           .thickness=${state.thickness}
           .volume=${state.volume}
-          .boxes=${state.boxes}
+          .finSetup=${state.finSetup}
+          .frontFinZ=${state.frontFinZ}
+          .frontFinX=${state.frontFinX}
+          .rearFinZ=${state.rearFinZ}
+          .rearFinX=${state.rearFinX}
+          .toeAngle=${state.toeAngle}
+          .cantAngle=${state.cantAngle}
           .coreMaterial=${state.coreMaterial}
           .glassingSchedule=${state.glassingSchedule}
-          @update-fin-layout=${(e: CustomEvent<{ setup: "thruster"|"quad"|"twin" }>) => this.ctrl.propose({ type: "UPDATE_FIN_LAYOUT", setup: e.detail.setup })}
-          @update-fin-dimension=${(e: CustomEvent<{ target: "front"|"rear"|"all", param: any, value: number }>) => this.ctrl.propose({ type: "UPDATE_FIN_DIMENSION", target: e.detail.target, param: e.detail.param, value: e.detail.value })}
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
           .showHeatmap=${state.showHeatmap ?? false}
