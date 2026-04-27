@@ -483,9 +483,11 @@ describe("MeshGeneratorService", () => {
       const segmentsZ = 240;
       const segmentsRadial = 96;
         
-      // The tail cap center vertex is the very last vertex pushed into the array
-      const lastVertIdx = (mesh.vertices.length / 3) - 1;
-      const tailCenterY = mesh.vertices[lastVertIdx * 3 + 1]!;
+      // The tail cap pushes the center vertex first, followed by the perimeter vertices.
+      // There are (segmentsRadial + 1) perimeter vertices, so the center vertex is exactly
+      // (segmentsRadial + 2) vertices from the end of the array.
+      const tailCenterVertexIdx = (mesh.vertices.length / 3) - (segmentsRadial + 2);
+      const tailCenterY = mesh.vertices[tailCenterVertexIdx * 3 + 1]!;
 
       // Get expected rockers at the tail (maxZ)
       const maxZ = squashState.outline.controlPoints[squashState.outline.controlPoints.length - 1]![2];
