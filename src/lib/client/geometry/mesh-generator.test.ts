@@ -132,6 +132,81 @@ describe("MeshGeneratorService", () => {
       expect(boundaryEdges.length).to.equal(0, `Found ${boundaryEdges.length} boundary edges indicating holes in the mesh.`);
     });
 
+    it("does not artificially pinch mesh thickness at pointed tails (Geometric Tip Fading bug)", async () => {
+      // Create a state with a mathematically pointed tail (width = 0)
+      // but a thick, blunt tail block in the rocker (thickness = 2)
+      const pointedThickTailState: BoardModel = {
+        ...INITIAL_STATE,
+        outline: {
+          controlPoints: [[0, 0, -35], [10, 0, 0],[0, 0, 35]], // Tail width is 0
+          tangents1: [[0, 0, -35], [10, 0, -10], [0, 0, 25]],
+          tangents2: [[0, 0, -25], [10, 0, 10],[0, 0, 35]]
+        },
+        rockerTop: {
+          controlPoints: [[0, 1, -35], [0, 1, 0],[0, 1, 35]], // Top is uniformly at Y=1
+          tangents1: [[0, 1, -35], [0, 1, -10],[0, 1, 25]],
+          tangents2: [[0, 1, -25],[0, 1, 10], [0, 1, 35]]
+        },
+        rockerBottom: {
+          controlPoints: [[0, -1, -35],[0, -1, 0], [0, -1, 35]], // Bot is uniformly at Y=-1
+          tangents1: [[0, -1, -35], [0, -1, -10],[0, -1, 25]],
+          tangents2: [[0, -1, -25], [0, -1, 10], [0, -1, 35]]
+        }
+      };
+
+      const curves = await generateBoardCurves(pointedThickTailState);
+      const mesh = MeshGeneratorService.generateMesh(pointedThickTailState, curves);
+
+      const segmentsZ = 240;
+      const segmentsRadial = 96;
+
+      // 1. Check thickness inside the 1.5" fade zone (e.g. Z = 34)
+      let targetRingIdx = -1;
+      let minDiff = Infinity;
+      for (let i = 0; i <= segmentsZ; i++) {
+        const ringZ = mesh.vertices[i * (segmentsRadial + 1) * 3 + 2]!; 
+        const zInches = ringZ * 12;
+        const diff = Math.abs(zInches - 34);
+        if (diff < minDiff) {
+          minDiff = diff;
+          targetRingIdx = i;
+        }
+      }
+
+      const ringStartVertex = targetRingIdx * (segmentsRadial + 1) * 3;
+      let maxMeshY = -Infinity;
+      let minMeshY = Infinity;
+      
+      for (let j = 0; j <= segmentsRadial; j++) {
+        const y = mesh.vertices[ringStartVertex + j * 3 + 1]! * 12;
+        if (y > maxMeshY) maxMeshY = y;
+        if (y < minMeshY) minMeshY = y;
+      }
+
+      const meshThicknessAtFadeZone = maxMeshY - minMeshY;
+      expect(meshThicknessAtFadeZone).to.be.closeTo(2.0, 0.05, 
+        "Mesh thickness should match the rocker curves (2.0 inches) even near a pointed tail. " +
+        "Geometric tip fading is incorrectly squashing the thickness."
+      );
+
+      // 2. Check thickness at the EXACT tail ring
+      const tailRingStartVertex = segmentsZ * (segmentsRadial + 1) * 3;
+      let tailMaxY = -Infinity;
+      let tailMinY = Infinity;
+      
+      for (let j = 0; j <= segmentsRadial; j++) {
+        const y = mesh.vertices[tailRingStartVertex + j * 3 + 1]! * 12;
+        if (y > tailMaxY) tailMaxY = y;
+        if (y < tailMinY) tailMinY = y;
+      }
+
+      const tailMeshThickness = tailMaxY - tailMinY;
+      expect(tailMeshThickness).to.be.closeTo(2.0, 0.05, 
+        "Tail ring thickness should match the rocker curves (2.0 inches) even if width is 0. " +
+        "The generator is incorrectly forcing py = centerY at the exact tail."
+      );
+    });
+
     it("should collapse the tip and tail into single points if thickness is forced to 0", async () => {
       // By forcing thickness to 0 at the nose and tail, we can check if the generator converges them properly.
       const pinchedState: BoardModel = {

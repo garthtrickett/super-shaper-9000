@@ -122,7 +122,7 @@ describe("S3DX Exporter", () => {
   });
 
   describe("Integration: Export-Import Round Trip", () => {
-    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx"];
+    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx", "wingedpin.s3dx"];
 
     for (const fixture of FIXTURES) {
       it(`preserves geometric integrity of ${fixture} within tolerances after full round-trip`, async () => {
