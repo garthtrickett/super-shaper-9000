@@ -525,7 +525,7 @@ describe("MeshGeneratorService", () => {
   });
 
   describe("Imported S3DX Edge Cases", () => {
-    const FIXTURES =["WitcherDaily.s3dx", "rounded pin 6'1.s3dx"];
+    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx"];
 
     for (const fixture of FIXTURES) {
       it(`does not create a vertical bowtie (crease) at the tail for ${fixture}`, async () => {
