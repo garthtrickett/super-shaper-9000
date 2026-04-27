@@ -133,18 +133,44 @@ export class BoardViewport extends LitElement {
   private buildWireframe(curves: BoardCurves, scale: number) {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.85 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.85 });
-    const activeOutline = this.boardState?.outline ? this.sampleBezierCurve(this.boardState.outline, 100) : curves.outline;
-    const activeRockerTop = this.boardState?.rockerTop ? this.sampleBezierCurve(this.boardState.rockerTop, 100) : curves.rockerTop;
-    const activeRockerBottom = this.boardState?.rockerBottom ? this.sampleBezierCurve(this.boardState.rockerBottom, 100) : curves.rockerBottom;
 
-    const buildLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false) => {
-        const geometry = new THREE.BufferGeometry();
-        const vertices = new Float32Array(pts.length * 3);
-        pts.forEach((p, i) => {
-            vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
-            vertices[i*3+1] = p[1] * scale;
-            vertices[i*3+2] = p[2] * scale;
-        });
+    const projectY = (curveName: string, p: Point3D): Point3D => {
+      if (!this.boardState || !curves) return p;
+      const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, p[2]);
+
+      let finalY = p[1];
+      if (["outline", "apexOutline"].includes(curveName)) finalY = profile.apexY;
+      else if (curveName === "railOutline") finalY = profile.tuckY;
+
+      return [p[0], finalY, p[2]];
+    };
+
+    const activeOutline = this.boardState?.outline
+      ? this.sampleBezierCurve(this.boardState.outline, 100).map((p) =>
+          projectY("outline", p),
+        )
+      : curves.outline;
+
+    const activeRockerTop = this.boardState?.rockerTop
+      ? this.sampleBezierCurve(this.boardState.rockerTop, 100)
+      : curves.rockerTop;
+    const activeRockerBottom = this.boardState?.rockerBottom
+      ? this.sampleBezierCurve(this.boardState.rockerBottom, 100)
+      : curves.rockerBottom;
+
+    const buildLine = (
+      pts: [number, number, number][],
+      mat: THREE.LineBasicMaterial,
+      layerIndex: number,
+      mirrorX = false,
+    ) => {
+      const geometry = new THREE.BufferGeometry();
+      const vertices = new Float32Array(pts.length * 3);
+      pts.forEach((p, i) => {
+        vertices[i * 3] = (mirrorX ? -p[0] : p[0]) * scale;
+        vertices[i * 3 + 1] = p[1] * scale;
+        vertices[i * 3 + 2] = p[2] * scale;
+      });
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
         const line = new THREE.Line(geometry, mat);
         line.layers.set(layerIndex);
@@ -155,9 +181,19 @@ export class BoardViewport extends LitElement {
     const matRailOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
     const matApexRocker = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
 
-    const activeApexOutline = this.boardState?.apexOutline ? this.sampleBezierCurve(this.boardState.apexOutline, 100) : null;
-    const activeRailOutline = this.boardState?.railOutline ? this.sampleBezierCurve(this.boardState.railOutline, 100) : null;
-    const activeApexRocker = this.boardState?.apexRocker ? this.sampleBezierCurve(this.boardState.apexRocker, 100) : null;
+    const activeApexOutline = this.boardState?.apexOutline
+      ? this.sampleBezierCurve(this.boardState.apexOutline, 100).map((p) =>
+          projectY("apexOutline", p),
+        )
+      : null;
+    const activeRailOutline = this.boardState?.railOutline
+      ? this.sampleBezierCurve(this.boardState.railOutline, 100).map((p) =>
+          projectY("railOutline", p),
+        )
+      : null;
+    const activeApexRocker = this.boardState?.apexRocker
+      ? this.sampleBezierCurve(this.boardState.apexRocker, 100)
+      : null;
 
     if (this.boardState?.showOutline !== false) {
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false));
@@ -228,16 +264,34 @@ export class BoardViewport extends LitElement {
   private buildApexLine(curves: BoardCurves, scale: number) {
     while (this.apexLineGroup.children.length > 0) {
       const child = this.apexLineGroup.children[0] as THREE.Line;
-      child.geometry.dispose(); (child.material as THREE.Material).dispose();
+      child.geometry.dispose();
+      (child.material as THREE.Material).dispose();
       this.apexLineGroup.remove(child);
     }
-    const mat = new THREE.LineBasicMaterial({ color: 0x0ea5e9, depthTest: false, transparent: true, opacity: 0.9 });
-    
-    // Evaluate pure 3D Bezier rather than relying on profile evaluations
-    const activeApexOutline = this.boardState?.apexOutline ? this.boardState.apexOutline : this.boardState!.outline;
-    const sampled = this.sampleBezierCurve(activeApexOutline, 100);
-    
-    const ptsRight = sampled.map(p => new THREE.Vector3(p[0] * scale, p[1] * scale, p[2] * scale));
+    const mat = new THREE.LineBasicMaterial({
+      color: 0x0ea5e9,
+      depthTest: false,
+      transparent: true,
+      opacity: 0.9,
+    });
+
+    const activeApexOutline = this.boardState?.apexOutline
+      ? this.boardState.apexOutline
+      : this.boardState!.outline;
+
+    // Ensure the Apex line follows the vertical rocker profile
+    const sampled = this.sampleBezierCurve(activeApexOutline, 100).map((p) => {
+      const profile = MeshGeneratorService.getBoardProfileAtZ(
+        this.boardState!,
+        curves,
+        p[2],
+      );
+      return [p[0], profile.apexY, p[2]] as Point3D;
+    });
+
+    const ptsRight = sampled.map(
+      (p) => new THREE.Vector3(p[0] * scale, p[1] * scale, p[2] * scale),
+    );
     const ptsLeft = sampled.map(p => new THREE.Vector3(-p[0] * scale, p[1] * scale, p[2] * scale));
 
     const lineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsRight), mat);
