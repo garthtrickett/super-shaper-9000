@@ -184,15 +184,33 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     };
 
     const getRockerYAtZ = (bezier: BezierCurveData, targetZ: number): number => {
-      let t0 = 0; let t1 = 1;
-      let p = evaluateBezier3D(bezier, 0.5);
-      for (let i = 0; i < 15; i++) {
-        const tMid = (t0 + t1) / 2;
-        p = evaluateBezier3D(bezier, tMid);
-        if (p[2] < targetZ) t0 = tMid;
-        else t1 = tMid;
+      let bestT = 0.5;
+      let minErr = Infinity;
+      const steps = 40;
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const p = evaluateBezier3D(bezier, t);
+        const err = Math.abs(p[2] - targetZ);
+        if (err < minErr) {
+          minErr = err;
+          bestT = t;
+        }
       }
-      return p[1];
+      let tSearch = bestT;
+      let step = 1.0 / steps;
+      for (let i = 0; i < 15; i++) {
+        step /= 2;
+        const tL = Math.max(0, tSearch - step);
+        const tR = Math.min(1, tSearch + step);
+        const pL = evaluateBezier3D(bezier, tL);
+        const pR = evaluateBezier3D(bezier, tR);
+        if (Math.abs(pL[2] - targetZ) < Math.abs(pR[2] - targetZ)) {
+          tSearch = tL;
+        } else {
+          tSearch = tR;
+        }
+      }
+      return evaluateBezier3D(bezier, tSearch)[1];
     };
 
     for (const slice of crossSections) {

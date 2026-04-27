@@ -154,21 +154,21 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
   const outPt = evaluateBezier3D(model.outline, v);
   const zInches = outPt[2];
 
-  // Z-evaluate to ensure rockers align precisely with the outline's spatial Z
-  const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
-  const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
+  // Z-evaluate using v as a hintT to ensure we pick the correct branch on folded tails
+  const topPt = evaluateBezierAtZ(model.rockerTop, zInches, v);
+  const botPt = evaluateBezierAtZ(model.rockerBottom, zInches, v);
 
   // Prevent vertical bowtie inversion
   if (topPt[1] < botPt[1]) {
     topPt[1] = botPt[1];
   }
 
-  let apexX = outPt[0];
+  let apexX = Math.max(0, outPt[0]);
   let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3;
   let tuckY = botPt[1];
 
   if (model.apexOutline && model.apexOutline.controlPoints.length > 0) {
-    apexX = evaluateBezierAtZ(model.apexOutline, zInches)[0];
+    apexX = Math.max(0, evaluateBezierAtZ(model.apexOutline, zInches, v)[0]);
   }
 
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
@@ -185,7 +185,7 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
   }
 
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
-    apexY = evaluateBezierAtZ(model.apexRocker, zInches)[1];
+    apexY = evaluateBezierAtZ(model.apexRocker, zInches, hintT)[1];
   }
 
   if (blend) {
@@ -202,9 +202,9 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
     }
   }
 
-  let tuckX = outPt[0];
+  let tuckX = Math.max(0, outPt[0]);
   if (model.railOutline && model.railOutline.controlPoints.length > 0) {
-    tuckX = evaluateBezierAtZ(model.railOutline, zInches)[0];
+    tuckX = Math.max(0, evaluateBezierAtZ(model.railOutline, zInches, v)[0]);
   }
 
   const finalApexX = Math.max(0.001, apexX);
@@ -498,23 +498,53 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   };
 };
 
-const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): Point3D => {
-  let t0 = 0;
-  let t1 = 1;
-  let p = evaluateBezier3D(bezier, 0.5);
-  for (let i = 0; i < 15; i++) {
-    const tMid = (t0 + t1) / 2;
-    p = evaluateBezier3D(bezier, tMid);
-    if (p[2] < targetZ) t0 = tMid;
-    else t1 = tMid;
+const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number, hintT: number = 0.5): Point3D => {
+  let bestT = hintT;
+  let minErr = Infinity;
+  
+  const steps = 50;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = evaluateBezier3D(bezier, t);
+    const zErr = Math.abs(p[2] - targetZ);
+    // Weight the distance in T space to prefer the branch closest to our progress 
+    // (crucial for swallow tails where the curve folds back on itself in Z)
+    const tErr = Math.abs(t - hintT) * 0.1; 
+    const totalErr = zErr + tErr;
+    
+    if (totalErr < minErr) {
+      minErr = totalErr;
+      bestT = t;
+    }
   }
-  return p;
+  
+  let tSearch = bestT;
+  let step = 1.0 / steps;
+  for (let i = 0; i < 15; i++) {
+    step /= 2;
+    const tL = Math.max(0, tSearch - step);
+    const tR = Math.min(1, tSearch + step);
+    const pL = evaluateBezier3D(bezier, tL);
+    const pR = evaluateBezier3D(bezier, tR);
+    const errL = Math.abs(pL[2] - targetZ) + Math.abs(tL - hintT) * 0.1;
+    const errR = Math.abs(pR[2] - targetZ) + Math.abs(tR - hintT) * 0.1;
+    
+    if (errL < minErr && errL <= errR) {
+      minErr = errL;
+      tSearch = tL;
+    } else if (errR < minErr) {
+      minErr = errR;
+      tSearch = tR;
+    }
+  }
+  
+  return evaluateBezier3D(bezier, tSearch);
 };
 
-export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInches: number) => {
-  const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
-  const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
-  const outlinePt = evaluateBezierAtZ(model.outline, zInches);
+export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInches: number, hintT: number = 0.5) => {
+  const topPt = evaluateBezierAtZ(model.rockerTop, zInches, hintT);
+  const botPt = evaluateBezierAtZ(model.rockerBottom, zInches, hintT);
+  const outlinePt = evaluateBezierAtZ(model.outline, zInches, hintT);
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
   // Prevent vertical bowtie inversion (Deck Y < Bottom Y) caused by cubic Bezier overshoot at the tail
@@ -522,12 +552,12 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
     topPt[1] = botPt[1];
   }
 
-  let apexX = outlinePt[0];
+  let apexX = Math.max(0, outlinePt[0]);
   let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3;
   let tuckY = botPt[1];
 
   if (model.apexOutline && model.apexOutline.controlPoints.length > 0) {
-    apexX = evaluateBezierAtZ(model.apexOutline, zInches)[0];
+    apexX = Math.max(0, evaluateBezierAtZ(model.apexOutline, zInches, hintT)[0]);
   }
 
   if (blend) {
@@ -543,7 +573,7 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   }
 
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
-    apexY = evaluateBezierAtZ(model.apexRocker, zInches)[1];
+    apexY = evaluateBezierAtZ(model.apexRocker, zInches, v)[1];
   }
 
   if (blend) {
@@ -560,9 +590,9 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
     }
   }
 
-  let tuckX = outlinePt[0];
+  let tuckX = Math.max(0, outlinePt[0]);
   if (model.railOutline && model.railOutline.controlPoints.length > 0) {
-    tuckX = evaluateBezierAtZ(model.railOutline, zInches)[0];
+    tuckX = Math.max(0, evaluateBezierAtZ(model.railOutline, zInches, hintT)[0]);
   }
 
   const finalApexX = Math.max(0.001, apexX);
