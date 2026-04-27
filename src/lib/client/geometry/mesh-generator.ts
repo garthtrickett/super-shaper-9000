@@ -842,18 +842,18 @@ export const getPointAtUV = (
     return [profile.halfWidth, py, zInches];
   }
 
-  let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5, sliceTuckX = 0.8;
   const pBot = blend.evaluate(0.0);
   const pTop = blend.evaluate(1.0);
   const pApex = blend.evaluate(blend.tApex);
   const tTuck = Math.max(0.01, blend.tApex * 0.5);
   const pTuck = blend.evaluate(tTuck);
   
-  sliceBotY = pBot[1];
-  sliceTopY = pTop[1];
-  sliceApexX = Math.max(0.001, pApex[0]);
-  sliceApexY = pApex[1];
-  sliceTuckX = Math.max(0.001, pTuck[0]);
+  const sliceBotY = pBot[1];
+  const sliceTopY = pTop[1];
+  const sliceApexX = Math.max(0.001, pApex[0]);
+  const sliceApexY = pApex[1];
+  const sliceTuckX = Math.max(0.001, pTuck[0]);
+  const sliceTuckY = pTuck[1];
 
   const p = blend.evaluate(u);
   let px = 0, py = botY + (topY - botY) / 2;
@@ -872,8 +872,14 @@ export const getPointAtUV = (
   
   if (px < innerX) px = innerX;
   
-  if (u <= blend.tApex) {
-    py = botY + (p[1] - sliceBotY);
+  if (u <= tTuck) {
+    const rangeY = sliceTuckY - sliceBotY;
+    const normY = Math.abs(rangeY) > 1e-5 ? (p[1] - sliceBotY) / rangeY : 0;
+    py = botY + normY * (profile.tuckY - botY);
+  } else if (u <= blend.tApex) {
+    const rangeY = sliceApexY - sliceTuckY;
+    const normY = Math.abs(rangeY) > 1e-5 ? (p[1] - sliceTuckY) / rangeY : 0;
+    py = profile.tuckY + normY * (apexY - profile.tuckY);
   } else {
     const rangeY = sliceTopY - sliceApexY;
     const normY = Math.abs(rangeY) > 1e-5 ? (p[1] - sliceApexY) / rangeY : 0;
@@ -889,7 +895,9 @@ export const getPointAtUV = (
      py = Math.max(botY, Math.min(topY, py));
   }
 
-  return [px, py, zInches];
+  return[px, py, zInches];
+};
+
 export const MeshGeneratorService = {
   generateMesh: (model: BoardModel, _curves: BoardCurves): RawGeometryData => generateMesh(model),
   getPointAtUV,
