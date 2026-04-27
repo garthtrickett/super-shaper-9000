@@ -328,92 +328,33 @@ const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): 
 \t\t</Couples_${index}>`;
 };
 
-export const fitBezier = (points:[number, number, number][], curveType: 'outline' | 'rocker'): S3DBezier => {
-  // 1. Ensure points are sorted from Tail (x=0) to Nose (x=L)
-  const sorted = [...points].sort((a, b) => a[0] - b[0]);
-  const L = sorted.length > 0 ? sorted[sorted.length - 1]![0] : 0;
+const reverseCurve = (curve: BezierCurveData): BezierCurveData => {
+  return {
+    controlPoints: [...curve.controlPoints].reverse(),
+    tangents1:[...curve.tangents2].reverse(),
+    tangents2: [...curve.tangents1].reverse()
+  };
+};
 
-  // ✅ FIX: Use different sampling fractions based on curve type to match reference file
-  const fractions = curveType === 'outline' 
-    ?[0.0, 0.025, 0.47, 1.0] // 4 points for outline
-    :[0.0, 0.5, 1.0];        // 3 points for rockers
+export const translateBezierToShape3d = (
+  bezier: BezierCurveData,
+  boardLengthInches: number,
+  boardThicknessInches: number,
+  flattenZ: boolean = false
+): S3DBezier => {
+  const reversed = reverseCurve(bezier);
+  
+  const mapPoints = (pts: [number, number, number][]) => pts.map(p => {
+    const pt = translateToShape3d(p, boardLengthInches, boardThicknessInches);
+    if (flattenZ) pt[2] = 0.000000;
+    return pt;
+  });
 
-  const anchors:[number, number, number][] = [];
-  const indices: number[] =[];
-
-  for (const t of fractions) {
-    const targetX = t * L;
-    let closestIdx = 0;
-    let minDist = Infinity;
-    for (let i = 0; i < sorted.length; i++) {
-      const dist = Math.abs(sorted[i]![0] - targetX);
-      if (dist < minDist) {
-        minDist = dist;
-        closestIdx = i;
-      }
-    }
-    // Prevent duplicate points if fractions resolve to the same sample
-    if (indices.indexOf(closestIdx) === -1) {
-      anchors.push(sorted[closestIdx]!);
-      indices.push(closestIdx);
-    }
-  }
-
-  const tangents1: [number, number, number][] =[];
-  const tangents2: [number, number, number][] =[];
-
-  // ✅ FIX: Use a more stable tangent calculation based on adjacent anchors
-  for (let i = 0; i < anchors.length; i++) {
-    const P = anchors[i]!;
-
-    let tangentVec: [number, number, number] = [0, 0, 0];
-    if (i === 0) {
-      const nextP = anchors[i + 1]!;
-      tangentVec = [nextP[0] - P[0], nextP[1] - P[1], nextP[2] - P[2]];
-    } else if (i === anchors.length - 1) {
-      const prevP = anchors[i - 1]!;
-      tangentVec = [P[0] - prevP[0], P[1] - prevP[1], P[2] - prevP[2]];
-    } else {
-      const nextP = anchors[i + 1]!;
-      const prevP = anchors[i - 1]!;
-      tangentVec = [nextP[0] - prevP[0], nextP[1] - prevP[1], nextP[2] - prevP[2]];
-    }
-
-    const len = Math.hypot(tangentVec[0], tangentVec[1], tangentVec[2]);
-    if (len > 1e-6) {
-      tangentVec[0] /= len;
-      tangentVec[1] /= len;
-      tangentVec[2] /= len;
-    }
-
-    const distToPrev = i > 0 ? Math.hypot(P[0] - anchors[i-1]![0], P[1] - anchors[i-1]![1], P[2] - anchors[i-1]![2]) : 0;
-    const distToNext = i < anchors.length - 1 ? Math.hypot(anchors[i+1]![0] - P[0], anchors[i+1]![1] - P[1], anchors[i+1]![2] - P[2]) : 0;
-    
-    const handleLen1 = distToPrev / 3;
-    const handleLen2 = distToNext / 3;
-
-    if (i === 0) {
-      tangents1.push([...P]);
-    } else {
-      tangents1.push([
-        P[0] - tangentVec[0] * handleLen1,
-        P[1] - tangentVec[1] * handleLen1,
-        P[2] - tangentVec[2] * handleLen1,
-      ]);
-    }
-
-    if (i === anchors.length - 1) {
-      tangents2.push([...P]);
-    } else {
-      tangents2.push([
-        P[0] + tangentVec[0] * handleLen2,
-        P[1] + tangentVec[1] * handleLen2,
-        P[2] + tangentVec[2] * handleLen2,
-      ]);
-    }
-  }
-
-  return { controlPoints: anchors, tangents1, tangents2 };
+  return {
+    controlPoints: mapPoints(reversed.controlPoints),
+    tangents1: mapPoints(reversed.tangents1),
+    tangents2: mapPoints(reversed.tangents2),
+  };
 };
 
 /**

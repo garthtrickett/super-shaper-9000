@@ -72,9 +72,9 @@ describe("S3DX Exporter", () => {
         cantAngle: 6,
         coreMaterial: "pu",
         glassingSchedule: "heavy",
-        outline: { controlPoints:[], tangents1: [], tangents2: [] },
-        rockerTop: { controlPoints: [], tangents1:[], tangents2: [] },
-        rockerBottom: { controlPoints: [], tangents1: [], tangents2:[] },
+        outline: { controlPoints:[[0, 0, -35],[9.375, 0, 0],[0, 0, 35]], tangents1: [[0, 0, -35], [9.375, 0, -10],[0, 0, 25]], tangents2: [[0, 0, -25],[9.375, 0, 10],[0, 0, 35]] },
+        rockerTop: { controlPoints: [[0, 1.25, -35],[0, 1.25, 0],[0, 1.25, 35]], tangents1: [[0, 1.25, -35], [0, 1.25, -10],[0, 1.25, 25]], tangents2: [[0, 1.25, -25], [0, 1.25, 10],[0, 1.25, 35]] },
+        rockerBottom: { controlPoints: [[0, -1.25, -35],[0, -1.25, 0],[0, -1.25, 35]], tangents1: [[0, -1.25, -35],[0, -1.25, -10], [0, -1.25, 25]], tangents2: [[0, -1.25, -25],[0, -1.25, 10],[0, -1.25, 35]] },
         crossSections:[]
       } as unknown as BoardModel;
 
