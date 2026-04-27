@@ -173,11 +173,11 @@ describe("MeshGeneratorService", () => {
         }
       }
 
-      const ringStartVertex = targetRingIdx * (segmentsRadial + 1) * 3;
+      const ringStartVertex = targetRingIdx * (segmentsRadial + 2) * 3;
       let maxMeshY = -Infinity;
       let minMeshY = Infinity;
       
-      for (let j = 0; j <= segmentsRadial; j++) {
+      for (let j = 0; j <= segmentsRadial + 1; j++) {
         const y = mesh.vertices[ringStartVertex + j * 3 + 1]! * 12;
         if (y > maxMeshY) maxMeshY = y;
         if (y < minMeshY) minMeshY = y;
@@ -190,11 +190,11 @@ describe("MeshGeneratorService", () => {
       );
 
       // 2. Check thickness at the EXACT tail ring
-      const tailRingStartVertex = segmentsZ * (segmentsRadial + 1) * 3;
+      const tailRingStartVertex = segmentsZ * (segmentsRadial + 2) * 3;
       let tailMaxY = -Infinity;
       let tailMinY = Infinity;
       
-      for (let j = 0; j <= segmentsRadial; j++) {
+      for (let j = 0; j <= segmentsRadial + 1; j++) {
         const y = mesh.vertices[tailRingStartVertex + j * 3 + 1]! * 12;
         if (y > tailMaxY) tailMaxY = y;
         if (y < tailMinY) tailMinY = y;
@@ -250,11 +250,11 @@ describe("MeshGeneratorService", () => {
       expect(nosePinched, "Nose vertices should collapse to a single Y-plane").to.be.true;
 
       // Check Tail (Last ring, Z index segmentsZ)
-      const tailRingStartIndex = segmentsZ * (segmentsRadial + 1);
+      const tailRingStartIndex = segmentsZ * (segmentsRadial + 2);
       const tailRingY = mesh.vertices[tailRingStartIndex * 3 + 1]!;
       let tailPinched = true;
       const tailYs = [];
-      for (let j = 0; j <= segmentsRadial; j++) {
+      for (let j = 0; j <= segmentsRadial + 1; j++) {
         const y = mesh.vertices[(tailRingStartIndex + j) * 3 + 1]!;
         tailYs.push(y.toFixed(5));
         if (Math.abs(y - tailRingY) > 0.001) tailPinched = false;
@@ -398,8 +398,8 @@ describe("MeshGeneratorService", () => {
         // Find the ring closest to Z = 35.0 inches
         if (Math.abs(ringZ - 35.0) < 0.2) {
           // Check all vertices in this ring
-          for (let j = 0; j <= segmentsRadial; j++) {
-            const x = Math.abs(mesh.vertices[(i * (segmentsRadial + 1) + j) * 3]! * 12);
+          for (let j = 0; j <= segmentsRadial + 1; j++) {
+            const x = Math.abs(mesh.vertices[(i * (segmentsRadial + 2) + j) * 3]! * 12);
             if (x < minXAt35) minXAt35 = x;
           }
         }
@@ -523,9 +523,9 @@ describe("MeshGeneratorService", () => {
       const segmentsRadial = 96;
         
       // The tail cap pushes the center vertex first, followed by the perimeter vertices.
-      // There are (segmentsRadial + 1) perimeter vertices, so the center vertex is exactly
-      // (segmentsRadial + 2) vertices from the end of the array.
-      const tailCenterVertexIdx = (mesh.vertices.length / 3) - (segmentsRadial + 2);
+      // There are (segmentsRadial + 2) perimeter vertices, so the center vertex is exactly
+      // (segmentsRadial + 3) vertices from the end of the array.
+      const tailCenterVertexIdx = (mesh.vertices.length / 3) - (segmentsRadial + 3);
       const tailCenterY = mesh.vertices[tailCenterVertexIdx * 3 + 1]!;
 
       // Get expected rockers at the tail (maxZ)
@@ -544,7 +544,7 @@ describe("MeshGeneratorService", () => {
       const segmentsRadial = 96;
         
       // Tail ring starts at i=segmentsZ
-      const tailRingStartIdx = segmentsZ * (segmentsRadial + 1);
+      const tailRingStartIdx = segmentsZ * (segmentsRadial + 2);
       const tailAnchorZ = INITIAL_STATE.outline.controlPoints[INITIAL_STATE.outline.controlPoints.length - 1]![2] * (1 / 12);
 
       // Sample several points on the last ring of the hull
@@ -566,7 +566,7 @@ describe("MeshGeneratorService", () => {
       // In the radial loop, j=24 is exactly t=0.5 (the Apex)
       const sliceIdx = 120;
       const apexJ = 24;
-      const vertIdx = (sliceIdx * (segmentsRadial + 1) + apexJ);
+      const vertIdx = (sliceIdx * (segmentsRadial + 2) + apexJ);
 
       const nx = Math.abs(mesh.normals[vertIdx * 3]!);
       const ny = Math.abs(mesh.normals[vertIdx * 3 + 1]!);
@@ -703,11 +703,11 @@ describe("MeshGeneratorService", () => {
           const segmentsZ = 240;
           const segmentsRadial = 96;
           const tailRingIndex = segmentsZ; // The very last ring
-          const tailRingStartIndex = tailRingIndex * (segmentsRadial + 1);
+          const tailRingStartIndex = tailRingIndex * (segmentsRadial + 2);
 
           // Find the widest point on the tail ring
           let maxTailWidth = 0;
-          for (let j = 0; j <= segmentsRadial; j++) {
+          for (let j = 0; j <= segmentsRadial + 1; j++) {
               const vertexIndex = (tailRingStartIndex + j) * 3;
               // The vertex array might not exist if generation failed
               if (vertexIndex >= mesh.vertices.length) continue;
