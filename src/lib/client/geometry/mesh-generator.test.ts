@@ -372,6 +372,38 @@ describe("MeshGeneratorService", () => {
       );
     });
 
+    it("should use independent vertices for swallow tail inner walls to prevent smooth-shading black holes", async () => {
+      const response = await fetch(`/src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx`);
+      const xml = await response.text();
+      const importedData = await runClientPromise(parseS3dx(xml));
+      const manualState: BoardModel = { ...INITIAL_STATE, ...importedData };
+      const curves = await generateBoardCurves(manualState);
+      const mesh = MeshGeneratorService.generateMesh(manualState, curves);
+
+      // The mesh vertices should have sharp normals for the inner walls.
+      // If they reuse the hull vertices, the normal interpolates from UP to DOWN,
+      // causing a zero-length normal (NaN) exactly in the middle of the vertical wall.
+      // This causes the shader to render the face as pitch black, looking like a hole.
+      let hasInnerWallNormal = false;
+      for (let i = 0; i < mesh.normals.length; i += 3) {
+        const nx = mesh.normals[i]!;
+        const ny = mesh.normals[i+1]!;
+        const nz = mesh.normals[i+2]!;
+        
+        // Inner walls should point almost entirely in +/- X (sideways, facing the stringer)
+        if (Math.abs(nx) > 0.9 && Math.abs(ny) < 0.1 && Math.abs(nz) < 0.1) {
+          // Check if this vertex is near the swallow tail gap
+          const z = mesh.vertices[i+2]! * 12; // feet to inches
+          if (z > 30) {
+            hasInnerWallNormal = true;
+            break;
+          }
+        }
+      }
+
+      expect(hasInnerWallNormal, "Swallow tail inner walls must use dedicated vertices with horizontal normals (+/- X) to prevent black shading artifacts.").to.be.true;
+    });
+
     it("preserves swallow tail cutouts by not generating a web of foam between the prongs", async () => {
       const response = await fetch(`/src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx`);
       const xml = await response.text();

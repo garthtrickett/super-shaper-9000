@@ -1,4 +1,5 @@
 // File: src/components/3d/board-viewport.ts
+import { Point3D } from "../pages/board-builder-page.logic"; 
 import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
