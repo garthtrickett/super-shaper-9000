@@ -43,6 +43,34 @@ const colorHeatmap = (normalizedValue: number): [number, number, number] => {
   return[hue2rgb(0, 1, h + 1 / 3), hue2rgb(0, 1, h), hue2rgb(0, 1, h - 1 / 3)];
 };
 
+export const findVAtZ = (bezier: BezierCurveData, targetZ: number, tStart: number, tEnd: number): number => {
+  let bestT = (tStart + tEnd) / 2;
+  let minErr = Infinity;
+  const steps = 20;
+  for (let i = 0; i <= steps; i++) {
+    const t = tStart + (i / steps) * (tEnd - tStart);
+    const p = evaluateBezier3D(bezier, t);
+    const err = Math.abs(p[2] - targetZ);
+    if (err < minErr) {
+      minErr = err;
+      bestT = t;
+    }
+  }
+  let tSearch = bestT;
+  let step = (tEnd - tStart) / steps;
+  for (let i = 0; i < 15; i++) {
+    step /= 2;
+    const tL = Math.max(tStart, tSearch - step);
+    const tR = Math.min(tEnd, tSearch + step);
+    if (Math.abs(evaluateBezier3D(bezier, tL)[2] - targetZ) < Math.abs(evaluateBezier3D(bezier, tR)[2] - targetZ)) {
+      tSearch = tL;
+    } else {
+      tSearch = tR;
+    }
+  }
+  return tSearch;
+};
+
 const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const numSegments = bezier.controlPoints.length - 1;
   if (numSegments <= 0) return bezier.controlPoints[0] || [0, 0, 0];
@@ -201,9 +229,15 @@ const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number, hintT: numb
  * u [0..1] goes from the stringer bottom (0), around the rail, to stringer top (1).
  * v [0..1] goes lengthways from Nose to Tail (or Tail to Nose depending on data orientation).
  */
-export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D => {
+export const getPointAtUV = (
+  model: BoardModel, 
+  u: number, 
+  v: number, 
+  overrideZ?: number, 
+  innerX: number = 0
+): Point3D => {
   const outPt = evaluateBezier3D(model.outline, v);
-  const zInches = outPt[2];
+  const zInches = overrideZ !== undefined ? overrideZ : outPt[2];
 
   // Z-evaluate using v as a hintT to ensure we pick the correct branch on folded tails
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches, v);
@@ -298,6 +332,9 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
     px = normX * finalApexX;
   }
   
+  // Swallow Tail Cutout Clipping
+  if (px < innerX) px = innerX;
+  
   if (u <= 0.25) {
     const rangeY = sliceTuckY - sliceBotY;
     const normY = Math.abs(rangeY) > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
@@ -338,10 +375,10 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const segmentsU = 96; 
   const scale = 1 / 12;
   const vertices: number[] = [];
-  const indices: number[] =[];
+  const indices: number[] = [];
   const uvs: number[] = [];
   const colors: number[] = [];
-  const normals: number[] =[];
+  const normals: number[] = [];
 
   const outline = model.outline;
   if (!outline || outline.controlPoints.length === 0)
@@ -354,17 +391,51 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       volumeLiters: 0,
     };
 
+  const nosePt = evaluateBezier3D(model.outline, 0);
+  const noseZ = nosePt[2];
+
+  const notchPt = evaluateBezier3D(model.outline, 1);
+  const notchZ = notchPt[2];
+
+  let tipZ = -Infinity;
+  let v_tip = 1.0;
+  const steps = 50;
+  for (let i = 0; i <= steps; i++) {
+    const p = evaluateBezier3D(model.outline, i / steps);
+    if (p[2] > tipZ) {
+      tipZ = p[2];
+      v_tip = i / steps;
+    }
+  }
+  let tSearch = v_tip;
+  let stepSize = 1.0 / steps;
+  for (let i = 0; i < 15; i++) {
+    stepSize /= 2;
+    const tL = Math.max(0, tSearch - stepSize);
+    const tR = Math.min(1, tSearch + stepSize);
+    if (evaluateBezier3D(model.outline, tL)[2] > evaluateBezier3D(model.outline, tR)[2]) {
+      tSearch = tL;
+    } else {
+      tSearch = tR;
+    }
+  }
+  v_tip = tSearch;
+  const tipPt = evaluateBezier3D(model.outline, v_tip);
+  tipZ = tipPt[2];
+
+  const isSwallow = notchZ < tipZ - 0.01;
+
   const sliceArcLengths = new Float32Array(segmentsV + 1);
   let totalArcLength = 0;
   const lastCenterPos = new THREE.Vector3();
 
-  // Preserves resolution distribution for smooth tip wrapping
   for (let i = 0; i <= segmentsV; i++) {
-    const v = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
-    const outPt = evaluateBezier3D(model.outline, v);
-    const topPt = evaluateBezier3D(model.rockerTop, v);
-    const botPt = evaluateBezier3D(model.rockerBottom, v);
-    const zInches = outPt[2];
+    const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
+    const zInches = noseZ + vParam * (tipZ - noseZ);
+
+    const v_outer = findVAtZ(model.outline, zInches, 0, v_tip);
+    const topPt = evaluateBezierAtZ(model.rockerTop, zInches, v_outer);
+    const botPt = evaluateBezierAtZ(model.rockerBottom, zInches, v_outer);
     const cy = (topPt[1] + botPt[1]) / 2;
     
     const currentCenterPos = new THREE.Vector3(0, cy * scale, zInches * scale);
@@ -376,46 +447,56 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     lastCenterPos.copy(currentCenterPos);
   }
 
-  const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] =[];
+  const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] = [];
 
   const noseWidth = evaluateBezier3D(model.outline, 0)[0];
   const tailWidth = evaluateBezier3D(model.outline, 1)[0];
 
   for (let i = 0; i <= segmentsV; i++) {
-    const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
-    const v = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
+    const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] = [];
+    const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
+    const zInches = noseZ + vParam * (tipZ - noseZ);
     const vCoord = sliceArcLengths[i]! / totalArcLength;
     
-    const topPt = evaluateBezier3D(model.rockerTop, v);
-    const botPt = evaluateBezier3D(model.rockerBottom, v);
+    const v_outer = findVAtZ(model.outline, zInches, 0, v_tip);
+    
+    let innerX = 0;
+    if (zInches > notchZ + 0.001) {
+      const v_inner = findVAtZ(model.outline, zInches, v_tip, 1.0);
+      innerX = evaluateBezier3D(model.outline, v_inner)[0];
+    }
+
+    const topPt = evaluateBezierAtZ(model.rockerTop, zInches, v_outer);
+    const botPt = evaluateBezierAtZ(model.rockerBottom, zInches, v_outer);
     const localThickness = Math.max(0, topPt[1] - botPt[1]);
     const heatColor = new THREE.Color(...colorHeatmap(Math.max(0, Math.min(1, localThickness / model.thickness))));
 
-    for (let j = 0; j <= segmentsU; j++) {
+    for (let j = 0; j <= segmentsU + 1; j++) {
       let u = 0.0, side = 1.0;
-      const isStringer = j === 0 || j === segmentsU / 2 || j === segmentsU;
+      let isStringer = false;
+
       if (j <= segmentsU / 2) {
+        // Right side
         u = j / (segmentsU / 2);
+        side = 1.0;
+        if (j === 0 || j === segmentsU / 2) isStringer = true;
       } else {
-        u = 1.0 - (j - segmentsU / 2) / (segmentsU / 2);
+        // Left side
+        const leftJ = j - (segmentsU / 2 + 1);
+        u = 1.0 - leftJ / (segmentsU / 2);
         side = -1.0;
+        if (leftJ === 0 || leftJ === segmentsU / 2) isStringer = true;
       }
 
-      let [px, py, pz] = getPointAtUV(model, u, v);
+      let [px, py, pz] = getPointAtUV(model, u, v_outer, zInches, innerX);
       
-      if (isStringer) {
-        px = 0;
-      } else {
-        px *= side;
-      }
+      if (isStringer) px = innerX;
+      px *= side;
 
-      // Mathematical tip lock
-      if ((i === 0 && noseWidth < 1e-3) || (i === segmentsV && tailWidth < 1e-3)) {
-        px = 0;
-      }
+      if (i === 0 && noseWidth < 1e-3) px = 0;
 
       const pos = new THREE.Vector3(px * scale, py * scale, pz * scale);
-      const uvVec = new THREE.Vector2(j / segmentsU, vCoord);
+      const uvVec = new THREE.Vector2(u, vCoord); // Use u to map texture nicely
       
       ring.push({ pos, color: heatColor, uv: uvVec });
     }
@@ -424,7 +505,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
   // Compute analytical UV normals
   for (let i = 0; i <= segmentsV; i++) {
-    for (let j = 0; j <= segmentsU; j++) {
+    for (let j = 0; j <= segmentsU + 1; j++) {
       const { pos, color, uv } = vertexGrid[i]![j]!;
       vertices.push(pos.x, pos.y, pos.z);
       colors.push(color.r, color.g, color.b);
@@ -442,10 +523,14 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         tangentV.subVectors(vertexGrid[i + 1]![j]!.pos, vertexGrid[i - 1]![j]!.pos);
       }
 
-      if (j > 0 && j < segmentsU) {
+      if (j > 0 && j < segmentsU + 1 && j !== segmentsU / 2 && j !== segmentsU / 2 + 1) {
         tangentU.subVectors(vertexGrid[i]![j + 1]!.pos, vertexGrid[i]![j - 1]!.pos);
       } else {
-        tangentU.subVectors(vertexGrid[i]![1]!.pos, vertexGrid[i]![segmentsU - 1]!.pos);
+        // Fallback for edges
+        if (j === 0) tangentU.subVectors(vertexGrid[i]![1]!.pos, vertexGrid[i]![0]!.pos);
+        else if (j === segmentsU / 2) tangentU.subVectors(vertexGrid[i]![j]!.pos, vertexGrid[i]![j - 1]!.pos);
+        else if (j === segmentsU / 2 + 1) tangentU.subVectors(vertexGrid[i]![j + 1]!.pos, vertexGrid[i]![j]!.pos);
+        else tangentU.subVectors(vertexGrid[i]![j]!.pos, vertexGrid[i]![j - 1]!.pos);
       }
       
       normal.crossVectors(tangentU, tangentV).normalize();
@@ -453,33 +538,62 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       if (isNaN(normal.x) || normal.lengthSq() < 0.0001) {
         if (i === 0) normal.set(0, 0, -1);
         else if (i === segmentsV) normal.set(0, 0, 1);
-        else normal.set(0, j > segmentsU / 4 && j < segmentsU * 0.75 ? 1 : -1, 0);
+        else normal.set(0, j > segmentsU / 4 && j < (segmentsU * 0.75) ? 1 : -1, 0);
       }
 
       normals.push(normal.x, normal.y, normal.z);
     }
   }
 
-  // Hull Indices
   const pushTriangle = (i1: number, i2: number, i3: number) => {
     indices.push(i1, i2, i3);
   };
 
   for (let i = 0; i < segmentsV; i++) {
-    for (let j = 0; j < segmentsU; j++) {
-      const a = i * (segmentsU + 1) + j;
+    const vParam0 = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
+    const vParam1 = (1 - Math.cos(((i + 1) / segmentsV) * Math.PI)) / 2;
+    const z0 = noseZ + vParam0 * (tipZ - noseZ);
+    const z1 = noseZ + vParam1 * (tipZ - noseZ);
+    const gapOpen = z0 > notchZ + 0.001 || z1 > notchZ + 0.001;
+
+    for (let j = 0; j <= segmentsU; j++) {
+      const a = i * (segmentsU + 2) + j;
       const b = a + 1;
-      const c = (i + 1) * (segmentsU + 1) + j;
+      const c = (i + 1) * (segmentsU + 2) + j;
       const d = c + 1;
+      
+      if (j === segmentsU / 2) {
+        if (gapOpen) {
+          // Right Prong Inner Wall
+          const aTR = i * (segmentsU + 2) + segmentsU / 2;
+          const bBR = i * (segmentsU + 2) + 0;
+          const cTR = (i + 1) * (segmentsU + 2) + segmentsU / 2;
+          const dBR = (i + 1) * (segmentsU + 2) + 0;
+          pushTriangle(aTR, bBR, dBR);
+          pushTriangle(aTR, dBR, cTR);
+
+          // Left Prong Inner Wall
+          const aTL = i * (segmentsU + 2) + (segmentsU / 2 + 1);
+          const bBL = i * (segmentsU + 2) + (segmentsU + 1);
+          const cTL = (i + 1) * (segmentsU + 2) + (segmentsU / 2 + 1);
+          const dBL = (i + 1) * (segmentsU + 2) + (segmentsU + 1);
+          pushTriangle(aTL, cTL, dBL);
+          pushTriangle(aTL, dBL, bBL);
+          continue;
+        } else {
+          pushTriangle(a, b, d);
+          pushTriangle(a, d, c);
+          continue;
+        }
+      }
       
       pushTriangle(a, b, d);
       pushTriangle(a, d, c);
     }
   }
 
-  // End Caps
   const noseNeedsCap = noseWidth >= 1e-3;
-  const tailNeedsCap = tailWidth >= 1e-3;
+  const tailNeedsCap = tailWidth >= 1e-3 && !isSwallow;
 
   if (noseNeedsCap) {
     const ringStartIndex = 0;
@@ -498,7 +612,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const centerIdx = capVertexStartIndex;
     const perimeterStartIdx = centerIdx + 1;
 
-    for (let j = 0; j <= segmentsU; j++) {
+    for (let j = 0; j <= segmentsU + 1; j++) {
       const hullIndex = ringStartIndex + j;
       vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
       uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
@@ -506,13 +620,16 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       normals.push(0, 0, -1);
     }
 
-    for (let j = 0; j < segmentsU; j++) {
+    for (let j = 0; j <= segmentsU; j++) {
+      if (j === segmentsU / 2) {
+        if (notchZ < noseZ + 0.001) continue; // Extreme edge case
+      }
       indices.push(centerIdx, perimeterStartIdx + j + 1, perimeterStartIdx + j);
     }
   }
 
   if (tailNeedsCap) {
-    const ringStartIndex = segmentsV * (segmentsU + 1);
+    const ringStartIndex = segmentsV * (segmentsU + 2);
     const capVertexStartIndex = vertices.length / 3;
 
     const botY = vertexGrid[segmentsV]![0]!.pos.y;
@@ -528,7 +645,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const centerIdx = capVertexStartIndex;
     const perimeterStartIdx = centerIdx + 1;
 
-    for (let j = 0; j <= segmentsU; j++) {
+    for (let j = 0; j <= segmentsU + 1; j++) {
       const hullIndex = ringStartIndex + j;
       vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
       uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
@@ -536,7 +653,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       normals.push(0, 0, 1);
     }
 
-    for (let j = 0; j < segmentsU; j++) {
+    for (let j = 0; j <= segmentsU; j++) {
+      if (j === segmentsU / 2 && isSwallow) continue;
       indices.push(centerIdx, perimeterStartIdx + j, perimeterStartIdx + j + 1);
     }
   }
