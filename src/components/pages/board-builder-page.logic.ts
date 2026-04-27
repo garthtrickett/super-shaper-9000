@@ -102,6 +102,7 @@ export interface BoardModel {
   history?: ManualSnapshot[];
   historyIndex?: number;
   outline: BezierCurveData;
+  outlineLayers?: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
   railOutline?: BezierCurveData;
   apexOutline?: BezierCurveData;
   rockerTop: BezierCurveData;

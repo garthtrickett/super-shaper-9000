@@ -577,8 +577,8 @@ describe("MeshGeneratorService", () => {
       // Find the actual maximum Z-coordinate in the generated mesh
       let maxZ = -Infinity;
       for(let i=2; i < mesh.vertices.length; i+=3) {
-          if(mesh.vertices[i] > maxZ) {
-              maxZ = mesh.vertices[i];
+          if(mesh.vertices[i]! > maxZ) {
+              maxZ = mesh.vertices[i]!;
           }
       }
       
@@ -586,9 +586,9 @@ describe("MeshGeneratorService", () => {
       expect(maxZ).to.be.closeTo(tailAnchorZ, 0.00001, 'The maximum Z vertex of the mesh must align with the tail anchor Z-plane.');
 
       // Now, find all vertices that form the tail plane
-      const tailPlaneVertices: number[] = [];
+      const tailPlaneVertices: number[] =[];
       for(let i=2; i < mesh.vertices.length; i+=3) {
-          const vertexZ = mesh.vertices[i];
+          const vertexZ = mesh.vertices[i]!;
           if (Math.abs(vertexZ - maxZ) < 1e-6) {
               tailPlaneVertices.push(vertexZ);
           }
