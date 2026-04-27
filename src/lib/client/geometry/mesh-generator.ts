@@ -467,25 +467,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   });
 
-  zRings.sort((a, b) => a - b);
-  segmentsV = zRings.length - 1;
-
-  // Inject critical Z coordinates (Control Points) to capture razor sharp wings and swallow tails
-  const zRings: number[] =[];
-  for (let i = 0; i <= segmentsV; i++) {
-    const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
-    zRings.push(noseZ + vParam * (tipZ - noseZ));
-  }
-
-  // Detect wings (vertical steps in the outline) and inject micro-slices to render sharp walls
-  model.outline.controlPoints.forEach(p => {
-    if (Math.abs(p[2] - noseZ) > 0.1 && Math.abs(p[2] - tipZ) > 0.1) {
-      zRings.push(p[2] - 0.001);
-      zRings.push(p[2]);
-      zRings.push(p[2] + 0.001);
-    }
-  });
-
   if (model.outlineLayers) {
     model.outlineLayers.forEach(layer => {
       layer.otlExt.controlPoints.forEach(p => {
@@ -529,7 +510,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   for (let i = 0; i <= segmentsV; i++) {
     const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
     const zInches = zRings[i]!;
-    const vCoord = sliceArcLengths[i]! / totalArcLength;
     const vCoord = sliceArcLengths[i]! / totalArcLength;
     
     const v_outer = findVAtZ(model.outline, zInches, 0, v_tip);
