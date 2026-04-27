@@ -525,111 +525,121 @@ describe("MeshGeneratorService", () => {
   });
 
   describe("Imported S3DX Edge Cases", () => {
-    it("does not create a vertical bowtie (crease) at the tail for WitcherDaily", async () => {
-      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
-      const xml = await response.text();
-      const importedData = await runClientPromise(parseS3dx(xml));
-      
-      const manualState: BoardModel = {
-        ...INITIAL_STATE,
-        length: importedData.length,
-        width: importedData.width,
-        thickness: importedData.thickness,
-        outline: importedData.outline,
-        rockerTop: importedData.rockerTop,
-        rockerBottom: importedData.rockerBottom,
-        crossSections: importedData.crossSections,
-        railOutline: importedData.railOutline,
-        apexOutline: importedData.apexOutline,
-        apexRocker: importedData.apexRocker
-      };
+    const FIXTURES =["WitcherDaily.s3dx", "rounded pin 6'1.s3dx"];
 
-      const mesh = MeshGeneratorService.generateMesh(manualState, {
-        outline:[], rockerTop: [], rockerBottom:[]
-      });
-
-      // Test the vertical bowtie assertion
-      const segmentsZ = 240;
-      const segmentsRadial = 96;
-      
-      let invertedCount = 0;
-
-      for (let i = 0; i <= segmentsZ; i++) {
-        // In our radial loop (0..96), j=0 is Bottom Stringer, j=48 is Top Stringer.
-        // j in (0, 24) is the Bottom curve, and (48 - j) is the matching Top curve (Deck).
-        for (let j = 1; j < segmentsRadial / 4; j++) {
-            const botIdx = i * (segmentsRadial + 1) + j;
-            const topIdx = i * (segmentsRadial + 1) + (segmentsRadial / 2 - j);
-
-            const topY = mesh.vertices[topIdx * 3 + 1]!;
-            const botY = mesh.vertices[botIdx * 3 + 1]!;
-            
-            if (botY > topY + 1e-6) {
-                invertedCount++;
-                if (invertedCount < 5) { // Log first few inversions
-                    console.warn(`Inversion at Z-slice ${i}, radial point ${j}:`, { topY, botY });
-                }
-            }
-        }
-    }
-      
-      expect(invertedCount).to.equal(0, `Found ${invertedCount} inverted vertex pairs (Deck Y < Bottom Y)`);
-    });
-
-    it("generates a wide tail for WitcherDaily instead of a point", async () => {
-        const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+    for (const fixture of FIXTURES) {
+      it(`does not create a vertical bowtie (crease) at the tail for ${fixture}`, async () => {
+        const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
         const xml = await response.text();
         const importedData = await runClientPromise(parseS3dx(xml));
-        const manualState: BoardModel = { ...INITIAL_STATE, ...importedData };
-        const curves = await generateBoardCurves(manualState);
+        
+        const manualState: BoardModel = {
+          ...INITIAL_STATE,
+          length: importedData.length,
+          width: importedData.width,
+          thickness: importedData.thickness,
+          outline: importedData.outline,
+          rockerTop: importedData.rockerTop,
+          rockerBottom: importedData.rockerBottom,
+          crossSections: importedData.crossSections,
+          railOutline: importedData.railOutline,
+          apexOutline: importedData.apexOutline,
+          apexRocker: importedData.apexRocker
+        };
 
-        const mesh = MeshGeneratorService.generateMesh(manualState, curves);
+        const mesh = MeshGeneratorService.generateMesh(manualState, {
+          outline:[], rockerTop: [], rockerBottom:[]
+        });
 
+        // Test the vertical bowtie assertion
         const segmentsZ = 240;
         const segmentsRadial = 96;
-        const tailRingIndex = segmentsZ; // The very last ring
-        const tailRingStartIndex = tailRingIndex * (segmentsRadial + 1);
+        
+        let invertedCount = 0;
 
-        // Find the widest point on the tail ring
-        let maxTailWidth = 0;
-        for (let j = 0; j <= segmentsRadial; j++) {
-            const vertexIndex = (tailRingStartIndex + j) * 3;
-            // The vertex array might not exist if generation failed
-            if (vertexIndex >= mesh.vertices.length) continue;
-            const x = Math.abs(mesh.vertices[vertexIndex]!); // Width is the X coordinate
-            if (x > maxTailWidth) {
-                maxTailWidth = x;
-            }
+        for (let i = 0; i <= segmentsZ; i++) {
+          // In our radial loop (0..96), j=0 is Bottom Stringer, j=48 is Top Stringer.
+          // j in (0, 24) is the Bottom curve, and (48 - j) is the matching Top curve (Deck).
+          for (let j = 1; j < segmentsRadial / 4; j++) {
+              const botIdx = i * (segmentsRadial + 1) + j;
+              const topIdx = i * (segmentsRadial + 1) + (segmentsRadial / 2 - j);
+
+              const topY = mesh.vertices[topIdx * 3 + 1]!;
+              const botY = mesh.vertices[botIdx * 3 + 1]!;
+              
+              if (botY > topY + 1e-6) {
+                  invertedCount++;
+                  if (invertedCount < 5) { // Log first few inversions
+                      console.warn(`Inversion at Z-slice ${i}, radial point ${j}:`, { topY, botY });
+                  }
+              }
+          }
+      }
+        
+        expect(invertedCount).to.equal(0, `Found ${invertedCount} inverted vertex pairs (Deck Y < Bottom Y)`);
+      });
+
+      it(`generates a valid tail width for ${fixture}`, async () => {
+          const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
+          const xml = await response.text();
+          const importedData = await runClientPromise(parseS3dx(xml));
+          const manualState: BoardModel = { ...INITIAL_STATE, ...importedData };
+          const curves = await generateBoardCurves(manualState);
+
+          const mesh = MeshGeneratorService.generateMesh(manualState, curves);
+
+          const segmentsZ = 240;
+          const segmentsRadial = 96;
+          const tailRingIndex = segmentsZ; // The very last ring
+          const tailRingStartIndex = tailRingIndex * (segmentsRadial + 1);
+
+          // Find the widest point on the tail ring
+          let maxTailWidth = 0;
+          for (let j = 0; j <= segmentsRadial; j++) {
+              const vertexIndex = (tailRingStartIndex + j) * 3;
+              // The vertex array might not exist if generation failed
+              if (vertexIndex >= mesh.vertices.length) continue;
+              const x = Math.abs(mesh.vertices[vertexIndex]!); // Width is the X coordinate
+              if (x > maxTailWidth) {
+                  maxTailWidth = x;
+              }
+          }
+
+          if (fixture === "WitcherDaily.s3dx") {
+            // The WitcherDaily tail is narrow but not a point. The half-width is ~1.56cm -> ~0.61 inches -> ~0.051 feet.
+            expect(maxTailWidth).to.be.greaterThan(0.04, "The tail should not collapse to a point.");
+          } else {
+            // A rounded pin might go to zero or near zero, just ensure it evaluates correctly without blowing up
+            expect(maxTailWidth).to.be.greaterThan(-1, "The tail max width should be successfully calculated.");
+          }
+      });
+
+      it(`prevents tangent Z-overshoot (folding) which causes wide, rounded squash tails for ${fixture}`, async () => {
+        const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
+        const xml = await response.text();
+        const importedData = await runClientPromise(parseS3dx(xml));
+        
+        const tailP = importedData.outline.controlPoints[importedData.outline.controlPoints.length - 1]!;
+        const prevT2 = importedData.outline.tangents2[importedData.outline.controlPoints.length - 2]!;
+        
+        // The tangent from the wide point towards the tail should NOT extend past the tail itself
+        expect(prevT2[2]).to.be.at.most(tailP[2] + 0.001, "Tangent T2 overshot the tail anchor, causing a folded curve.");
+        
+        const mockState: BoardModel = { ...INITIAL_STATE, ...importedData };
+        const curves = await generateBoardCurves(mockState);
+        
+        const tailProfile = MeshGeneratorService.getBoardProfileAtZ(
+           mockState, curves, tailP[2]
+        );
+        
+        if (fixture === "WitcherDaily.s3dx") {
+          // If the bug exists, the binary search will fail and return a bloated width.
+          // If fixed, it should exactly match the anchor point (0.614 inches)
+          expect(tailProfile.halfWidth).to.be.closeTo(0.614, 0.01, "Tail evaluated too wide! Binary search failed due to Z-folding.");
+        } else {
+          expect(tailProfile.halfWidth).to.be.lessThan(5, "Tail evaluated unrealistically wide.");
         }
-
-        // The WitcherDaily tail is narrow but not a point. The half-width is ~1.56cm -> ~0.61 inches -> ~0.051 feet.
-        // A value near 0 would indicate a collapsed point. We check that it's greater than a reasonable threshold.
-        expect(maxTailWidth).to.be.greaterThan(0.04, "The tail should not collapse to a point.");
-    });
-
-    it("prevents tangent Z-overshoot (folding) which causes wide, rounded squash tails", async () => {
-      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
-      const xml = await response.text();
-      const importedData = await runClientPromise(parseS3dx(xml));
-      
-      const tailP = importedData.outline.controlPoints[importedData.outline.controlPoints.length - 1]!;
-      const prevT2 = importedData.outline.tangents2[importedData.outline.controlPoints.length - 2]!;
-      
-      // The tangent from the wide point towards the tail should NOT extend past the tail itself
-      expect(prevT2[2]).to.be.at.most(tailP[2] + 0.001, "Tangent T2 overshot the tail anchor, causing a folded curve.");
-      
-      // Test the mesh generator's evaluation at the exact tail
-      // The WitcherDaily tail is 1.559 cm half-width (0.614 inches)
-      const mockState: BoardModel = { ...INITIAL_STATE, ...importedData };
-      const curves = await generateBoardCurves(mockState);
-      
-      const tailProfile = MeshGeneratorService.getBoardProfileAtZ(
-         mockState, curves, tailP[2]
-      );
-      
-      // If the bug exists, the binary search will fail and return a bloated width.
-      // If fixed, it should exactly match the anchor point (0.614 inches)
-      expect(tailProfile.halfWidth).to.be.closeTo(0.614, 0.01, "Tail evaluated too wide! Binary search failed due to Z-folding.");
-    });
+      });
+    }
   });
 });

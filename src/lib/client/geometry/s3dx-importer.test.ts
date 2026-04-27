@@ -118,39 +118,80 @@ describe("S3DX Importer", () => {
       expect(result.crossSections[0]!.controlPoints.length).to.equal(2);
     });
 
-    it("can parse a full, real-world .s3dx file (WitcherDaily.s3dx)", async () => {
-      // Web Test Runner serves the project directory, so we can fetch the fixture natively!
-      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
-      expect(response.ok).to.be.true;
-      
-      const xml = await response.text();
-      const result = await Effect.runPromise(parseS3dx(xml));
-      
-      // Verify Metric to Imperial Conversion
-      // WitcherDaily is 193.04 cm -> 76 inches (6'4")
-      expect(result.length).to.be.closeTo(76, 0.1);
-      
-      // 51.435 cm -> 20.25 inches
-      expect(result.width).to.be.closeTo(20.25, 0.1);
-      
-      // 6.983 cm -> ~2.75 inches
-      expect(result.thickness).to.be.closeTo(2.75, 0.1);
-      
-      // Verify Complex Curve Extraction
-      // The WitcherDaily file has 4 anchor points for its outline
-      expect(result.outline.controlPoints.length).to.equal(4);
-      // Verify reversal applied: First point must be the nose (Negative Z)
-      expect(result.outline.controlPoints[0]![2]).to.be.lessThan(0);
+    const FIXTURES =["WitcherDaily.s3dx", "rounded pin 6'1.s3dx"];
 
-      // It has standard 3-point rockers
-      expect(result.rockerBottom.controlPoints.length).to.equal(3);
-      expect(result.rockerTop.controlPoints.length).to.equal(3);
-      
-      // It has 8 cross-section couples. We now keep all of them (including microscopic tips)
-      // to ensure a 1:1 accurate import and smooth mesh closure.
-      expect(result.crossSections.length).to.equal(8);
-      expect(result.crossSections[0]!.controlPoints[0]![2]).to.be.lessThan(0);
-    });
+    for (const fixture of FIXTURES) {
+      it(`can parse a full, real-world .s3dx file (${fixture})`, async () => {
+        // Web Test Runner serves the project directory, so we can fetch the fixture natively!
+        const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
+        expect(response.ok).to.be.true;
+        
+        const xml = await response.text();
+        const result = await Effect.runPromise(parseS3dx(xml));
+        
+        if (fixture === "WitcherDaily.s3dx") {
+          // Verify Metric to Imperial Conversion
+          // WitcherDaily is 193.04 cm -> 76 inches (6'4")
+          expect(result.length).to.be.closeTo(76, 0.1);
+          
+          // 51.435 cm -> 20.25 inches
+          expect(result.width).to.be.closeTo(20.25, 0.1);
+          
+          // 6.983 cm -> ~2.75 inches
+          expect(result.thickness).to.be.closeTo(2.75, 0.1);
+          
+          // Verify Complex Curve Extraction
+          // The WitcherDaily file has 4 anchor points for its outline
+          expect(result.outline.controlPoints.length).to.equal(4);
+
+          // It has standard 3-point rockers
+          expect(result.rockerBottom.controlPoints.length).to.equal(3);
+          expect(result.rockerTop.controlPoints.length).to.equal(3);
+          
+          // It has 8 cross-section couples. We now keep all of them (including microscopic tips)
+          // to ensure a 1:1 accurate import and smooth mesh closure.
+          expect(result.crossSections.length).to.equal(8);
+        } else {
+          expect(result.length).to.be.greaterThan(0);
+          expect(result.width).to.be.greaterThan(0);
+          expect(result.thickness).to.be.greaterThan(0);
+          expect(result.outline.controlPoints.length).to.be.greaterThan(1);
+          expect(result.rockerBottom.controlPoints.length).to.be.greaterThan(1);
+          expect(result.rockerTop.controlPoints.length).to.be.greaterThan(1);
+          expect(result.crossSections.length).to.be.greaterThan(0);
+        }
+
+        // Verify reversal applied: First point must be the nose (Negative Z)
+        expect(result.outline.controlPoints[0]![2]).to.be.lessThan(0);
+        expect(result.crossSections[0]!.controlPoints[0]![2]).to.be.lessThan(0);
+      });
+
+      it(`ensures ${fixture} outline has no negative widths after import`, async () => {
+        const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
+        const xml = await response.text();
+        const result = await Effect.runPromise(parseS3dx(xml));
+        
+        const { outline, railOutline, apexOutline } = result;
+
+        const checkCurve = (curve: BezierCurveData, name: string) => {
+          let hasNegative = false;
+          curve.controlPoints.forEach((p: Point3D) => {
+            if (p[0] < 0) hasNegative = true;
+          });
+          curve.tangents1.forEach((p: Point3D) => {
+            if (p[0] < 0) hasNegative = true;
+          });
+          curve.tangents2.forEach((p: Point3D) => {
+            if (p[0] < 0) hasNegative = true;
+          });
+          expect(hasNegative, `Curve '${name}' should not have negative X (width) values`).to.be.false;
+        };
+        
+        checkCurve(outline, "outline");
+        if (railOutline) checkCurve(railOutline, "railOutline");
+        if (apexOutline) checkCurve(apexOutline, "apexOutline");
+      });
+    }
 
     it("fails gracefully if the XML is malformed or missing metadata", async () => {
       const badXml = `<Shape3d_design><Board><Length>100</Length></Board></Shape3d_design>`; // Missing Thickness
@@ -161,32 +202,6 @@ describe("S3DX Importer", () => {
       } catch (err) {
         expect((err as Error).message).to.include("Missing core dimensions");
       }
-    });
-
-    it("ensures WitcherDaily.s3dx outline has no negative widths after import", async () => {
-      const response = await fetch("/src/assets/fixtures/s3dx/WitcherDaily.s3dx");
-      const xml = await response.text();
-      const result = await Effect.runPromise(parseS3dx(xml));
-      
-      const { outline, railOutline, apexOutline } = result;
-
-      const checkCurve = (curve: BezierCurveData, name: string) => {
-        let hasNegative = false;
-        curve.controlPoints.forEach((p: Point3D) => {
-          if (p[0] < 0) hasNegative = true;
-        });
-        curve.tangents1.forEach((p: Point3D) => {
-          if (p[0] < 0) hasNegative = true;
-        });
-        curve.tangents2.forEach((p: Point3D) => {
-          if (p[0] < 0) hasNegative = true;
-        });
-        expect(hasNegative, `Curve '${name}' should not have negative X (width) values`).to.be.false;
-      };
-      
-      checkCurve(outline, "outline");
-      checkCurve(railOutline, "railOutline");
-      checkCurve(apexOutline, "apexOutline");
     });
   });
 });
