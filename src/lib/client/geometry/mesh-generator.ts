@@ -371,10 +371,10 @@ const calculateVolume = (vertices: number[], indices: number[]): number => {
 };
 
 const generateMesh = (model: BoardModel): RawGeometryData => {
-  const segmentsV = 240;
+  let segmentsV = 240;
   const segmentsU = 96; 
   const scale = 1 / 12;
-  const vertices: number[] = [];
+  const vertices: number[] =[];
   const indices: number[] = [];
   const uvs: number[] = [];
   const colors: number[] = [];
@@ -425,13 +425,31 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
   const isSwallow = notchZ < tipZ - 0.01;
 
+  // Inject critical Z coordinates (Control Points) to capture razor sharp wings and swallow tails
+  const zRings: number[] =[];
+  for (let i = 0; i <= segmentsV; i++) {
+    const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
+    zRings.push(noseZ + vParam * (tipZ - noseZ));
+  }
+
+  // Detect wings (vertical steps in the outline) and inject micro-slices to render sharp walls
+  model.outline.controlPoints.forEach(p => {
+    if (Math.abs(p[2] - noseZ) > 0.1 && Math.abs(p[2] - tipZ) > 0.1) {
+      zRings.push(p[2] - 0.001);
+      zRings.push(p[2]);
+      zRings.push(p[2] + 0.001);
+    }
+  });
+
+  zRings.sort((a, b) => a - b);
+  segmentsV = zRings.length - 1;
+
   const sliceArcLengths = new Float32Array(segmentsV + 1);
   let totalArcLength = 0;
   const lastCenterPos = new THREE.Vector3();
 
   for (let i = 0; i <= segmentsV; i++) {
-    const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
-    const zInches = noseZ + vParam * (tipZ - noseZ);
+    const zInches = zRings[i]!;
 
     const v_outer = findVAtZ(model.outline, zInches, 0, v_tip);
     const topPt = evaluateBezierAtZ(model.rockerTop, zInches, v_outer);
@@ -453,9 +471,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const tailWidth = evaluateBezier3D(model.outline, 1)[0];
 
   for (let i = 0; i <= segmentsV; i++) {
-    const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] = [];
-    const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
-    const zInches = noseZ + vParam * (tipZ - noseZ);
+    const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
+    const zInches = zRings[i]!;
     const vCoord = sliceArcLengths[i]! / totalArcLength;
     
     const v_outer = findVAtZ(model.outline, zInches, 0, v_tip);
@@ -550,10 +567,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   };
 
   for (let i = 0; i < segmentsV; i++) {
-    const vParam0 = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
-    const vParam1 = (1 - Math.cos(((i + 1) / segmentsV) * Math.PI)) / 2;
-    const z0 = noseZ + vParam0 * (tipZ - noseZ);
-    const z1 = noseZ + vParam1 * (tipZ - noseZ);
+    const z0 = zRings[i]!;
+    const z1 = zRings[i + 1]!;
     const gapOpen = z0 > notchZ + 0.001 || z1 > notchZ + 0.001;
 
     for (let j = 0; j <= segmentsU; j++) {
@@ -582,8 +597,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   if (isSwallow) {
     let firstOpenRing = -1;
     for (let i = 0; i <= segmentsV; i++) {
-      const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
-      const z = noseZ + vParam * (tipZ - noseZ);
+      const z = zRings[i]!;
       if (z > notchZ + 0.001) {
         firstOpenRing = i;
         break;
