@@ -598,6 +598,30 @@ describe("MeshGeneratorService", () => {
         
         let invertedCount = 0;
 
+        console.warn(`\n=== DIAGNOSTICS FOR ${fixture} ===`);
+        console.warn(`Outline Z bounds: ${manualState.outline.controlPoints[0]?.[2]?.toFixed(3)} to ${manualState.outline.controlPoints[manualState.outline.controlPoints.length-1]?.[2]?.toFixed(3)}`);
+        console.warn(`RockerTop Z bounds: ${manualState.rockerTop.controlPoints[0]?.[2]?.toFixed(3)} to ${manualState.rockerTop.controlPoints[manualState.rockerTop.controlPoints.length-1]?.[2]?.toFixed(3)}`);
+        console.warn(`RockerBot Z bounds: ${manualState.rockerBottom.controlPoints[0]?.[2]?.toFixed(3)} to ${manualState.rockerBottom.controlPoints[manualState.rockerBottom.controlPoints.length-1]?.[2]?.toFixed(3)}`);
+        
+        manualState.crossSections.forEach((cs, idx) => {
+            console.warn(`CrossSection ${idx} Z bounds: ${cs.controlPoints[0]?.[2]?.toFixed(3)} to ${cs.controlPoints[cs.controlPoints.length-1]?.[2]?.toFixed(3)}`);
+        });
+
+        if (fixture === "gh-60-winged-swallow.s3dx") {
+            console.warn(`\n--- NOSE RING DIAGNOSTICS (Z=0 slice) ---`);
+            for (let j = 0; j <= segmentsRadial; j += segmentsRadial / 8) {
+                const idx = j * 3;
+                console.warn(`Nose Ring j=${j}: X=${mesh.vertices[idx]!.toFixed(4)}, Y=${mesh.vertices[idx+1]!.toFixed(4)}, Z=${mesh.vertices[idx+2]!.toFixed(4)}`);
+            }
+            
+            console.warn(`\n--- TAIL RING DIAGNOSTICS (Z=max slice) ---`);
+            const tailStart = segmentsZ * (segmentsRadial + 1) * 3;
+            for (let j = 0; j <= segmentsRadial; j += segmentsRadial / 8) {
+                const idx = tailStart + j * 3;
+                console.warn(`Tail Ring j=${j}: X=${mesh.vertices[idx]!.toFixed(4)}, Y=${mesh.vertices[idx+1]!.toFixed(4)}, Z=${mesh.vertices[idx+2]!.toFixed(4)}`);
+            }
+        }
+
         for (let i = 0; i <= segmentsZ; i++) {
           // In our radial loop (0..96), j=0 is Bottom Stringer, j=48 is Top Stringer.
           // j in (0, 24) is the Bottom curve, and (48 - j) is the matching Top curve (Deck).
@@ -610,8 +634,15 @@ describe("MeshGeneratorService", () => {
               
               if (botY > topY + 1e-6) {
                   invertedCount++;
-                  if (invertedCount < 5) { // Log first few inversions
-                      console.warn(`Inversion at Z-slice ${i}, radial point ${j}:`, { topY, botY });
+                  if (invertedCount <= 10) { // Log first 10 inversions with deep detail
+                      const zVal = mesh.vertices[topIdx * 3 + 2]!;
+                      const xVal = mesh.vertices[topIdx * 3]!;
+                      const v = (1 - Math.cos((i / segmentsZ) * Math.PI)) / 2;
+                      const profile = MeshGeneratorService.getBoardProfileAtZ(manualState, {outline:[], rockerTop:[], rockerBottom:[]}, zVal, v);
+                      
+                      console.warn(`\n[Inversion ${invertedCount}] Z-slice ${i} (Z=${zVal.toFixed(3)}, v=${v.toFixed(3)}), radial ${j} (X=${xVal.toFixed(3)}):`);
+                      console.warn(`   Mesh TopY: ${topY.toFixed(4)}, BotY: ${botY.toFixed(4)} (Diff: ${(botY-topY).toFixed(4)})`);
+                      console.warn(`   Profile at Z=${zVal.toFixed(3)}: topY=${profile.topY.toFixed(4)}, botY=${profile.botY.toFixed(4)}, apexY=${profile.apexY.toFixed(4)}, tuckY=${profile.tuckY.toFixed(4)}`);
                   }
               }
           }

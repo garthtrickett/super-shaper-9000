@@ -6,7 +6,7 @@ import { clientLog } from "../clientLog";
 const CM_TO_INCHES = 1 / 2.54;
 
 /**
- * Translates Shape3d [X, Y, Z] (cm) to Super Shaper 9000[X, Y, Z] (inches)
+ * Translates Shape3d[X, Y, Z] (cm) to Super Shaper 9000 [X, Y, Z] (inches)
  *
  * Shape3d:
  * - X: Length (0 at Absolute Tail, +L at Nose)
@@ -19,7 +19,7 @@ const CM_TO_INCHES = 1 / 2.54;
  * - Z: Length (0 at center, -L/2 at nose, +L/2 at tail)
  */
 export const translateFromShape3d = (
-[x, y, z]:[number, number, number],
+  [x, y, z]: [number, number, number],
   boardLengthInches: number,
   boardThicknessInches: number
 ): Point3D => {
@@ -123,9 +123,9 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     // Helper to reverse the direction of a Bezier curve (Nose-to-Tail vs Tail-to-Nose)
     const reverseCurve = (curve: BezierCurveData): BezierCurveData => {
       return {
-        controlPoints: [...curve.controlPoints].reverse(),
+        controlPoints:[...curve.controlPoints].reverse(),
         tangents1: [...curve.tangents2].reverse(),
-        tangents2:[...curve.tangents1].reverse()
+        tangents2: [...curve.tangents1].reverse()
       };
     };
 

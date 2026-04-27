@@ -22,14 +22,14 @@ export const cubicInterpolate = (y0: number, y1: number, y2: number, y3: number,
 };
 
 export const cubicInterpolatePt = (p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D, t: number): Point3D => {
-  return[
+  return [
     cubicInterpolate(p0[0], p1[0], p2[0], p3[0], t),
     cubicInterpolate(p0[1], p1[1], p2[1], p3[1], t),
     cubicInterpolate(p0[2], p1[2], p2[2], p3[2], t)
   ];
 };
 
-const colorHeatmap = (normalizedValue: number):[number, number, number] => {
+const colorHeatmap = (normalizedValue: number): [number, number, number] => {
   const hue = (1.0 - normalizedValue) * 240;
   const h = hue / 360;
   const hue2rgb = (p: number, q: number, t: number) => {
@@ -54,7 +54,7 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const P0 = bezier.controlPoints[segmentIdx] || [0, 0, 0];
   const P1 = bezier.controlPoints[segmentIdx + 1] || [0, 0, 0];
   const T0 = bezier.tangents2[segmentIdx] || [0, 0, 0];
-  const T1 = bezier.tangents1[segmentIdx + 1] ||[0, 0, 0];
+  const T1 = bezier.tangents1[segmentIdx + 1] || [0, 0, 0];
 
   const u = 1 - localT;
   const tt = localT * localT;
@@ -145,6 +145,49 @@ export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInche
   };
 };
 
+const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number, hintT: number = 0.5): Point3D => {
+  let bestT = hintT;
+  let minErr = Infinity;
+  
+  const steps = 50;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const p = evaluateBezier3D(bezier, t);
+    const zErr = Math.abs(p[2] - targetZ);
+    // Weight the distance in T space to prefer the branch closest to our progress 
+    // (crucial for swallow tails where the curve folds back on itself in Z)
+    const tErr = Math.abs(t - hintT) * 0.1; 
+    const totalErr = zErr + tErr;
+    
+    if (totalErr < minErr) {
+      minErr = totalErr;
+      bestT = t;
+    }
+  }
+  
+  let tSearch = bestT;
+  let step = 1.0 / steps;
+  for (let i = 0; i < 15; i++) {
+    step /= 2;
+    const tL = Math.max(0, tSearch - step);
+    const tR = Math.min(1, tSearch + step);
+    const pL = evaluateBezier3D(bezier, tL);
+    const pR = evaluateBezier3D(bezier, tR);
+    const errL = Math.abs(pL[2] - targetZ) + Math.abs(tL - hintT) * 0.1;
+    const errR = Math.abs(pR[2] - targetZ) + Math.abs(tR - hintT) * 0.1;
+    
+    if (errL < minErr && errL <= errR) {
+      minErr = errL;
+      tSearch = tL;
+    } else if (errR < minErr) {
+      minErr = errR;
+      tSearch = tR;
+    }
+  }
+  
+  return evaluateBezier3D(bezier, tSearch);
+};
+
 /**
  * Calculates a 3D coordinate on the board's surface based purely on parametric UV mapping.
  * u [0..1] goes from the stringer bottom (0), around the rail, to stringer top (1).
@@ -185,7 +228,7 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
   }
 
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
-    apexY = evaluateBezierAtZ(model.apexRocker, zInches, hintT)[1];
+    apexY = evaluateBezierAtZ(model.apexRocker, zInches, v)[1];
   }
 
   if (blend) {
@@ -213,7 +256,7 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
   // Fallback map if no slices present
   if (!blend) {
     const py = botPt[1] + (topPt[1] - botPt[1]) * u;
-    return [outPt[0], py, zInches];
+    return[outPt[0], py, zInches];
   }
 
   let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5, sliceTuckX = 0.8, sliceTuckY = 0.2;
@@ -259,7 +302,7 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
     py = apexY + normY * (topPt[1] - apexY);
   }
 
-  return [px, py, zInches];
+  return[px, py, zInches];
 };
 
 const calculateVolume = (vertices: number[], indices: number[]): number => {
@@ -285,8 +328,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const segmentsU = 96; 
   const scale = 1 / 12;
   const vertices: number[] = [];
-  const indices: number[] = [];
-  const uvs: number[] =[];
+  const indices: number[] =[];
+  const uvs: number[] = [];
   const colors: number[] = [];
   const normals: number[] =[];
 
@@ -323,7 +366,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     lastCenterPos.copy(currentCenterPos);
   }
 
-  const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] = [];
+  const vertexGrid: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[][] =[];
 
   const noseWidth = evaluateBezier3D(model.outline, 0)[0];
   const tailWidth = evaluateBezier3D(model.outline, 1)[0];
@@ -348,7 +391,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         side = -1.0;
       }
 
-      let[px, py, pz] = getPointAtUV(model, u, v);
+      let [px, py, pz] = getPointAtUV(model, u, v);
       
       if (isStringer) {
         px = 0;
@@ -498,49 +541,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   };
 };
 
-const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number, hintT: number = 0.5): Point3D => {
-  let bestT = hintT;
-  let minErr = Infinity;
-  
-  const steps = 50;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const p = evaluateBezier3D(bezier, t);
-    const zErr = Math.abs(p[2] - targetZ);
-    // Weight the distance in T space to prefer the branch closest to our progress 
-    // (crucial for swallow tails where the curve folds back on itself in Z)
-    const tErr = Math.abs(t - hintT) * 0.1; 
-    const totalErr = zErr + tErr;
-    
-    if (totalErr < minErr) {
-      minErr = totalErr;
-      bestT = t;
-    }
-  }
-  
-  let tSearch = bestT;
-  let step = 1.0 / steps;
-  for (let i = 0; i < 15; i++) {
-    step /= 2;
-    const tL = Math.max(0, tSearch - step);
-    const tR = Math.min(1, tSearch + step);
-    const pL = evaluateBezier3D(bezier, tL);
-    const pR = evaluateBezier3D(bezier, tR);
-    const errL = Math.abs(pL[2] - targetZ) + Math.abs(tL - hintT) * 0.1;
-    const errR = Math.abs(pR[2] - targetZ) + Math.abs(tR - hintT) * 0.1;
-    
-    if (errL < minErr && errL <= errR) {
-      minErr = errL;
-      tSearch = tL;
-    } else if (errR < minErr) {
-      minErr = errR;
-      tSearch = tR;
-    }
-  }
-  
-  return evaluateBezier3D(bezier, tSearch);
-};
-
 export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInches: number, hintT: number = 0.5) => {
   const topPt = evaluateBezierAtZ(model.rockerTop, zInches, hintT);
   const botPt = evaluateBezierAtZ(model.rockerBottom, zInches, hintT);
@@ -573,7 +573,7 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   }
 
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
-    apexY = evaluateBezierAtZ(model.apexRocker, zInches, v)[1];
+    apexY = evaluateBezierAtZ(model.apexRocker, zInches, hintT)[1];
   }
 
   if (blend) {
