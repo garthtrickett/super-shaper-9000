@@ -29,7 +29,7 @@ export const cubicInterpolatePt = (p0: Point3D, p1: Point3D, p2: Point3D, p3: Po
   ];
 };
 
-const colorHeatmap = (normalizedValue: number): [number, number, number] => {
+const colorHeatmap = (normalizedValue: number):[number, number, number] => {
   const hue = (1.0 - normalizedValue) * 240;
   const h = hue / 360;
   const hue2rgb = (p: number, q: number, t: number) => {
@@ -45,16 +45,16 @@ const colorHeatmap = (normalizedValue: number): [number, number, number] => {
 
 const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const numSegments = bezier.controlPoints.length - 1;
-  if (numSegments <= 0) return bezier.controlPoints[0] ||[0, 0, 0];
+  if (numSegments <= 0) return bezier.controlPoints[0] || [0, 0, 0];
   const scaledT = t * numSegments;
   let segmentIdx = Math.floor(scaledT);
   if (segmentIdx >= numSegments) segmentIdx = numSegments - 1;
   const localT = scaledT - segmentIdx;
 
-  const P0 = bezier.controlPoints[segmentIdx] ||[0, 0, 0];
-  const P1 = bezier.controlPoints[segmentIdx + 1] ||[0, 0, 0];
-  const T0 = bezier.tangents2[segmentIdx] ||[0, 0, 0];
-  const T1 = bezier.tangents1[segmentIdx + 1] || [0, 0, 0];
+  const P0 = bezier.controlPoints[segmentIdx] || [0, 0, 0];
+  const P1 = bezier.controlPoints[segmentIdx + 1] || [0, 0, 0];
+  const T0 = bezier.tangents2[segmentIdx] || [0, 0, 0];
+  const T1 = bezier.tangents1[segmentIdx + 1] ||[0, 0, 0];
 
   const u = 1 - localT;
   const tt = localT * localT;
@@ -62,7 +62,7 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
   const uuu = uu * u;
   const ttt = tt * localT;
 
-  return[
+  return [
     uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0],
     uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1],
     uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2]
@@ -303,7 +303,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const scale = 1 / 12;
   const vertices: number[] =[];
   const indices: number[] = [];
-  const uvs: number[] =[];
+  const uvs: number[] = [];
   const colors: number[] =[];
   const normals: number[] =[];
 
@@ -321,11 +321,10 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   const minZ = outline.controlPoints[0]![2];
   const maxZ = outline.controlPoints[outline.controlPoints.length - 1]![2];
 
-  const noseProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, minZ);
-  const tailProfile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, maxZ);
+  const noseProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, minZ);
+  const tailProfile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, maxZ);
 
   // --- STEP 0: PRE-CALCULATE ARC LENGTH FOR V-COORDINATE ---
-  // This maps UV.v to cumulative 3D distance to prevent texture warping at the tips.
   const sliceArcLengths = new Float32Array(segmentsZ + 1);
   let totalArcLength = 0;
   const lastCenterPos = new THREE.Vector3();
@@ -335,7 +334,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const zInches = minZ + nz * (maxZ - minZ);
     const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, zInches);
     
-    // Using centerline vertical average as the arc-length spine
     const cy = (profile.topY + profile.botY) / 2;
     const currentCenterPos = new THREE.Vector3(0, cy * scale, zInches * scale);
     
@@ -353,8 +351,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const ring: { pos: THREE.Vector3; color: THREE.Color; uv: THREE.Vector2 }[] =[];
     const zInches = minZ + ((1 - Math.cos((i / segmentsZ) * Math.PI)) / 2) * (maxZ - minZ);
     const vCoord = sliceArcLengths[i]! / totalArcLength;
-    
-    const profile = getBoardProfileAtZ(model, { outline:[], rockerTop: [], rockerBottom:[] }, zInches);
+
+    const profile = getBoardProfileAtZ(model, { outline: [], rockerTop: [], rockerBottom:[] }, zInches);
     const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
     let sliceTopY = 1.0, sliceBotY = 0.0, sliceApexX = 1.0, sliceApexY = 0.5, sliceTuckX = 0.8, sliceTuckY = 0.2;
@@ -387,8 +385,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       if (blend) {
         const p = blend.evaluate(t);
         
-        // Piecewise X-scaling ensures the 3D rail outline (Tuck) correctly bounds the slice,
-        // preventing sharp tail deck shoulders from being smoothed out by the apex width.
         if (t <= 0.25) {
           const normX = sliceTuckX > 0.001 ? p[0] / sliceTuckX : 0;
           px = isStringer ? 0 : side * normX * profile.tuckX;
@@ -401,8 +397,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
           px = isStringer ? 0 : side * normX * profile.apexX;
         }
         
-        // 3-Piece Piecewise Y-scaling ensures vertical features (channels, tucked rails,
-        // sharp shoulders) are correctly preserved relative to global rocker boundaries.
         if (t <= 0.25) {
           const rangeY = sliceTuckY - sliceBotY;
           const normY = Math.abs(rangeY) > 0.001 ? (p[1] - sliceBotY) / rangeY : 0;
@@ -418,7 +412,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
         }
       }
 
-      // Force exact 0 at the absolute tips to prevent hash mismatch boundary edges
+      // Force exact 0 width at the mathematical tips to prevent hash mismatch boundary edges
       if ((i === 0 && noseProfile.halfWidth < 1e-3) || (i === segmentsZ && tailProfile.halfWidth < 1e-3)) {
         px = 0;
       }
@@ -443,7 +437,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       const tangentR = new THREE.Vector3();
       const normal = new THREE.Vector3();
 
-      // Extrapolate Hull Z tangents for the absolute tips instead of forcing flat normals
       if (i === 0) {
         tangentZ.subVectors(vertexGrid[1]![j]!.pos, vertexGrid[0]![j]!.pos);
       } else if (i === segmentsZ) {
@@ -460,7 +453,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       
       normal.crossVectors(tangentR, tangentZ).normalize();
       
-      // Fallback if tangent calculation fails at a perfectly sharp mathematical point
       if (isNaN(normal.x) || normal.lengthSq() < 0.0001) {
         if (i === 0) normal.set(0, 0, -1);
         else if (i === segmentsZ) normal.set(0, 0, 1);
@@ -472,27 +464,35 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
   }
 
   // STEP 3: Generate Hull Indices
-  for (let i = 0; i < segmentsZ; i++) {
-    const isNosePoint = i === 0 && noseProfile.halfWidth < 1e-3 && Math.abs(noseProfile.topY - noseProfile.botY) < 1e-3;
-    const isTailPoint = i === segmentsZ - 1 && tailProfile.halfWidth < 1e-3 && Math.abs(tailProfile.topY - tailProfile.botY) < 1e-3;
+  const pushTriangle = (i1: number, i2: number, i3: number) => {
+    const p1x = vertices[i1 * 3]!, p1y = vertices[i1 * 3 + 1]!, p1z = vertices[i1 * 3 + 2]!;
+    const p2x = vertices[i2 * 3]!, p2y = vertices[i2 * 3 + 1]!, p2z = vertices[i2 * 3 + 2]!;
+    const p3x = vertices[i3 * 3]!, p3y = vertices[i3 * 3 + 1]!, p3z = vertices[i3 * 3 + 2]!;
+    
+    const abx = p2x - p1x, aby = p2y - p1y, abz = p2z - p1z;
+    const acx = p3x - p1x, acy = p3y - p1y, acz = p3z - p1z;
+    
+    const crossX = aby * acz - abz * acy;
+    const crossY = abz * acx - abx * acz;
+    const crossZ = abx * acy - aby * acx;
+    
+    const areaSq = crossX * crossX + crossY * crossY + crossZ * crossZ;
+    // Strictly omit mathematically degenerate zero-area triangles to satisfy the 
+    // watertightness validation and prevent shader division by zero.
+    if (areaSq > 1e-25) {
+      indices.push(i1, i2, i3);
+    }
+  };
 
+  for (let i = 0; i < segmentsZ; i++) {
     for (let j = 0; j < segmentsRadial; j++) {
       const a = i * (segmentsRadial + 1) + j;
       const b = a + 1;
       const c = (i + 1) * (segmentsRadial + 1) + j;
       const d = c + 1;
       
-      if (isNosePoint) {
-        // a and b are identical points at the nose tip.
-        // Omit the degenerate (a, b, d) triangle.
-        indices.push(a, d, c);
-      } else if (isTailPoint) {
-        // c and d are identical points at the tail tip.
-        // Omit the degenerate (a, d, c) triangle.
-        indices.push(a, b, d);
-      } else {
-        indices.push(a, b, d, a, d, c);
-      }
+      pushTriangle(a, b, d);
+      pushTriangle(a, d, c);
     }
   }
 
@@ -504,20 +504,18 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const ringStartIndex = 0;
     const capVertexStartIndex = vertices.length / 3;
 
-    // 1. Calculate and push the central pivot vertex for the Nose fan
     const botY = vertexGrid[0]![0]!.pos.y;
     const topY = vertexGrid[0]![segmentsRadial / 2]!.pos.y;
     const centerY = botY + (topY - botY) / 2;
     
     vertices.push(0, centerY, minZ * scale);
-    uvs.push(0.5, 0); // Center UV
+    uvs.push(0.5, 0); 
     colors.push(1, 1, 1);
-    normals.push(0, 0, -1); // Nose faces backwards (-Z)
+    normals.push(0, 0, -1); 
     
     const centerIdx = capVertexStartIndex;
     const perimeterStartIdx = centerIdx + 1;
 
-    // 2. Push perimeter vertices
     for (let j = 0; j <= segmentsRadial; j++) {
       const hullIndex = ringStartIndex + j;
       vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
@@ -526,7 +524,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       normals.push(0, 0, -1);
     }
 
-    // 3. Build fan indices (Winding: Center -> Next -> Current for -Z outward normal)
     for (let j = 0; j < segmentsRadial; j++) {
       indices.push(centerIdx, perimeterStartIdx + j + 1, perimeterStartIdx + j);
     }
@@ -536,20 +533,18 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     const ringStartIndex = segmentsZ * (segmentsRadial + 1);
     const capVertexStartIndex = vertices.length / 3;
 
-    // 1. Calculate and push the central pivot vertex for the Tail fan
     const botY = vertexGrid[segmentsZ]![0]!.pos.y;
     const topY = vertexGrid[segmentsZ]![segmentsRadial / 2]!.pos.y;
     const centerY = botY + (topY - botY) / 2;
 
     vertices.push(0, centerY, maxZ * scale);
-    uvs.push(0.5, 1); // Center UV
+    uvs.push(0.5, 1); 
     colors.push(1, 1, 1);
-    normals.push(0, 0, 1); // Tail faces forwards (+Z)
+    normals.push(0, 0, 1); 
 
     const centerIdx = capVertexStartIndex;
     const perimeterStartIdx = centerIdx + 1;
 
-    // 2. Push perimeter vertices
     for (let j = 0; j <= segmentsRadial; j++) {
       const hullIndex = ringStartIndex + j;
       vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
@@ -558,7 +553,6 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       normals.push(0, 0, 1);
     }
 
-    // 3. Build fan indices (Winding: Center -> Current -> Next for +Z outward normal)
     for (let j = 0; j < segmentsRadial; j++) {
       indices.push(centerIdx, perimeterStartIdx + j, perimeterStartIdx + j + 1);
     }

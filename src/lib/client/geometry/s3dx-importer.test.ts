@@ -118,10 +118,11 @@ describe("S3DX Importer", () => {
       expect(result.crossSections[0]!.controlPoints.length).to.equal(2);
     });
 
-    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx"];
+    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx", "wildcat-fixed-winged-pin.s3dx", "gh-60-winged-swallow.s3dx"];
 
     for (const fixture of FIXTURES) {
       it(`can parse a full, real-world .s3dx file (${fixture})`, async () => {
+        console.info(`[s3dx-importer.test] Parsing: ${fixture}`);
         // Web Test Runner serves the project directory, so we can fetch the fixture natively!
         const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
         expect(response.ok).to.be.true;
@@ -167,6 +168,7 @@ describe("S3DX Importer", () => {
       });
 
       it(`ensures ${fixture} outline has no negative widths after import`, async () => {
+        console.info(`[s3dx-importer.test] Checking for negative widths: ${fixture}`);
         const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
         const xml = await response.text();
         const result = await Effect.runPromise(parseS3dx(xml));

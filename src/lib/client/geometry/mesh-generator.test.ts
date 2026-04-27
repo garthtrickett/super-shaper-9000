@@ -612,10 +612,11 @@ describe("MeshGeneratorService", () => {
   });
 
   describe("Imported S3DX Edge Cases", () => {
-    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx"];
+    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx", "wildcat-fixed-winged-pin.s3dx", "gh-60-winged-swallow.s3dx"];
 
     for (const fixture of FIXTURES) {
       it(`does not create a vertical bowtie (crease) at the tail for ${fixture}`, async () => {
+        console.info(`[mesh-generator.test] Bowtie check for: ${fixture}`);
         const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
         const xml = await response.text();
         const importedData = await runClientPromise(parseS3dx(xml));
@@ -667,6 +668,7 @@ describe("MeshGeneratorService", () => {
       });
 
       it(`generates a valid tail width for ${fixture}`, async () => {
+          console.info(`[mesh-generator.test] Tail width check for: ${fixture}`);
           const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
           const xml = await response.text();
           const importedData = await runClientPromise(parseS3dx(xml));
@@ -702,6 +704,7 @@ describe("MeshGeneratorService", () => {
       });
 
       it(`prevents tangent Z-overshoot (folding) which causes wide, rounded squash tails for ${fixture}`, async () => {
+        console.info(`[mesh-generator.test] Z-overshoot check for: ${fixture}`);
         const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
         const xml = await response.text();
         const importedData = await runClientPromise(parseS3dx(xml));

@@ -122,10 +122,11 @@ describe("S3DX Exporter", () => {
   });
 
   describe("Integration: Export-Import Round Trip", () => {
-    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx", "wingedpin.s3dx"];
+    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx", "wildcat-fixed-winged-pin.s3dx", "gh-60-winged-swallow.s3dx"];
 
     for (const fixture of FIXTURES) {
       it(`preserves geometric integrity of ${fixture} within tolerances after full round-trip`, async () => {
+        console.info(`[s3dx-exporter.test] Round-trip test for: ${fixture}`);
         // 1. Import canonical ground truth
         const response = await fetch(`/src/assets/fixtures/s3dx/${fixture}`);
         expect(response.ok).to.be.true;
