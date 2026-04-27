@@ -264,6 +264,17 @@ export class BoardControls extends LitElement {
           </div>
           <div class="h-px bg-zinc-800 my-4"></div>
           <div class="mb-4" @input=${(e: Event) => this._dispatchFinDim("front", "zFromTail", parseFloat((e.target as HTMLInputElement).value))}>
+        ${this._renderAccordion("Fins & Placement", html`
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Setup</label>
+            <select class="text-sm w-full appearance-none bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md py-2 pl-3 pr-8 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer" .value=${this.finSetup} @change=${(e: Event) => this._dispatchFinLayout((e.target as HTMLSelectElement).value)}>
+              <option value="quad" ?selected=${this.finSetup === 'quad'}>Quad (4 Fins)</option>
+              <option value="thruster" ?selected=${this.finSetup === 'thruster'}>Thruster (3 Fins)</option>
+              <option value="twin" ?selected=${this.finSetup === 'twin'}>Twin (2 Fins)</option>
+            </select>
+          </div>
+          <div class="h-px bg-zinc-800 my-4"></div>
+          <div class="mb-4" @input=${(e: Event) => this._dispatchFinDim("front", "zFromTail", parseFloat((e.target as HTMLInputElement).value))}>
             ${this._renderSlider("Front Fin from Tail", "frontFinZ", 8.0, 16.0, 0.25, this.frontFinZ)}
           </div>
           <div class="mb-4" @input=${(e: Event) => this._dispatchFinDim("front", "xFromRail", parseFloat((e.target as HTMLInputElement).value))}>
@@ -283,6 +294,11 @@ export class BoardControls extends LitElement {
           <div class="h-px bg-zinc-800 my-4"></div>
           <div class="mb-4" @input=${(e: Event) => this._dispatchFinDim("all", "toeAngle", parseFloat((e.target as HTMLInputElement).value))}>
             ${this._renderSlider("Toe-In Angle", "toeAngle", 0, 8.0, 0.5, this.toeAngle, "°")}
+          </div>
+          <div class="mb-4" @input=${(e: Event) => this._dispatchFinDim("all", "cantAngle", parseFloat((e.target as HTMLInputElement).value))}>
+            ${this._renderSlider("Cant Angle", "cantAngle", 0, 10.0, 1.0, this.cantAngle, "°")}
+          </div>
+        `, false)}
           </div>
           <div class="mb-4" @input=${(e: Event) => this._dispatchFinDim("all", "cantAngle", parseFloat((e.target as HTMLInputElement).value))}>
             ${this._renderSlider("Cant Angle", "cantAngle", 0, 10.0, 1.0, this.cantAngle, "°")}

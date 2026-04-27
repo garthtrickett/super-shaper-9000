@@ -201,8 +201,6 @@ export class BoardBuilderPage extends LitElement {
           @update-fin-dimension=${(e: CustomEvent<{ target: "front"|"rear"|"all", param: any, value: number }>) => this.ctrl.propose({ type: "UPDATE_FIN_DIMENSION", target: e.detail.target, param: e.detail.param, value: e.detail.value })}
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
-          @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => this.ctrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value })}
-          .showGizmos=${state.showGizmos ?? true}
           .showHeatmap=${state.showHeatmap ?? false}
           .showZebra=${state.showZebra ?? false}
           .showApexLine=${state.showApexLine ?? false}

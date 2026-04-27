@@ -120,8 +120,6 @@ export class FinBuilder {
         const vUp = new THREE.Vector3().crossVectors(vBackward, vRight).normalize();
         
         const rotationMatrix = new THREE.Matrix4().makeBasis(vRight, vUp, vBackward);
-        finContainer.rotation.setFromRotationMatrix(rotationMatrix);
-        
         // 5. Apply Toe and Cant locally to the perfectly flush container
         if (!box.isCenter) {
             const cantRad = box.cantAngle * Math.PI / 180;
@@ -135,7 +133,7 @@ export class FinBuilder {
     };
 
     // Render all fins in the parametric model
-    boardState.boxes.forEach(box => {
+    boardState.boxes?.forEach(box => {
         if (box.type === "fin") {
             mountFin(box);
         }

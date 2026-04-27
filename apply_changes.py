@@ -115,7 +115,7 @@ def replace_closest_edit_distance(whole_lines, part, part_lines, replace_lines):
 
     print(f"    🔍 Strict match failed. Falling back to fuzzy matching (target: {len(part_lines)} lines)...", flush=True)
 
-    similarity_thresh = 0.58
+    similarity_thresh = 0.53
     max_similarity = 0
     most_similar_chunk_start = -1
     most_similar_chunk_end = -1
