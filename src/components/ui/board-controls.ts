@@ -241,6 +241,11 @@ export class BoardControls extends LitElement {
         `, true)}
 
         ${this._renderAccordion("Global Transforms", html`
+          ${this._renderSlider("Length", "length", 48, 120, 0.5, this.length)}
+          ${this._renderSlider("Width", "width", 16, 24, 0.125, this.width)}
+          ${this._renderSlider("Thickness", "thickness", 1.5, 4, 0.0625, this.thickness)}
+          <div class="h-px bg-zinc-800 my-4"></div>
+          <p class="text-xs text-zinc-500 mb-2 text-center">Relative Scaling</p>
           <div class="flex flex-col gap-2">
             <div class="flex gap-2">
               <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_WIDTH', factor: 1.05 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Width +5%</button>
