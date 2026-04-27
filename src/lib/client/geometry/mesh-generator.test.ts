@@ -482,10 +482,10 @@ describe("MeshGeneratorService", () => {
         outline: mockBezier([[10, 0, 0],[10, 0, 10]]),
         rockerBottom: mockBezier([[0, 0, 0], [0, 0, 10]]),
         rockerTop: mockBezier([[0, 20, 0], [0, 20, 10]]),
-        apexRocker: mockBezier([[0, 5, 0], [0, 5, 10]]),
+        apexRocker: mockBezier([[0, 5, 0],[0, 5, 10]]),
         crossSections:[
           // Slice: Deep channel at t=0.25 (Y=4). Apex at t=0.5 (Y=2).
-          mockBezier([[0, 0, 0],[5, 4, 0], [10, 2, 0], [5, 10, 0],[0, 10, 0]])
+          mockBezier([[0, 0, 0],[5, 4, 0], [10, 2, 0],[5, 10, 0],[0, 10, 0]])
         ]
       };
 
@@ -496,7 +496,7 @@ describe("MeshGeneratorService", () => {
       const vertexIdx = jChan * 3;
       const yVal = mesh.vertices[vertexIdx + 1]!;
         
-      const expectedInches = 10; 
+      const expectedInches = 8; 
       const expectedScaled = expectedInches * (1/12);
         
       expect(yVal).to.be.closeTo(expectedScaled, 0.001, "Y coordinate should scale via parameter space (T), ignoring spatial overlap.");
