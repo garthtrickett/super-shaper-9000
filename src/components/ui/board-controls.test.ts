@@ -10,14 +10,16 @@ describe("BoardControls (UI Component)", () => {
       const spy = sinon.spy();
       el.addEventListener("number-changed", spy);
 
-      const input = el.querySelector('input[type="range"]') as HTMLInputElement;
-      expect(input).to.exist;
+      // We query for a specific generic slider (e.g. Length) because Fin sliders map to update-fin-dimension now
+      const inputs = Array.from(el.querySelectorAll('input[type="range"]')) as HTMLInputElement[];
+      const lengthInput = inputs.find(i => i.max === "120" || i.step === "0.5"); // Length slider properties
+      expect(lengthInput).to.exist;
       
-      input.value = "10";
-      input.dispatchEvent(new Event("input"));
+      lengthInput!.value = "72";
+      lengthInput!.dispatchEvent(new Event("input"));
 
       expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "frontFinZ", value: 10 });
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 72 });
     });
 
     it("should emit string-changed event when select is changed", async () => {

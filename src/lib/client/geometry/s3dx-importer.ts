@@ -266,6 +266,7 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       rockerBottom,
       rockerTop,
       apexRocker,
-      crossSections: cleanCrossSections
+      crossSections: cleanCrossSections,
+      boxes
     };
   });

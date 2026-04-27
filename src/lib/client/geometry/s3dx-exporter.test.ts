@@ -44,7 +44,7 @@ describe("S3DX Exporter", () => {
 
     it("translates the left rail to Y_s3d = Negative Half Width in cm", () => {
       // SS9000 Left Rail is at X = -W/2
-      const[x, y, z] = translateToShape3d([-W / 2, 0, 0], L, T);
+      const [x, y, z] = translateToShape3d([-W / 2, 0, 0], L, T);
       expect(y).to.be.closeTo((-W / 2) * 2.54, 0.0001);
     });
   });
@@ -53,9 +53,9 @@ describe("S3DX Exporter", () => {
     it("generates a valid XML skeleton with accurate cm conversions", async () => {
       // Minimal mocked curves to bypass Rhino dependency in this test
       const mockCurves: BoardCurves = {
-        outline: [[0, 0, -35], [9.375, 0, 0],[0, 0, 35]],
+        outline: [[0, 0, -35],[9.375, 0, 0],[0, 0, 35]],
         rockerTop: [[0, 1.25, -35], [0, 1.25, 0],[0, 1.25, 35]],
-        rockerBottom: [[0, -1.25, -35],[0, -1.25, 0], [0, -1.25, 35]]
+        rockerBottom: [[0, -1.25, -35],[0, -1.25, 0],[0, -1.25, 35]]
       };
 
       const mockModel = {
@@ -63,19 +63,22 @@ describe("S3DX Exporter", () => {
         width: 18.75,
         thickness: 2.5,
         volume: 30.5,
-        finSetup: "quad",
-        frontFinX: 1.25,
-        frontFinZ: 11,
-        rearFinX: 1.75,
-        rearFinZ: 5.5,
-        toeAngle: 3,
-        cantAngle: 6,
+        boxes:[
+          { name: "Front Right", type: "fin", isCenter: false, isRight: true, zFromTail: 11.0, xFromRail: 1.25, toeAngle: 3.0, cantAngle: 6.0 },
+          { name: "Front Left", type: "fin", isCenter: false, isRight: false, zFromTail: 11.0, xFromRail: 1.25, toeAngle: 3.0, cantAngle: 6.0 },
+          { name: "Rear Right", type: "fin", isCenter: false, isRight: true, zFromTail: 6.0, xFromRail: 1.5, toeAngle: 1.5, cantAngle: 4.0 },
+          { name: "Rear Left", type: "fin", isCenter: false, isRight: false, zFromTail: 6.0, xFromRail: 1.5, toeAngle: 1.5, cantAngle: 4.0 }
+        ],
         coreMaterial: "pu",
         glassingSchedule: "heavy",
         outline: { controlPoints:[[0, 0, -35],[9.375, 0, 0],[0, 0, 35]], tangents1: [[0, 0, -35], [9.375, 0, -10],[0, 0, 25]], tangents2: [[0, 0, -25],[9.375, 0, 10],[0, 0, 35]] },
-        rockerTop: { controlPoints: [[0, 1.25, -35],[0, 1.25, 0],[0, 1.25, 35]], tangents1: [[0, 1.25, -35], [0, 1.25, -10],[0, 1.25, 25]], tangents2: [[0, 1.25, -25], [0, 1.25, 10],[0, 1.25, 35]] },
-        rockerBottom: { controlPoints: [[0, -1.25, -35],[0, -1.25, 0],[0, -1.25, 35]], tangents1: [[0, -1.25, -35],[0, -1.25, -10], [0, -1.25, 25]], tangents2: [[0, -1.25, -25],[0, -1.25, 10],[0, -1.25, 35]] },
-        crossSections:[]
+        rockerTop: { controlPoints: [[0, 1.25, -35],[0, 1.25, 0],[0, 1.25, 35]], tangents1: [[0, 1.25, -35], [0, 1.25, -10],[0, 1.25, 25]], tangents2: [[0, 1.25, -25],[0, 1.25, 10],[0, 1.25, 35]] },
+        rockerBottom: { controlPoints: [[0, -1.25, -35],[0, -1.25, 0],[0, -1.25, 35]], tangents1: [[0, -1.25, -35],[0, -1.25, -10],[0, -1.25, 25]], tangents2: [[0, -1.25, -25],[0, -1.25, 10],[0, -1.25, 35]] },
+        crossSections:[{
+          controlPoints: [[0, -1.25, 0],[6, -1.25, 0],[9.375, 0, 0],[6, 1.25, 0],[0, 1.25, 0]],
+          tangents1: [[0, -1.25, 0],[4, -1.25, 0], [9.375, -0.5, 0],[8, 1.25, 0], [2, 1.25, 0]],
+          tangents2: [[2, -1.25, 0],[8, -1.25, 0],[9.375, 0.5, 0],[4, 1.25, 0], [0, 1.25, 0]]
+        }]
       } as unknown as BoardModel;
 
       const xml = await Effect.runPromise(exportS3dx(mockModel, mockCurves));
@@ -97,7 +100,7 @@ describe("S3DX Exporter", () => {
       
       expect(xml).to.include("<Volume>30.500</Volume>");
 
-      // Verify Step 2 Curve XML Tags were injected
+      // Verify Main Curves were injected
       expect(xml).to.include("<Otl>");
       expect(xml).to.include("<StrBot>");
       expect(xml).to.include("<StrDeck>");
@@ -109,10 +112,9 @@ describe("S3DX Exporter", () => {
       expect(xml).to.include("<Tangents_m>");
       expect(xml).to.include("<Control_type_point_0> 32 </Control_type_point_0>");
 
-      // Verify Step 3 Slices were injected
-      expect(xml).to.include("<Number_of_slices>8</Number_of_slices>");
+      // Verify Step 3 Slices were injected using exact array length (1 mock slice)
+      expect(xml).to.include("<Number_of_slices>1</Number_of_slices>");
       expect(xml).to.include("<Couples_0>");
-      expect(xml).to.include("<Couples_7>");
     });
   });
 });

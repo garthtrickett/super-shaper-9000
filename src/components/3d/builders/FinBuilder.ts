@@ -123,27 +123,22 @@ export class FinBuilder {
         finContainer.rotation.setFromRotationMatrix(rotationMatrix);
         
         // 5. Apply Toe and Cant locally to the perfectly flush container
-        if (!isCenter) {
-            const cantRad = boardState.cantAngle * Math.PI / 180;
-            const toeRad = boardState.toeAngle * Math.PI / 180;
+        if (!box.isCenter) {
+            const cantRad = box.cantAngle * Math.PI / 180;
+            const toeRad = box.toeAngle * Math.PI / 180;
             
-            finContainer.rotateZ(isRight ? cantRad : -cantRad);
-            finContainer.rotateY(isRight ? toeRad : -toeRad);
+            finContainer.rotateZ(box.isRight ? cantRad : -cantRad);
+            finContainer.rotateY(box.isRight ? toeRad : -toeRad);
         }
         
         group.add(finContainer);
     };
 
-    // Mount Front Fins
-    mountFin(boardState.frontFinZ, boardState.frontFinX, true, false, false);
-    mountFin(boardState.frontFinZ, boardState.frontFinX, false, false, false);
-
-    // Mount Rear Fins
-    if (boardState.finSetup === "quad") {
-        mountFin(boardState.rearFinZ, boardState.rearFinX, true, false, true);
-        mountFin(boardState.rearFinZ, boardState.rearFinX, false, false, true);
-    } else if (boardState.finSetup === "thruster") {
-        mountFin(boardState.rearFinZ, 0, true, true, false);
-    }
+    // Render all fins in the parametric model
+    boardState.boxes.forEach(box => {
+        if (box.type === "fin") {
+            mountFin(box);
+        }
+    });
   }
 }

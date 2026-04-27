@@ -377,6 +377,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         rockerBottom: action.rockerBottom,
         apexRocker: action.apexRocker,
         crossSections: action.crossSections,
+        boxes: action.boxes,
       };
       return pushHistory(newState);
     }

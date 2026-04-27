@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { BoardModel } from "../../../components/pages/board-builder-page.logic";
+import type { BoardModel, BezierCurveData } from "../../../components/pages/board-builder-page.logic";
 import type { BoardCurves } from "./board-curves";
 import { clientLog } from "../clientLog";
 import { getBoardProfileAtZ, getBottomYAt } from "./mesh-generator";
@@ -7,7 +7,7 @@ import { getBoardProfileAtZ, getBottomYAt } from "./mesh-generator";
 const INCHES_TO_CM = 2.54;
 
 /**
- * Translates Super Shaper 9000 [X, Y, Z] (inches) to Shape3d [X, Y, Z] (cm)
+ * Translates Super Shaper 9000 [X, Y, Z] (inches) to Shape3d[X, Y, Z] (cm)
  *
  * SS9000:
  * - X: Width (0 at stringer)
@@ -23,7 +23,7 @@ export const translateToShape3d = (
   [x, y, z]: [number, number, number],
   boardLengthInches: number,
   boardThicknessInches: number
-): [number, number, number] => {
+):[number, number, number] => {
   // 1. X_s3d (Length): Distance from tail. Tail in SS9000 is +L/2.
   const x_s3d = (boardLengthInches / 2 - z) * INCHES_TO_CM;
 
@@ -41,6 +41,42 @@ export const translateToShape3d = (
   ];
 };
 
+export interface S3DBezier {
+  controlPoints: [number, number, number][];
+  tangents1: [number, number, number][]; // Incoming (left) handles
+  tangents2: [number, number, number][]; // Outgoing (right) handles
+}
+
+const reverseCurve = (curve: BezierCurveData): BezierCurveData => {
+  return {
+    controlPoints: [...curve.controlPoints].reverse(),
+    tangents1: [...curve.tangents2].reverse(),
+    tangents2: [...curve.tangents1].reverse()
+  };
+};
+
+export const translateBezierToShape3d = (
+  bezier: BezierCurveData,
+  boardLengthInches: number,
+  boardThicknessInches: number,
+  flattenZ: boolean = false,
+  reverse: boolean = true
+): S3DBezier => {
+  const target = reverse ? reverseCurve(bezier) : bezier;
+  
+  const mapPoints = (pts: [number, number, number][]) => pts.map(p => {
+    const pt = translateToShape3d(p, boardLengthInches, boardThicknessInches);
+    if (flattenZ) pt[2] = 0.000000;
+    return pt;
+  });
+
+  return {
+    controlPoints: mapPoints(target.controlPoints),
+    tangents1: mapPoints(target.tangents1),
+    tangents2: mapPoints(target.tangents2),
+  };
+};
+
 export const exportS3dx = (
   model: BoardModel,
   curves: BoardCurves
@@ -48,39 +84,32 @@ export const exportS3dx = (
   Effect.gen(function* () {
     yield* clientLog(
       "info",
-      "[s3dx-exporter] Starting Step 1: Coordinate Translation Pipeline"
+      "[s3dx-exporter] Starting Coordinate Translation Pipeline"
     );
 
-    // Step 2: Translate dense NURBS points to Shape3d World Coordinates
-    const mapCurve = (
-      curve: [number, number, number][],
-      flattenZ: boolean = false
-    ) =>
-      curve.map((p) => {
-        const pt = translateToShape3d(p, model.length, model.thickness);
-        if (flattenZ) pt[2] = 0.000000;
-        return pt;
-      });
-
+    // Translate the exact Bezier curves to Shape3d World Coordinates
     // Shape3D requires the Outline curve to be strictly 2D at Z=0
-    const outlineS3d = mapCurve(curves.outline, true);
-    const botS3d = mapCurve(curves.rockerBottom);
-    const deckS3d = mapCurve(curves.rockerTop);
+    const otlBezier = translateBezierToShape3d(model.outline, model.length, model.thickness, true, true);
+    const botBezier = translateBezierToShape3d(model.rockerBottom, model.length, model.thickness, false, true);
+    const deckBezier = translateBezierToShape3d(model.rockerTop, model.length, model.thickness, false, true);
 
-    // Generate Cubic Beziers via Curve Fitting
-    const otlBezier = fitBezier(outlineS3d, "outline");
-    const botBezier = fitBezier(botS3d, "rocker");
-    const deckBezier = fitBezier(deckS3d, "rocker");
+    const slicesXml = model.crossSections.map((cs, idx) => {
+      // Cross sections are not reversed because they are purely lateral
+      const s3dSlice = translateBezierToShape3d(cs, model.length, model.thickness, false, false);
+      const centerZ = s3dSlice.controlPoints.length > 0 ? s3dSlice.controlPoints[s3dSlice.controlPoints.length - 1]![2] : 0;
+      return serializeCoupleXML(idx, s3dSlice, centerZ);
+    }).join("\n");
 
-    yield* clientLog("debug", "[s3dx-exporter] Bezier Curves Generated", {
+    yield* clientLog("debug", "[s3dx-exporter] Bezier Curves Translated", {
       outlineAnchors: otlBezier.controlPoints.length,
       bottomAnchors: botBezier.controlPoints.length,
+      crossSections: model.crossSections.length
     });
     
-    // ✅ NEW: Generate Fin Box and Leash Plug XML
+    // Generate Fin Box and Leash Plug XML
     const plugsAndFinsXML = generatePlugsAndFinsXML(model, curves);
 
-    // Step 3 & 4: XML Serialization & Metadata Injection
+    // XML Serialization & Metadata Injection
     return `<?xml version="1.0" encoding="iso-8859-1"?>
 <Shape3d_design>
 	<Board>
@@ -99,271 +128,20 @@ export const exportS3dx = (
 ${serializeBezier3d("Otl", "", 1, otlBezier, model.length)}
 ${serializeBezier3d("StrBot", "Stringer Bot", 2, botBezier, model.length)}
 ${serializeBezier3d("StrDeck", "Stringer Top", 2, deckBezier, model.length)}
-		<Number_of_slices>8</Number_of_slices>
-${bakeCrossSections(model, curves)}
+		<Number_of_slices>${model.crossSections.length}</Number_of_slices>
+${slicesXml}
 ${plugsAndFinsXML}
 	</Board>
 </Shape3d_design>`;
   });
 
-// --- STEP 2 UTILITIES: Curve Fitting & XML Serialization ---
-
-export interface S3DBezier {
-  controlPoints: [number, number, number][];
-  tangents1: [number, number, number][]; // Incoming (left) handles
-  tangents2: [number, number, number][]; // Outgoing (right) handles
-}
-
-export const bakeCrossSections = (model: BoardModel, curves: BoardCurves): string => {
-  const slices: string[] =[];
-  
-  // 8 Strategic Stations along the board. 
-  // Shape3D requires Couples_0 to be at the TAIL (t=0.99) and Couples_7 at the NOSE (t=0.01)
-  const fractions =[0.99, 0.95, 0.8, 0.6, 0.4, 0.2, 0.05, 0.01];
-  
-  const L = model.length;
-  const minZ = curves.outline[0]![2];
-  const maxZ = curves.outline[curves.outline.length - 1]![2];
-  
-  // --- Helper math ported from board-viewport.ts ---
-  const getOutlineWidthAtZ = (zInches: number) => {
-    for (let i = 0; i < curves.outline.length - 1; i++) {
-      const p1 = curves.outline[i]!;
-      const p2 = curves.outline[i+1]!;
-      if (zInches >= p1[2] && zInches <= p2[2]) {
-        if (p2[2] === p1[2]) return Math.max(p1[0], p2[0]);
-        const t = (zInches - p1[2]) / (p2[2] - p1[2]);
-        return p1[0] + t * (p2[0] - p1[0]);
-      }
-    }
-    return 0;
-  };
-
-  const getRockerY = (zInches: number, isTop: boolean) => {
-    const pts = isTop ? curves.rockerTop : curves.rockerBottom;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p1 = pts[i]!; const p2 = pts[i+1]!;
-      if (zInches >= p1[2] && zInches <= p2[2]) {
-        const t = (zInches - p1[2]) / (p2[2] - p1[2]);
-        return p1[1] + t * (p2[1] - p1[1]);
-      }
-    }
-    return isTop ? pts[pts.length-1]![1] : pts[0]![1];
-  };
-
-  const smoothStep = (e0: number, e1: number, x: number) => {
-    const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
-    return t * t * (3 - 2 * t);
-  };
-
-  // Generate each cross-section
-  fractions.forEach((t, index) => {
-    const zInches = minZ + t * L;
-    const x_s3d = (L / 2 - zInches) * INCHES_TO_CM;
-    
-    const halfWidth = getOutlineWidthAtZ(zInches);
-    const topY = getRockerY(zInches, true);
-    const botY = getRockerY(zInches, false);
-    
-    const extModel = model as unknown as {
-      apexRatio?: number;
-      railFullness?: number;
-      deckDome?: number;
-      channelLength?: number;
-      bottomContour?: string;
-      veeDepth?: number;
-      concaveDepth?: number;
-      channelDepth?: number;
-    };
-
-    const thickness = Math.max(0, topY - botY);
-    const apexY = botY + thickness * (extModel.apexRatio || 0.3);
-
-    const tailDist = Math.max(0, maxZ - zInches);
-    const noseDist = Math.max(0, zInches - minZ);
-
-    // Polar relaxation to prevent creases at tips
-    let railExp = 1.5 - (extModel.railFullness || 0.65);
-    let deckExp = (extModel.deckDome || 0.65);
-    const relaxZone = 2.0;
-    if (noseDist < relaxZone) {
-      const frac = noseDist / relaxZone;
-      railExp = 1.0 - frac * (1.0 - railExp);
-      deckExp = 1.0 - frac * (1.0 - deckExp);
-    } else if (tailDist < relaxZone) {
-      const frac = tailDist / relaxZone;
-      railExp = 1.0 - frac * (1.0 - railExp);
-      deckExp = 1.0 - frac * (1.0 - deckExp);
-    }
-
-    const nz = (zInches - minZ) / L;
-    const blendVee = 1 - smoothStep(0.05, 0.4, nz);
-    const blendConcave = smoothStep(0.15, 0.3, nz);
-    const channelLength = extModel.channelLength || 12;
-    const blendChannels = tailDist <= channelLength + 6.0 ? 1.0 - smoothStep(channelLength, channelLength + 6.0, tailDist) : 0;
-    const widthFade = Math.max(0, Math.min(1.0, halfWidth / 1.0));
-
-    // Extracts the precise vertical Y coordinate given an X fraction (nx)
-    const getContourY = (nx: number, isDeck: boolean): number => {
-      const abs_cx = Math.pow(nx, 1 / railExp);
-      const clamped_cx = Math.min(1, abs_cx);
-      const abs_cy = Math.sqrt(1 - clamped_cx * clamped_cx);
-      
-      if (isDeck) {
-        return apexY + Math.pow(abs_cy, deckExp) * (topY - apexY);
-      }
-      
-      const py = apexY - Math.pow(abs_cy, 0.5) * (apexY - botY);
-      
-      let offset = 0;
-      const bottomContour = extModel.bottomContour || "vee_to_quad_channels";
-      if (bottomContour === "vee_to_quad_channels") {
-        const vee = -(extModel.veeDepth || 0.15) * (1 - nx) * blendVee;
-        const conc = (extModel.concaveDepth || 0.25) * (1 - nx * nx) * blendConcave;
-        let chan = 0;
-        if (nx >= 0.2 && nx <= 0.8) {
-          chan = (extModel.channelDepth || 0.125) * Math.pow(Math.sin(((nx - 0.2) / 0.6) * Math.PI * 2), 2) * blendChannels;
-        }
-        offset = (vee + conc + chan) * widthFade;
-      } else if (bottomContour === "single_to_double") {
-        const single = (extModel.concaveDepth || 0.25) * (1 - nx * nx);
-        const double = (extModel.concaveDepth || 0.25) * 0.8 * Math.pow(Math.sin(nx * Math.PI), 2);
-        offset = (single * (1 - nz) + double * nz) * widthFade;
-      } else if (bottomContour === "single") {
-        offset = (extModel.concaveDepth || 0.25) * (1 - nx * nx) * widthFade;
-      }
-      
-      return py + (offset * abs_cy);
-    };
-
-    // Baseline for Z MUST be exactly the bottom stringer to satisfy Shape3D's relative Z-coordinate requirement
-    const baselineY = getContourY(0.0, false);
-    
-    // Calculate absolute Z center of the board at this slice for Shape3D's Symmetry_center
-    const centerZ = (((topY + botY) / 2) + model.thickness / 2) * INCHES_TO_CM;
-
-    // The 5 key points defining a standard CAD surfboard cross-section
-    const pts: [number, number, number][] = [[x_s3d, 0, (getContourY(0.0, false) - baselineY) * INCHES_TO_CM],[x_s3d, 0.75 * halfWidth * INCHES_TO_CM, (getContourY(0.75, false) - baselineY) * INCHES_TO_CM],[x_s3d, halfWidth * INCHES_TO_CM, (apexY - baselineY) * INCHES_TO_CM],[x_s3d, 0.75 * halfWidth * INCHES_TO_CM, (getContourY(0.75, true) - baselineY) * INCHES_TO_CM],[x_s3d, 0, (getContourY(0.0, true) - baselineY) * INCHES_TO_CM]
-    ];
-
-    const sliceBezier = fitSliceBezier(pts);
-    slices.push(serializeCoupleXML(index, sliceBezier, centerZ));
-  });
-
-  return slices.join("\n");
-};
-
-const fitSliceBezier = (pts: [number, number, number][]): S3DBezier => {
-  const t1:[number, number, number][] = [];
-  const t2: [number, number, number][] =[];
-
-  const distY = (pA: [number, number, number], pB:[number, number, number]) => Math.abs(pA[1] - pB[1]) / 3;
-  const distZ = (pA: [number, number, number], pB:[number, number, number]) => Math.abs(pA[2] - pB[2]) / 3;
-
-  // P0: Bottom Stringer (Horizontal tangent towards Tuck)
-  t1.push([...pts[0]!]);
-  t2.push([pts[0]![0], pts[0]![1] + distY(pts[0]!, pts[1]!), pts[0]![2]]);
-
-  // P1: Tuck (Central Difference)
-  let dy = pts[2]![1] - pts[0]![1];
-  let dz = pts[2]![2] - pts[0]![2];
-  let slope = Math.abs(dy) > 0.0001 ? dz / dy : 0;
-  t1.push([pts[1]![0], pts[1]![1] - distY(pts[0]!, pts[1]!), pts[1]![2] - slope * distY(pts[0]!, pts[1]!)]);
-  t2.push([pts[1]![0], pts[1]![1] + distY(pts[1]!, pts[2]!), pts[1]![2] + slope * distY(pts[1]!, pts[2]!)]);
-
-  // P2: Rail Apex (Strictly Vertical Tangent to prevent wobbles)
-  t1.push([pts[2]![0], pts[2]![1], pts[2]![2] - distZ(pts[1]!, pts[2]!)]);
-  t2.push([pts[2]![0], pts[2]![1], pts[2]![2] + distZ(pts[2]!, pts[3]!)]);
-
-  // P3: Deck Shoulder (Central Difference)
-  dy = pts[4]![1] - pts[2]![1];
-  dz = pts[4]![2] - pts[2]![2];
-  slope = Math.abs(dy) > 0.0001 ? dz / dy : 0;
-  t1.push([pts[3]![0], pts[3]![1] - distY(pts[2]!, pts[3]!), pts[3]![2] - slope * distY(pts[2]!, pts[3]!)]);
-  t2.push([pts[3]![0], pts[3]![1] + distY(pts[3]!, pts[4]!), pts[3]![2] + slope * distY(pts[3]!, pts[4]!)]);
-
-  // P4: Deck Stringer (Horizontal tangent towards Shoulder)
-  t1.push([pts[4]![0], pts[4]![1] - distY(pts[3]!, pts[4]!), pts[4]![2]]);
-  t2.push([...pts[4]!]);
-
-  return { controlPoints: pts, tangents1: t1, tangents2: t2 };
-};
-
-const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): string => {
-  const formatPt = (p:[number, number, number]) => 
-    `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
-  
-  const buildPoly = (pts: [number, number, number][], overridePlan: number = 3, overrideSymmetry: number = 6) => 
-    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>5</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Symmetry_center>\n\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>0.000000</x><y>0.000000</y><z>${centerZ.toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>\n\t\t\t\t\t\t</Symmetry_center>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
-
-  // Tangents_m is always zeroed out in couples
-  const emptyPt = `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>0.000000</x><y>0.000000</y><z>0.000000</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
-  const tangM = `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>5</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>0</Symmetry>\n\t\t\t\t\t\t<Plan>0</Plan>\n${Array(5).fill(emptyPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
-
-  return `\t\t<Couples_${index}>
-\t\t\t\t<Dessus>1</Dessus>
-\t\t\t\t<Dessous>1</Dessous>
-\t\t\t\t<Displayed>0</Displayed>
-\t\t\t<Bezier3d>
-\t\t\t\t<Name>cpl</Name>
-\t\t\t\t<Degree>3</Degree>
-\t\t\t\t<Open>0</Open>
-\t\t\t\t<Symmetry>6</Symmetry>
-\t\t\t\t<Plan>3</Plan>
-\t\t\t\t<Control_points>\n${buildPoly(bezier.controlPoints)}\n\t\t\t\t</Control_points>
-\t\t\t\t<Tangents_1>\n${buildPoly(bezier.tangents1)}\n\t\t\t\t</Tangents_1>
-\t\t\t\t<Tangents_2>\n${buildPoly(bezier.tangents2)}\n\t\t\t\t</Tangents_2>
-\t\t\t\t<Tangents_m>\n${tangM}\n\t\t\t\t</Tangents_m>
-\t\t\t\t<Control_type_point_0> 224 </Control_type_point_0>
-\t\t\t\t<Control_type_point_1> 33 </Control_type_point_1>
-\t\t\t\t<Control_type_point_2> 98 </Control_type_point_2>
-\t\t\t\t<Control_type_point_3> 32 </Control_type_point_3>
-\t\t\t\t<Control_type_point_4> 224 </Control_type_point_4>
-\t\t\t\t<Tangent_type_point_0> 0 </Tangent_type_point_0>
-\t\t\t\t<Tangent_type_point_1> 0 </Tangent_type_point_1>
-\t\t\t\t<Tangent_type_point_2> 16 </Tangent_type_point_2>
-\t\t\t\t<Tangent_type_point_3> 2 </Tangent_type_point_3>
-\t\t\t\t<Tangent_type_point_4> 0 </Tangent_type_point_4>
-\t\t\t</Bezier3d>
-\t\t</Couples_${index}>`;
-};
-
-const reverseCurve = (curve: BezierCurveData): BezierCurveData => {
-  return {
-    controlPoints: [...curve.controlPoints].reverse(),
-    tangents1:[...curve.tangents2].reverse(),
-    tangents2: [...curve.tangents1].reverse()
-  };
-};
-
-export const translateBezierToShape3d = (
-  bezier: BezierCurveData,
-  boardLengthInches: number,
-  boardThicknessInches: number,
-  flattenZ: boolean = false
-): S3DBezier => {
-  const reversed = reverseCurve(bezier);
-  
-  const mapPoints = (pts: [number, number, number][]) => pts.map(p => {
-    const pt = translateToShape3d(p, boardLengthInches, boardThicknessInches);
-    if (flattenZ) pt[2] = 0.000000;
-    return pt;
-  });
-
-  return {
-    controlPoints: mapPoints(reversed.controlPoints),
-    tangents1: mapPoints(reversed.tangents1),
-    tangents2: mapPoints(reversed.tangents2),
-  };
-};
-
 /**
- * Serializes a fitted Bezier curve into Shape3d's proprietary XML format.
+ * Serializes a mapped Bezier curve into Shape3d's proprietary XML format.
  */
 const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DBezier, boardLengthInches: number): string => {
   const centerLengthCm = (boardLengthInches / 2) * INCHES_TO_CM;
   
-  const formatPt = (p: [number, number, number]) => 
+  const formatPt = (p:[number, number, number]) => 
     `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
   
   const buildPoly = (pts:[number, number, number][], overridePlan: number = plan, overrideSymmetry: number = tag === "Otl" ? 6 : 0) => 
@@ -371,7 +149,6 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
 
   const tangM = `\t\t\t\t<Tangents_m>\n${buildPoly(bezier.controlPoints.map(() => [0,0,0] as[number,number,number]), 0, 0)}\n\t\t\t\t</Tangents_m>`;
   
-  // ✅ FIX: Implement dynamic control and tangent types based on reference files
   const getControlType = (i: number, total: number) => {
     // End points are '32', intermediate points are '0'
     if (i === 0 || i === total - 1) return 32;
@@ -381,14 +158,10 @@ const serializeBezier3d = (tag: string, name: string, plan: number, bezier: S3DB
   const getTangentType = (i: number, total: number, curveType: 'outline' | 'rocker' ) => {
     if (i === 0 || i === total - 1) return 0;
     if (curveType === 'outline') {
-      // Pattern from reference: 0, 2, 16, 0
-      if (i === 1) return 2;
-      if (i === 2) return 16;
+      return 2;
     } else {
-      // Rocker pattern: 0, 32, 0
-      if (i === 1) return 32;
+      return 32;
     }
-    return 0;
   };
 
   const controlTypes = bezier.controlPoints.map((_, i) => 
@@ -416,8 +189,69 @@ ${tangentTypes}
 \t\t</${tag}>`;
 };
 
+const serializeCoupleXML = (index: number, bezier: S3DBezier, centerZ: number): string => {
+  const nbPoints = bezier.controlPoints.length;
+
+  const formatPt = (p:[number, number, number]) => 
+    `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>${p[0].toFixed(6)}</x><y>${p[1].toFixed(6)}</y><z>${p[2].toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
+  
+  const buildPoly = (pts: [number, number, number][], overridePlan: number = 3, overrideSymmetry: number = 6) => 
+    `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${pts.length}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>${overrideSymmetry}</Symmetry>\n\t\t\t\t\t\t<Symmetry_center>\n\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>0.000000</x><y>0.000000</y><z>${centerZ.toFixed(6)}</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>\n\t\t\t\t\t\t</Symmetry_center>\n\t\t\t\t\t\t<Plan>${overridePlan}</Plan>\n${pts.map(formatPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
+
+  // Tangents_m is always zeroed out in couples
+  const emptyPt = `\t\t\t\t\t\t\t<Point3d>\n\t\t\t\t\t\t\t\t<x>0.000000</x><y>0.000000</y><z>0.000000</z><u>-1.000000</u><color>0</color>\n\t\t\t\t\t\t\t</Point3d>`;
+  const tangM = `\t\t\t\t\t<Polygone3d>\n\t\t\t\t\t\t<Nb_of_points>${nbPoints}</Nb_of_points>\n\t\t\t\t\t\t<Open>1</Open>\n\t\t\t\t\t\t<Symmetry>0</Symmetry>\n\t\t\t\t\t\t<Plan>0</Plan>\n${Array(nbPoints).fill(emptyPt).join("\n")}\n\t\t\t\t\t</Polygone3d>`;
+
+  const getControlType = (i: number, total: number) => {
+    if (i === 0 || i === total - 1) return 224;
+    if (total === 5) {
+      if (i === 1) return 33;
+      if (i === 2) return 98;
+      if (i === 3) return 32;
+    }
+    return 32; // Default for inner points
+  };
+
+  const getTangentType = (i: number, total: number) => {
+    if (i === 0 || i === total - 1) return 0;
+    if (total === 5) {
+      if (i === 1) return 0;
+      if (i === 2) return 16;
+      if (i === 3) return 2;
+    }
+    return 2; // Default tangent mapping
+  };
+
+  const controlTypes = bezier.controlPoints.map((_, i) => 
+    `\t\t\t\t<Control_type_point_${i}> ${getControlType(i, nbPoints)} </Control_type_point_${i}>`
+  ).join("\n");
+  
+  const tangentTypes = bezier.controlPoints.map((_, i) => 
+    `\t\t\t\t<Tangent_type_point_${i}> ${getTangentType(i, nbPoints)} </Tangent_type_point_${i}>`
+  ).join("\n");
+
+  return `\t\t<Couples_${index}>
+\t\t\t\t<Dessus>1</Dessus>
+\t\t\t\t<Dessous>1</Dessous>
+\t\t\t\t<Displayed>0</Displayed>
+\t\t\t<Bezier3d>
+\t\t\t\t<Name>cpl</Name>
+\t\t\t\t<Degree>3</Degree>
+\t\t\t\t<Open>0</Open>
+\t\t\t\t<Symmetry>6</Symmetry>
+\t\t\t\t<Plan>3</Plan>
+\t\t\t\t<Control_points>\n${buildPoly(bezier.controlPoints)}\n\t\t\t\t</Control_points>
+\t\t\t\t<Tangents_1>\n${buildPoly(bezier.tangents1)}\n\t\t\t\t</Tangents_1>
+\t\t\t\t<Tangents_2>\n${buildPoly(bezier.tangents2)}\n\t\t\t\t</Tangents_2>
+\t\t\t\t<Tangents_m>\n${tangM}\n\t\t\t\t</Tangents_m>
+${controlTypes}
+${tangentTypes}
+\t\t\t</Bezier3d>
+\t\t</Couples_${index}>`;
+};
+
 // ====================================================================
-// ✅ NEW: FIN BOX & LEASH PLUG GENERATION LOGIC
+// FIN BOX & LEASH PLUG GENERATION LOGIC
 // ====================================================================
 
 const generatePlugsAndFinsXML = (model: BoardModel, curves: BoardCurves): string => {
@@ -521,5 +355,5 @@ ${formatPt(refPointS3D)}</PointCenter>
 \t\t</Box_${i}>`;
   }).join('\n');
 
-  return `<Nb_Boxes>${boxConfigs.length}</Nb_Boxes>\n${boxesXML}`;
+  return `<Nb_Boxes>${exportBoxes.length}</Nb_Boxes>\n${boxesXML}`;
 };
