@@ -1,4 +1,4 @@
-// src/components/3d/board-viewport.ts
+// File: src/components/3d/board-viewport.ts
 import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
@@ -87,6 +87,7 @@ export class BoardViewport extends LitElement {
       } else if (isManualDragUpdate) {
         this._updateGizmoPositionsFromState();
         clearTimeout(this.geometryUpdateDebounceId);
+        // Debounce high resolution mesh generation so gizmos drag fluidly!
         this.geometryUpdateDebounceId = window.setTimeout(() => void this._updateGeometry(), 150);
       } else {
         if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
@@ -136,20 +137,13 @@ export class BoardViewport extends LitElement {
     const activeRockerTop = this.boardState?.rockerTop ? this.sampleBezierCurve(this.boardState.rockerTop, 100) : curves.rockerTop;
     const activeRockerBottom = this.boardState?.rockerBottom ? this.sampleBezierCurve(this.boardState.rockerBottom, 100) : curves.rockerBottom;
 
-    const buildLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false, isOutline = false) => {
+    const buildLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false) => {
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array(pts.length * 3);
         pts.forEach((p, i) => {
-            const zInches = p[2];
-            const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zInches);
-            if (isOutline) {
-                vertices[i*3] = (mirrorX ? -profile.halfWidth : profile.halfWidth) * scale;
-                vertices[i*3+1] = profile.apexY * scale;
-            } else {
-                vertices[i*3] = 0;
-                vertices[i*3+1] = p[1] * scale;
-            }
-            vertices[i*3+2] = zInches * scale;
+            vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
+            vertices[i*3+1] = p[1] * scale;
+            vertices[i*3+2] = p[2] * scale;
         });
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
         const line = new THREE.Line(geometry, mat);
@@ -165,46 +159,26 @@ export class BoardViewport extends LitElement {
     const activeRailOutline = this.boardState?.railOutline ? this.sampleBezierCurve(this.boardState.railOutline, 100) : null;
     const activeApexRocker = this.boardState?.apexRocker ? this.sampleBezierCurve(this.boardState.apexRocker, 100) : null;
 
-    const build3DLine = (pts:[number, number, number][], mat: THREE.LineBasicMaterial, layerIndex: number, mirrorX = false, yType: 'raw' | 'apex' | 'tuck' = 'raw') => {
-        const geometry = new THREE.BufferGeometry();
-        const vertices = new Float32Array(pts.length * 3);
-        pts.forEach((p, i) => {
-            const zInches = p[2];
-            vertices[i*3] = (mirrorX ? -p[0] : p[0]) * scale;
-            
-            let py = p[1];
-            if (yType === 'apex') py = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zInches).apexY;
-            else if (yType === 'tuck') py = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, zInches).botY;
-            
-            vertices[i*3+1] = py * scale;
-            vertices[i*3+2] = zInches * scale;
-        });
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        const line = new THREE.Line(geometry, mat);
-        line.layers.set(layerIndex);
-        return line;
-    };
-
     if (this.boardState?.showOutline !== false) {
-      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, true));
-      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, true));
+      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false));
+      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true));
     }
 
     if (activeApexOutline && this.boardState?.showApexOutline !== false) {
-      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, false, 'apex'));
-      this.wireframeGroup.add(build3DLine(activeApexOutline, matApexOutline, 1, true, 'apex'));
+      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, false));
+      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, true));
     }
 
     if (activeRailOutline && this.boardState?.showRailOutline !== false) {
-      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, false, 'tuck'));
-      this.wireframeGroup.add(build3DLine(activeRailOutline, matRailOutline, 1, true, 'tuck'));
+      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, false));
+      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, true));
     }
 
-    if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, false));
-    if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false, false));
+    if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false));
+    if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false));
 
     if (activeApexRocker && this.boardState?.showApexRocker !== false) {
-      this.wireframeGroup.add(build3DLine(activeApexRocker, matApexRocker, 2, false));
+      this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, false));
     }
   }
   
@@ -214,7 +188,6 @@ export class BoardViewport extends LitElement {
     geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
     geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
     geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
-    // ✅ USE ANALYTICAL NORMALS: Replaced geom.computeVertexNormals()
     geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
 
     if (meshData.colors && meshData.colors.length > 0) {
@@ -259,16 +232,14 @@ export class BoardViewport extends LitElement {
       this.apexLineGroup.remove(child);
     }
     const mat = new THREE.LineBasicMaterial({ color: 0x0ea5e9, depthTest: false, transparent: true, opacity: 0.9 });
-    const ptsRight: THREE.Vector3[] =[]; const ptsLeft: THREE.Vector3[] =[];
-    const steps = 100;
-    const minZ = this.boardState?.outline ? this.boardState.outline.controlPoints[0]![2] : curves.outline[0]![2];
-    const maxZ = this.boardState?.outline ? this.boardState.outline.controlPoints[this.boardState.outline.controlPoints.length - 1]![2] : curves.outline[curves.outline.length - 1]![2];
-    for(let i=0; i<=steps; i++) {
-        const z = minZ + (maxZ - minZ) * (i/steps);
-        const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, z);
-        ptsRight.push(new THREE.Vector3(profile.halfWidth * scale, profile.apexY * scale, z * scale));
-        ptsLeft.push(new THREE.Vector3(-profile.halfWidth * scale, profile.apexY * scale, z * scale));
-    }
+    
+    // Evaluate pure 3D Bezier rather than relying on profile evaluations
+    const activeApexOutline = this.boardState?.apexOutline ? this.boardState.apexOutline : this.boardState!.outline;
+    const sampled = this.sampleBezierCurve(activeApexOutline, 100);
+    
+    const ptsRight = sampled.map(p => new THREE.Vector3(p[0] * scale, p[1] * scale, p[2] * scale));
+    const ptsLeft = sampled.map(p => new THREE.Vector3(-p[0] * scale, p[1] * scale, p[2] * scale));
+
     const lineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsRight), mat);
     const lineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsLeft), mat);
     lineRight.renderOrder = 999; lineLeft.renderOrder = 999;
@@ -330,25 +301,15 @@ export class BoardViewport extends LitElement {
       }
     });
 
-    const getZHeight = (curveName: string, yInches: number, zInches: number) => {
-        if (['outline', 'apexOutline'].includes(curveName)) {
-            return MeshGeneratorService.getBoardProfileAtZ(this.boardState!, this.latestCurves!, zInches).apexY;
-        }
-        if (curveName === 'railOutline') {
-            return MeshGeneratorService.getBoardProfileAtZ(this.boardState!, this.latestCurves!, zInches).botY;
-        }
-        return yInches;
-    };
-
     const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
       if (!curveData) return;
       curveData.controlPoints.forEach((cp, i) => {
-        const cpY = getZHeight(curveName, cp[1], cp[2]);
-        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cpY * scale, cp[2] * scale);
-        const t1 = curveData.tangents1[i]; if (t1) gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, getZHeight(curveName, t1[1], t1[2]) * scale, t1[2] * scale);
-        const t2 = curveData.tangents2[i]; if (t2) gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, getZHeight(curveName, t2[1], t2[2]) * scale, t2[2] * scale);
+        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
+        const t1 = curveData.tangents1[i]; if (t1) gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, t1[1] * scale, t1[2] * scale);
+        const t2 = curveData.tangents2[i]; if (t2) gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, t2[1] * scale, t2[2] * scale);
       });
     };
+    
     updatePositionsForCurve(this.boardState.outline, 'outline');
     updatePositionsForCurve(this.boardState.rockerTop, 'rockerTop');
     updatePositionsForCurve(this.boardState.rockerBottom, 'rockerBottom');

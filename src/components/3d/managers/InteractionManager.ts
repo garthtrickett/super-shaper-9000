@@ -1,3 +1,4 @@
+// File: src/components/3d/managers/InteractionManager.ts
 import * as THREE from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { BoardModel } from "../../pages/board-builder-page.logic";
@@ -136,21 +137,9 @@ export class InteractionManager {
       this.controls.side.enabled = false;
       this.controls.profile.enabled = false;
       
-      const curveName = this.draggedGizmo.userData.curve as string;
+      // Calculate a plane facing the camera, which works flawlessly for all orthogonal layouts and is highly intuitive for 3D viewports
       const worldNormal = new THREE.Vector3();
-      
-      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
-          worldNormal.set(0, 1, 0).transformDirection(this.draggedGizmo.parent!.matrixWorld);
-      }
-      else if (curveName.startsWith('rocker') || curveName === 'apexRocker') {
-          worldNormal.set(1, 0, 0).transformDirection(this.draggedGizmo.parent!.matrixWorld);
-      }
-      else if (curveName.startsWith('crossSection')) {
-          worldNormal.set(0, 0, 1).transformDirection(this.draggedGizmo.parent!.matrixWorld);
-      }
-      else {
-          camera.getWorldDirection(worldNormal).negate();
-      }
+      camera.getWorldDirection(worldNormal).negate();
       
       const worldPos = new THREE.Vector3();
       this.draggedGizmo.getWorldPosition(worldPos);
@@ -164,7 +153,6 @@ export class InteractionManager {
   }
 
   private onPointerMove = (e: PointerEvent) => {
-    // Dynamically update active viewport controls on hover, but only if not actively dragging/clicking
     if (e.buttons === 0 && !this.draggedGizmo) {
       if (!this.maximizedView) {
         const { camera } = this.getQuadrantCameraAndMouse(e);
@@ -201,7 +189,6 @@ export class InteractionManager {
     if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
       target.sub(this.dragOffset);
       
-      // Convert world target back to local coordinates so the UI updates correctly
       this.draggedGizmo.parent!.worldToLocal(target);
       
       const rawInches = target.clone().multiplyScalar(12);
@@ -211,27 +198,16 @@ export class InteractionManager {
       const curveName = userData.curve;
       const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
 
-      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') stateInches.y = 0;
-      if (curveName === 'rockerTop' || curveName === 'rockerBottom' || curveName === 'apexRocker') stateInches.x = 0;
-      if (curveName.startsWith('crossSection_')) stateInches.z = userData.origZ;
-      
       if (isEndNode && userData.type === "anchor") {
         if (curveName.startsWith('crossSection_') || curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
           stateInches.x = 0;
         }
       }
-      
       if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_'))) {
         if (stateInches.x < 0) stateInches.x = 0;
       }
 
-      // Propagate the clamped state coordinates to the event payload
       target.copy(stateInches).multiplyScalar(1/12);
-      
-      // Preserve visual Y height for outline curves so they don't snap to 0 visually while dragging
-      if (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
-          target.y = this.draggedGizmo.position.y;
-      }
       
       this.draggedGizmo.position.copy(target);
     }
@@ -246,7 +222,7 @@ export class InteractionManager {
         this.host.dispatchEvent(new CustomEvent('gizmo-dragged', {
           detail: {
             userData: this.draggedGizmo.userData,
-            position: [finalPosInches.x, finalPosInches.y, finalPosInches.z]
+            position:[finalPosInches.x, finalPosInches.y, finalPosInches.z]
           },
           bubbles: true, composed: true
         }));

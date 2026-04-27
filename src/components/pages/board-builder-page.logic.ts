@@ -1,3 +1,4 @@
+// File: src/components/pages/board-builder-page.logic.ts
 import { Effect, Schema as S } from "effect";
 import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
@@ -56,7 +57,7 @@ export const BoardModelSchema = S.Struct({
   glassingSchedule: S.Literal("light", "standard", "heavy"),
 });
 
-export type Point3D = [number, number, number];
+export type Point3D =[number, number, number];
 export interface BezierCurveData {
   controlPoints: Point3D[];
   tangents1: Point3D[];
@@ -117,27 +118,27 @@ export interface BoardModel {
 }
 
 const basicOutline: BezierCurveData = {
-  controlPoints: [[0, 0, -35], [9.375, 0, 0], [0, 0, 35]],
-  tangents1: [[0, 0, -35], [9.375, 0, -10], [0, 0, 25]],
-  tangents2: [[0, 0, -25], [9.375, 0, 10], [0, 0, 35]]
+  controlPoints: [[0, 0, -35],[9.375, 0, 0], [0, 0, 35]],
+  tangents1: [[0, 0, -35],[9.375, 0, -10], [0, 0, 25]],
+  tangents2: [[0, 0, -25], [9.375, 0, 10],[0, 0, 35]]
 };
 
 const basicRockerTop: BezierCurveData = {
-  controlPoints: [[0, 1.25, -35], [0, 1.25, 0], [0, 1.25, 35]],
-  tangents1: [[0, 1.25, -35], [0, 1.25, -10], [0, 1.25, 25]],
-  tangents2: [[0, 1.25, -25], [0, 1.25, 10], [0, 1.25, 35]]
+  controlPoints: [[0, 1.25, -35],[0, 1.25, 0], [0, 1.25, 35]],
+  tangents1: [[0, 1.25, -35], [0, 1.25, -10],[0, 1.25, 25]],
+  tangents2: [[0, 1.25, -25], [0, 1.25, 10],[0, 1.25, 35]]
 };
 
 const basicRockerBottom: BezierCurveData = {
-  controlPoints: [[0, -1.25, -35], [0, -1.25, 0], [0, -1.25, 35]],
-  tangents1: [[0, -1.25, -35], [0, -1.25, -10], [0, -1.25, 25]],
-  tangents2: [[0, -1.25, -25], [0, -1.25, 10], [0, -1.25, 35]]
+  controlPoints: [[0, -1.25, -35],[0, -1.25, 0], [0, -1.25, 35]],
+  tangents1: [[0, -1.25, -35],[0, -1.25, -10], [0, -1.25, 25]],
+  tangents2: [[0, -1.25, -25], [0, -1.25, 10],[0, -1.25, 35]]
 };
 
 const basicCrossSection: BezierCurveData = {
-  controlPoints: [[0, -1.25, 0], [6, -1.25, 0], [9.375, 0, 0], [6, 1.25, 0], [0, 1.25, 0]],
-  tangents1: [[0, -1.25, 0], [4, -1.25, 0], [9.375, -0.5, 0], [8, 1.25, 0], [2, 1.25, 0]],
-  tangents2: [[2, -1.25, 0], [8, -1.25, 0], [9.375, 0.5, 0], [4, 1.25, 0], [0, 1.25, 0]],
+  controlPoints: [[0, -1.25, 0],[6, -1.25, 0], [9.375, 0, 0],[6, 1.25, 0], [0, 1.25, 0]],
+  tangents1: [[0, -1.25, 0],[4, -1.25, 0], [9.375, -0.5, 0], [8, 1.25, 0],[2, 1.25, 0]],
+  tangents2: [[2, -1.25, 0], [8, -1.25, 0],[9.375, 0.5, 0], [4, 1.25, 0],[0, 1.25, 0]],
 };
 
 export const INITIAL_STATE: BoardModel = {
@@ -160,7 +161,7 @@ export const INITIAL_STATE: BoardModel = {
   outline: basicOutline,
   rockerTop: basicRockerTop,
   rockerBottom: basicRockerBottom,
-  crossSections: [basicCrossSection],
+  crossSections:[basicCrossSection],
   finSetup: "quad",
   frontFinZ: 11.0, 
   frontFinX: 1.25, 
@@ -199,7 +200,7 @@ const pushHistory = (currentState: BoardModel): BoardModel => {
     apexRocker: currentState.apexRocker,
     crossSections: currentState.crossSections,
   };
-  const currentHistory = currentState.history || [];
+  const currentHistory = currentState.history ||[];
   const currentIndex = currentState.historyIndex ?? -1;
   const newHistory = currentHistory.slice(0, currentIndex + 1);
   newHistory.push(snapshot);
@@ -300,8 +301,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
           if (updatedCurve.controlPoints[index][0] < 0) updatedCurve.controlPoints[index][0] = 0;
         }
       }
-      if (tangent1) updatedCurve.tangents1[index] = [...tangent1];
-      if (tangent2) updatedCurve.tangents2[index] = [...tangent2];
+      if (tangent1) updatedCurve.tangents1[index] =[...tangent1];
+      if (tangent2) updatedCurve.tangents2[index] =[...tangent2];
 
       let newState = state;
       if (curve === "outline") newState = { ...state, outline: updatedCurve };
@@ -401,14 +402,11 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       const updatedCurve: BezierCurveData = {
         controlPoints: [...targetCurve.controlPoints],
         tangents1: [...targetCurve.tangents1],
-        tangents2: [...targetCurve.tangents2],
+        tangents2:[...targetCurve.tangents2],
       };
 
-      if (curve === "outline" || curve === "apexOutline" || curve === "railOutline") position[1] = 0;
-      if (curve === "rockerTop" || curve === "rockerBottom" || curve === "apexRocker") position[0] = 0;
-      if (crossSectionIdx !== -1) position[2] = targetCurve.controlPoints[index]![2];
-
       if (nodeType === "anchor") {
+        // Enforce physical constraints: Nose/Tail must lie on the stringer (X=0)
         if (crossSectionIdx !== -1 && (index === 0 || index === targetCurve.controlPoints.length - 1)) {
           position[0] = 0;
         }
@@ -416,6 +414,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
           position[0] = 0;
         }
         
+        // Prevent lines from crossing the stringer natively
         if (curve === "outline" || curve === "apexOutline" || curve === "railOutline" || crossSectionIdx !== -1) {
           if (position[0] < 0) position[0] = 0;
         }
@@ -424,7 +423,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       const vec3Sub = (a: Point3D, b: Point3D): Point3D =>[a[0]-b[0], a[1]-b[1], a[2]-b[2]];
       const vec3Add = (a: Point3D, b: Point3D): Point3D => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
       const vec3Len = (v: Point3D): number => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-      const vec3Scale = (v: Point3D, s: number): Point3D => [v[0]*s, v[1]*s, v[2]*s];
+      const vec3Scale = (v: Point3D, s: number): Point3D =>[v[0]*s, v[1]*s, v[2]*s];
 
       const oldAnchor = targetCurve.controlPoints[index];
       const oldT1 = targetCurve.tangents1[index];
@@ -436,7 +435,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
         if (oldT1) updatedCurve.tangents1[index] = vec3Add(oldT1, delta);
         if (oldT2) updatedCurve.tangents2[index] = vec3Add(oldT2, delta);
       } else if (nodeType === "tangent1" && oldAnchor && oldT1) {
-        updatedCurve.tangents1[index] = [...position];
+        updatedCurve.tangents1[index] =[...position];
         if (oldT2) {
           const dir1 = vec3Sub(position, oldAnchor);
           const len1 = vec3Len(dir1);
@@ -466,7 +465,7 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       if (curve === "railOutline") return { ...state, railOutline: updatedCurve };
       if (curve === "apexRocker") return { ...state, apexRocker: updatedCurve };
       if (crossSectionIdx !== -1) {
-        const newCrossSections = [...state.crossSections];
+        const newCrossSections =[...state.crossSections];
         newCrossSections[crossSectionIdx] = updatedCurve;
         return { ...state, crossSections: newCrossSections };
       }

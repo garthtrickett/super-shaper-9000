@@ -1,3 +1,4 @@
+// File: src/lib/client/geometry/s3dx-importer.ts
 import { Effect } from "effect";
 import type { BezierCurveData, Point3D } from "../../../components/pages/board-builder-page.logic";
 import { clientLog } from "../clientLog";
@@ -18,7 +19,7 @@ const CM_TO_INCHES = 1 / 2.54;
  * - Z: Length (0 at center, -L/2 at nose, +L/2 at tail)
  */
 export const translateFromShape3d = (
-[x, y, z]: [number, number, number],
+[x, y, z]:[number, number, number],
   boardLengthInches: number,
   boardThicknessInches: number
 ): Point3D => {
@@ -34,8 +35,8 @@ export interface ImportedS3dxData {
   width: number;
   thickness: number;
   outline: BezierCurveData;
-  railOutline: BezierCurveData; // ✅ NEW: Horizontal curve for the rail's bottom edge
-  apexOutline: BezierCurveData; // ✅ NEW: Horizontal curve for the rail's widest point
+  railOutline: BezierCurveData; 
+  apexOutline: BezierCurveData; 
   rockerBottom: BezierCurveData;
   rockerTop: BezierCurveData;
   apexRocker: BezierCurveData;
@@ -90,8 +91,7 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
         const polyNode = parent.querySelector(`${subTag} > Polygone3d`);
         if (!polyNode) return [];
 
-        const points: Point3D[] = [];
-        // ✅ FIX: Iterate direct children to exclude the nested <Symmetry_center><Point3d> node
+        const points: Point3D[] =[];
         for (const child of Array.from(polyNode.children)) {
           if (child.tagName === 'Point3d') {
             const ptNode = child;
@@ -102,11 +102,10 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
             const pt = translateFromShape3d([x, y, z], lengthInches, thicknessInches);
             
             if (isOutline) {
-              pt[1] = 0; // Force Y to 0 for outline
-              // CLAMP: Shape3D curves can overshoot the centerline, creating negative width.
+              pt[1] = 0; 
               if (pt[0] < 0) pt[0] = 0;
             }
-            if (isRocker) pt[0] = 0; // Force X to 0 for rockers
+            if (isRocker) pt[0] = 0; 
   
             points.push(pt);
           }
@@ -158,13 +157,9 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
     crossSections.sort((a, b) => (a.controlPoints[0]?.[2] || 0) - (b.controlPoints[0]?.[2] || 0));
 
     // --- FIX FOR SLICE Y-OFFSET ---
-    // Shape3D couples are sometimes stored with Z=0 at the bottom of the bounding box,
-    // not necessarily the bottom stringer (e.g., in a deep Vee, the stringer is lower).
-    // We must calculate the strict delta needed to snap Node 0 (the bottom stringer)
-    // perfectly onto the Rocker Bottom curve at this slice's Z location.
     const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
       const numSegments = bezier.controlPoints.length - 1;
-      if (numSegments <= 0) return bezier.controlPoints[0] || [0, 0, 0];
+      if (numSegments <= 0) return bezier.controlPoints[0] ||[0, 0, 0];
       const scaledT = t * numSegments;
       let segmentIdx = Math.floor(scaledT);
       if (segmentIdx >= numSegments) segmentIdx = numSegments - 1;
@@ -205,8 +200,6 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       const sliceZ = slice.controlPoints[0]![2];
       const rockerY = getRockerYAtZ(rockerBottom, sliceZ);
       
-      // The bottom stringer of the slice must perfectly align with the rocker bottom.
-      // We calculate the delta between the rocker's Y and the slice's bottom stringer Y.
       const localStringerY = slice.controlPoints[0]![1];
       const shiftY = rockerY - localStringerY;
 
@@ -218,42 +211,10 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       slice.tangents1.forEach(shiftPoint);
       slice.tangents2.forEach(shiftPoint);
     }
-    // --- END FIX ---
 
-    // 5. Enforce Z-Monotonicity to prevent curve folding (Swallow-tail overshoot bug)
-    // If a tangent extends past its neighboring anchor in the Z axis, the mesh generator's
-    // binary search will fail, resulting in bloated, rounded off squash tails.
-    const enforceZMonotonicity = (curve: BezierCurveData) => {
-      for (let i = 0; i < curve.controlPoints.length; i++) {
-        const p = curve.controlPoints[i]!;
-        const t1 = curve.tangents1[i];
-        const t2 = curve.tangents2[i];
-
-        if (t1) {
-          if (t1[2] > p[2]) t1[2] = p[2];
-          if (i > 0 && t1[2] < curve.controlPoints[i - 1]![2]) {
-            t1[2] = curve.controlPoints[i - 1]![2];
-          }
-        }
-
-        if (t2) {
-          if (t2[2] < p[2]) t2[2] = p[2];
-          if (i < curve.controlPoints.length - 1 && t2[2] > curve.controlPoints[i + 1]![2]) {
-            t2[2] = curve.controlPoints[i + 1]![2];
-          }
-        }
-      }
-    };
-
-[outline, railOutline, apexOutline, rockerBottom, rockerTop, apexRocker].forEach(enforceZMonotonicity);
-
-    // Allow the mesh generator to handle all slices, including microscopic ones. It now has tip-blending logic.
-    const cleanCrossSections = crossSections;
-
-    yield* clientLog("info", "[s3dx-importer] Successfully extracted curves", {
+    yield* clientLog("info", "[s3dx-importer] Successfully extracted curves without sanitizing shape details", {
       outlinePoints: outline.controlPoints.length,
-      crossSections: cleanCrossSections.length,
-      strippedSlices: 0
+      crossSections: crossSections.length
     });
 
     return {
@@ -266,6 +227,6 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       rockerBottom,
       rockerTop,
       apexRocker,
-      crossSections: cleanCrossSections
+      crossSections
     };
   });
