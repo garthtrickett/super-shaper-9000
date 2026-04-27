@@ -164,7 +164,7 @@ describe("MeshGeneratorService", () => {
       let targetRingIdx = -1;
       let minDiff = Infinity;
       for (let i = 0; i <= segmentsZ; i++) {
-        const ringZ = mesh.vertices[i * (segmentsRadial + 1) * 3 + 2]!; 
+        const ringZ = mesh.vertices[i * (segmentsRadial + 2) * 3 + 2]!; 
         const zInches = ringZ * 12;
         const diff = Math.abs(zInches - 34);
         if (diff < minDiff) {
@@ -283,7 +283,7 @@ describe("MeshGeneratorService", () => {
 
       const segmentsZ = 240;
       const segmentsRadial = 96;
-      const expectedHullVertices = (segmentsZ + 1) * (segmentsRadial + 1);
+      const expectedHullVertices = (segmentsZ + 1) * (segmentsRadial + 2);
       const actualVerticesCount = mesh.vertices.length / 3;
 
       // Currently, it only adds 2 center vertices and reuses the hull's boundary rings.
@@ -393,7 +393,7 @@ describe("MeshGeneratorService", () => {
 
       for (let i = 0; i <= segmentsZ; i++) {
         // Z is in feet in the generated mesh (vertices array), so we multiply by 12 to get inches
-        const ringZ = mesh.vertices[i * (segmentsRadial + 1) * 3 + 2]! * 12;
+        const ringZ = mesh.vertices[i * (segmentsRadial + 2) * 3 + 2]! * 12;
         
         // Find the ring closest to Z = 35.0 inches
         if (Math.abs(ringZ - 35.0) < 0.2) {
@@ -654,7 +654,7 @@ describe("MeshGeneratorService", () => {
             }
             
             console.warn(`\n--- TAIL RING DIAGNOSTICS (Z=max slice) ---`);
-            const tailStart = segmentsZ * (segmentsRadial + 1) * 3;
+            const tailStart = segmentsZ * (segmentsRadial + 2) * 3;
             for (let j = 0; j <= segmentsRadial; j += segmentsRadial / 8) {
                 const idx = tailStart + j * 3;
                 console.warn(`Tail Ring j=${j}: X=${mesh.vertices[idx]!.toFixed(4)}, Y=${mesh.vertices[idx+1]!.toFixed(4)}, Z=${mesh.vertices[idx+2]!.toFixed(4)}`);
@@ -665,8 +665,8 @@ describe("MeshGeneratorService", () => {
           // In our radial loop (0..96), j=0 is Bottom Stringer, j=48 is Top Stringer.
           // j in (0, 24) is the Bottom curve, and (48 - j) is the matching Top curve (Deck).
           for (let j = 1; j < segmentsRadial / 4; j++) {
-              const botIdx = i * (segmentsRadial + 1) + j;
-              const topIdx = i * (segmentsRadial + 1) + (segmentsRadial / 2 - j);
+              const botIdx = i * (segmentsRadial + 2) + j;
+              const topIdx = i * (segmentsRadial + 2) + (segmentsRadial / 2 - j);
 
               const topY = mesh.vertices[topIdx * 3 + 1]!;
               const botY = mesh.vertices[botIdx * 3 + 1]!;

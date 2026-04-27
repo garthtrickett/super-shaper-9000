@@ -592,8 +592,8 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
   }
 
-  const noseNeedsCap = noseWidth >= 1e-3;
-  const tailNeedsCap = tailWidth >= 1e-3 && !isSwallow;
+  const noseNeedsCap = true;
+  const tailNeedsCap = !isSwallow;
 
   if (noseNeedsCap) {
     const ringStartIndex = 0;
@@ -654,9 +654,68 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
     }
 
     for (let j = 0; j <= segmentsU; j++) {
-      if (j === segmentsU / 2 && isSwallow) continue;
       indices.push(centerIdx, perimeterStartIdx + j, perimeterStartIdx + j + 1);
     }
+  } else if (isSwallow) {
+    const ringStartIndex = segmentsV * (segmentsU + 2);
+    
+    // RIGHT PRONG CAP
+    let rightSumX = 0, rightSumY = 0, rightSumZ = 0;
+    const rightCount = (segmentsU / 2) + 1;
+    for (let j = 0; j <= segmentsU / 2; j++) {
+        const v = vertexGrid[segmentsV]![j]!.pos;
+        rightSumX += v.x; rightSumY += v.y; rightSumZ += v.z;
+    }
+    const rightCenter = new THREE.Vector3(rightSumX/rightCount, rightSumY/rightCount, rightSumZ/rightCount);
+    
+    const rightCenterIdx = vertices.length / 3;
+    vertices.push(rightCenter.x, rightCenter.y, rightCenter.z);
+    uvs.push(0.75, 1);
+    colors.push(1, 1, 1);
+    normals.push(0, 0, 1);
+    
+    const rightPerimeterStartIdx = vertices.length / 3;
+    for (let j = 0; j <= segmentsU / 2; j++) {
+        const hullIndex = ringStartIndex + j;
+        vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
+        uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
+        colors.push(colors[hullIndex * 3]!, colors[hullIndex * 3 + 1]!, colors[hullIndex * 3 + 2]!);
+        normals.push(0, 0, 1);
+    }
+    
+    for (let j = 0; j < segmentsU / 2; j++) {
+        indices.push(rightCenterIdx, rightPerimeterStartIdx + j, rightPerimeterStartIdx + j + 1);
+    }
+    indices.push(rightCenterIdx, rightPerimeterStartIdx + segmentsU / 2, rightPerimeterStartIdx);
+
+    // LEFT PRONG CAP
+    let leftSumX = 0, leftSumY = 0, leftSumZ = 0;
+    const leftCount = segmentsU / 2 + 1;
+    for (let j = segmentsU / 2 + 1; j <= segmentsU + 1; j++) {
+        const v = vertexGrid[segmentsV]![j]!.pos;
+        leftSumX += v.x; leftSumY += v.y; leftSumZ += v.z;
+    }
+    const leftCenter = new THREE.Vector3(leftSumX/leftCount, leftSumY/leftCount, leftSumZ/leftCount);
+    
+    const leftCenterIdx = vertices.length / 3;
+    vertices.push(leftCenter.x, leftCenter.y, leftCenter.z);
+    uvs.push(0.25, 1);
+    colors.push(1, 1, 1);
+    normals.push(0, 0, 1);
+    
+    const leftPerimeterStartIdx = vertices.length / 3;
+    for (let j = segmentsU / 2 + 1; j <= segmentsU + 1; j++) {
+        const hullIndex = ringStartIndex + j;
+        vertices.push(vertices[hullIndex * 3]!, vertices[hullIndex * 3 + 1]!, vertices[hullIndex * 3 + 2]!);
+        uvs.push(uvs[hullIndex * 2]!, uvs[hullIndex * 2 + 1]!);
+        colors.push(colors[hullIndex * 3]!, colors[hullIndex * 3 + 1]!, colors[hullIndex * 3 + 2]!);
+        normals.push(0, 0, 1);
+    }
+    
+    for (let j = 0; j < segmentsU / 2; j++) {
+        indices.push(leftCenterIdx, leftPerimeterStartIdx + j, leftPerimeterStartIdx + j + 1);
+    }
+    indices.push(leftCenterIdx, leftPerimeterStartIdx + segmentsU / 2, leftPerimeterStartIdx);
   }
 
   return {
