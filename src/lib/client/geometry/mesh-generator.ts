@@ -221,8 +221,11 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
     const pTop = blend.evaluate(1.0);
     const pApex = blend.evaluate(blend.tApex);
 
-    const sliceThick = Math.max(0.001, pTop[1] - pBot[1]);
-    const apexFrac = (pApex[1] - pBot[1]) / sliceThick;
+    const sliceThick = pTop[1] - pBot[1];
+    let apexFrac = 0.5;
+    if (Math.abs(sliceThick) > 0.001) {
+      apexFrac = (pApex[1] - pBot[1]) / sliceThick;
+    }
     const worldThick = topPt[1] - botPt[1];
     apexY = botPt[1] + worldThick * apexFrac;
   }
@@ -565,8 +568,11 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
     const pTop = blend.evaluate(1.0);
     const pApex = blend.evaluate(blend.tApex);
     
-    const sliceThick = Math.max(0.001, pTop[1] - pBot[1]);
-    const apexFrac = (pApex[1] - pBot[1]) / sliceThick;
+    const sliceThick = pTop[1] - pBot[1];
+    let apexFrac = 0.5;
+    if (Math.abs(sliceThick) > 0.001) {
+      apexFrac = (pApex[1] - pBot[1]) / sliceThick;
+    }
     
     const worldThick = topPt[1] - botPt[1];
     apexY = botPt[1] + worldThick * apexFrac;
