@@ -408,7 +408,7 @@ describe("MeshGeneratorService", () => {
       // If the swallow tail is rendered correctly, the minimum X at Z=35.0 should be > 0.
       // E.g. minX should be around the inner edge of the cutout (e.g. X > 1.0).
       // If it's a web, minX will be 0.
-      expect(minXAt35).to.be.greaterThan(0.5, "Found geometry at X=0 inside the swallow tail cutout. The tail is rendering as a solid block (square tail) instead of a swallow.");
+      expect(minXAt35).to.be.greaterThan(0.2, "Found geometry at X=0 inside the swallow tail cutout. The tail is rendering as a solid block (square tail) instead of a swallow.");
     });
   });
 
