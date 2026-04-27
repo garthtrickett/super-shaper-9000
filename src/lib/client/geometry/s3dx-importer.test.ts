@@ -120,7 +120,7 @@ describe("S3DX Importer", () => {
       expect(result.crossSections[0]!.controlPoints.length).to.equal(2);
     });
 
-    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx", "wildcat-fixed-winged-pin.s3dx", "gh-60-winged-swallow.s3dx"];
+    const FIXTURES =["WitcherDaily.s3dx", "rounded-pin-6-1.s3dx", "wildcat-fixed-winged-pin.s3dx", "gh-60-winged-swallow.s3dx", "TomoLike.s3dx", "FISH.s3dx"];
 
     for (const fixture of FIXTURES) {
       it(`can parse a full, real-world .s3dx file (${fixture})`, async () => {
