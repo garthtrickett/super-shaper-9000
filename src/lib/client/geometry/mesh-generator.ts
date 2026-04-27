@@ -564,21 +564,7 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       
       if (j === segmentsU / 2) {
         if (gapOpen) {
-          // Right Prong Inner Wall
-          const aTR = i * (segmentsU + 2) + segmentsU / 2;
-          const bBR = i * (segmentsU + 2) + 0;
-          const cTR = (i + 1) * (segmentsU + 2) + segmentsU / 2;
-          const dBR = (i + 1) * (segmentsU + 2) + 0;
-          pushTriangle(aTR, bBR, dBR);
-          pushTriangle(aTR, dBR, cTR);
-
-          // Left Prong Inner Wall
-          const aTL = i * (segmentsU + 2) + (segmentsU / 2 + 1);
-          const bBL = i * (segmentsU + 2) + (segmentsU + 1);
-          const cTL = (i + 1) * (segmentsU + 2) + (segmentsU / 2 + 1);
-          const dBL = (i + 1) * (segmentsU + 2) + (segmentsU + 1);
-          pushTriangle(aTL, cTL, dBL);
-          pushTriangle(aTL, dBL, bBL);
+          // Inner walls are generated later with independent vertices for proper normals
           continue;
         } else {
           pushTriangle(a, b, d);
@@ -589,6 +575,75 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
       
       pushTriangle(a, b, d);
       pushTriangle(a, d, c);
+    }
+  }
+
+  // --- ADD INNER WALLS FOR SWALLOW TAIL ---
+  if (isSwallow) {
+    let firstOpenRing = -1;
+    for (let i = 0; i <= segmentsV; i++) {
+      const vParam = (1 - Math.cos((i / segmentsV) * Math.PI)) / 2;
+      const z = noseZ + vParam * (tipZ - noseZ);
+      if (z > notchZ + 0.001) {
+        firstOpenRing = i;
+        break;
+      }
+    }
+
+    if (firstOpenRing !== -1) {
+      const startRing = firstOpenRing > 0 ? firstOpenRing - 1 : 0;
+      
+      // Right Prong Inner Wall
+      const rightWallStartIdx = vertices.length / 3;
+      for (let i = startRing; i <= segmentsV; i++) {
+        const idxTopR = i * (segmentsU + 2) + segmentsU / 2;
+        const idxBotR = i * (segmentsU + 2) + 0;
+        
+        vertices.push(vertices[idxTopR * 3]!, vertices[idxTopR * 3 + 1]!, vertices[idxTopR * 3 + 2]!);
+        uvs.push(uvs[idxTopR * 2]!, uvs[idxTopR * 2 + 1]!);
+        colors.push(colors[idxTopR * 3]!, colors[idxTopR * 3 + 1]!, colors[idxTopR * 3 + 2]!);
+        normals.push(-1, 0, 0);
+
+        vertices.push(vertices[idxBotR * 3]!, vertices[idxBotR * 3 + 1]!, vertices[idxBotR * 3 + 2]!);
+        uvs.push(uvs[idxBotR * 2]!, uvs[idxBotR * 2 + 1]!);
+        colors.push(colors[idxBotR * 3]!, colors[idxBotR * 3 + 1]!, colors[idxBotR * 3 + 2]!);
+        normals.push(-1, 0, 0);
+      }
+
+      for (let i = 0; i < segmentsV - startRing; i++) {
+        const a = rightWallStartIdx + i * 2;
+        const b = rightWallStartIdx + i * 2 + 1;
+        const c = rightWallStartIdx + (i + 1) * 2;
+        const d = rightWallStartIdx + (i + 1) * 2 + 1;
+        pushTriangle(a, b, d);
+        pushTriangle(a, d, c);
+      }
+
+      // Left Prong Inner Wall
+      const leftWallStartIdx = vertices.length / 3;
+      for (let i = startRing; i <= segmentsV; i++) {
+        const idxTopL = i * (segmentsU + 2) + (segmentsU / 2 + 1);
+        const idxBotL = i * (segmentsU + 2) + (segmentsU + 1);
+        
+        vertices.push(vertices[idxTopL * 3]!, vertices[idxTopL * 3 + 1]!, vertices[idxTopL * 3 + 2]!);
+        uvs.push(uvs[idxTopL * 2]!, uvs[idxTopL * 2 + 1]!);
+        colors.push(colors[idxTopL * 3]!, colors[idxTopL * 3 + 1]!, colors[idxTopL * 3 + 2]!);
+        normals.push(1, 0, 0);
+
+        vertices.push(vertices[idxBotL * 3]!, vertices[idxBotL * 3 + 1]!, vertices[idxBotL * 3 + 2]!);
+        uvs.push(uvs[idxBotL * 2]!, uvs[idxBotL * 2 + 1]!);
+        colors.push(colors[idxBotL * 3]!, colors[idxBotL * 3 + 1]!, colors[idxBotL * 3 + 2]!);
+        normals.push(1, 0, 0);
+      }
+
+      for (let i = 0; i < segmentsV - startRing; i++) {
+        const a = leftWallStartIdx + i * 2;
+        const b = leftWallStartIdx + i * 2 + 1;
+        const c = leftWallStartIdx + (i + 1) * 2;
+        const d = leftWallStartIdx + (i + 1) * 2 + 1;
+        pushTriangle(a, c, d);
+        pushTriangle(a, d, b);
+      }
     }
   }
 
