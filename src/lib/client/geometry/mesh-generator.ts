@@ -88,6 +88,11 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
   const outlinePt = evaluateBezierAtZ(model.outline, zInches);
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
 
+  // Prevent vertical bowtie inversion (Deck Y < Bottom Y) caused by cubic Bezier overshoot at the tail
+  if (topPt[1] < botPt[1]) {
+    topPt[1] = botPt[1];
+  }
+
   let apexX = outlinePt[0];
   let apexY = botPt[1] + (topPt[1] - botPt[1]) * 0.3;
   let tuckY = botPt[1];
