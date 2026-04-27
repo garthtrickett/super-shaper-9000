@@ -270,5 +270,3 @@ export const parseS3dx = (xmlString: string): Effect.Effect<ImportedS3dxData, Er
       boxes
     };
   });
-    };
-  });

@@ -135,8 +135,6 @@ describe("Board Builder State & Kinematic Logic", () => {
         crossSections:[mockCurve],
         boxes:[]
       };
-        boxes:[]
-      };
       const newState = update(INITIAL_STATE, action);
       
       expect(newState.length).to.equal(70);
