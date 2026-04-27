@@ -152,10 +152,11 @@ export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInche
  */
 export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D => {
   const outPt = evaluateBezier3D(model.outline, v);
-  const topPt = evaluateBezier3D(model.rockerTop, v);
-  const botPt = evaluateBezier3D(model.rockerBottom, v);
-  
   const zInches = outPt[2];
+
+  // Z-evaluate to ensure rockers align precisely with the outline's spatial Z
+  const topPt = evaluateBezierAtZ(model.rockerTop, zInches);
+  const botPt = evaluateBezierAtZ(model.rockerBottom, zInches);
 
   // Prevent vertical bowtie inversion
   if (topPt[1] < botPt[1]) {
@@ -167,7 +168,7 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
   let tuckY = botPt[1];
 
   if (model.apexOutline && model.apexOutline.controlPoints.length > 0) {
-    apexX = evaluateBezier3D(model.apexOutline, v)[0];
+    apexX = evaluateBezierAtZ(model.apexOutline, zInches)[0];
   }
 
   const blend = getCrossSectionBlendAtZ(model.crossSections, zInches);
@@ -184,7 +185,7 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
   }
 
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
-    apexY = evaluateBezier3D(model.apexRocker, v)[1];
+    apexY = evaluateBezierAtZ(model.apexRocker, zInches)[1];
   }
 
   if (blend) {
@@ -203,7 +204,7 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
 
   let tuckX = outPt[0];
   if (model.railOutline && model.railOutline.controlPoints.length > 0) {
-    tuckX = evaluateBezier3D(model.railOutline, v)[0];
+    tuckX = evaluateBezierAtZ(model.railOutline, zInches)[0];
   }
 
   const finalApexX = Math.max(0.001, apexX);

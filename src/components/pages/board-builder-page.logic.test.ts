@@ -180,36 +180,27 @@ describe("Board Builder State & Kinematic Logic", () => {
       expect(newState.outline?.controlPoints[0]?.[0]).to.equal(0);
     });
 
-    it("should clamp planar locks for Outline (Y cannot change)", () => {
-      // Try to move center anchor (index 1) to y=5
-      const action: BoardAction = {
+    it("accepts raw 3D coordinates for Outline/Rocker as planar constraints are now handled by InteractionManager", () => {
+      const actionOutline: BoardAction = {
         type: "UPDATE_NODE_POSITION",
         curve: "outline",
         index: 1,
         nodeType: "anchor",
-        position:[6, 5, 0]
+        position: [6, 5, 0]
       };
-      const newState = update(MOCK_STATE, action);
-      
-      // Y should be clamped back to 0, X should be 6
-      expect(newState.outline?.controlPoints[1]?.[1]).to.equal(0);
-      expect(newState.outline?.controlPoints[1]?.[0]).to.equal(6);
-    });
+      const newState1 = update(MOCK_STATE, actionOutline);
+      // Reducer blindly accepts the exact 3D coordinates now
+      expect(newState1.outline?.controlPoints[1]).to.deep.equal([6, 5, 0]);
 
-    it("should clamp planar locks for Rocker (X cannot change)", () => {
-      // Try to move center rocker anchor to x=5
-      const action: BoardAction = {
+      const actionRocker: BoardAction = {
         type: "UPDATE_NODE_POSITION",
         curve: "rockerTop",
         index: 1,
         nodeType: "anchor",
-        position:[5, 3, 0]
+        position: [5, 3, 0]
       };
-      const newState = update(MOCK_STATE, action);
-      
-      // X should be clamped back to 0, Y should be 3
-      expect(newState.rockerTop?.controlPoints[1]?.[0]).to.equal(0);
-      expect(newState.rockerTop?.controlPoints[1]?.[1]).to.equal(3);
+      const newState2 = update(MOCK_STATE, actionRocker);
+      expect(newState2.rockerTop?.controlPoints[1]).to.deep.equal([5, 3, 0]);
     });
 
     it("should translate handles when anchor is moved", () => {
