@@ -635,8 +635,8 @@ describe("MeshGeneratorService", () => {
               if (botY > topY + 1e-6) {
                   invertedCount++;
                   if (invertedCount <= 10) { // Log first 10 inversions with deep detail
-                      const zVal = mesh.vertices[topIdx * 3 + 2]!;
-                      const xVal = mesh.vertices[topIdx * 3]!;
+                      const zVal = mesh.vertices[topIdx * 3 + 2]! * 12; // Feet to Inches
+                      const xVal = mesh.vertices[topIdx * 3]! * 12; // Feet to Inches
                       const v = (1 - Math.cos((i / segmentsZ) * Math.PI)) / 2;
                       const profile = MeshGeneratorService.getBoardProfileAtZ(manualState, {outline:[], rockerTop:[], rockerBottom:[]}, zVal, v);
                       

@@ -226,10 +226,14 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
     if (Math.abs(sliceThick) > 0.001) {
       apexFrac = (pApex[1] - pBot[1]) / sliceThick;
     }
+    const sliceThick = pTop[1] - pBot[1];
+    let apexFrac = 0.5;
+    if (Math.abs(sliceThick) > 0.001) {
+      apexFrac = (pApex[1] - pBot[1]) / sliceThick;
+    }
     const worldThick = topPt[1] - botPt[1];
     apexY = botPt[1] + worldThick * apexFrac;
   }
-
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
     apexY = evaluateBezierAtZ(model.apexRocker, zInches, v)[1];
   }
@@ -573,11 +577,15 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
     if (Math.abs(sliceThick) > 0.001) {
       apexFrac = (pApex[1] - pBot[1]) / sliceThick;
     }
+    const sliceThick = pTop[1] - pBot[1];
+    let apexFrac = 0.5;
+    if (Math.abs(sliceThick) > 0.001) {
+      apexFrac = (pApex[1] - pBot[1]) / sliceThick;
+    }
     
     const worldThick = topPt[1] - botPt[1];
     apexY = botPt[1] + worldThick * apexFrac;
   }
-
   if (model.apexRocker && model.apexRocker.controlPoints.length > 0) {
     apexY = evaluateBezierAtZ(model.apexRocker, zInches, hintT)[1];
   }
