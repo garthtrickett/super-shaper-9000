@@ -188,10 +188,54 @@ describe("S3DX Importer", () => {
           });
           expect(hasNegative, `Curve '${name}' should not have negative X (width) values`).to.be.false;
         };
-        
+    
         checkCurve(outline, "outline");
         if (railOutline) checkCurve(railOutline, "railOutline");
         if (apexOutline) checkCurve(apexOutline, "apexOutline");
+      });
+
+      it("should detect and merge 3D Outline Layers (Wings) from gh-60-winged-swallow.s3dx", async () => {
+        const response = await fetch("/src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
+        const xml = await response.text();
+        const result = await Effect.runPromise(parseS3dx(xml));
+
+        // In gh-60-winged-swallow.s3dx, Calque_1 (Layer 2) defines a wing.
+        // At Shape3D X = 25.02cm (Length from tail), the wing width is 18.946cm.
+        // The main outline at that same Z has a width of only 16.931cm.
+        // 18.946cm / 2.54 = ~7.458 inches.
+
+        const boardLengthInches = result.length;
+        const targetZ_ss = boardLengthInches / 2 - (25.02 / 2.54);
+
+        // Helper to evaluate our imported Bezier at a specific Z
+        const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): number => {
+          let bestX = 0;
+          let minErr = Infinity;
+          for (let i = 0; i <= 100; i++) {
+            const t = i / 100;
+            // Basic quadratic/cubic blend check simplified for test search
+            const numSegments = bezier.controlPoints.length - 1;
+            const scaledT = t * numSegments;
+            const seg = Math.min(numSegments - 1, Math.floor(scaledT));
+            const localT = scaledT - seg;
+            const p0 = bezier.controlPoints[seg]!;
+            const p1 = bezier.controlPoints[seg+1]!;
+            const z = p0[2] + (p1[2] - p0[2]) * localT;
+            if (Math.abs(z - targetZ) < minErr) {
+              minErr = Math.abs(z - targetZ);
+              bestX = p0[0] + (p1[0] - p0[0]) * localT;
+            }
+          }
+          return bestX;
+        };
+
+        const actualWidth = evaluateBezierAtZ(result.outline, targetZ_ss);
+        const expectedWingWidth = 18.946 / 2.54; // ~7.46 inches
+
+        expect(actualWidth).to.be.closeTo(expectedWingWidth, 0.1, 
+          "The imported outline is missing the wing geometry defined in the 3D Layers. " + 
+          "The width at the wing position is too narrow, likely using the base outline instead of the layer override."
+        );
       });
     }
 
