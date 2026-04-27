@@ -1,7 +1,9 @@
 import { expect } from "@open-wc/testing";
 import { Effect } from "effect";
 import { translateFromShape3d, parseS3dx } from "./s3dx-importer";
-import type { BezierCurveData, Point3D } from "../../../components/pages/board-builder-page.logic";
+import type { BezierCurveData, Point3D, BoardModel } from "../../../components/pages/board-builder-page.logic";
+import { evaluateCompositeOutlineAtZ } from "./mesh-generator";
+import { INITIAL_STATE } from "../../../components/pages/board-builder-page.logic";
 
 describe("S3DX Importer", () => {
   describe("translateFromShape3d (Coordinate Inversion)", () => {
@@ -207,29 +209,14 @@ describe("S3DX Importer", () => {
         const boardLengthInches = result.length;
         const targetZ_ss = boardLengthInches / 2 - (25.02 / 2.54);
 
-        // Helper to evaluate our imported Bezier at a specific Z
-        const evaluateBezierAtZ = (bezier: BezierCurveData, targetZ: number): number => {
-          let bestX = 0;
-          let minErr = Infinity;
-          for (let i = 0; i <= 100; i++) {
-            const t = i / 100;
-            // Basic quadratic/cubic blend check simplified for test search
-            const numSegments = bezier.controlPoints.length - 1;
-            const scaledT = t * numSegments;
-            const seg = Math.min(numSegments - 1, Math.floor(scaledT));
-            const localT = scaledT - seg;
-            const p0 = bezier.controlPoints[seg]!;
-            const p1 = bezier.controlPoints[seg+1]!;
-            const z = p0[2] + (p1[2] - p0[2]) * localT;
-            if (Math.abs(z - targetZ) < minErr) {
-              minErr = Math.abs(z - targetZ);
-              bestX = p0[0] + (p1[0] - p0[0]) * localT;
-            }
-          }
-          return bestX;
+        // Construct a mock model to pass to the composite evaluator
+        const mockModel: BoardModel = {
+          ...INITIAL_STATE,
+          ...result
         };
 
-        const actualWidth = evaluateBezierAtZ(result.outline, targetZ_ss);
+        const pointAtZ = evaluateCompositeOutlineAtZ(mockModel, targetZ_ss);
+        const actualWidth = pointAtZ[0]; // Width is the x-component of the composite point
         const wingWidth = 18.946 / 2.54;
 
         expect(actualWidth).to.be.closeTo(wingWidth, 0.1, 
