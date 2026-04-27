@@ -514,8 +514,20 @@ describe("MeshGeneratorService", () => {
     });
 
     it("aligns the tail-cap center vertex perfectly between the top and bottom rockers", async () => {
-      const curves = await generateBoardCurves(INITIAL_STATE);
-      const mesh = MeshGeneratorService.generateMesh(INITIAL_STATE, curves);
+      // Use a squash tail so a tail cap is actually generated
+      const squashState: BoardModel = {
+        ...INITIAL_STATE,
+        outline: {
+          ...INITIAL_STATE.outline,
+          controlPoints:[
+            INITIAL_STATE.outline.controlPoints[0]!,
+            INITIAL_STATE.outline.controlPoints[1]!,
+            [4, 0, 35] // Squash tail
+          ]
+        }
+      };
+      const curves = await generateBoardCurves(squashState);
+      const mesh = MeshGeneratorService.generateMesh(squashState, curves);
 
       const segmentsZ = 240;
       const segmentsRadial = 96;
@@ -525,8 +537,8 @@ describe("MeshGeneratorService", () => {
       const tailCenterY = mesh.vertices[lastVertIdx * 3 + 1]!;
 
       // Get expected rockers at the tail (maxZ)
-      const maxZ = INITIAL_STATE.outline.controlPoints[INITIAL_STATE.outline.controlPoints.length - 1]![2];
-      const profile = MeshGeneratorService.getBoardProfileAtZ(INITIAL_STATE, curves, maxZ);
+      const maxZ = squashState.outline.controlPoints[squashState.outline.controlPoints.length - 1]![2];
+      const profile = MeshGeneratorService.getBoardProfileAtZ(squashState, curves, maxZ);
       const expectedMidPoint = (profile.topY + profile.botY) / 2 * (1 / 12);
 
       expect(tailCenterY).to.be.closeTo(expectedMidPoint, 0.0001, "Tail cap center must be perfectly vertically centered to avoid asymmetrical end-blocks.");

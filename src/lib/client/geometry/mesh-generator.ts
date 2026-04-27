@@ -473,30 +473,22 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
   // STEP 3: Generate Hull Indices
   for (let i = 0; i < segmentsZ; i++) {
+    const isNosePoint = i === 0 && noseProfile.halfWidth < 1e-3 && Math.abs(noseProfile.topY - noseProfile.botY) < 1e-3;
+    const isTailPoint = i === segmentsZ - 1 && tailProfile.halfWidth < 1e-3 && Math.abs(tailProfile.topY - tailProfile.botY) < 1e-3;
+
     for (let j = 0; j < segmentsRadial; j++) {
       const a = i * (segmentsRadial + 1) + j;
       const b = a + 1;
       const c = (i + 1) * (segmentsRadial + 1) + j;
       const d = c + 1;
       
-      const dxAB = vertices[a * 3]! - vertices[b * 3]!;
-      const dyAB = vertices[a * 3 + 1]! - vertices[b * 3 + 1]!;
-      const dzAB = vertices[a * 3 + 2]! - vertices[b * 3 + 2]!;
-      const distABsq = dxAB * dxAB + dyAB * dyAB + dzAB * dzAB;
-
-      const dxCD = vertices[c * 3]! - vertices[d * 3]!;
-      const dyCD = vertices[c * 3 + 1]! - vertices[d * 3 + 1]!;
-      const dzCD = vertices[c * 3 + 2]! - vertices[d * 3 + 2]!;
-      const distCDsq = dxCD * dxCD + dyCD * dyCD + dzCD * dzCD;
-
-      if (distABsq < 1e-10 && distCDsq < 1e-10) {
-        // Both rings are pinched here. Quad is completely degenerate.
-        continue;
-      } else if (distABsq < 1e-10) {
-        // a and b are nearly identical. Omit the degenerate (a, b, d) triangle.
+      if (isNosePoint) {
+        // a and b are identical points at the nose tip.
+        // Omit the degenerate (a, b, d) triangle.
         indices.push(a, d, c);
-      } else if (distCDsq < 1e-10) {
-        // c and d are nearly identical. Omit the degenerate (a, d, c) triangle.
+      } else if (isTailPoint) {
+        // c and d are identical points at the tail tip.
+        // Omit the degenerate (a, d, c) triangle.
         indices.push(a, b, d);
       } else {
         indices.push(a, b, d, a, d, c);
