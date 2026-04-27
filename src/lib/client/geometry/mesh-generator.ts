@@ -12,23 +12,6 @@ export interface RawGeometryData {
   volumeLiters: number;
 }
 
-export const cubicInterpolate = (y0: number, y1: number, y2: number, y3: number, mu: number): number => {
-  const mu2 = mu * mu;
-  const a0 = -0.5 * y0 + 1.5 * y1 - 1.5 * y2 + 0.5 * y3;
-  const a1 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;
-  const a2 = -0.5 * y0 + 0.5 * y2;
-  const a3 = y1;
-  return a0 * mu * mu2 + a1 * mu2 + a2 * mu + a3;
-};
-
-export const cubicInterpolatePt = (p0: Point3D, p1: Point3D, p2: Point3D, p3: Point3D, t: number): Point3D => {
-  return [
-    cubicInterpolate(p0[0], p1[0], p2[0], p3[0], t),
-    cubicInterpolate(p0[1], p1[1], p2[1], p3[1], t),
-    cubicInterpolate(p0[2], p1[2], p2[2], p3[2], t)
-  ];
-};
-
 const colorHeatmap = (normalizedValue: number): [number, number, number] => {
   const hue = (1.0 - normalizedValue) * 240;
   const h = hue / 360;
@@ -157,27 +140,27 @@ export const getCrossSectionBlendAtZ = (crossSections: BezierCurveData[], zInche
     }
   }
 
-  const sM1 = crossSections[Math.max(0, k0 - 1)]!,
-    s0 = crossSections[k0]!,
-    s1 = crossSections[Math.min(crossSections.length - 1, k0 + 1)]!,
-    s2 = crossSections[Math.min(crossSections.length - 1, k0 + 2)]!;
+  const s0 = crossSections[k0]!;
+  const s1 = crossSections[Math.min(crossSections.length - 1, k0 + 1)]!;
 
   const tApex0 = findApexT(s0);
   const tApex1 = findApexT(s1);
   
-  // Use linear interpolation for the parameter T to prevent overshoot artifacts at sharp tail decks
+  // Use linear interpolation to prevent catastrophic overshoot artifacts 
+  // on non-uniformly spaced cross sections (e.g. dense tail slices)
   const tApex = tApex0 + (tApex1 - tApex0) * lerpFactor;
 
   return {
     tApex: Math.max(0, Math.min(1, tApex)),
-    evaluate: (tMid: number) =>
-      cubicInterpolatePt(
-        evaluateBezier3D(sM1, tMid),
-        evaluateBezier3D(s0, tMid),
-        evaluateBezier3D(s1, tMid),
-        evaluateBezier3D(s2, tMid),
-        lerpFactor,
-      ),
+    evaluate: (tMid: number) => {
+      const p0 = evaluateBezier3D(s0, tMid);
+      const p1 = evaluateBezier3D(s1, tMid);
+      return [
+        p0[0] + (p1[0] - p0[0]) * lerpFactor,
+        p0[1] + (p1[1] - p0[1]) * lerpFactor,
+        p0[2] + (p1[2] - p0[2]) * lerpFactor,
+      ];
+    }
   };
 };
 
