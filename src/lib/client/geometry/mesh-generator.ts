@@ -70,6 +70,14 @@ const evaluateBezier3D = (bezier: BezierCurveData, t: number): Point3D => {
 };
 
 const findApexT = (bezier: BezierCurveData): number => {
+  let isFlat = true;
+  for (let i = 0; i < bezier.controlPoints.length; i++) {
+    if (Math.abs(bezier.controlPoints[i]![0]) > 0.000001) { isFlat = false; break; }
+    if (bezier.tangents1[i] && Math.abs(bezier.tangents1[i]![0]) > 0.000001) { isFlat = false; break; }
+    if (bezier.tangents2[i] && Math.abs(bezier.tangents2[i]![0]) > 0.000001) { isFlat = false; break; }
+  }
+  if (isFlat) return 0.5;
+
   let bestT = 0.5;
   let maxX = -Infinity;
   const steps = 20;
@@ -221,11 +229,6 @@ export const getPointAtUV = (model: BoardModel, u: number, v: number): Point3D =
     const pTop = blend.evaluate(1.0);
     const pApex = blend.evaluate(blend.tApex);
 
-    const sliceThick = pTop[1] - pBot[1];
-    let apexFrac = 0.5;
-    if (Math.abs(sliceThick) > 0.001) {
-      apexFrac = (pApex[1] - pBot[1]) / sliceThick;
-    }
     const sliceThick = pTop[1] - pBot[1];
     let apexFrac = 0.5;
     if (Math.abs(sliceThick) > 0.001) {
@@ -572,11 +575,6 @@ export const getBoardProfileAtZ = (model: BoardModel, _curves: BoardCurves, zInc
     const pTop = blend.evaluate(1.0);
     const pApex = blend.evaluate(blend.tApex);
     
-    const sliceThick = pTop[1] - pBot[1];
-    let apexFrac = 0.5;
-    if (Math.abs(sliceThick) > 0.001) {
-      apexFrac = (pApex[1] - pBot[1]) / sliceThick;
-    }
     const sliceThick = pTop[1] - pBot[1];
     let apexFrac = 0.5;
     if (Math.abs(sliceThick) > 0.001) {
