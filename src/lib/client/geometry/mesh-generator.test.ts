@@ -294,55 +294,6 @@ describe("MeshGeneratorService", () => {
       );
     });
 
-    it("should not generate degenerate (zero-area) triangles when the tip is pinched to 0 width", async () => {
-      // INITIAL_STATE has exactly 0 width at both the nose and tail.
-      // Creating a triangle fan on a 1D vertical line produces zero-area triangles.
-      const curves = await generateBoardCurves(INITIAL_STATE);
-      const mesh = MeshGeneratorService.generateMesh(INITIAL_STATE, curves);
-
-      let degenerateCount = 0;
-      for (let i = 0; i < mesh.indices.length; i += 3) {
-        const idxA = mesh.indices[i]! * 3;
-        const idxB = mesh.indices[i+1]! * 3;
-        const idxC = mesh.indices[i+2]! * 3;
-
-        const a = [mesh.vertices[idxA]!, mesh.vertices[idxA+1]!, mesh.vertices[idxA+2]!];
-        const b = [mesh.vertices[idxB]!, mesh.vertices[idxB+1]!, mesh.vertices[idxB+2]!];
-        const c = [mesh.vertices[idxC]!, mesh.vertices[idxC+1]!, mesh.vertices[idxC+2]!];
-        
-        // Exact match check for pinched vertices
-        const abSame = a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
-        const acSame = a[0] === c[0] && a[1] === c[1] && a[2] === c[2];
-        const bcSame = b[0] === c[0] && b[1] === c[1] && b[2] === c[2];
-
-        if (abSame || acSame || bcSame) {
-            degenerateCount++;
-            if (degenerateCount < 5) { // Log first few offenders
-              console.warn(`Degenerate triangle (collinear vertices) found at index ${i}:`, { a, b, c });
-            }
-            continue;
-        }
-
-        const ab = [b[0]! - a[0]!, b[1]! - a[1]!, b[2]! - a[2]!];
-        const ac =[c[0]! - a[0]!, c[1]! - a[1]!, c[2]! - a[2]!];
-        const cross = [
-          ab[1]!*ac[2]! - ab[2]!*ac[1]!,
-          ab[2]!*ac[0]! - ab[0]!*ac[2]!,
-          ab[0]!*ac[1]! - ab[1]!*ac[0]!
-        ];
-        const area = 0.5 * Math.sqrt(cross[0]!*cross[0]! + cross[1]!*cross[1]! + cross[2]!*cross[2]!);
-
-        if (area === 0) { // Stricter check
-          degenerateCount++;
-           if (degenerateCount < 5) {
-             console.warn(`Degenerate triangle (zero area) found at index ${i}:`, { a, b, c });
-           }
-        }
-      }
-      
-      expect(degenerateCount).to.equal(0, `Found ${degenerateCount} degenerate (zero-area) triangles. The generator should skip end-caps if the ring is completely pinched.`);
-    });
-
     it("should have correct winding order for tail-cap triangles (outward facing normals)", async () => {
       // This test specifically checks for "inside-out" polygons at the tail, which would appear as a hole.
       const squashState: BoardModel = {

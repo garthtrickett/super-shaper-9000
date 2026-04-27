@@ -465,23 +465,9 @@ const generateMesh = (model: BoardModel): RawGeometryData => {
 
   // STEP 3: Generate Hull Indices
   const pushTriangle = (i1: number, i2: number, i3: number) => {
-    const p1x = vertices[i1 * 3]!, p1y = vertices[i1 * 3 + 1]!, p1z = vertices[i1 * 3 + 2]!;
-    const p2x = vertices[i2 * 3]!, p2y = vertices[i2 * 3 + 1]!, p2z = vertices[i2 * 3 + 2]!;
-    const p3x = vertices[i3 * 3]!, p3y = vertices[i3 * 3 + 1]!, p3z = vertices[i3 * 3 + 2]!;
-    
-    const abx = p2x - p1x, aby = p2y - p1y, abz = p2z - p1z;
-    const acx = p3x - p1x, acy = p3y - p1y, acz = p3z - p1z;
-    
-    const crossX = aby * acz - abz * acy;
-    const crossY = abz * acx - abx * acz;
-    const crossZ = abx * acy - aby * acx;
-    
-    const areaSq = crossX * crossX + crossY * crossY + crossZ * crossZ;
-    // Strictly omit mathematically degenerate zero-area triangles to satisfy the 
-    // watertightness validation and prevent shader division by zero.
-    if (areaSq > 1e-25) {
-      indices.push(i1, i2, i3);
-    }
+    // We let Three.js absorb zero-area triangles. Skipping them causes 
+    // boundary edges (holes) where adjacent triangles expect a shared edge.
+    indices.push(i1, i2, i3);
   };
 
   for (let i = 0; i < segmentsZ; i++) {
