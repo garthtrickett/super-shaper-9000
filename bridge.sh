@@ -42,9 +42,13 @@ inotifywait -m -e close_write -e moved_to --format '%f' "$WATCH_DIR" | while rea
                 notify-send "Gemini Success" "All changes applied and committed."
             else
                 # FAILURE CASE
+                FAILED_FILE=$(echo "$PYTHON_OUT" | grep "FATAL ERROR in file:" | sed 's/.*FATAL ERROR in file: //')
                 echo "⛔ TRANSACTION FAILED: One or more blocks did not match."
+                if [ -n "$FAILED_FILE" ]; then
+                    echo "   ➡️  Error occurred in: $FAILED_FILE"
+                fi
                 echo "No files were modified. Re-sync your codebase in Gemini and try again."
-                notify-send -u critical "Gemini Failed" "Search blocks mismatch. No changes applied."
+                notify-send -u critical "Gemini Failed" "Search blocks mismatch in ${FAILED_FILE:-a file}. No changes applied."
             fi
 
             rm "current_response.json"

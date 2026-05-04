@@ -7,15 +7,15 @@ init().then(() => {
     engine = new WasmEngine();
     console.info("[BoardWorker] Rust WASM Engine initialized.");
     
-    // Post initial state back
+        // Post initial state back
     const initialState = engine.get_state();
-    const mesh = engine.get_mesh_buffer();
+    const mesh = engine.get_mesh();
     
     self.postMessage({
         type: "STATE_UPDATED",
         state: initialState,
         mesh: mesh
-    }, [mesh.buffer]);
+    }, [mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer]);
 }).catch((err: unknown) => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
@@ -43,15 +43,15 @@ self.onmessage = (e: MessageEvent) => {
                 }
             }
 
-            // 3. Extract Mesh Buffer (Zero-Copy)
-            const mesh = engine.get_mesh_buffer();
+                        // 3. Extract Mesh Buffer (Zero-Copy)
+            const mesh = engine.get_mesh();
 
             // 4. Send updated State and Mesh back to Main Thread
             self.postMessage({
                 type: "STATE_UPDATED",
                 state,
                 mesh
-            }, [mesh.buffer]); // Transfer ownership of the buffer
+            }, [mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer]); // Transfer ownership of the buffers
 
         } catch (err) {
             console.error("[BoardWorker] Error during proposal:", err);

@@ -140,6 +140,22 @@ To create a new file, use a single `smart_replace` edit with an empty `search` s
     }
   ]
 }
+
+### Example Response eof approach
+cat << 'EOF' > surfer-core/src/model.rs
+use glam::Vec3;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardModel {
+    pub length: f32,
+    pub width: f32,
+    pub thickness: f32,
+    pub volume: f32,
+    pub fin_setup: String,
+}
+EOF
 ```
 
 ARCHITECTURAL REFINEMENTS INSPIRED BY KMP/GATEKEEPER

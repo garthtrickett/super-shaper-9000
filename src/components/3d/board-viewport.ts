@@ -16,9 +16,19 @@ import { SceneManager } from "./managers/SceneManager";
 
 export type ViewportId = 'perspective' | 'top' | 'side' | 'profile';
 
+export interface RustMesh {
+  vertices: Float32Array;
+  indices: Uint32Array;
+  uvs: Float32Array;
+  colors: Float32Array;
+  normals: Float32Array;
+  volumeLiters: number;
+}
+
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
   @property({ type: Object }) boardState?: BoardModel;
+  @property({ type: Object }) meshData?: RustMesh;
   
   protected override createRenderRoot() { return this; }
 
@@ -58,7 +68,12 @@ export class BoardViewport extends LitElement {
     });
   }
 
-  override updated(changedProperties: PropertyValues) {
+    override updated(changedProperties: PropertyValues) {
+    let shouldUpdateGeom = false;
+    if (changedProperties.has("meshData") && this.meshData) {
+      shouldUpdateGeom = true;
+    }
+    
     if (changedProperties.has("boardState") && this.boardState) {
       this.interactionManager?.setBoardState(this.boardState);
       const oldState = changedProperties.get("boardState") as BoardModel | undefined;
@@ -82,7 +97,7 @@ export class BoardViewport extends LitElement {
         needsFullGeometryUpdate = true;
       }
 
-      if (needsFullGeometryUpdate) {
+            if (needsFullGeometryUpdate || shouldUpdateGeom) {
         clearTimeout(this.geometryUpdateDebounceId);
         void this._updateGeometry();
       } else if (isManualDragUpdate) {
@@ -121,7 +136,11 @@ export class BoardViewport extends LitElement {
         this.solidGroup.remove(child);
     }
 
-    this.buildSolidMesh(curves, scale);
+        if (this.meshData) {
+      this.buildSolidMeshFromRust(this.meshData, scale);
+    } else {
+      this.buildSolidMesh(curves, scale);
+    }
     FinBuilder.build(this.finGroup, this.boardState, curves, scale);
     GizmoBuilder.build(this.gizmoGroup, this.boardState, curves, scale, this.matAnchor, this.matHandle);
     this.buildSliceLines(curves, scale);
@@ -219,6 +238,49 @@ export class BoardViewport extends LitElement {
     }
   }
   
+    private buildSolidMeshFromRust(meshData: RustMesh, scale: number) {
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
+    geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
+    geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
+    geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
+
+    if (meshData.colors && meshData.colors.length > 0) {
+      geom.setAttribute('color', new THREE.BufferAttribute(meshData.colors, 3));
+    }
+    if (Math.abs(this.boardState!.volume - meshData.volumeLiters) > 0.05) {
+      this.dispatchEvent(new CustomEvent("volume-calculated", { detail: { volume: meshData.volumeLiters }, bubbles: true, composed: true }));
+    }
+
+    const { map, bumpMap } = this.textureManager.getBoardTextures();
+    const standardMat = new THREE.MeshPhysicalMaterial({ 
+      map, bumpMap, bumpScale: 0.005, roughness: 0.4, metalness: 0.0, 
+      clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.5, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    const heatmapMat = new THREE.MeshStandardMaterial({ 
+      vertexColors: true, roughness: 0.8, side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    const zebraMat = new THREE.MeshStandardMaterial({ 
+      color: 0xffffff, metalness: 1.0, roughness: 0.0, envMap: this.textureManager.getZebraTexture(), side: THREE.DoubleSide,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    });
+    let activeMat: THREE.Material = standardMat;
+    if (this.boardState!.showHeatmap) activeMat = heatmapMat;
+    else if (this.boardState!.showZebra) activeMat = zebraMat;
+    const mesh = new THREE.Mesh(geom, activeMat);
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
+    this.solidGroup.add(mesh);
+    const blueprintMat = new THREE.MeshBasicMaterial({ color: 0x09090b, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide });
+    const blueprintMesh = new THREE.Mesh(geom, blueprintMat);
+    blueprintMesh.layers.set(5); this.solidGroup.add(blueprintMesh);
+    const edgesGeo = new THREE.EdgesGeometry(geom, 15);
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4 });
+    const blueprintEdges = new THREE.LineSegments(edgesGeo, edgesMat);
+    blueprintEdges.layers.set(5); this.solidGroup.add(blueprintEdges);
+  }
+
   private buildSolidMesh(curves: BoardCurves, _scale: number) {
     const meshData = MeshGeneratorService.generateMesh(this.boardState!, curves);
     const geom = new THREE.BufferGeometry();

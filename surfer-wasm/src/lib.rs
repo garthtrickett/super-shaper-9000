@@ -1,5 +1,5 @@
 
-use js_sys::Float32Array;
+use js_sys::{Float32Array, Object, Reflect, Uint32Array};
 use serde::Serialize;
 use surfer_core::model::BoardAction;
 use surfer_core::SurferEngine;
@@ -50,13 +50,19 @@ impl WasmEngine {
         Ok(serde_wasm_bindgen::to_value(state)?)
     }
 
-    #[wasm_bindgen]
-    pub fn get_mesh_buffer(&self) -> Float32Array {
-        let mesh = self.engine.compute_dummy_mesh();
+        #[wasm_bindgen]
+    pub fn get_mesh(&self) -> Result<JsValue, JsValue> {
+        let mesh = self.engine.compute_mesh();
+        let obj = Object::new();
         
-        // Converts the Rust Vec<f32> into a JavaScript Float32Array for zero-copy style transfer.
-        // This array can be directly assigned to a THREE.BufferAttribute.
-        Float32Array::from(mesh.as_slice())
+        Reflect::set(&obj, &JsValue::from_str("vertices"), &Float32Array::from(mesh.vertices.as_slice()))?;
+        Reflect::set(&obj, &JsValue::from_str("indices"), &Uint32Array::from(mesh.indices.as_slice()))?;
+        Reflect::set(&obj, &JsValue::from_str("uvs"), &Float32Array::from(mesh.uvs.as_slice()))?;
+        Reflect::set(&obj, &JsValue::from_str("colors"), &Float32Array::from(mesh.colors.as_slice()))?;
+        Reflect::set(&obj, &JsValue::from_str("normals"), &Float32Array::from(mesh.normals.as_slice()))?;
+        Reflect::set(&obj, &JsValue::from_str("volumeLiters"), &JsValue::from_f64(mesh.volume_liters as f64))?;
+        
+        Ok(obj.into())
     }
 }
 

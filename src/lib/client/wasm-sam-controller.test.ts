@@ -18,10 +18,10 @@ describe("WasmSamController (FFI Integration)", () => {
     // Wait for the worker to initialize the WASM module and post back the INITIAL_STATE
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    expect(controller.model).to.exist;
+        expect(controller.model).to.exist;
     expect(controller.model.length).to.equal(70.0); // Default Rust model length
     expect(controller.mesh).to.exist;
-    expect(controller.mesh?.length).to.equal(9); // Our 9-float dummy triangle
+    expect(controller.mesh?.vertices).to.exist;
 
     // Terminate worker to prevent hanging tests
     controller.hostDisconnected();

@@ -107,9 +107,9 @@ def apply_smart_replace(text, search, replace):
 def apply_entity_replace(text, entity_type, name, replace):
     entity_pattern = ''
     if entity_type == "replace_function":
-        entity_pattern = r"(?:@\w+\s*)*(?:override\s+|private\s+|public\s+|protected\s+|internal\s+|suspend\s+|inline\s+)*fun\s+(?:<[\w\s,<>]+>\s*)?" + re.escape(name) + r"\b"
+        entity_pattern = r"(?:@\w+\s*)*(?:override\s+|private\s+|public\s+|protected\s+|internal\s+|suspend\s+|inline\s+)*fun\s+(?:<[\w\s,<>]+>\s*)?" + re.escape(name) + r"\\b"
     else: # class, interface, object
-        entity_pattern = r"(?:@\w+\s*)*(?:data\s+|sealed\s+|open\s+|abstract\s+|inner\s+|enum\s+|annotation\s+)?(?:class|interface|object)\s+" + re.escape(name) + r"\b"
+        entity_pattern = r"(?:@\w+\s*)*(?:data\s+|sealed\s+|open\s+|abstract\s+|inner\s+|enum\s+|annotation\s+)?(?:class|interface|object)\s+" + re.escape(name) + r"\\b"
 
     match = re.search(entity_pattern, text)
     if not match:
@@ -145,22 +145,23 @@ def main():
         data = json.load(f)
 
     summary = data.get('summary', 'No summary provided')
-    print(f"\n🤖 Summary: {summary}\n")
+    print(f"\\n🤖 Summary: {summary}\\n")
 
     file_updates = {}
+    file_path = "Unknown"  # Variable to hold the currently processed file
 
     try:
         # Phase 1: Calculate all changes in-memory (Dry Run)
         for file_info in data.get('files', []):
             file_path = file_info['file_path']
-            edits = file_info.get('edits',[])
-            
+            edits = file_info.get('edits', [])
+
             # Legacy Aider format support
             if 'code_diff' in file_info:
                 diff = file_info['code_diff']
                 parts = diff.split('=======')
-                search = parts[0].replace('<<<<<<< SEARCH\n', '', 1)
-                replace = parts[1].replace('\n>>>>>>> REPLACE', '', 1)
+                search = parts[0].replace('<<<<<<< SEARCH\\n', '', 1)
+                replace = parts[1].replace('\\n>>>>>>> REPLACE', '', 1)
                 edits.append({'type': 'smart_replace', 'search': search, 'replace': replace})
 
             if os.path.exists(file_path):
@@ -189,13 +190,12 @@ def main():
                 f.write(new_text)
             print(f"✅ {path} updated successfully.")
 
-        print(f"\nDone. {len(file_updates)} files updated successfully.")
+        print(f"\\nDone. {len(file_updates)} files updated successfully.")
 
     except Exception as e:
-        print(f"\n❌ FATAL ERROR: {e}")
+        print(f"\\n❌ FATAL ERROR in file: {file_path}\\n{e}")
         print("🛑 Transaction aborted. No files were modified on disk.")
         sys.exit(1)
 
 if __name__ == "__main__":
     main()
-

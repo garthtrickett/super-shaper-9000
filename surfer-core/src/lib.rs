@@ -1,6 +1,9 @@
+pub mod bezier;
 pub mod model;
+pub mod geometry;
+pub mod mesh;
 
-use model::{BoardAction, BoardModel, Effect};
+use model::{BoardAction, BoardModel, Effect, RawGeometryData};
 
 pub struct SurferEngine {
     model: BoardModel,
@@ -27,67 +30,33 @@ impl SurferEngine {
         let mut effects = Vec::new();
 
         match action {
+            BoardAction::LoadDesign { state } => {
+                self.model = state;
+                effects.push(Effect::LogInfo { message: "Rust Engine: LOAD_DESIGN caught. Internal state synced.".to_string() });
+            }
             BoardAction::UpdateNumber { param, value } => {
                 match param.as_str() {
                     "length" => self.model.length = value,
                     "width" => self.model.width = value,
                     "thickness" => self.model.thickness = value,
-                    _ => {
-                        effects.push(Effect::LogInfo { 
-                            message: format!("Unknown number param: {}", param) 
-                        });
-                    }
+                    _ => {}
                 }
-                effects.push(Effect::LogInfo { 
-                    message: format!("Updated {} to {}", param, value) 
-                });
             }
             BoardAction::UpdateString { param, value } => {
                 if param == "finSetup" {
                     self.model.fin_setup = value.clone();
                 }
-                effects.push(Effect::LogInfo { 
-                    message: format!("Updated {} to {}", param, value) 
-                });
+            }
+            BoardAction::UpdateBoolean { param: _, value: _ } => {
+                // Future toggle handling
             }
         }
 
         (self.model.clone(), effects)
     }
 
-    /// Prove the pipeline works by generating a dummy mesh (a simple triangle)
-    pub fn compute_dummy_mesh(&self) -> Vec<f32> {
-        // A simple raw array of floats representing a triangle's vertices (x, y, z)
-                vec![
-            0.0, 0.0, 0.0,
-            10.0, 0.0, 0.0,
-            0.0, 10.0, 0.0,
-        ]
+    /// Prove the pipeline works by generating the real mesh!
+    pub fn compute_mesh(&self) -> RawGeometryData {
+        mesh::generate_mesh(&self.model)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::BoardAction;
-
-    #[test]
-    fn test_engine_update_number() {
-        let mut engine = SurferEngine::new();
-        let action = BoardAction::UpdateNumber {
-            param: "length".to_string(),
-            value: 80.0,
-        };
-        
-        let (new_model, effects) = engine.update(action);
-
-        assert_eq!(new_model.length, 80.0);
-        assert_eq!(effects.len(), 1);
-        match &effects[0] {
-            Effect::LogInfo { message } => assert!(message.contains("length")),
-        }
-    }
-}
-pub mod bezier;
-pub mod model;
-

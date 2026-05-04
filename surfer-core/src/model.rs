@@ -1,6 +1,15 @@
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutlineLayer {
+    pub name: String,
+    pub otl_ext: BezierCurveData,
+    pub otl_int: BezierCurveData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct BoardModel {
     pub length: f32,
@@ -8,18 +17,16 @@ pub struct BoardModel {
     pub thickness: f32,
     pub volume: f32,
     pub fin_setup: String,
-}
-
-impl Default for BoardModel {
-    fn default() -> Self {
-        Self {
-            length: 70.0,
-            width: 18.75,
-            thickness: 2.5,
-            volume: 30.5,
-            fin_setup: "quad".to_string(),
-        }
-    }
+    
+    pub outline: Option<BezierCurveData>,
+    pub outline_layers: Option<Vec<OutlineLayer>>,
+    pub rail_outline: Option<BezierCurveData>,
+    pub apex_outline: Option<BezierCurveData>,
+    pub rocker_top: Option<BezierCurveData>,
+    pub rocker_bottom: Option<BezierCurveData>,
+    pub apex_rocker: Option<BezierCurveData>,
+    #[serde(default)]
+    pub cross_sections: Vec<BezierCurveData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +36,10 @@ pub enum BoardAction {
     UpdateNumber { param: String, value: f32 },
     #[serde(rename = "UPDATE_STRING")]
     UpdateString { param: String, value: String },
+    #[serde(rename = "UPDATE_BOOLEAN")]
+    UpdateBoolean { param: String, value: bool },
+    #[serde(rename = "LOAD_DESIGN")]
+    LoadDesign { state: BoardModel },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,8 +48,6 @@ pub enum Effect {
     #[serde(rename = "LOG_INFO")]
     LogInfo { message: String },
 }
-use glam::Vec3;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -48,3 +57,12 @@ pub struct BezierCurveData {
     pub tangents2: Vec<Vec3>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RawGeometryData {
+    pub vertices: Vec<f32>,
+    pub indices: Vec<u32>,
+    pub uvs: Vec<f32>,
+    pub colors: Vec<f32>,
+    pub normals: Vec<f32>,
+    pub volume_liters: f32,
+}
