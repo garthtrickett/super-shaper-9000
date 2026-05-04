@@ -175,16 +175,43 @@ pub fn find_apex_t(curve: &BezierCurveData) -> f32 {
 
 pub struct BlendResult<'a> {
     pub t_apex: f32,
+    pub s_prev: &'a BezierCurveData,
     pub s0: &'a BezierCurveData,
     pub s1: &'a BezierCurveData,
+    pub s_next: &'a BezierCurveData,
     pub lerp_factor: f32,
 }
 
 impl<'a> BlendResult<'a> {
     pub fn evaluate(&self, t_mid: f32) -> Vec3 {
-        let p0 = evaluate_curve(self.s0, t_mid);
-        let p1 = evaluate_curve(self.s1, t_mid);
-        p0 + (p1 - p0) * self.lerp_factor
+        let p0 = evaluate_curve(self.s_prev, t_mid);
+        let p1 = evaluate_curve(self.s0, t_mid);
+        let p2 = evaluate_curve(self.s1, t_mid);
+        let p3 = evaluate_curve(self.s_next, t_mid);
+
+        // Fetch canonical Z locations
+        let z0 = self.s_prev.control_points.first().unwrap().z;
+        let z1 = self.s0.control_points.first().unwrap().z;
+        let z2 = self.s1.control_points.first().unwrap().z;
+        let z3 = self.s_next.control_points.first().unwrap().z;
+
+        // Compute non-uniform tangents using finite differences
+        // This ensures C1 Continuity globally while preventing overshoot across uneven spacing
+        let dz = z2 - z1;
+        
+        let m1 = if (z2 - z0).abs() > 1e-5 {
+            (p2 - p0) * (dz / (z2 - z0))
+        } else {
+            p2 - p1
+        };
+
+        let m2 = if (z3 - z1).abs() > 1e-5 {
+            (p3 - p1) * (dz / (z3 - z1))
+        } else {
+            p2 - p1
+        };
+
+        crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, self.lerp_factor)
     }
 }
 
@@ -206,20 +233,30 @@ pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a [BezierCurveData], z
             let z1 = cross_sections[k+1].control_points.first().unwrap().z;
             if z_inches >= z0 && z_inches <= z1 {
                 k0 = k;
-                lerp_factor = (z_inches - z0) / (z1 - z0);
+                let dz = z1 - z0;
+                if dz > 1e-5 {
+                    lerp_factor = (z_inches - z0) / dz;
+                }
                 break;
             }
         }
     }
 
+    let k_prev = k0.saturating_sub(1);
+    let k1 = (k0 + 1).min(cross_sections.len() - 1);
+    let k_next = (k0 + 2).min(cross_sections.len() - 1);
+
+    let s_prev = &cross_sections[k_prev];
     let s0 = &cross_sections[k0];
-    let s1 = &cross_sections[(k0 + 1).min(cross_sections.len() - 1)];
+    let s1 = &cross_sections[k1];
+    let s_next = &cross_sections[k_next];
 
     let t_apex0 = find_apex_t(s0);
     let t_apex1 = find_apex_t(s1);
+    // Apex parameter interpolation remains strictly linear
     let t_apex = (t_apex0 + (t_apex1 - t_apex0) * lerp_factor).clamp(0.0, 1.0);
 
-    Some(BlendResult { t_apex, s0, s1, lerp_factor })
+    Some(BlendResult { t_apex, s_prev, s0, s1, s_next, lerp_factor })
 }
 
 pub struct BoardProfile {
@@ -373,4 +410,77 @@ pub fn color_heatmap(normalized_value: f32) -> Vec3 {
         p
     };
     Vec3::new(hue2rgb(0.0, 1.0, h + 1.0 / 3.0), hue2rgb(0.0, 1.0, h), hue2rgb(0.0, 1.0, h - 1.0 / 3.0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::BezierCurveData;
+    use glam::Vec3;
+
+    #[test]
+    fn test_cross_section_blend_hermite() {
+        let cs1 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+        };
+        let cs2 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+        };
+        let cs3 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(5.0, 0.0, 30.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+        };
+
+        let sections = vec![cs1, cs2, cs3];
+        let blend = get_cross_section_blend_at_z(&sections, 15.0).unwrap();
+        
+        assert_eq!(blend.lerp_factor, 0.5);
+        
+        // evaluate at t_mid = 1.0 (the outer edge of the cross section)
+        let pt = blend.evaluate(1.0);
+        
+        // Since it's a Hermite spline transitioning from X=5 to X=10 to X=5 over Z=10,20,30
+        // At Z=15, X should be smoothly interpolated. 
+        // dz = 10. m1 for Z=10 to Z=20 is based on (X=10 - X=5)/10 * 10 = 5.
+        // m2 for Z=20 is based on (X=5 - X=5)/20 * 10 = 0.
+        // As a result of Hermite smoothing, the value at midpoint shouldn't just be 7.5 (linear).
+        assert!(pt.x > 5.0 && pt.x < 10.0);
+        assert_eq!(pt.z, 15.0, "Z coordinate must remain strictly linear across Hermite blend");
+        
+                println!("✅ test_cross_section_blend_hermite passed.");
+    }
+
+    #[test]
+    fn test_cross_section_blend_out_of_bounds() {
+        let cs1 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+        };
+        let cs2 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+        };
+        let sections = vec![cs1, cs2];
+
+        // 1. Before first section (e.g., towards the nose)
+        let blend_before = get_cross_section_blend_at_z(&sections, 0.0).unwrap();
+        assert_eq!(blend_before.lerp_factor, 0.0, "Should clamp to the first section");
+        let pt_before = blend_before.evaluate(1.0);
+        assert_eq!(pt_before.x, 5.0, "Should rigidly evaluate to the first section");
+
+        // 2. After last section (e.g., towards the tail)
+        let blend_after = get_cross_section_blend_at_z(&sections, 30.0).unwrap();
+        assert_eq!(blend_after.lerp_factor, 0.0, "Should clamp to the last section");
+        let pt_after = blend_after.evaluate(1.0);
+        assert_eq!(pt_after.x, 10.0, "Should rigidly evaluate to the last section");
+        
+        println!("✅ test_cross_section_blend_out_of_bounds passed.");
+    }
 }

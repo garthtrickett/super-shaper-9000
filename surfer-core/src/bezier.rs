@@ -13,8 +13,21 @@ pub fn evaluate_bezier_cubic(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32) -> 
     (p0 * uuu) + (t0 * (3.0 * uu * t)) + (t1 * (3.0 * u * tt)) + (p1 * ttt)
 }
 
-/// Samples a composite Bezier curve with `steps` resolution. 
-/// Replicates the TypeScript `sampleBezierCurve` logic identically.
+/// Evaluates a 3D Cubic Hermite spline at a given `t` (0.0 to 1.0).
+/// Used for smoothly interpolating between cross-sections along the Z-axis.
+#[inline]
+pub fn evaluate_cubic_hermite(p1: Vec3, p2: Vec3, m1: Vec3, m2: Vec3, t: f32) -> Vec3 {
+    let t2 = t * t;
+    let t3 = t2 * t;
+
+    let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+    let h10 = t3 - 2.0 * t2 + t;
+    let h01 = -2.0 * t3 + 3.0 * t2;
+    let h11 = t3 - t2;
+
+    p1 * h00 + m1 * h10 + p2 * h01 + m2 * h11
+}
+
 /// Evaluates the first derivative of a 3D Cubic Bezier curve at a given `t` (0.0 to 1.0)
 #[inline]
 pub fn evaluate_bezier_first_derivative(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32) -> Vec3 {
@@ -96,6 +109,22 @@ pub fn sample_curve(curve: &BezierCurveData, steps: usize) -> Vec<Vec3> {
 mod tests {
     use super::*;
     use glam::Vec3;
+
+    #[test]
+    fn test_cubic_hermite_z_linearity() {
+        // This test proves that while X and Y can curve smoothly, Z remains mathematically
+        // linear. This is critical for 3D lofting to prevent self-intersecting meshes.
+        let p1 = Vec3::new(0.0, 0.0, 10.0);
+        let p2 = Vec3::new(0.0, 0.0, 20.0);
+        
+        let dz = 10.0;
+        let m1 = Vec3::new(0.0, 0.0, dz);
+        let m2 = Vec3::new(0.0, 0.0, dz);
+        
+        let mid = evaluate_cubic_hermite(p1, p2, m1, m2, 0.5);
+        assert_eq!(mid.z, 15.0, "Z coordinate must remain perfectly linear to prevent bulging");
+        println!("✅ test_cubic_hermite_z_linearity passed.");
+    }
 
     #[test]
     fn test_derivatives_and_curvature() {
