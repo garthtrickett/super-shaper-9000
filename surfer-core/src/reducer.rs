@@ -287,5 +287,85 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         }
     }
 
-    effects
+        effects
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use glam::Vec3;
+
+    fn create_mock_model() -> BoardModel {
+        BoardModel {
+            outline: Some(BezierCurveData {
+                control_points: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 0.0), Vec3::ZERO],
+                tangents1: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, -2.0), Vec3::ZERO],
+                tangents2: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 2.0), Vec3::ZERO],
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_undo_redo_history() {
+        let mut model = create_mock_model();
+        // Initial state
+        push_history(&mut model);
+        assert_eq!(model.history_index, Some(0));
+        assert_eq!(model.history.as_ref().unwrap().len(), 1);
+
+        // Make a change
+        if let Some(outline) = model.outline.as_mut() {
+            outline.control_points[1].x = 10.0;
+        }
+        push_history(&mut model);
+        assert_eq!(model.history_index, Some(1));
+        assert_eq!(model.history.as_ref().unwrap().len(), 2);
+        assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 10.0);
+
+        // Undo
+        update(&mut model, BoardAction::Undo);
+        assert_eq!(model.history_index, Some(0));
+        assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 5.0);
+
+        // Redo
+        update(&mut model, BoardAction::Redo);
+        assert_eq!(model.history_index, Some(1));
+        assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 10.0);
+    }
+
+    #[test]
+    fn test_update_node_position_translates_handles() {
+        let mut model = create_mock_model();
+        let action = BoardAction::UpdateNodePosition {
+            curve: "outline".to_string(),
+            index: 1,
+            node_type: "anchor".to_string(),
+            position: [6.0, 0.0, 1.0],
+        };
+        update(&mut model, action);
+        let outline = model.outline.as_ref().unwrap();
+
+        // Anchor moved
+        assert_eq!(outline.control_points[1], Vec3::new(6.0, 0.0, 1.0));
+        // Handles translated equally (+1 X, +1 Z)
+        assert_eq!(outline.tangents1[1], Vec3::new(6.0, 0.0, -1.0)); // Was [5, 0, -2]
+        assert_eq!(outline.tangents2[1], Vec3::new(6.0, 0.0, 3.0)); // Was [5, 0, 2]
+    }
+
+    #[test]
+    fn test_scale_width_action() {
+        let mut model = create_mock_model();
+        model.width = 20.0;
+
+        let action = BoardAction::ScaleWidth { factor: 1.1 };
+        update(&mut model, action);
+
+        assert_eq!(model.width, 22.0);
+        let outline = model.outline.as_ref().unwrap();
+        // 5.0 * 1.1 = 5.5
+        assert_eq!(outline.control_points[1].x, 5.5);
+        assert_eq!(outline.tangents1[1].x, 5.5);
+        assert_eq!(outline.tangents2[1].x, 5.5);
+    }
 }
