@@ -9,3 +9,12 @@ crate-type = ["rlib"]
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 glam = { version = "0.27", features = ["serde"] }
+[package]
+name = "surfer-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = { version = "0.27.0", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+

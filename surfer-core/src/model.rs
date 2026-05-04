@@ -37,3 +37,14 @@ pub enum Effect {
     #[serde(rename = "LOG_INFO")]
     LogInfo { message: String },
 }
+use glam::Vec3;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BezierCurveData {
+    pub control_points: Vec<Vec3>,
+    pub tangents1: Vec<Vec3>,
+    pub tangents2: Vec<Vec3>,
+}
+
