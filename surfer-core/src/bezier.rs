@@ -15,6 +15,51 @@ pub fn evaluate_bezier_cubic(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32) -> 
 
 /// Samples a composite Bezier curve with `steps` resolution. 
 /// Replicates the TypeScript `sampleBezierCurve` logic identically.
+/// Evaluates the first derivative of a 3D Cubic Bezier curve at a given `t` (0.0 to 1.0)
+#[inline]
+pub fn evaluate_bezier_first_derivative(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32) -> Vec3 {
+    let u = 1.0 - t;
+    let uu = u * u;
+    let tt = t * t;
+    let tu = t * u;
+
+    (t0 - p0) * (3.0 * uu) + (t1 - t0) * (6.0 * tu) + (p1 - t1) * (3.0 * tt)
+}
+
+/// Evaluates the second derivative of a 3D Cubic Bezier curve at a given `t` (0.0 to 1.0)
+#[inline]
+pub fn evaluate_bezier_second_derivative(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32) -> Vec3 {
+    let u = 1.0 - t;
+
+    (t1 - t0 * 2.0 + p0) * (6.0 * u) + (p1 - t1 * 2.0 + t0) * (6.0 * t)
+}
+
+/// Computes the curvature quill (principal normal scaled by curvature magnitude) at a given `t`
+#[inline]
+pub fn evaluate_curvature_quill(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32, scale: f32) -> Vec3 {
+    let d1 = evaluate_bezier_first_derivative(p0, t0, t1, p1, t);
+    let d2 = evaluate_bezier_second_derivative(p0, t0, t1, p1, t);
+
+    let d1_len_sq = d1.length_squared();
+    if d1_len_sq < 1e-6 {
+        return Vec3::ZERO;
+    }
+
+    let cross = d1.cross(d2);
+    let cross_len = cross.length();
+    if cross_len < 1e-6 {
+        return Vec3::ZERO; // Straight line
+    }
+
+    let d1_len = d1_len_sq.sqrt();
+    let kappa = cross_len / (d1_len_sq * d1_len);
+    let n = cross.cross(d1).normalize();
+
+    n * kappa * scale
+}
+
+/// Samples a composite Bezier curve with `steps` resolution. 
+/// Replicates the TypeScript `sampleBezierCurve` logic identically.
 pub fn sample_curve(curve: &BezierCurveData, steps: usize) -> Vec<Vec3> {
     let mut pts = Vec::with_capacity(steps + 1);
     let num_segments = curve.control_points.len().saturating_sub(1);

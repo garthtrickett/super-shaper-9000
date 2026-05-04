@@ -156,7 +156,7 @@ def main():
             file_path = file_info['file_path']
             edits = file_info.get('edits', [])
 
-            # Legacy Aider format support
+            # Legacy  format support
             if 'code_diff' in file_info:
                 diff = file_info['code_diff']
                 parts = diff.split('=======')

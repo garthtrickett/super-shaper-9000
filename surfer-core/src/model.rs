@@ -58,6 +58,7 @@ pub struct BoardModel {
     pub show_rail_outline: Option<bool>,
     pub show_apex_rocker: Option<bool>,
     pub show_cross_sections: Option<bool>,
+    pub show_curvature: Option<bool>,
     pub selected_node: Option<SelectedNode>,
     pub history: Option<Vec<ManualSnapshot>>,
     pub history_index: Option<usize>,

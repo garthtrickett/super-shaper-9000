@@ -102,6 +102,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "showRailOutline" => model.show_rail_outline = Some(value),
             "showApexRocker" => model.show_apex_rocker = Some(value),
             "showCrossSections" => model.show_cross_sections = Some(value),
+            "showCurvature" => model.show_curvature = Some(value),
             _ => {}
         },
         BoardAction::UpdateVolume { volume } => {

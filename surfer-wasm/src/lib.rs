@@ -62,7 +62,13 @@ impl WasmEngine {
         Reflect::set(&obj, &JsValue::from_str("normals"), &Float32Array::from(mesh.normals.as_slice()))?;
         Reflect::set(&obj, &JsValue::from_str("volumeLiters"), &JsValue::from_f64(mesh.volume_liters as f64))?;
         
-        Ok(obj.into())
+                Ok(obj.into())
+    }
+
+    #[wasm_bindgen]
+    pub fn get_curvature_combs(&self) -> Result<JsValue, JsValue> {
+        let combs = self.engine.compute_curvature_combs();
+        Ok(Float32Array::from(combs.as_slice()).into())
     }
 }
 
