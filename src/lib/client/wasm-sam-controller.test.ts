@@ -20,8 +20,9 @@ describe("WasmSamController (FFI Integration)", () => {
 
         expect(controller.model).to.exist;
     expect(controller.model.length).to.equal(70.0); // Default Rust model length
-    expect(controller.mesh).to.exist;
+        expect(controller.mesh).to.exist;
     expect(controller.mesh?.vertices).to.exist;
+    expect(controller.curvatureCombs).to.exist;
 
     // Terminate worker to prevent hanging tests
     controller.hostDisconnected();
@@ -41,10 +42,11 @@ describe("WasmSamController (FFI Integration)", () => {
       value: 85.0
     });
 
-    // Wait for round trip
+        // Wait for round trip
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(controller.model.length).to.equal(85.0);
+    expect(controller.curvatureCombs).to.exist;
     
     controller.hostDisconnected();
   });

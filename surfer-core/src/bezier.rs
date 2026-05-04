@@ -98,6 +98,37 @@ mod tests {
     use glam::Vec3;
 
     #[test]
+    fn test_derivatives_and_curvature() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let p1 = Vec3::new(3.0, 0.0, 0.0);
+        
+        // 1. Straight line
+        let t0_straight = Vec3::new(1.0, 0.0, 0.0);
+        let t1_straight = Vec3::new(2.0, 0.0, 0.0);
+        
+        let d2_straight = evaluate_bezier_second_derivative(p0, t0_straight, t1_straight, p1, 0.5);
+        assert_eq!(d2_straight, Vec3::ZERO);
+        
+        let quill_straight = evaluate_curvature_quill(p0, t0_straight, t1_straight, p1, 0.5, 1.0);
+        assert_eq!(quill_straight, Vec3::ZERO);
+        
+        // 2. Bent curve
+        let t0_bent = Vec3::new(1.0, 1.0, 0.0);
+        let t1_bent = Vec3::new(2.0, 1.0, 0.0);
+        
+        let d1_bent = evaluate_bezier_first_derivative(p0, t0_bent, t1_bent, p1, 0.5);
+        let quill_bent = evaluate_curvature_quill(p0, t0_bent, t1_bent, p1, 0.5, 1.0);
+        
+        // The magnitude of the quill should be greater than 0 since the curve is bent
+        assert!(quill_bent.length() > 0.0, "Curvature quill should be non-zero for a bent curve");
+        
+        // The dot product of the first derivative and principal normal (quill) should be 0 (perpendicular)
+        assert!(d1_bent.dot(quill_bent).abs() < 1e-5, "Quill should be perpendicular to tangent");
+        
+        println!("✅ test_derivatives_and_curvature passed.");
+    }
+
+    #[test]
     fn test_evaluate_bezier_cubic() {
         let p0 = Vec3::new(0.0, 0.0, 0.0);
         let t0 = Vec3::new(1.0, 0.0, 0.0);
