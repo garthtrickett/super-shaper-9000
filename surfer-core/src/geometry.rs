@@ -267,6 +267,8 @@ pub struct BoardProfile {
     pub tuck_x: f32,
     pub tuck_y: f32,
     pub half_width: f32,
+    pub outline_tangent: Vec3,
+    pub outline_normal: Vec3,
 }
 
 pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> BoardProfile {
@@ -274,6 +276,20 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, hint_t);
     let outline_pt = evaluate_composite_outline_at_z(model, z_inches, hint_t);
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+
+    let eps = 0.05;
+    let pt_minus = evaluate_composite_outline_at_z(model, z_inches - eps, hint_t);
+    let pt_plus = evaluate_composite_outline_at_z(model, z_inches + eps, hint_t);
+    let mut outline_tangent = (pt_plus - pt_minus).normalize();
+    if outline_tangent.is_nan() || outline_tangent.length_squared() < 1e-5 {
+        outline_tangent = Vec3::new(0.0, 0.0, 1.0);
+    }
+    
+    // Normal in the XZ plane, pointing "outward" to the right (+X)
+    let mut outline_normal = Vec3::new(outline_tangent.z, 0.0, -outline_tangent.x).normalize();
+    if outline_normal.is_nan() || outline_normal.length_squared() < 1e-5 {
+        outline_normal = Vec3::new(1.0, 0.0, 0.0);
+    }
 
     let mut top_y = top_pt.y;
     if top_y < bot_pt.y { top_y = bot_pt.y; }
@@ -326,11 +342,13 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
 
-    BoardProfile {
+        BoardProfile {
         top_y, bot_y: bot_pt.y,
         apex_x: final_apex_x, apex_y,
         tuck_x: final_tuck_x, tuck_y,
-        half_width: outline_pt.x.max(0.0)
+        half_width: outline_pt.x.max(0.0),
+        outline_tangent,
+        outline_normal,
     }
 }
 
