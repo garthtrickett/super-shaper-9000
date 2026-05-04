@@ -59,6 +59,8 @@ Before generating an edit, ask yourself these questions in order:
 **1. `smart_replace`**
 Use this for the majority of edits. It is whitespace-agnostic.
 
+🚨 **CRITICAL EMPTY SEARCH RULE:** ONLY use an empty `"search": ""` block if you are absolutely certain the file is completely empty or does not exist yet. If you use an empty search block on an *existing* file, the patcher will **APPEND** your `replace` code to the bottom of the file, causing duplicate definition syntax errors. If you need to completely gut and overwrite an existing file, use a bash command block (e.g., `cat << 'EOF' > file...`) instead of a JSON patch.
+
 *   **Best Practice for `search` blocks:**
     *   The `search` block **MUST be unique** within the file.
     *   Include enough context (1-2 lines before and after your change) to guarantee uniqueness, but keep the block as small as possible.
