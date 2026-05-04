@@ -32,3 +32,7 @@ infra/**/*.tfstate
 infra/**/*.tfstate.backup
 infra/**/*.tfvars
 .terraform.lock.hcl
+
+# Rust / Cargo
+/target/
+Cargo.lock
