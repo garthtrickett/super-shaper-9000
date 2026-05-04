@@ -87,6 +87,51 @@ pub fn evaluate_composite_outline_at_z(model: &BoardModel, z_inches: f32, hint_t
     Vec3::new(final_x, base_pt.y, base_pt.z)
 }
 
+/// Finds the curve parameter `t` (0 to 1) that corresponds to a specific `z` coordinate.
+/// Used primarily for matching outline width/rocker height to specific lengthwise slices.
+pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, _min_t: f32, max_t: f32) -> f32 {
+    let mut best_t = 0.0;
+    let mut min_err = f32::INFINITY;
+    let steps = 50;
+    
+    // Initial coarse search
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32 * max_t;
+        let p = evaluate_curve(curve, t);
+        let err = (p.z - target_z).abs();
+        if err < min_err {
+            min_err = err;
+            best_t = t;
+        }
+    }
+
+    // Fine binary search around the best coarse result
+    let mut t_search = best_t;
+    let mut step_size = max_t / steps as f32;
+    
+    for _ in 0..15 {
+        step_size /= 2.0;
+        let t_left = 0.0_f32.max(t_search - step_size);
+        let t_right = max_t.min(t_search + step_size);
+        
+        let p_left = evaluate_curve(curve, t_left);
+        let p_right = evaluate_curve(curve, t_right);
+        
+        let err_left = (p_left.z - target_z).abs();
+        let err_right = (p_right.z - target_z).abs();
+
+        if err_left < min_err && err_left <= err_right {
+            min_err = err_left;
+            t_search = t_left;
+        } else if err_right < min_err {
+            min_err = err_right;
+            t_search = t_right;
+        }
+    }
+    
+    t_search
+}
+
 pub fn find_apex_t(curve: &BezierCurveData) -> f32 {
     let mut is_flat = true;
     for i in 0..curve.control_points.len() {
@@ -319,7 +364,7 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
 pub fn color_heatmap(normalized_value: f32) -> Vec3 {
     let hue = (1.0 - normalized_value) * 240.0;
     let h = hue / 360.0;
-    let hue2rgb = |mut p: f32, mut q: f32, mut t: f32| -> f32 {
+        let hue2rgb = |p: f32, q: f32, mut t: f32| -> f32 {
         if t < 0.0 { t += 1.0; }
         if t > 1.0 { t -= 1.0; }
         if t < 1.0 / 6.0 { return p + (q - p) * 6.0 * t; }
