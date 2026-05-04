@@ -29,8 +29,7 @@ export class BoardBuilderPage extends LitElement {
       const curves = await generateBoardCurves(state);
       const xml = await runClientPromise(exportS3dx(state, curves));
       const blob = new Blob([xml], { type: "application/xml" });
-      const url = URL.createObjectURL(blob);
-            const state = this.wasmCtrl.model || INITIAL_STATE;
+            const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `SuperShaper_${state.length.toFixed(1)}.s3dx`;
