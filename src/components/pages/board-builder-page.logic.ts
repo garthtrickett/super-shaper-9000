@@ -197,7 +197,7 @@ export type BoardAction =
   | { type: "SCALE_THICKNESS"; factor: number }
   | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[]; outlineLayers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[] };
 
-const pushHistory = (currentState: BoardModel): BoardModel => {
+/*
   const snapshot: ManualSnapshot = {
     outline: currentState.outline,
     railOutline: currentState.railOutline,
@@ -483,6 +483,9 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       return state;
   }
 };
+
+*/
+export const update = (state: BoardModel, _action: BoardAction): BoardModel => state;
 
 export const handleAction = (
   action: BoardAction,

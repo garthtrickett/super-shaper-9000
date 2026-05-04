@@ -160,11 +160,10 @@ EOF
 
 ARCHITECTURAL REFINEMENTS INSPIRED BY KMP/GATEKEEPER
 
-The following patterns, adapted from a production Kotlin Multiplatform (KMP) system, will be integrated into the Rust/WASM architecture to enhance its functional purity, testability, and robustness.
 
 1. Effects-as-Data: The Reducer Returns Effects
 
-The "Smart Rust / Dumb JS" model will be refined. The core Rust update function will not only return the new BoardModel state but will also explicitly declare any necessary side effects as data.
+The core Rust update function will not only return the new BoardModel state but will also explicitly declare any necessary side effects as data.
 
     Rust Implementation:
 
@@ -185,7 +184,7 @@ The "Smart Rust / Dumb JS" model will be refined. The core Rust update function 
 
 2. The Web Worker as the Sole Orchestrator
 
-Drawing a parallel to Gatekeeper's GatekeeperStateManager, the board-worker.ts will be the single, authoritative orchestrator for all interactions with the Rust core.
+The board-worker.ts is a single, authoritative orchestrator for all interactions with the Rust core.
 
     Strict Unidirectional Flow:
 
@@ -203,11 +202,10 @@ Drawing a parallel to Gatekeeper's GatekeeperStateManager, the board-worker.ts w
 
 3. Multi-Layer Testing Strategy (Formalized)
 
-Our testing strategy will explicitly mirror the successful layers found in the Gatekeeper project:
 
-    Layer 1: Pure Core Logic (cargo test): All tests for the update function and geometry calculations will be written as native Rust unit tests within the surfer-core crate. These will be the fastest and most reliable tests.
+    Layer 1: Pure Core Logic (cargo test): All tests for the update function and geometry calculations written as native Rust unit tests within the surfer-core crate. These arethe fastest and most reliable tests.
 
-    Layer 2: FFI & Worker Integration (WTR): Web Test Runner will be used to test the WasmSamController and the board-worker.ts bridge. We will test that a dispatched action correctly posts to the worker, and that the controller's state updates when the worker posts a message back. The actual WASM module will be loaded to validate the FFI boundary.
+    Layer 2: FFI & Worker Integration (WTR): Web Test Runner is used to test the WasmSamController and the board-worker.ts bridge. It tests that a dispatched action correctly posts to the worker, and that the controller's state updates when the worker posts a message back. The actual WASM module is loaded to validate the FFI boundary.
 
     Layer 3: End-to-End User Flow (Playwright): The existing Playwright suite remains our final validation layer, ensuring the entire system works from user input in the browser, through the worker and Rust core, and back to a rendered 3D mesh on the canvas.
 

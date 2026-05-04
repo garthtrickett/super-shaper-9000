@@ -2,9 +2,8 @@
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
-import { ReactiveSamController } from "../../lib/client/reactive-sam-controller";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
-import { INITIAL_STATE, update, handleAction, BoardModelSchema, type BoardModel, type BoardAction, type Point3D } from "./board-builder-page.logic";
+import { INITIAL_STATE, BoardModelSchema, type BoardModel, type BoardAction, type Point3D } from "./board-builder-page.logic";
 import { runClientPromise } from "../../lib/client/runtime";
 import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
@@ -15,13 +14,7 @@ import "../ui/node-inspector";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
-    private ctrl = new ReactiveSamController<this, BoardModel, BoardAction, never>(
-    this,
-    INITIAL_STATE,
-    update,
-    handleAction
-  );
-  private wasmCtrl = new WasmSamController(this);
+      private wasmCtrl = new WasmSamController(this);
 
   @state() private showExportModal = false;
   @state() private showImportModal = false;
@@ -32,13 +25,15 @@ export class BoardBuilderPage extends LitElement {
 
   private async _handleExportS3dx() {
     try {
-      const curves = await generateBoardCurves(this.ctrl.model);
-      const xml = await runClientPromise(exportS3dx(this.ctrl.model, curves));
+            const state = this.wasmCtrl.model || INITIAL_STATE;
+      const curves = await generateBoardCurves(state);
+      const xml = await runClientPromise(exportS3dx(state, curves));
       const blob = new Blob([xml], { type: "application/xml" });
       const url = URL.createObjectURL(blob);
+            const state = this.wasmCtrl.model || INITIAL_STATE;
       const a = document.createElement("a");
       a.href = url;
-      a.download = `SuperShaper_${this.ctrl.model.length.toFixed(1)}.s3dx`;
+      a.download = `SuperShaper_${state.length.toFixed(1)}.s3dx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -55,7 +50,7 @@ export class BoardBuilderPage extends LitElement {
       const text = await file.text();
       const importedData = await runClientPromise(parseS3dx(text));
       
-      this.ctrl.propose({
+            this.wasmCtrl.propose({
         type: "IMPORT_S3DX",
         ...importedData
       });
@@ -78,8 +73,8 @@ export class BoardBuilderPage extends LitElement {
       const decode = S.decodeUnknownEither(BoardModelSchema);
       const result = decode(parsed);
       
-      if (result._tag === "Right") {
-        this.ctrl.propose({ type: "LOAD_DESIGN", state: result.right as BoardModel });
+            if (result._tag === "Right") {
+        this.wasmCtrl.propose({ type: "LOAD_DESIGN", state: result.right as BoardModel });
         this.showImportModal = false;
         this.importJson = "";
         this.importError = "";
@@ -91,9 +86,10 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _renderExportModal() {
+    private _renderExportModal() {
     if (!this.showExportModal) return null;
-    const jsonStr = JSON.stringify(this.ctrl.model, null, 2);
+    const state = this.wasmCtrl.model || INITIAL_STATE;
+    const jsonStr = JSON.stringify(state, null, 2);
     return html`
       <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg shadow-2xl w-[500px] max-w-full flex flex-col">
@@ -121,14 +117,14 @@ export class BoardBuilderPage extends LitElement {
     if (cmdOrCtrl && !e.altKey) {
       if (e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        if (e.shiftKey) {
-          this.ctrl.propose({ type: "REDO" });
+                if (e.shiftKey) {
+          this.wasmCtrl.propose({ type: "REDO" });
         } else {
-          this.ctrl.propose({ type: "UNDO" });
+          this.wasmCtrl.propose({ type: "UNDO" });
         }
       } else if (e.key.toLowerCase() === 'y') {
         e.preventDefault();
-        this.ctrl.propose({ type: "REDO" });
+        this.wasmCtrl.propose({ type: "REDO" });
       }
     }
   };
@@ -182,8 +178,8 @@ export class BoardBuilderPage extends LitElement {
     `;
   }
 
-  override render() {
-    const state = this.ctrl.model;
+    override render() {
+    const state = this.wasmCtrl.model || INITIAL_STATE;
 
     return html`
       ${this._renderExportModal()}
@@ -205,17 +201,13 @@ export class BoardBuilderPage extends LitElement {
           .cantAngle=${state.cantAngle}
           .coreMaterial=${state.coreMaterial}
           .glassingSchedule=${state.glassingSchedule}
-                    @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
-            this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+                              @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
             this.wasmCtrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
-            this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
             this.wasmCtrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
           }}
           @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
-            this.ctrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
-            // Note: Rust core currently errors on UPDATE_BOOLEAN, which proves error handling works.
             this.wasmCtrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
           .showHeatmap=${state.showHeatmap ?? false}
@@ -231,20 +223,20 @@ export class BoardBuilderPage extends LitElement {
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
-          @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this.ctrl.propose({ type: e.detail.type, factor: e.detail.factor })}
+                    @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this.wasmCtrl.propose({ type: e.detail.type, factor: e.detail.factor })}
         ></board-controls>
 
-        <div class="absolute top-4 right-4 z-10 flex gap-2">
+                <div class="absolute top-4 right-4 z-10 flex gap-2">
           <button 
-            @click=${() => this.ctrl.propose({ type: "UNDO" })}
+            @click=${() => this.wasmCtrl.propose({ type: "UNDO" })}
             ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex <= 0}
             class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
             title="Undo (Cmd/Ctrl + Z)"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
           </button>
-          <button 
-            @click=${() => this.ctrl.propose({ type: "REDO" })}
+                    <button 
+            @click=${() => this.wasmCtrl.propose({ type: "REDO" })}
             ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex >= (state.history?.length || 0) - 1}
             class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
             title="Redo (Cmd/Ctrl + Shift + Z)"
@@ -258,13 +250,13 @@ export class BoardBuilderPage extends LitElement {
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${this.wasmCtrl.mesh}
-          @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.ctrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
+                    @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.wasmCtrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
-            this.ctrl.propose({ type: "SELECT_NODE", node: e.detail.node });
+            this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
           }}
-          @gizmo-drag-ended=${() => this.ctrl.propose({ type: "SAVE_HISTORY_SNAPSHOT" })}
+          @gizmo-drag-ended=${() => this.wasmCtrl.propose({ type: "SAVE_HISTORY_SNAPSHOT" })}
           @gizmo-dragged=${(e: CustomEvent<{ userData: { type: 'anchor'|'tangent1'|'tangent2', curve: string, index: number }, position:[number, number, number] }>) => {
-            this.ctrl.propose({
+            this.wasmCtrl.propose({
               type: "UPDATE_NODE_POSITION",
               curve: e.detail.userData.curve,
               nodeType: e.detail.userData.type,
@@ -278,7 +270,7 @@ export class BoardBuilderPage extends LitElement {
           <node-inspector
             class="absolute top-16 right-4 z-20 w-[340px]"
             .boardState=${state}
-            @update-node=${(e: CustomEvent<{ curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }>) => this.ctrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+                        @update-node=${(e: CustomEvent<{ curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }>) => this.wasmCtrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
           ></node-inspector>
         ` : ''}
       </div>

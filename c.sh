@@ -71,6 +71,28 @@ trap 'rm -f "$TEMP_FILE"' EXIT
 echo "Concatenating directory files..." >>"$TEMP_FILE"
 
 # ==========================================
+# PASS 0: RUST FILES (PRIORITY)
+# ==========================================
+log "Gathering Priority Rust Files..."
+echo -e "\nHERE ARE THE RUST FILES\n" >>"$TEMP_FILE"
+
+# Specifically find .rs files, ignoring the target directory
+find . -name "*.rs" -not -path "*/target/*" -not -path "*/node_modules/*" -type f -print0 | while IFS= read -r -d '' file; do
+    echo -e "${GREEN}Priority Rust:${NC} $file" >&2
+    {
+        echo "File: $file"
+        echo "------------------------"
+        cat "$file" | cat -s
+        echo -e "\n\n"
+    } >>"$TEMP_FILE"
+done
+
+# Add a separator
+echo "------------------------------------------" >>"$TEMP_FILE"
+echo "REST OF PROJECT FILES" >>"$TEMP_FILE"
+echo "------------------------------------------" >>"$TEMP_FILE"
+
+# ==========================================
 # LOGIC BUILDER
 # ==========================================
 
@@ -85,6 +107,7 @@ find_args+=(-not -name "$CONFIG_FILE")
 find_args+=(-not -name "$SCRIPT_NAME")
 find_args+=(-not -name "$TEMP_FILE")
 find_args+=(-not -name "$OUTPUT_FILE")
+find_args+=(-not -name "*.rs")
 
 # 3. Add Excludes (-not -path)
 for path in "${EXCLUDES[@]}"; do

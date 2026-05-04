@@ -2,6 +2,7 @@ pub mod bezier;
 pub mod model;
 pub mod geometry;
 pub mod mesh;
+pub mod reducer;
 
 use model::{BoardAction, BoardModel, Effect, RawGeometryData};
 
@@ -26,32 +27,8 @@ impl SurferEngine {
         &self.model
     }
 
-    pub fn update(&mut self, action: BoardAction) -> (BoardModel, Vec<Effect>) {
-        let mut effects = Vec::new();
-
-        match action {
-            BoardAction::LoadDesign { state } => {
-                self.model = state;
-                effects.push(Effect::LogInfo { message: "Rust Engine: LOAD_DESIGN caught. Internal state synced.".to_string() });
-            }
-            BoardAction::UpdateNumber { param, value } => {
-                match param.as_str() {
-                    "length" => self.model.length = value,
-                    "width" => self.model.width = value,
-                    "thickness" => self.model.thickness = value,
-                    _ => {}
-                }
-            }
-            BoardAction::UpdateString { param, value } => {
-                if param == "finSetup" {
-                    self.model.fin_setup = value.clone();
-                }
-            }
-            BoardAction::UpdateBoolean { param: _, value: _ } => {
-                // Future toggle handling
-            }
-        }
-
+        pub fn update(&mut self, action: BoardAction) -> (BoardModel, Vec<Effect>) {
+        let effects = reducer::update(&mut self.model, action);
         (self.model.clone(), effects)
     }
 
