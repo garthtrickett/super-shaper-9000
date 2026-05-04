@@ -38,9 +38,10 @@
     in
     {
       devShells.${system}.default = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [
+                nativeBuildInputs = with pkgs;[
           bashInteractive
           pkg-config
+          lld
         ];
 
         buildInputs = with pkgs; [
