@@ -77,24 +77,39 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
         let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, v_outer);
         let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, v_outer);
-        let local_thickness = 0.0_f32.max(top_pt.y - bot_pt.y);
+                let local_thickness = 0.0_f32.max(top_pt.y - bot_pt.y);
         let heat_color = color_heatmap(0.0_f32.max(1.0_f32.min(local_thickness / model.thickness)));
 
-                for j in 0..=segments_u + 1 {
+        let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+        let t_apex = if let Some(ref b) = blend { b.t_apex } else { 0.5 };
+        let t_tuck = 0.01_f32.max(t_apex * 0.5);
+        let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
+
+        for j in 0..=segments_u + 1 {
             let mut is_stringer = false;
-            let u: f32;
+            let t_fraction: f32;
             let side: f32;
 
             if j <= segments_u / 2 {
-                u = j as f32 / (segments_u as f32 / 2.0);
+                t_fraction = j as f32 / (segments_u as f32 / 2.0);
                 side = 1.0;
                 if j == 0 || j == segments_u / 2 { is_stringer = true; }
             } else {
                 let left_j = j - (segments_u / 2 + 1);
-                u = 1.0 - left_j as f32 / (segments_u as f32 / 2.0);
+                t_fraction = 1.0 - left_j as f32 / (segments_u as f32 / 2.0);
                 side = -1.0;
                 if left_j == 0 || left_j == segments_u / 2 { is_stringer = true; }
             }
+
+            let u = if t_fraction <= 0.25 {
+                (t_fraction / 0.25) * t_tuck
+            } else if t_fraction <= 0.5 {
+                t_tuck + ((t_fraction - 0.25) / 0.25) * (t_apex - t_tuck)
+            } else if t_fraction <= 0.75 {
+                t_apex + ((t_fraction - 0.5) / 0.25) * (t_shoulder - t_apex)
+            } else {
+                t_shoulder + ((t_fraction - 0.75) / 0.25) * (1.0 - t_shoulder)
+            };
 
             let mut point = get_point_at_uv(model, u, v_outer, z_inches, inner_x);
             if is_stringer { point.x = inner_x; }
