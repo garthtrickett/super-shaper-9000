@@ -1,0 +1,62 @@
+use js_sys::Float32Array;
+use serde::{Deserialize, Serialize};
+use surfer_core::model::BoardAction;
+use surfer_core::SurferEngine;
+use tsify::Tsify;
+use wasm_bindgen::prelude::*;
+
+// We use JsValue to pass the BoardModel and Effects across the WASM boundary easily,
+// and Tsify helps generate the outer TypeScript interface for the return type.
+#[derive(Tsify, Serialize, Deserialize)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct WasmUpdateResult {
+    pub state: JsValue,
+    pub effects: JsValue,
+}
+
+#[wasm_bindgen]
+pub struct WasmEngine {
+    engine: SurferEngine,
+}
+
+#[wasm_bindgen]
+impl WasmEngine {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        console_error_panic_hook::set_once();
+        Self {
+            engine: SurferEngine::new(),
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn propose(&mut self, action_js: JsValue) -> Result<WasmUpdateResult, JsValue> {
+        // Deserialize the JS action into our core Rust BoardAction
+        let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            
+        // Step the SAM state machine
+        let (new_state, effects) = self.engine.update(action);
+        
+        // Return the tuple as serialized JS objects
+        Ok(WasmUpdateResult {
+            state: serde_wasm_bindgen::to_value(&new_state)?,
+            effects: serde_wasm_bindgen::to_value(&effects)?,
+        })
+    }
+
+    #[wasm_bindgen]
+    pub fn get_state(&self) -> Result<JsValue, JsValue> {
+        let state = self.engine.get_model();
+        Ok(serde_wasm_bindgen::to_value(state)?)
+    }
+
+    #[wasm_bindgen]
+    pub fn get_mesh_buffer(&self) -> Float32Array {
+        let mesh = self.engine.compute_dummy_mesh();
+        
+        // Converts the Rust Vec<f32> into a JavaScript Float32Array for zero-copy style transfer.
+        // This array can be directly assigned to a THREE.BufferAttribute.
+        Float32Array::from(mesh.as_slice())
+    }
+}
