@@ -3,6 +3,7 @@ import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { ReactiveSamController } from "../../lib/client/reactive-sam-controller";
+import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import { INITIAL_STATE, update, handleAction, BoardModelSchema, type BoardModel, type BoardAction, type Point3D } from "./board-builder-page.logic";
 import { runClientPromise } from "../../lib/client/runtime";
 import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
@@ -14,12 +15,13 @@ import "../ui/node-inspector";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
-  private ctrl = new ReactiveSamController<this, BoardModel, BoardAction, never>(
+    private ctrl = new ReactiveSamController<this, BoardModel, BoardAction, never>(
     this,
     INITIAL_STATE,
     update,
     handleAction
   );
+  private wasmCtrl = new WasmSamController(this);
 
   @state() private showExportModal = false;
   @state() private showImportModal = false;
@@ -203,9 +205,19 @@ export class BoardBuilderPage extends LitElement {
           .cantAngle=${state.cantAngle}
           .coreMaterial=${state.coreMaterial}
           .glassingSchedule=${state.glassingSchedule}
-          @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value })}
-          @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value })}
-          @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => this.ctrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value })}
+                    @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+            this.ctrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+            this.wasmCtrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+          }}
+          @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
+            this.ctrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
+            this.wasmCtrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
+          }}
+          @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
+            this.ctrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
+            // Note: Rust core currently errors on UPDATE_BOOLEAN, which proves error handling works.
+            this.wasmCtrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
+          }}
           .showHeatmap=${state.showHeatmap ?? false}
           .showZebra=${state.showZebra ?? false}
           .showApexLine=${state.showApexLine ?? false}
