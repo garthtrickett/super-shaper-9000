@@ -80,10 +80,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let local_thickness = 0.0_f32.max(top_pt.y - bot_pt.y);
         let heat_color = color_heatmap(0.0_f32.max(1.0_f32.min(local_thickness / model.thickness)));
 
-        for j in 0..=segments_u + 1 {
-            let mut u = 0.0;
-            let mut side = 1.0;
+                for j in 0..=segments_u + 1 {
             let mut is_stringer = false;
+            let u: f32;
+            let side: f32;
 
             if j <= segments_u / 2 {
                 u = j as f32 / (segments_u as f32 / 2.0);
