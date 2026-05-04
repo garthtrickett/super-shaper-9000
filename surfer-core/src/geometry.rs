@@ -362,58 +362,86 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     }
     let b = blend.unwrap();
 
-    let p_bot = b.evaluate(0.0);
-    let p_top = b.evaluate(1.0);
-    let p_apex = b.evaluate(b.t_apex);
-    let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
-    let p_tuck = b.evaluate(t_tuck);
-
-    let slice_bot_y = p_bot.y;
-    let slice_top_y = p_top.y;
-    let slice_apex_x = p_apex.x.max(0.001);
-    let slice_apex_y = p_apex.y;
-    let slice_tuck_x = p_tuck.x.max(0.001);
-    let slice_tuck_y = p_tuck.y;
+        let t_apex = b.t_apex;
+    let t_tuck = 0.01_f32.max(t_apex * 0.5);
+    let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
     let p = b.evaluate(u);
-    let mut px;
-    let mut py;
+    let p_bot = b.evaluate(0.0);
+    let p_top = b.evaluate(1.0);
+    let p_tuck = b.evaluate(t_tuck);
+    let p_apex = b.evaluate(t_apex);
+    let p_shoulder = b.evaluate(t_shoulder);
 
-    if u <= t_tuck {
-        let norm_x = if slice_tuck_x > 1e-5 { p.x / slice_tuck_x } else { 0.0 };
-        px = norm_x * profile.tuck_x;
-    } else if u <= b.t_apex {
-        let range_x = slice_apex_x - slice_tuck_x;
-        let norm_x = if range_x > 1e-5 { (p.x - slice_tuck_x) / range_x } else { 0.0 };
-        px = profile.tuck_x + norm_x * (profile.apex_x - profile.tuck_x);
+    let apex_x_clamp = profile.apex_x.max(0.001);
+    let world_apex = Vec3::new(apex_x_clamp, profile.apex_y, z_inches);
+
+    let mut final_pos = Vec3::ZERO;
+
+    if u > t_tuck && u <= t_shoulder {
+        // --- RAIL ZONE ---
+        // Project absolutely from the 3D Apex coordinate along the normal
+        let offset_x = p.x - p_apex.x;
+        let offset_y = p.y - p_apex.y;
+
+        final_pos = world_apex + profile.outline_normal * offset_x;
+        final_pos.y = world_apex.y + offset_y;
+    } else if u <= t_tuck {
+        // --- BOTTOM FLAT ZONE ---
+        let offset_x = p_tuck.x - p_apex.x;
+        let offset_y = p_tuck.y - p_apex.y;
+        let world_tuck = world_apex + profile.outline_normal * offset_x;
+        
+        let slice_bot_width = p_tuck.x - p_bot.x;
+        if slice_bot_width > 1e-5 {
+            let norm_x = (p.x - p_bot.x) / slice_bot_width;
+            let current_width = world_tuck.x - inner_x;
+            final_pos.x = inner_x + norm_x * current_width;
+
+            let current_z_offset = world_tuck.z - z_inches;
+            final_pos.z = z_inches + norm_x * current_z_offset;
+
+            let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
+            let range_y = p_tuck.y - p_bot.y;
+            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 };
+            final_pos.y = profile.bot_y + norm_y * (world_tuck_y - profile.bot_y);
+        } else {
+            let t_zone = u / t_tuck;
+            let stringer_bot_pos = Vec3::new(inner_x, profile.bot_y, z_inches);
+            final_pos = stringer_bot_pos.lerp(world_tuck, t_zone);
+            final_pos.y = profile.bot_y;
+        }
     } else {
-        let norm_x = if slice_apex_x > 1e-5 { p.x / slice_apex_x } else { 0.0 };
-        px = norm_x * profile.apex_x;
+        // --- DECK FLAT ZONE ---
+        let offset_x = p_shoulder.x - p_apex.x;
+        let offset_y = p_shoulder.y - p_apex.y;
+        let world_shoulder = world_apex + profile.outline_normal * offset_x;
+
+        let slice_top_width = p_shoulder.x - p_top.x;
+        if slice_top_width > 1e-5 {
+            let norm_x = (p.x - p_top.x) / slice_top_width;
+            let current_width = world_shoulder.x - inner_x;
+            final_pos.x = inner_x + norm_x * current_width;
+
+            let current_z_offset = world_shoulder.z - z_inches;
+            final_pos.z = z_inches + norm_x * current_z_offset;
+
+            let world_shoulder_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
+            let range_y = p_top.y - p_shoulder.y;
+            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_shoulder.y) / range_y } else { 0.0 };
+            final_pos.y = world_shoulder_y + norm_y * (profile.top_y - world_shoulder_y);
+        } else {
+            let t_zone = (u - t_shoulder) / (1.0 - t_shoulder);
+            let stringer_top_pos = Vec3::new(inner_x, profile.top_y, z_inches);
+            final_pos = world_shoulder.lerp(stringer_top_pos, t_zone);
+            final_pos.y = profile.top_y;
+        }
     }
 
-    if px < inner_x { px = inner_x; }
+    if final_pos.x < inner_x { final_pos.x = inner_x; }
+    final_pos.y = final_pos.y.clamp(profile.bot_y - 2.0, profile.top_y + 2.0);
 
-    if u <= t_tuck {
-        let range_y = slice_tuck_y - slice_bot_y;
-        let norm_y = if range_y.abs() > 1e-5 { (p.y - slice_bot_y) / range_y } else { 0.0 };
-        py = profile.bot_y + norm_y * (profile.tuck_y - profile.bot_y);
-    } else if u <= b.t_apex {
-        let range_y = slice_apex_y - slice_tuck_y;
-        let norm_y = if range_y.abs() > 1e-5 { (p.y - slice_tuck_y) / range_y } else { 0.0 };
-        py = profile.tuck_y + norm_y * (profile.apex_y - profile.tuck_y);
-    } else {
-        let range_y = slice_top_y - slice_apex_y;
-        let norm_y = if range_y.abs() > 1e-5 { (p.y - slice_apex_y) / range_y } else { 0.0 };
-        py = profile.apex_y + norm_y * (profile.top_y - profile.apex_y);
-    }
-
-    if u <= b.t_apex {
-        py = py.clamp(profile.bot_y - 2.0, profile.top_y);
-    } else {
-        py = py.clamp(profile.bot_y, profile.top_y);
-    }
-
-    Vec3::new(px, py, z_inches)
+    final_pos
 }
 
 pub fn color_heatmap(normalized_value: f32) -> Vec3 {
