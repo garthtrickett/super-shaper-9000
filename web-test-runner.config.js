@@ -7,11 +7,12 @@ export default {
     '!src/server/**/*.test.ts'
   ],
   plugins:[
-    {
+        {
       name: 'vite-wasm-url-mock',
       /** @param {{ path: string }} context */
       transform(context) {
-        if (context.path && context.path.endsWith('.wasm')) {
+        // Only mock explicit ?url imports (like Rhino) so our Rust WASM loads natively in tests
+        if (context.path && context.path.includes('?url')) {
           return { body: 'export default "/mock-wasm-url.wasm";', type: 'js' };
         }
       }

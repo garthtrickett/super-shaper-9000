@@ -58,10 +58,33 @@ impl SurferEngine {
     /// Prove the pipeline works by generating a dummy mesh (a simple triangle)
     pub fn compute_dummy_mesh(&self) -> Vec<f32> {
         // A simple raw array of floats representing a triangle's vertices (x, y, z)
-        vec![
+                vec![
             0.0, 0.0, 0.0,
             10.0, 0.0, 0.0,
             0.0, 10.0, 0.0,
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::BoardAction;
+
+    #[test]
+    fn test_engine_update_number() {
+        let mut engine = SurferEngine::new();
+        let action = BoardAction::UpdateNumber {
+            param: "length".to_string(),
+            value: 80.0,
+        };
+        
+        let (new_model, effects) = engine.update(action);
+
+        assert_eq!(new_model.length, 80.0);
+        assert_eq!(effects.len(), 1);
+        match &effects[0] {
+            Effect::LogInfo { message } => assert!(message.contains("length")),
+        }
     }
 }

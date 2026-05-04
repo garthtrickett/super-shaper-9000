@@ -8,8 +8,9 @@
     "start": "bun run src/server/index.ts",
     "test:unit": "web-test-runner",
     "test:e2e": "playwright test",
-    "test:server": "bun test src/server",
-    "test:all": "bun test:server && bun test:e2e && bun test:unit",
+        "test:server": "bun test src/server",
+    "test:rust": "cargo test",
+    "test:all": "bun run test:rust && bun test:server && bun test:e2e && bun test:unit",
     "lint": "eslint . --cache --fix",
     "check-types": "bun install && tsc --noEmit"
   },
