@@ -63,11 +63,13 @@
           unzip
           curl
 
-          # --- RUST / WASM ---
+                    # --- RUST / WASM ---
           rustc
           cargo
           rust-analyzer
           wasm-pack
+          wasm-bindgen-cli
+          binaryen
           rustup
         ];
 
