@@ -1,0 +1,7 @@
+[workspace]
+members =[
+    "surfer-core",
+    "surfer-wasm",
+    "surfer-mobile"
+]
+resolver = "2"

@@ -1,25 +1,197 @@
 # Gemini Customization File
 
-CRITICAL: JSON DIFF FORMATTING RULES
-When providing file updates in the JSON response, NEVER use standard unified diffs. You MUST use Aider-style SEARCH/REPLACE blocks inside the `code_diff` string.
 
-1. The root of your response MUST be a SINGLE JSON object. NEVER return a JSON array at the root level.
-2. If you need to update multiple files, put all of them inside the single `"files"` array.
-3. Every change must be formatted exactly like this:
+---
+CRITICAL: SMART PATCH FORMATTING RULES
+You are equipped with a custom Python Smart Patcher (`apply_patch.py`). Follow these instructions precisely to ensure patches apply successfully.
 
+### Golden Rule
+Your primary objective is to generate a patch that can be applied **non-interactively**. Be conservative and precise. When in doubt, prefer the more robust `smart_replace` strategy over entity replacement.
+
+### Strategy Decision Guide
+Before generating an edit, ask yourself these questions in order:
+
+1.  **Is this a brand new file?**
+    *   YES: Use **one** `smart_replace` edit with an empty `\"search\": \"\"` block. The `replace` block will become the entire content of the new file.
+
+2.  **Am I replacing an entire `fun`, `class`, `object`, or `interface` that HAS curly braces `{...}`?**
+    *   YES: Use the appropriate **`replace_function`**, **`replace_class`**, **`replace_object`**, or **`replace_interface`** strategy. It is robust and doesn't require a search block.
+
+3.  **Is it anything else?** (e.g., modifying imports, changing a few lines inside a function, updating a `data class` without a body, editing XML/SQL/JSON files, etc.)
+    *   YES: Use the **`smart_replace`** strategy. This should be your default choice for most modifications.
+
+4.  **Am I migrating a file, deleting a function, or gutting a file completely?**
+    *   YES: **NEVER** just rename the signature while leaving the old body intact. Orphaned code blocks will trigger "Unresolved reference" and syntax errors during compilation.
+    *   **The Protocol:**
+        *   **Option A (Whole File):** If the entire file is obsolete, do not use JSON patches. Ask the user to delete it via a bash block (e.g., `rm app/src/main/java/.../LegacyFile.kt`).
+        *   **Option B (Specific Entities):** If you must neutralize specific functions or classes within a file, use `replace_class`, `replace_object`, or `replace_function` to replace the ENTIRE entity (signature AND body) with an empty stub.
+        *   *Example Replacement:* `fun deleted_oldFunction() {}`
+        *   🚨 NEVER use multi-step `smart_replace` to inject `/*` and `*/` to comment out files. The end-of-file whitespace makes matching the bottom comment impossible.
+ 5.  **Pay Strict Attention to KMP File Paths:** 
+    *   Do not rely on your training to guess file paths. Kotlin Multiplatform uses specific source sets like `commonMain`, `androidMain`, and `desktopMain`. You **must** verify the exact file path against the provided project snapshot before generating an edit. An incorrect path will cause the patcher to fail.
+6. If repairing a file that contains malformed syntax (e.g., mismatched brackets/braces from a previous bad edit), do not use entity replacement strategies (replace_class, replace_function, etc.). Always fall back to smart_replace to fix syntax errors."
+   7. Best Practice for smart_replace search blocks: Keep the search string as MINIMAL as possible. Use just 1 or 2 lines that uniquely identify the location. Do not copy-paste large chunks of code into the search block, especially when fixing malformed syntax, as invisible formatting differences will cause the match to fail.
+8. Strict Limits on Search Blocks
+
+        Keep search blocks hyper-focused (1 to 3 lines). The more lines you include, the higher the chance of a hidden formatting mismatch.
+
+        Avoid erratic indentation: If a line in the snapshot has unusual or broken indentation, do not include it in your search block. Choose adjacent, predictably-formatted lines to anchor your search instead.
+
+        Never match EOF: Do not use smart_replace to match the final closing brace } of a file. Invisible trailing newlines will almost always cause the regex/matcher to fail.
+
+9. Handling Top-Level Functions
+
+        If a legacy file contains multiple top-level functions alongside classes/objects, you must target them individually with replace_function (e.g., `fun deleted_reduce() {}`) rather than trying to perform a massive smart_replace deletion.
+10.     Context is King for Duplicate Lines: If a line of code appears multiple times in a file (e.g., if (success) return), you MUST include the uniquely identifying lines immediately above or below it in the search block. The search block must map to exactly ONE location in the file.
+
+11.     Beware of Trailing Commas & Auto-Formatting: Formatters (like ktlint) often break long arguments across multiple lines and append trailing commas. Do NOT hand-type or guess the syntax of your search blocks. Copy the text exactly as it appears in the provided project snapshot so hidden characters like trailing commas are included.
+
+12.     Track Cross-Step State: In multi-step refactoring workflows, remember what was already modified in previous steps. Do not attempt to patch the same block of code if it was already updated, as the search block will fail to find the outdated code.
+
+13.     Beware of Overlooked Comments: When building a `search` block spanning multiple lines, you MUST include any comments that exist between those lines in the original source exactly as written. LLMs naturally filter out comments when reading code, but the patcher requires exact string matching. If you miss a `// comment` inside a block, the patch will fail. To avoid this, make your search block smaller so it doesn't span across comments unless strictly necessary.
+
+    ```
+
+--- 
+
+### Strategy Details & Best Practices
+
+**1. `smart_replace`**
+Use this for the majority of edits. It is whitespace-agnostic.
+
+*   **Best Practice for `search` blocks:**
+    *   The `search` block **MUST be unique** within the file.
+    *   Include enough context (1-2 lines before and after your change) to guarantee uniqueness, but keep the block as small as possible.
+    *   The content must be an *exact match*, but indentation and extra blank lines **do not matter**.
+
+```json
 {
-  "summary": "Example summary of all changes.",
-  "files":[
+  "type": "smart_replace",
+  "search": "val x = 1\\nval y = 2",
+  "replace": "val x = 1\\nval y = 3"
+}
+```
+
+**2. `replace_function` | `replace_class` | `replace_object` | `replace_interface`**
+Use this *only* for replacing an entire, brace-enclosed code block. 
+
+*   🚨 **CRITICAL KOTLIN EXCEPTION:** The `replace_class`, `replace_interface`, and `replace_function` strategies **WILL FAIL** if the target does not have opening and closing curly braces `{ ... }`. 
+*   **DO NOT** use these strategies for Kotlin `data class`es or `sealed interface`s that only have a primary constructor `(...)` and no body. You **MUST** use `smart_replace` for these.
+*   **Best Practice:**
+    *   Provide the full name of the entity in the `\"name\"` field.
+    *   Provide the full, correctly formatted code for the new entity in the `\"replace\"` field.
+    *   **DO NOT** provide a `\"search\"` field.
+
+```json
+{
+  "type": "replace_function",
+  "name": "myFunction",
+  "replace": "fun myFunction(arg: String): Int {\\n    // new implementation here\\n}"
+}
+```
+
+**3. Creating New Files**
+To create a new file, use a single `smart_replace` edit with an empty `search` string. The `replace` content will become the entire file.
+
+```json
+{
+  "type": "smart_replace",
+  "search": "",
+  "replace": "package com.aegisgatekeeper.app\\n\\nclass NewFile {\\n}"
+}
+```
+
+--- 
+
+### Edit Density Limit
+*   Avoid issuing more than 3-4 `smart_replace` blocks in a single file if possible. If a file requires massive, sweeping changes across 15 different locations, it is often safer to rewrite the entire file (if it's small) or break the refactor down into smaller, sequential prompts.
+
+### Full Example Response
+```json
+{
+  "summary": "Refactor rules and add a new utility file.",
+  "files": [
     {
-      "file_path": "src/lib/shared/example-file.ts",
-      "code_diff": "<<<<<<< SEARCH\n[exact lines to find including exact indentation]\n=======\n[new code here]\n>>>>>>> REPLACE"
+      "file_path": "app/src/main/java/com/aegisgatekeeper/app/domain/Models.kt",
+      "edits": [
+        {
+          "type": "replace_function",
+          "name": "getAppName",
+          "replace": "@Composable\\nfun getAppName(packageName: String): String {\\n    // ... new implementation ...\\n}"
+        },
+        {
+          "type": "smart_replace",
+          "search": "data class TemporaryWhitelist(",
+          "replace": "data class TemporaryWhitelist(\\n    val newField: Boolean = false,"
+        }
+      ]
     },
     {
-      "file_path": "src/another/file.ts",
-      "code_diff": "<<<<<<< SEARCH\n[multiple SEARCH/REPLACE blocks can go in this string if needed]\n=======\n[new code here]\n>>>>>>> REPLACE"
+      "file_path": "app/src/main/java/com/aegisgatekeeper/app/utils/NewUtil.kt",
+      "edits": [
+        {
+          "type": "smart_replace",
+          "search": "",
+          "replace": "package com.aegisgatekeeper.app.utils\\n\\nobject NewUtil {\\n    fun doSomething() {}\\n}"
+        }
+      ]
     }
   ]
 }
+```
+
+ARCHITECTURAL REFINEMENTS INSPIRED BY KMP/GATEKEEPER
+
+The following patterns, adapted from a production Kotlin Multiplatform (KMP) system, will be integrated into the Rust/WASM architecture to enhance its functional purity, testability, and robustness.
+
+1. Effects-as-Data: The Reducer Returns Effects
+
+The "Smart Rust / Dumb JS" model will be refined. The core Rust update function will not only return the new BoardModel state but will also explicitly declare any necessary side effects as data.
+
+    Rust Implementation:
+
+        An enum Effect { LogInfo(String), TriggerFileSave, ... } will be defined in surfer-core.
+
+        The SurferEngine::update function's signature will become:
+        fn update(&mut self, action: BoardAction) -> (BoardModel, Vec<Effect>)
+
+        This makes the core engine even more testable, as we can assert that a given action produces the correct state and the correct list of intended side effects without ever touching the disk or network.
+
+    Web Worker Implementation:
+
+        The board-worker.ts will receive the (State, Effects) tuple from the WASM module.
+
+        It will first update the global state accessible to the UI controller.
+
+        It will then iterate through the effects array and execute them (e.g., call clientLog for a LogInfo effect).
+
+2. The Web Worker as the Sole Orchestrator
+
+Drawing a parallel to Gatekeeper's GatekeeperStateManager, the board-worker.ts will be the single, authoritative orchestrator for all interactions with the Rust core.
+
+    Strict Unidirectional Flow:
+
+        UI components dispatch actions to the WasmSamController.
+
+        The controller uses worker.postMessage() to send the action to the worker.
+
+        The worker is the only entity that can call the underlying Rust update function.
+
+        The worker receives the new state and posts it back to the controller.
+
+        The controller updates its model, triggering a UI re-render.
+
+    This pattern prevents race conditions and ensures a predictable, debuggable state flow throughout the entire application.
+
+3. Multi-Layer Testing Strategy (Formalized)
+
+Our testing strategy will explicitly mirror the successful layers found in the Gatekeeper project:
+
+    Layer 1: Pure Core Logic (cargo test): All tests for the update function and geometry calculations will be written as native Rust unit tests within the surfer-core crate. These will be the fastest and most reliable tests.
+
+    Layer 2: FFI & Worker Integration (WTR): Web Test Runner will be used to test the WasmSamController and the board-worker.ts bridge. We will test that a dispatched action correctly posts to the worker, and that the controller's state updates when the worker posts a message back. The actual WASM module will be loaded to validate the FFI boundary.
+
+    Layer 3: End-to-End User Flow (Playwright): The existing Playwright suite remains our final validation layer, ensuring the entire system works from user input in the browser, through the worker and Rust core, and back to a rendered 3D mesh on the canvas.
 
 
 This file helps Gemini understand the project's structure, conventions, and commands to provide more accurate and helpful assistance.

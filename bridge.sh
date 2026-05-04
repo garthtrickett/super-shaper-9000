@@ -18,7 +18,7 @@ inotifywait -m -e close_write -e moved_to --format '%f' "$WATCH_DIR" | while rea
             echo "⚙️  Processing changes..."
 
             # Stream Python output directly to terminal AND capture it in a log file simultaneously
-            python3 apply_changes.py "current_response.json" 2>&1 | tee /tmp/gemini_apply.log
+            python3 apply_patch.py "current_response.json" 2>&1 | tee /tmp/gemini_apply.log
 
             # Capture the exit code of the python script (not the tee command)
             EXIT_CODE=${PIPESTATUS[0]}

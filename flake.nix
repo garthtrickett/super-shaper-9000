@@ -58,9 +58,16 @@
           android-tools
           androidSdk
 
-          # --- UTILS ---
+                    # --- UTILS ---
           unzip
           curl
+
+          # --- RUST / WASM ---
+          rustc
+          cargo
+          rust-analyzer
+          wasm-pack
+          rustup
         ];
 
         shellHook = ''
@@ -111,7 +118,10 @@
           # but we need it visible for the x86 process).
           export LD_LIBRARY_PATH="${pkgsX86.glibc}/lib:${pkgsX86.gcc.cc.lib}/lib:${pkgsX86.zlib}/lib:$LD_LIBRARY_PATH"
 
-          echo "✅ QEMU_LD_PREFIX set to allow unpatched x86_64 AAPT2 execution."
+                    echo "✅ QEMU_LD_PREFIX set to allow unpatched x86_64 AAPT2 execution."
+
+          # --- RUST WASM TARGET ---
+          rustup target add wasm32-unknown-unknown 2>/dev/null || echo "⚠️ Please run 'rustup toolchain install stable' first if rustup is not configured."
           
           # Clean up any stale gradle daemons to ensure they pick up the new env vars
           ${pkgs.gradle}/bin/gradle --stop >/dev/null 2>&1 || true
