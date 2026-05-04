@@ -1,5 +1,3 @@
-uniffi::setup_scaffolding!();
-
 // Future native mobile bindings (iOS/Android) will go here,
 // wrapping the `surfer_core` logic just like the WASM hat does.
 uniffi::setup_scaffolding!();
@@ -7,6 +5,21 @@ uniffi::setup_scaffolding!();
 use std::sync::{Arc, Mutex};
 use surfer_core::model::BoardAction;
 use surfer_core::SurferEngine;
+
+#[derive(Debug, uniffi::Error)]
+pub enum SurferError {
+    InvalidAction { message: String },
+}
+
+impl std::fmt::Display for SurferError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SurferError::InvalidAction { message } => write!(f, "Invalid Action: {}", message),
+        }
+    }
+}
+
+impl std::error::Error for SurferError {}
 
 #[derive(uniffi::Object)]
 pub struct MobileSurferEngine {
@@ -22,17 +35,17 @@ impl MobileSurferEngine {
         })
     }
 
-    /// Proposes an action encoded as a JSON string.
+        /// Proposes an action encoded as a JSON string.
     /// Returns the updated BoardModel state, also encoded as a JSON string.
-    pub fn propose_action(&self, action_json: String) -> Result<String, String> {
+    pub fn propose_action(&self, action_json: String) -> Result<String, SurferError> {
         let action: BoardAction = serde_json::from_str(&action_json)
-            .map_err(|e| format!("Failed to parse action: {}", e))?;
+            .map_err(|e| SurferError::InvalidAction { message: format!("Failed to parse action: {}", e) })?;
             
         let mut engine = self.engine.lock().unwrap();
         let (new_state, _effects) = engine.update(action);
         
         let result = serde_json::to_string(&new_state)
-            .map_err(|e| format!("Failed to serialize state: {}", e))?;
+            .map_err(|e| SurferError::InvalidAction { message: format!("Failed to serialize state: {}", e) })?;
             
         Ok(result)
     }
