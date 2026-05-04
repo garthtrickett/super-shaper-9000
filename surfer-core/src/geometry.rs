@@ -342,7 +342,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
 
-        BoardProfile {
+    BoardProfile {
         top_y, bot_y: bot_pt.y,
         apex_x: final_apex_x, apex_y,
         tuck_x: final_tuck_x, tuck_y,
@@ -362,7 +362,7 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     }
     let b = blend.unwrap();
 
-        let t_apex = b.t_apex;
+    let t_apex = b.t_apex;
     let t_tuck = 0.01_f32.max(t_apex * 0.5);
     let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
@@ -528,5 +528,70 @@ mod tests {
         assert_eq!(pt_after.x, 10.0, "Should rigidly evaluate to the last section");
         
         println!("✅ test_cross_section_blend_out_of_bounds passed.");
+    }
+
+        #[test]
+    fn test_board_profile_normals() {
+        let mut model = BoardModel::default();
+        // Setup straight outline: 10 units wide along Z
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)] 
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)] 
+        });
+        
+        let profile = get_board_profile_at_z(&model, 50.0, 0.5);
+        
+        // Tangent should point completely along Z axis
+        assert!((profile.outline_tangent.z - 1.0).abs() < 1e-4);
+        // Normal should point perfectly right (+X axis) in the XZ plane
+        assert!((profile.outline_normal.x - 1.0).abs() < 1e-4);
+        assert!((profile.outline_normal.y).abs() < 1e-4);
+        println!("✅ test_board_profile_normals passed.");
+    }
+
+        #[test]
+    fn test_zone_based_uv_evaluation() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::ZERO, Vec3::new(0., 0.6667, 66.6667)], 
+            tangents2: vec![Vec3::new(0., 0.3333, 33.3333), Vec3::new(0., 1., 100.0)] 
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::ZERO, Vec3::new(0., -0.6667, 66.6667)], 
+            tangents2: vec![Vec3::new(0., -0.3333, 33.3333), Vec3::new(0., -1., 100.0)] 
+        });
+        model.cross_sections = vec![BezierCurveData { 
+            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.)], 
+            tangents1: vec![Vec3::ZERO, Vec3::new(6.6667,0.,0.)], 
+            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)] 
+        }];
+
+        // UV 0.0 should be at the bottom stringer (inner_x = 0)
+        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0);
+        assert_eq!(pt_bot_stringer.x, 0.0);
+
+        // UV 1.0 should be at the top stringer (inner_x = 0)
+        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0);
+        assert_eq!(pt_top_stringer.x, 0.0);
+
+        println!("✅ test_zone_based_uv_evaluation passed.");
     }
 }
