@@ -2,8 +2,9 @@ import type { ReactiveController, ReactiveControllerHost } from "lit";
 
 export class WasmSamController<T extends ReactiveControllerHost> implements ReactiveController {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public model: any = null;
-  public mesh: Float32Array | null = null;
+    public model: any = null;
+  public mesh: any = null;
+  public curvatureCombs: Float32Array | null = null;
   private worker: Worker;
 
   constructor(private host: T) {
@@ -11,11 +12,12 @@ export class WasmSamController<T extends ReactiveControllerHost> implements Reac
     this.worker = new Worker(new URL("./workers/board-worker.ts", import.meta.url), { type: "module" });
     
     this.worker.onmessage = (e: MessageEvent) => {
-      if (e.data.type === "STATE_UPDATED") {
+            if (e.data.type === "STATE_UPDATED") {
         this.model = e.data.state;
         this.mesh = e.data.mesh;
+        this.curvatureCombs = e.data.curvatureCombs;
         
-        console.log("🌊 [WasmSamController] Shadow State Updated!", {
+        console.log("🌊[WasmSamController] Shadow State Updated!", {
           model: this.model,
           meshLength: this.mesh ? this.mesh.length : 0
         });

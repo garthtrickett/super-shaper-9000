@@ -247,10 +247,11 @@ export class BoardBuilderPage extends LitElement {
         </div>
 
                 <!-- Render the 3D scene taking up the full remaining area -->
-        <board-viewport 
+                <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${this.wasmCtrl.mesh}
+          .curvatureCombs=${this.wasmCtrl.curvatureCombs}
                     @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.wasmCtrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
             this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });

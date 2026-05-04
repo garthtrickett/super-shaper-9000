@@ -11,6 +11,7 @@ import { TextureManager } from "./managers/TextureManager";
 import { AnnotationBuilder } from "./builders/AnnotationBuilder";
 import { FinBuilder } from "./builders/FinBuilder";
 import { GizmoBuilder } from "./builders/GizmoBuilder";
+import { CurvatureBuilder } from "./builders/CurvatureBuilder";
 import { InteractionManager } from "./managers/InteractionManager";
 import { SceneManager } from "./managers/SceneManager";
 
@@ -27,8 +28,9 @@ export interface RustMesh {
 
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
-  @property({ type: Object }) boardState?: BoardModel;
+    @property({ type: Object }) boardState?: BoardModel;
   @property({ type: Object }) meshData?: RustMesh;
+  @property({ type: Object }) curvatureCombs?: Float32Array;
   
   protected override createRenderRoot() { return this; }
 
@@ -46,8 +48,9 @@ export class BoardViewport extends LitElement {
   private finGroup = new THREE.Group();
   private gizmoGroup = new THREE.Group();
   private annotationGroup = new THREE.Group();
-  private sliceLinesGroup = new THREE.Group();
+    private sliceLinesGroup = new THREE.Group();
   private apexLineGroup = new THREE.Group();
+  private curvatureGroup = new THREE.Group();
   private zebraOffset = 0;
   private latestCurves?: BoardCurves;
     
@@ -55,8 +58,8 @@ export class BoardViewport extends LitElement {
   private matHandle = new THREE.MeshBasicMaterial({ color: 0x71717a, depthTest: false });
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false });
 
-  override firstUpdated() {
-    this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup);
+    override firstUpdated() {
+    this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup, this.curvatureGroup);
     this.sceneManager = new SceneManager(this.canvas,[this.boardContainer]);
     this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup);
     this.interactionManager.initialize();
@@ -69,9 +72,12 @@ export class BoardViewport extends LitElement {
   }
 
     override updated(changedProperties: PropertyValues) {
-    let shouldUpdateGeom = false;
+        let shouldUpdateGeom = false;
     if (changedProperties.has("meshData") && this.meshData) {
       shouldUpdateGeom = true;
+    }
+    if (changedProperties.has("curvatureCombs") && this.curvatureCombs) {
+      CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
     }
     
     if (changedProperties.has("boardState") && this.boardState) {
@@ -86,7 +92,7 @@ export class BoardViewport extends LitElement {
           if (this.boardState[k] !== oldState[k]) {
             if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker'].includes(k)) {
               isManualDragUpdate = true;
-            } else if (!['volume', 'selectedNode', 'showGizmos', 'showHeatmap', 'showZebra', 'showApexLine'].includes(k)) {
+                        } else if (!['volume', 'selectedNode', 'showGizmos', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature'].includes(k)) {
               needsFullGeometryUpdate = true;
               isManualDragUpdate = false;
               break;
@@ -106,9 +112,12 @@ export class BoardViewport extends LitElement {
         // Debounce high resolution mesh generation so gizmos drag fluidly!
         this.geometryUpdateDebounceId = window.setTimeout(() => void this._updateGeometry(), 150);
       } else {
-        if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
+                if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
         if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
         if (oldState?.showApexLine !== this.boardState.showApexLine) this.apexLineGroup.visible = !!this.boardState.showApexLine;
+        if (oldState?.showCurvature !== this.boardState.showCurvature) {
+          CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
+        }
       }
     }
   }
@@ -143,8 +152,9 @@ export class BoardViewport extends LitElement {
     }
     FinBuilder.build(this.finGroup, this.boardState, curves, scale);
     GizmoBuilder.build(this.gizmoGroup, this.boardState, curves, scale, this.matAnchor, this.matHandle);
-    this.buildSliceLines(curves, scale);
+        this.buildSliceLines(curves, scale);
     this.buildApexLine(curves, scale);
+    CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, scale);
     AnnotationBuilder.build(this.annotationGroup, this.boardState, scale);
     this.updateGizmoVisibility();
     this.updateGizmoHighlights();
