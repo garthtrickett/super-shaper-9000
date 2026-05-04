@@ -62,7 +62,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(modalHeading).toBeHidden();
   });
 
-  test("Diagnostic toggles (Heatmap and Zebra) are mutually exclusive", async ({ page }) => {
+    test("Diagnostic toggles (Heatmap, Zebra, Curvature)", async ({ page }) => {
     // 1. Load the app
     await page.goto("/");
     await expect(page.locator("app-shell")).toBeVisible();
@@ -75,24 +75,35 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 3. Locate the checkboxes via their wrapping labels
     const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Heatmap/i }).locator('input[type="checkbox"]');
     const zebraCheckbox = boardControls.locator('label').filter({ hasText: /Zebra Flow/i }).locator('input[type="checkbox"]');
+    const curvatureCheckbox = boardControls.locator('label').filter({ hasText: /Curvature/i }).locator('input[type="checkbox"]');
 
-    // 4. Initially both should be off (based on INITIAL_STATE)
+    // 4. Initially all should be off (based on INITIAL_STATE)
+    await expect(heatmapCheckbox).not.toBeChecked();
+    await expect(zebraCheckbox).not.toBeChecked();
+    await expect(curvatureCheckbox).not.toBeChecked();
+
+    // 5. Turn on Curvature (should not affect others)
+    console.info("Testing: Enabling Curvature");
+    await curvatureCheckbox.check({ force: true });
+    await expect(curvatureCheckbox).toBeChecked();
     await expect(heatmapCheckbox).not.toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
 
-    // 5. Turn on Heatmap
+    // 6. Turn on Heatmap
     console.info("Testing: Enabling Heatmap");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
+    await expect(curvatureCheckbox).toBeChecked(); // Curvature should still be checked
 
-    // 6. Turn on Zebra (Heatmap should auto-disable)
+    // 7. Turn on Zebra (Heatmap should auto-disable, Curvature unaffected)
     console.info("Testing: Enabling Zebra Flow (Should disable Heatmap)");
     await zebraCheckbox.check({ force: true });
     await expect(zebraCheckbox).toBeChecked();
     await expect(heatmapCheckbox).not.toBeChecked();
+    await expect(curvatureCheckbox).toBeChecked(); // Curvature should still be checked
 
-    // 7. Turn on Heatmap again (Zebra should auto-disable)
+    // 8. Turn on Heatmap again (Zebra should auto-disable)
     console.info("Testing: Re-enabling Heatmap (Should disable Zebra Flow)");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();

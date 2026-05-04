@@ -76,8 +76,27 @@ describe("BoardControls (UI Component)", () => {
       const btn = buttons.find(b => b.textContent?.includes("Export .s3dx"));
       expect(btn).to.exist;
 
-      btn!.click();
+            btn!.click();
       expect(spy.calledOnce).to.be.true;
+    });
+
+    it("should emit boolean-changed event when Curvature toggle is clicked", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("boolean-changed", spy);
+
+      const labels = Array.from(el.querySelectorAll("label"));
+      const curveLabel = labels.find(l => l.textContent?.includes("Curvature"));
+      expect(curveLabel, "Could not find a label for 'Curvature'").to.exist;
+
+      const curveInput = curveLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      expect(curveInput, "Could not find checkbox input associated with 'Curvature' label").to.exist;
+
+      curveInput.checked = true;
+      curveInput.dispatchEvent(new Event("change"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "showCurvature", value: true });
     });
   });
 
