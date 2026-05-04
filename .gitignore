@@ -20,6 +20,7 @@ playwright-report/
 dist/
 coverage/
 test-results/
+src/lib/client/wasm/
 
 signing_key.jks
 

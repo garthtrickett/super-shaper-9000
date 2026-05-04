@@ -1,9 +1,10 @@
 {
   "name": "super-shaper-9000",
   "type": "module",
-  "scripts": {
-    "dev": "concurrently \"vite\" \"bun run --watch src/server/index.ts\"",
-    "build": "tsc && vite build",
+    "scripts": {
+    "build:wasm": "wasm-pack build ./surfer-wasm --target web --out-dir ../src/lib/client/wasm",
+    "dev": "bun run build:wasm && concurrently \"vite\" \"bun run --watch src/server/index.ts\"",
+    "build": "bun run build:wasm && tsc && vite build",
     "start": "bun run src/server/index.ts",
     "test:unit": "web-test-runner",
     "test:e2e": "playwright test",
