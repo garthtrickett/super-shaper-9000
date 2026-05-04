@@ -219,7 +219,8 @@ export class BoardBuilderPage extends LitElement {
           .showApexOutline=${state.showApexOutline ?? true}
           .showRailOutline=${state.showRailOutline ?? true}
           .showApexRocker=${state.showApexRocker ?? true}
-          .showCrossSections=${state.showCrossSections ?? true}
+                    .showCrossSections=${state.showCrossSections ?? true}
+          .showCurvature=${state.showCurvature ?? false}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}

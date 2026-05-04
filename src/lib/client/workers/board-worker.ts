@@ -8,14 +8,16 @@ init().then(() => {
     console.info("[BoardWorker] Rust WASM Engine initialized.");
     
         // Post initial state back
-    const initialState = engine.get_state();
+        const initialState = engine.get_state();
     const mesh = engine.get_mesh();
+    const curvatureCombs = engine.get_curvature_combs();
     
     self.postMessage({
         type: "STATE_UPDATED",
         state: initialState,
-        mesh: mesh
-    }, [mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer]);
+        mesh: mesh,
+        curvatureCombs: curvatureCombs
+    },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer]);
 }).catch((err: unknown) => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
@@ -43,15 +45,17 @@ self.onmessage = (e: MessageEvent) => {
                 }
             }
 
-                        // 3. Extract Mesh Buffer (Zero-Copy)
+                                    // 3. Extract Mesh Buffer (Zero-Copy)
             const mesh = engine.get_mesh();
+            const curvatureCombs = engine.get_curvature_combs();
 
             // 4. Send updated State and Mesh back to Main Thread
             self.postMessage({
                 type: "STATE_UPDATED",
                 state,
-                mesh
-            }, [mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer]); // Transfer ownership of the buffers
+                mesh,
+                curvatureCombs
+            },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer]); // Transfer ownership of the buffers
 
         } catch (err) {
             console.error("[BoardWorker] Error during proposal:", err);
