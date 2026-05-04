@@ -2,7 +2,7 @@
   "name": "super-shaper-9000",
   "type": "module",
     "scripts": {
-    "build:wasm": "wasm-pack build ./surfer-wasm --target web --out-dir ../src/lib/client/wasm",
+    "build:wasm": "cargo build -p surfer-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/surfer_wasm.wasm --out-dir src/lib/client/wasm --target web",
     "dev": "bun run build:wasm && concurrently \"vite\" \"bun run --watch src/server/index.ts\"",
     "build": "bun run build:wasm && tsc && vite build",
     "start": "bun run src/server/index.ts",
