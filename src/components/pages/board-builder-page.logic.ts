@@ -31,8 +31,10 @@ export const BoardModelSchema = S.Struct({
   showApexOutline: S.optional(S.Boolean),
   showRailOutline: S.optional(S.Boolean),
     showApexRocker: S.optional(S.Boolean),
-  showCrossSections: S.optional(S.Boolean),
+    showCrossSections: S.optional(S.Boolean),
   showCurvature: S.optional(S.Boolean),
+  showMriView: S.optional(S.Boolean),
+  mriSlicePosition: S.optional(S.Number),
   selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
   history: S.optional(S.Array(S.Unknown)),
   historyIndex: S.optional(S.Number),
@@ -98,8 +100,10 @@ export interface BoardModel {
   showApexOutline?: boolean;
   showRailOutline?: boolean;
     showApexRocker?: boolean;
-  showCrossSections?: boolean;
+    showCrossSections?: boolean;
   showCurvature?: boolean;
+  showMriView?: boolean;
+  mriSlicePosition?: number;
   selectedNode?: SelectedNode | null;
   history?: ManualSnapshot[];
   historyIndex?: number;
@@ -161,8 +165,10 @@ export const INITIAL_STATE: BoardModel = {
   showApexOutline: true,
   showRailOutline: true,
     showApexRocker: true,
-  showCrossSections: true,
+    showCrossSections: true,
   showCurvature: false,
+  showMriView: false,
+  mriSlicePosition: 50.0,
   selectedNode: null,
   length: 70, 
   width: 18.75,

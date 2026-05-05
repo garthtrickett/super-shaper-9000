@@ -74,8 +74,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "frontFinX" => model.front_fin_x = value,
             "rearFinZ" => model.rear_fin_z = value,
             "rearFinX" => model.rear_fin_x = value,
-            "toeAngle" => model.toe_angle = value,
+                        "toeAngle" => model.toe_angle = value,
             "cantAngle" => model.cant_angle = value,
+            "mriSlicePosition" => model.mri_slice_position = Some(value),
             _ => {}
         },
         BoardAction::UpdateString { param, value } => match param.as_str() {
@@ -101,8 +102,12 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "showApexOutline" => model.show_apex_outline = Some(value),
             "showRailOutline" => model.show_rail_outline = Some(value),
             "showApexRocker" => model.show_apex_rocker = Some(value),
-            "showCrossSections" => model.show_cross_sections = Some(value),
+                        "showCrossSections" => model.show_cross_sections = Some(value),
             "showCurvature" => model.show_curvature = Some(value),
+            "showMriView" => {
+                model.show_mri_view = Some(value);
+                if value { model.show_zebra = Some(false); }
+            }
             _ => {}
         },
         BoardAction::UpdateVolume { volume } => {
