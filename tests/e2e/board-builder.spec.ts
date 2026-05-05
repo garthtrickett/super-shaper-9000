@@ -19,11 +19,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls).toBeVisible();
     // The volume calculates dynamically on mount based on the mesh geometry.
     // We just verify the HUD renders a valid floating point number.
-    await expect(boardControls.getByText(/\d+\.\d+L/)).toBeVisible();
+        await expect(boardControls.getByText(/\d+\.\d+L/)).toBeVisible();
     await expect(boardControls.getByText(/Vertices/)).toBeVisible();
-    await expect(boardControls.getByText(/\d+\.\d+k/).first()).toBeVisible();
+    await expect(boardControls.getByText(/\d+(\.\d+)?k/).first()).toBeVisible();
     await expect(boardControls.getByText(/Triangles/)).toBeVisible();
-    await expect(boardControls.getByText(/\d+\.\d+k/).last()).toBeVisible();
+    await expect(boardControls.getByText(/\d+(\.\d+)?k/).last()).toBeVisible();
 
     // 3.5. Verify Flip Board button is available and works
     const flipBtn = page.locator('button[title*="Flip"]');

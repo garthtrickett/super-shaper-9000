@@ -1,5 +1,6 @@
 use glam::Vec3;
-use crate::model::{BoardModel, RawGeometryData};
+use glam::Vec3;
+use crate::model::{BoardModel, RawGeometryData, BezierCurveData};
 use crate::geometry::*;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
@@ -294,6 +295,68 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         uvs,
         colors,
         normals,
-        volume_liters: 30.5,
+                volume_liters: 30.5,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use glam::Vec3;
+    use crate::model::BezierCurveData;
+
+    #[test]
+    fn test_patch_caps_avoid_poles() {
+        // This test verifies that the nose and tail caps are generated
+        // as a "patch" (a vertical line of vertices) instead of a "pole"
+        // (a single vertex), which prevents shading artifacts.
+        let model = BoardModel {
+            length: 70.0,
+            width: 20.0,
+            thickness: 2.5,
+            outline: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 0.0, -35.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 35.0)],
+                tangents1: vec![Vec3::new(0.0, 0.0, -35.0), Vec3::new(10.0, 0.0, -10.0), Vec3::new(0.0, 0.0, 25.0)],
+                tangents2: vec![Vec3::new(0.0, 0.0, -25.0), Vec3::new(10.0, 0.0, 10.0), Vec3::new(0.0, 0.0, 35.0)],
+                ..Default::default()
+            }),
+            rocker_top: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 35.0)],
+                tangents1: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 0.0)],
+                tangents2: vec![Vec3::new(0.0, 1.25, 0.0), Vec3::new(0.0, 1.25, 35.0)],
+                ..Default::default()
+            }),
+            rocker_bottom: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 35.0)],
+                tangents1: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 0.0)],
+                tangents2: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(0.0, -1.25, 35.0)],
+                ..Default::default()
+            }),
+            cross_sections: vec![BezierCurveData {
+                control_points: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+                tangents1: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(5.0, -1.25, 0.0), Vec3::new(5.0, 1.25, 0.0)],
+                tangents2: vec![Vec3::new(5.0, -1.25, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        
+        let mesh = generate_mesh(&model);
+        let vertices: Vec<Vec3> = mesh.vertices.chunks_exact(3).map(|c| Vec3::new(c[0], c[1], c[2])).collect();
+
+        let (min_z, max_z) = vertices.iter().fold((f32::INFINITY, f32::NEG_INFINITY), |(min_z, max_z), v| {
+            (min_z.min(v.z), max_z.max(v.z))
+        });
+        
+        // There should be a small tolerance for floating point comparisons
+        let nose_pole_vertices = vertices.iter().filter(|v| (v.z - min_z).abs() < 1e-4 && v.x.abs() < 1e-4).count();
+        let tail_pole_vertices = vertices.iter().filter(|v| (v.z - max_z).abs() < 1e-4 && v.x.abs() < 1e-4).count();
+
+        // With a patch, there should be a vertical line of vertices at the centerline (x=0) for the nose and tail.
+        // A single vertex would indicate a triangle fan "pole". We expect at least 2 for a line.
+        assert!(nose_pole_vertices > 1, "Nose cap should be a patch (multiple vertices at x=0), not a single pole vertex.");
+        assert!(tail_pole_vertices > 1, "Tail cap should be a patch (multiple vertices at x=0), not a single pole vertex.");
+        
+        println!("✅ test_patch_caps_avoid_poles passed.");
     }
 }
