@@ -101,14 +101,18 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 if left_j == 0 || left_j == segments_u / 2 { is_stringer = true; }
             }
 
-            let u = if t_fraction <= 0.25 {
-                (t_fraction / 0.25) * t_tuck
+                        let u = if t_fraction <= 0.25 {
+                let t_local = t_fraction / 0.25;
+                t_tuck * radial_ease(t_local, EaseType::EaseOut)
             } else if t_fraction <= 0.5 {
-                t_tuck + ((t_fraction - 0.25) / 0.25) * (t_apex - t_tuck)
+                let t_local = (t_fraction - 0.25) / 0.25;
+                t_tuck + (t_apex - t_tuck) * radial_ease(t_local, EaseType::EaseInOut)
             } else if t_fraction <= 0.75 {
-                t_apex + ((t_fraction - 0.5) / 0.25) * (t_shoulder - t_apex)
+                let t_local = (t_fraction - 0.5) / 0.25;
+                t_apex + (t_shoulder - t_apex) * radial_ease(t_local, EaseType::EaseInOut)
             } else {
-                t_shoulder + ((t_fraction - 0.75) / 0.25) * (1.0 - t_shoulder)
+                let t_local = (t_fraction - 0.75) / 0.25;
+                t_shoulder + (1.0 - t_shoulder) * radial_ease(t_local, EaseType::EaseIn)
             };
 
             let mut point = get_point_at_uv(model, u, v_outer, z_inches, inner_x);
