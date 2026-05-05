@@ -194,12 +194,35 @@ export class NodeInspector extends LitElement {
           </span>
         </div>
 
-                <div class="mb-4">
+                        <div class="mb-4">
           <h4 class="text-xs font-bold text-blue-400 mb-2 uppercase tracking-widest">Anchor Position</h4>
           ${renderInput('X (W)', anc[0], isRocker, (v) => this._handleAnchorChange(0, v))}
           ${renderInput('Y (H)', anc[1], isOutline, (v) => this._handleAnchorChange(1, v))}
           ${renderInput('Z (L)', anc[2], isSlice, (v) => this._handleAnchorChange(2, v))}
-          ${renderInput('Weight', curveData.weights?.[sel.index] ?? 1.0, false, (v) => this._handleWeightChange(v))}
+        </div>
+
+        <div class="mb-4 bg-zinc-950/50 p-2 rounded border border-zinc-800">
+          <div class="flex justify-between items-center mb-2">
+            <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Node Tension (Weight)</h4>
+            <span class="text-[10px] font-mono bg-zinc-900 text-emerald-400 px-1.5 py-0.5 rounded border border-zinc-700 shadow-inner">
+              ${(curveData.weights?.[sel.index] ?? 1.0).toFixed(2)}x
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input 
+              type="range" min="0.1" max="10.0" step="0.1"
+              .value=${(curveData.weights?.[sel.index] ?? 1.0).toString()}
+              @input=${(e: Event) => this._handleWeightChange(parseFloat((e.target as HTMLInputElement).value))}
+              class="w-full accent-emerald-500 cursor-pointer"
+            />
+            <button 
+              @click=${() => this._handleWeightChange(1.0)}
+              class="text-[10px] font-bold tracking-wider uppercase bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors"
+              title="Reset to Standard Bezier (1.0)"
+            >
+              RST
+            </button>
+          </div>
         </div>
 
                 ${isEndNode ? '' : html`
