@@ -445,17 +445,17 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     let mut final_pos = Vec3::ZERO;
 
     if u > t_tuck && u <= t_shoulder {
-        // --- RAIL ZONE ---
+                // --- RAIL ZONE ---
         // Project absolutely from the 3D Apex coordinate along the normal
         let offset_x = p.x - p_apex.x;
-        let offset_y = p.y - p_apex.y;
+        let offset_y = (p.y - p_apex.y) * fade_factor;
 
         final_pos = world_apex + profile.outline_normal * offset_x;
         final_pos.y = world_apex.y + offset_y;
     } else if u <= t_tuck {
-        // --- BOTTOM FLAT ZONE ---
+                // --- BOTTOM FLAT ZONE ---
         let offset_x = p_tuck.x - p_apex.x;
-        let offset_y = p_tuck.y - p_apex.y;
+        let offset_y = (p_tuck.y - p_apex.y) * fade_factor;
         let world_tuck = world_apex + profile.outline_normal * offset_x;
         
         let slice_bot_width = p_tuck.x - p_bot.x;
@@ -469,7 +469,7 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
 
             let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
             let range_y = p_tuck.y - p_bot.y;
-            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 };
+            let norm_y = (if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 }) * fade_factor;
             final_pos.y = profile.bot_y + norm_y * (world_tuck_y - profile.bot_y);
         } else {
             let t_zone = u / t_tuck;
@@ -478,9 +478,9 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
             final_pos.y = profile.bot_y;
         }
     } else {
-        // --- DECK FLAT ZONE ---
+                // --- DECK FLAT ZONE ---
         let offset_x = p_shoulder.x - p_apex.x;
-        let offset_y = p_shoulder.y - p_apex.y;
+        let offset_y = (p_shoulder.y - p_apex.y) * fade_factor;
         let world_shoulder = world_apex + profile.outline_normal * offset_x;
 
         let slice_top_width = p_shoulder.x - p_top.x;
@@ -494,7 +494,7 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
 
             let world_shoulder_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
             let range_y = p_top.y - p_shoulder.y;
-            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_shoulder.y) / range_y } else { 0.0 };
+            let norm_y = (if range_y.abs() > 1e-5 { (p.y - p_shoulder.y) / range_y } else { 0.0 }) * fade_factor;
             final_pos.y = world_shoulder_y + norm_y * (profile.top_y - world_shoulder_y);
         } else {
             let t_zone = (u - t_shoulder) / (1.0 - t_shoulder);
