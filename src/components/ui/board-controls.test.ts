@@ -100,4 +100,22 @@ describe("BoardControls (UI Component)", () => {
     });
   });
 
+  describe("Rendering", () => {
+    it("should display vertex and triangle counts when properties are set", async () => {
+      const el = await fixture<BoardControls>(html`
+        <board-controls
+          .vertexCount=${12345}
+          .triangleCount=${23456}
+        ></board-controls>
+      `);
+      await el.updateComplete;
+
+      const vertexText = el.querySelector('div.text-xl.font-black.text-zinc-400.tracking-tighter');
+      const triangleText = el.querySelectorAll('div.text-xl.font-black.text-zinc-400.tracking-tighter')[1];
+
+      // Test that "12.3k" and "23.5k" are rendered correctly
+      expect(vertexText?.textContent).to.include('12.3');
+      expect(triangleText?.textContent).to.include('23.5');
+    });
+  });
 });

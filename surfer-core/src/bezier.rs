@@ -153,8 +153,8 @@ pub fn adaptive_sample_t(curve: &BezierCurveData, tolerance_degrees: f32, min_di
 
     subdivide(curve, 0.0, p0, t0, 1.0, p1, t1, tolerance_radians, min_dist, 0, max_depth, &mut t_values);
 
-    // Filter floating point overlaps
-    t_values.dedup_by(|a, b| (a - b).abs() < 1e-5);
+        // Filter floating point overlaps
+    t_values.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
     t_values
 }
 

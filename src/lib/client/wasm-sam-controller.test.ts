@@ -18,10 +18,13 @@ describe("WasmSamController (FFI Integration)", () => {
     // Wait for the worker to initialize the WASM module and post back the INITIAL_STATE
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-        expect(controller.model).to.exist;
+    expect(controller.model).to.exist;
     expect(controller.model.length).to.equal(70.0); // Default Rust model length
-        expect(controller.mesh).to.exist;
+    expect(controller.mesh).to.exist;
     expect(controller.mesh?.vertices).to.exist;
+    // Assert the new properties from the adaptive mesh step
+    expect(controller.mesh?.vertexCount).to.be.a('number').and.greaterThan(0);
+    expect(controller.mesh?.triangleCount).to.be.a('number').and.greaterThan(0);
     expect(controller.curvatureCombs).to.exist;
 
     // Terminate worker to prevent hanging tests
@@ -34,6 +37,7 @@ describe("WasmSamController (FFI Integration)", () => {
 
     // Wait for init
     await new Promise((resolve) => setTimeout(resolve, 500));
+    const initialVertexCount = controller.mesh?.vertexCount;
 
     // Propose a change
     controller.propose({
@@ -42,11 +46,13 @@ describe("WasmSamController (FFI Integration)", () => {
       value: 85.0
     });
 
-        // Wait for round trip
+    // Wait for round trip
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(controller.model.length).to.equal(85.0);
     expect(controller.curvatureCombs).to.exist;
+    // The vertex count should change as the adaptive algorithm responds to new geometry
+    expect(controller.mesh?.vertexCount).to.not.equal(initialVertexCount);
     
     controller.hostDisconnected();
   });
