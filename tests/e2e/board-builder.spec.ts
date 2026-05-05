@@ -233,15 +233,26 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible();
 
-    // 3. Change Weight
-    const weightInput = inspector.locator('div:has-text("Weight") input[type="number"]');
-    await weightInput.fill('2.5');
-    await weightInput.press('Enter');
+        // 3. Change Tension/Weight via the new UI slider
+    const tensionContainer = inspector.locator('div').filter({ hasText: /Node Tension/i });
+    const weightSlider = tensionContainer.locator('input[type="range"]');
+    const weightBadge = tensionContainer.locator('span', { hasText: 'x' });
+    
+    // Default should be 1.00x
+    await expect(weightBadge).toContainText('1.00x');
 
-    // 4. Verify no crash and the value updated
+    // Set the slider value (Playwright supports fill for range inputs)
+    await weightSlider.fill('5.5');
+
+    // 4. Verify no crash and the DOM successfully re-renders with WASM data
     const canvas = viewport.locator("canvas");
     await expect(canvas).toBeVisible();
-    
-    await expect(weightInput).toHaveValue('2.50');
+    await expect(weightBadge).toContainText('5.50x');
+
+    // 5. Test the reset button integration
+    const resetBtn = tensionContainer.locator('button', { hasText: 'RST' });
+    await resetBtn.click();
+    await expect(weightBadge).toContainText('1.00x');
+    await expect(weightSlider).toHaveValue('1');
   });
 });
