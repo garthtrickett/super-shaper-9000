@@ -324,7 +324,7 @@ pub struct BoardProfile {
     pub outline_normal: Vec3,
 }
 
-pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, _fade_factor: f32) -> BoardProfile {
+pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fade_factor: f32) -> BoardProfile {
     let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
     let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, hint_t);
     let outline_pt = evaluate_composite_outline_at_z(model, z_inches, hint_t);
@@ -392,13 +392,26 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, _f
             tuck_x = evaluate_bezier_at_z(ro, z_inches, hint_t).x.max(0.0);
         }
     }
-    let final_apex_x = apex_x.max(0.001);
+        let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
 
+    let mut final_top_y = top_y;
+    let mut final_bot_y = bot_pt.y;
+    let mut final_apex_y = apex_y;
+    let mut final_tuck_y = tuck_y;
+
+    if fade_factor < 1.0 {
+        let center_y = final_bot_y + (final_top_y - final_bot_y) / 2.0;
+        final_top_y = center_y + (final_top_y - center_y) * fade_factor;
+        final_bot_y = center_y + (final_bot_y - center_y) * fade_factor;
+        final_apex_y = center_y + (final_apex_y - center_y) * fade_factor;
+        final_tuck_y = center_y + (final_tuck_y - center_y) * fade_factor;
+    }
+
     BoardProfile {
-        top_y, bot_y: bot_pt.y,
-        apex_x: final_apex_x, apex_y,
-        tuck_x: final_tuck_x, tuck_y,
+        top_y: final_top_y, bot_y: final_bot_y,
+        apex_x: final_apex_x, apex_y: final_apex_y,
+        tuck_x: final_tuck_x, tuck_y: final_tuck_y,
         half_width: outline_pt.x.max(0.0),
         outline_tangent,
         outline_normal,
