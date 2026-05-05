@@ -3,7 +3,6 @@ use crate::model::{BoardModel, RawGeometryData};
 use crate::geometry::*;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
-    let segments_u = 96;
     let scale = 1.0 / 12.0;
 
     let (bound_nose_z, bound_tail_z) = crate::geometry::get_board_bounds(model);
@@ -19,10 +18,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let nose_pt = evaluate_curve(outline, 0.0);
     let nose_z = nose_pt.z;
 
-    let notch_pt = evaluate_curve(outline, 1.0);
-    let _notch_z = notch_pt.z; // Will be used for swallow tail later
-
-        let mut tip_z = f32::NEG_INFINITY;
+    let mut tip_z = f32::NEG_INFINITY;
     let mut v_tip = 1.0;
     let steps = 50;
     for i in 0..=steps {
@@ -34,6 +30,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
+    // Adaptive Lengthwise (V) Slicing
     let mut all_z = Vec::new();
     let tolerance_degrees = 3.0;
     let min_dist = 0.5;
@@ -74,7 +71,41 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-    let mut segments_v = z_rings.len() - 1;
+    let segments_v = z_rings.len() - 1;
+
+    // Adaptive Crosswise (U) Columns
+    let mut base_u = Vec::new();
+    let tolerance_degrees_u = 3.0;
+    let min_dist_u = 0.05;
+    for cs in &model.cross_sections {
+        for t in crate::bezier::adaptive_sample_t(cs, tolerance_degrees_u, min_dist_u) {
+            base_u.push(t);
+        }
+    }
+    base_u.push(0.0);
+    base_u.push(1.0);
+    base_u.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let mut u_params_half = Vec::new();
+    for u in base_u {
+        if u_params_half.is_empty() || u - u_params_half.last().unwrap() > 0.01 {
+            u_params_half.push(u);
+        }
+    }
+
+    let mut u_columns = Vec::new();
+    let half = u_params_half.len() - 1;
+    for (idx, &u) in u_params_half.iter().enumerate() {
+        let is_stringer = idx == 0 || idx == half;
+        u_columns.push((u, 1.0, is_stringer)); // Right side
+    }
+    // Add left side, skipping the center stringer to avoid duplication
+    for (idx, &u) in u_params_half.iter().rev().skip(1).enumerate() {
+        let is_stringer = idx == (half - 1);
+        u_columns.push((u, -1.0, is_stringer)); // Left side
+    }
+    let num_cols = u_columns.len();
+    let right_half_cols = u_params_half.len();
 
     let mut slice_arc_lengths = vec![0.0; segments_v + 1];
     let mut total_arc_length = 0.0;
@@ -109,62 +140,29 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
         let fade_factor = crate::geometry::calculate_tip_fade(z_inches, bound_nose_z, bound_tail_z);
         
-        let inner_x = 0.0; // Simplify for now (ignores swallow inner walls)
+        let inner_x = 0.0; // Simplify for now
 
         let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, v_outer);
         let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, v_outer);
-                let local_thickness = 0.0_f32.max(top_pt.y - bot_pt.y);
+        let local_thickness = 0.0_f32.max(top_pt.y - bot_pt.y);
         let heat_color = color_heatmap(0.0_f32.max(1.0_f32.min(local_thickness / model.thickness)));
 
-        let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_inches);
-        let t_apex = if let Some(ref b) = blend { b.t_apex } else { 0.5 };
-        let t_tuck = 0.01_f32.max(t_apex * 0.5);
-        let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
-
-        for j in 0..=segments_u + 1 {
-            let mut is_stringer = false;
-            let t_fraction: f32;
-            let side: f32;
-
-            if j <= segments_u / 2 {
-                t_fraction = j as f32 / (segments_u as f32 / 2.0);
-                side = 1.0;
-                if j == 0 || j == segments_u / 2 { is_stringer = true; }
-            } else {
-                let left_j = j - (segments_u / 2 + 1);
-                t_fraction = 1.0 - left_j as f32 / (segments_u as f32 / 2.0);
-                side = -1.0;
-                if left_j == 0 || left_j == segments_u / 2 { is_stringer = true; }
-            }
-
-                        let u = if t_fraction <= 0.25 {
-                let t_local = t_fraction / 0.25;
-                t_tuck * radial_ease(t_local, EaseType::EaseOut)
-            } else if t_fraction <= 0.5 {
-                let t_local = (t_fraction - 0.25) / 0.25;
-                t_tuck + (t_apex - t_tuck) * radial_ease(t_local, EaseType::EaseInOut)
-            } else if t_fraction <= 0.75 {
-                let t_local = (t_fraction - 0.5) / 0.25;
-                t_apex + (t_shoulder - t_apex) * radial_ease(t_local, EaseType::EaseInOut)
-            } else {
-                let t_local = (t_fraction - 0.75) / 0.25;
-                t_shoulder + (1.0 - t_shoulder) * radial_ease(t_local, EaseType::EaseIn)
-            };
-
-                        let mut point = get_point_at_uv(model, u, v_outer, z_inches, inner_x, fade_factor);
+        for j in 0..num_cols {
+            let (u_val, side, is_stringer) = u_columns[j];
+            let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, fade_factor);
             if is_stringer { point.x = inner_x; }
             point.x *= side;
 
             if i == 0 && nose_width < 1e-3 { point.x = 0.0; }
 
-            ring.push((Vec3::new(point.x * scale, point.y * scale, point.z * scale), heat_color, u, v_coord));
+            ring.push((Vec3::new(point.x * scale, point.y * scale, point.z * scale), heat_color, u_val, v_coord));
         }
         grid.push(ring);
     }
 
     let mut normals = Vec::new();
     for i in 0..=segments_v {
-        for j in 0..=segments_u + 1 {
+        for j in 0..num_cols {
             let (pos, color, u, v) = grid[i][j];
             vertices.push(pos.x); vertices.push(pos.y); vertices.push(pos.z);
             colors.push(color.x); colors.push(color.y); colors.push(color.z);
@@ -178,30 +176,23 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 grid[i + 1][j].0 - grid[i - 1][j].0
             };
 
-                        let right_tuck_j = segments_u / 8;
-            let left_tuck_j = segments_u / 2 + 1 + (segments_u * 3) / 8;
-
-            let tangent_u = if j == right_tuck_j {
-                grid[i][j + 1].0 - grid[i][j].0
-            } else if j == left_tuck_j {
-                grid[i][j].0 - grid[i][j - 1].0
-            } else if j > 0 && j < segments_u + 1 && j != segments_u / 2 && j != segments_u / 2 + 1 {
-                grid[i][j + 1].0 - grid[i][j - 1].0
-            } else if j == 0 {
+            let tangent_u = if j == 0 {
                 grid[i][1].0 - grid[i][0].0
-            } else if j == segments_u / 2 {
+            } else if j == right_half_cols - 1 {
                 grid[i][j].0 - grid[i][j - 1].0
-            } else if j == segments_u / 2 + 1 {
+            } else if j == right_half_cols {
                 grid[i][j + 1].0 - grid[i][j].0
-            } else {
+            } else if j == num_cols - 1 {
                 grid[i][j].0 - grid[i][j - 1].0
+            } else {
+                grid[i][j + 1].0 - grid[i][j - 1].0
             };
 
             let mut n = tangent_u.cross(tangent_v).normalize();
             if n.is_nan() || n.length_squared() < 0.0001 {
                 if i == 0 { n = Vec3::new(0.0, 0.0, -1.0); }
                 else if i == segments_v { n = Vec3::new(0.0, 0.0, 1.0); }
-                else { n = Vec3::new(0.0, if j > segments_u / 4 && j < (segments_u * 3 / 4) { 1.0 } else { -1.0 }, 0.0); }
+                else { n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0); }
             }
             normals.push(n.x); normals.push(n.y); normals.push(n.z);
         }
@@ -209,17 +200,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let mut indices = Vec::new();
     for i in 0..segments_v {
-        for j in 0..=segments_u {
-            let a = (i * (segments_u + 2) + j) as u32;
+        for j in 0..num_cols - 1 {
+            let a = (i * num_cols + j) as u32;
             let b = a + 1;
-            let c = ((i + 1) * (segments_u + 2) + j) as u32;
+            let c = ((i + 1) * num_cols + j) as u32;
             let d = c + 1;
             
-            if j == segments_u / 2 {
-                indices.push(a); indices.push(b); indices.push(d);
-                indices.push(a); indices.push(d); indices.push(c);
-                continue;
-            }
             indices.push(a); indices.push(b); indices.push(d);
             indices.push(a); indices.push(d); indices.push(c);
         }
@@ -228,7 +214,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     // Add Nose Cap
     let cap_vertex_start_idx = (vertices.len() / 3) as u32;
     let bot_y = grid[0][0].0.y;
-    let top_y = grid[0][segments_u / 2].0.y;
+    let top_y = grid[0][right_half_cols - 1].0.y;
     let center_y = bot_y + (top_y - bot_y) / 2.0;
     let center_z = grid[0][0].0.z;
 
@@ -240,21 +226,21 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let center_idx = cap_vertex_start_idx;
     let perimeter_start_idx = center_idx + 1;
 
-    for j in 0..=segments_u + 1 {
-        let hull_index = j as usize;
+    for j in 0..num_cols {
+        let hull_index = j;
         vertices.push(vertices[hull_index * 3]); vertices.push(vertices[hull_index * 3 + 1]); vertices.push(vertices[hull_index * 3 + 2]);
         uvs.push(uvs[hull_index * 2]); uvs.push(uvs[hull_index * 2 + 1]);
         colors.push(colors[hull_index * 3]); colors.push(colors[hull_index * 3 + 1]); colors.push(colors[hull_index * 3 + 2]);
         normals.push(0.0); normals.push(0.0); normals.push(-1.0);
     }
-    for j in 0..=segments_u {
+    for j in 0..num_cols - 1 {
         indices.push(center_idx); indices.push(perimeter_start_idx + j as u32 + 1); indices.push(perimeter_start_idx + j as u32);
     }
 
-    // Add Tail Cap (Basic blunt tail for this iteration)
+    // Add Tail Cap
     let tail_cap_vertex_start_idx = (vertices.len() / 3) as u32;
     let tail_bot_y = grid[segments_v][0].0.y;
-    let tail_top_y = grid[segments_v][segments_u / 2].0.y;
+    let tail_top_y = grid[segments_v][right_half_cols - 1].0.y;
     let tail_center_y = tail_bot_y + (tail_top_y - tail_bot_y) / 2.0;
     let tail_center_z = grid[segments_v][0].0.z;
 
@@ -266,15 +252,15 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let tail_center_idx = tail_cap_vertex_start_idx;
     let tail_perimeter_start_idx = tail_center_idx + 1;
 
-    let ring_start_index = segments_v * (segments_u + 2);
-    for j in 0..=segments_u + 1 {
+    let ring_start_index = segments_v * num_cols;
+    for j in 0..num_cols {
         let hull_index = ring_start_index + j;
         vertices.push(vertices[hull_index * 3]); vertices.push(vertices[hull_index * 3 + 1]); vertices.push(vertices[hull_index * 3 + 2]);
         uvs.push(uvs[hull_index * 2]); uvs.push(uvs[hull_index * 2 + 1]);
         colors.push(colors[hull_index * 3]); colors.push(colors[hull_index * 3 + 1]); colors.push(colors[hull_index * 3 + 2]);
         normals.push(0.0); normals.push(0.0); normals.push(1.0);
     }
-    for j in 0..=segments_u {
+    for j in 0..num_cols - 1 {
         indices.push(tail_center_idx); indices.push(tail_perimeter_start_idx + j as u32); indices.push(tail_perimeter_start_idx + j as u32 + 1);
     }
 
@@ -284,6 +270,6 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         uvs,
         colors,
         normals,
-        volume_liters: 30.5, // Volume calculation can be added to Rust next
+        volume_liters: 30.5,
     }
 }
