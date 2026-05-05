@@ -263,7 +263,7 @@ export class BoardViewport extends LitElement {
     }
   }
   
-    private buildSolidMeshFromRust(meshData: RustMesh, scale: number) {
+      private buildSolidMeshFromRust(meshData: RustMesh, _scale: number) {
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
     geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 
 export class CurvatureBuilder {
-  static build(group: THREE.Group, curvatureCombs: Float32Array | null | undefined, scale: number) {
+    static build(group: THREE.Group, curvatureCombs: Float32Array | null | undefined, _scale: number) {
     // Clean up old geometry
     while (group.children.length > 0) {
       const child = group.children[0] as THREE.LineSegments;
