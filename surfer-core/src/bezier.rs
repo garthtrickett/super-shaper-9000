@@ -71,6 +71,48 @@ pub fn evaluate_curvature_quill(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32, 
     n * kappa * scale
 }
 
+/// Computes the exact position of a target tangent handle to achieve G2 (Curvature) continuity.
+///
+/// # Arguments
+/// * `anchor` - The knot coordinate ($K$) shared by both curve segments.
+/// * `t_source` - The tangent handle of the master segment at $K$.
+/// * `f_source` - The *far* tangent handle of the master segment.
+/// * `f_target` - The *far* tangent handle of the target segment.
+///
+/// # Returns
+/// The required coordinate for `t_target` to ensure the target segment has the exact
+/// same curvature (rate of bend) as the source segment at the anchor point.
+#[inline]
+pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: Vec3) -> Vec3 {
+    let v = t_source - anchor;
+    let v_len_sq = v.length_squared();
+
+    // If the source tangent is directly on top of the anchor, 
+    // curvature is undefined/infinite. Fallback to anchor.
+    if v_len_sq < 1e-6 {
+        return anchor;
+    }
+
+    let cross_src = v.cross(f_source - anchor).length();
+    let cross_tgt = v.cross(f_target - anchor).length();
+
+    // If source curvature is ~0 (a straight line or collinear handles)
+    if cross_src < 1e-6 {
+        // Fall back to standard G1 (mirrored tangent of equal length)
+        // because we cannot achieve 0 curvature unless the target is also straight
+        return anchor - v;
+    }
+
+    // The algebraic solution for matching curvature magnitude 
+    // between two cubic Bezier segments meeting at G1.
+    let c = (cross_tgt / cross_src).sqrt();
+    
+    // Clamp multiplier to prevent exploding handles on extreme CAD distortions
+    let c_clamped = c.clamp(0.01, 100.0);
+
+    anchor - (v * c_clamped)
+}
+
 /// Evaluates the position and tangent (normalized first derivative) of a composite Bezier curve at global `t` (0.0 to 1.0)
 #[inline]
 pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (Vec3, Vec3) {
@@ -276,6 +318,50 @@ mod tests {
         assert_eq!(samples[1].x, 5.0);
         assert_eq!(samples[2].x, 10.0);
         println!("✅ sample_curve passed and generated expected vertex distribution.");
+    }
+
+        #[test]
+    fn test_solve_g2_tangent() {
+        let anchor = Vec3::new(0.0, 0.0, 0.0);
+        
+        // Source curve (Left side, evaluates at t=1)
+        let f_source = Vec3::new(-2.0, 1.0, 0.0); // A1
+        let t_source = Vec3::new(-1.0, 0.0, 0.0); // A2
+        
+        // Target curve (Right side, evaluates at t=0)
+        let f_target = Vec3::new(2.0, -2.0, 0.0); // B2
+        
+        let t_target = solve_g2_tangent(anchor, t_source, f_source, f_target);
+        
+        // Expected mathematically: c = sqrt(2). t_target = (sqrt(2), 0, 0)
+        let c_expected = 2.0_f32.sqrt();
+        assert!((t_target.x - c_expected).abs() < 1e-5);
+        assert_eq!(t_target.y, 0.0);
+        assert_eq!(t_target.z, 0.0);
+        
+        // Verify dynamically using evaluate_curvature_quill
+        let quill_src = evaluate_curvature_quill(
+            Vec3::new(-3.0, 0.0, 0.0), // Arbitrary A0
+            f_source,
+            t_source,
+            anchor,
+            1.0,
+            1.0
+        );
+        
+        let quill_tgt = evaluate_curvature_quill(
+            anchor,
+            t_target,
+            f_target,
+            Vec3::new(3.0, 0.0, 0.0), // Arbitrary B3
+            0.0,
+            1.0
+        );
+        
+        // Quills must match in length (curvature magnitude) perfectly across the joint.
+        assert!((quill_src.length() - quill_tgt.length()).abs() < 1e-5, "G2 Curvatures must match!");
+        
+        println!("✅ test_solve_g2_tangent passed.");
     }
 
     #[test]
