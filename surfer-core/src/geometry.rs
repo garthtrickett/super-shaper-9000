@@ -173,6 +173,23 @@ pub fn find_apex_t(curve: &BezierCurveData) -> f32 {
     best_t
 }
 
+pub enum EaseType {
+    EaseIn,
+    EaseOut,
+    EaseInOut,
+}
+
+/// Warps a linear parameter `t` (0.0 to 1.0) to cluster vertices near edges.
+pub fn radial_ease(t: f32, ease_type: EaseType) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    use std::f32::consts::PI;
+    match ease_type {
+        EaseType::EaseIn => 1.0 - (t * PI / 2.0).cos(),
+        EaseType::EaseOut => (t * PI / 2.0).sin(),
+        EaseType::EaseInOut => -((t * PI).cos() - 1.0) / 2.0,
+    }
+}
+
 pub struct BlendResult<'a> {
     pub t_apex: f32,
     pub s_prev: &'a BezierCurveData,
@@ -215,7 +232,7 @@ impl<'a> BlendResult<'a> {
     }
 }
 
-pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a [BezierCurveData], z_inches: f32) -> Option<BlendResult<'a>> {
+pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a[BezierCurveData], z_inches: f32) -> Option<BlendResult<'a>> {
     if cross_sections.is_empty() { return None; }
     let min_z = cross_sections.first().unwrap().control_points.first().unwrap().z;
     let max_z = cross_sections.last().unwrap().control_points.first().unwrap().z;
@@ -593,5 +610,72 @@ mod tests {
         assert_eq!(pt_top_stringer.x, 0.0);
 
         println!("✅ test_zone_based_uv_evaluation passed.");
+    }
+
+    #[test]
+    fn test_absolute_rail_preservation() {
+        let mut model_narrow = BoardModel::default();
+        let mut model_wide = BoardModel::default();
+
+        let cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0), // bot stringer
+                Vec3::new(4.0, -1.0, 0.0), // bot tuck
+                Vec3::new(5.0, 0.0, 0.0),  // apex
+                Vec3::new(4.0, 1.0, 0.0),  // top shoulder
+                Vec3::new(0.0, 1.0, 0.0),  // top stringer
+            ],
+            tangents1: vec![Vec3::ZERO; 5],
+            tangents2: vec![Vec3::ZERO; 5],
+        };
+
+        model_narrow.cross_sections = vec![cs.clone()];
+        model_wide.cross_sections = vec![cs.clone()];
+
+        model_narrow.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10., 0., 0.), Vec3::new(10., 0., 100.)],
+            tangents2: vec![Vec3::new(10., 0., 0.), Vec3::new(10., 0., 100.)],
+        });
+        model_wide.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(20.0, 0.0, 0.0), Vec3::new(20.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(20., 0., 0.), Vec3::new(20., 0., 100.)],
+            tangents2: vec![Vec3::new(20., 0., 0.), Vec3::new(20., 0., 100.)],
+        });
+
+        model_narrow.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+        });
+        model_wide.rocker_top = model_narrow.rocker_top.clone();
+
+        model_narrow.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+        });
+        model_wide.rocker_bottom = model_narrow.rocker_bottom.clone();
+
+        let z = 50.0;
+        let hint_t = 0.5;
+        let blend = get_cross_section_blend_at_z(&model_narrow.cross_sections, z).unwrap();
+        
+        let t_apex = blend.t_apex;
+        let t_tuck = 0.01_f32.max(t_apex * 0.5);
+
+        let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0);
+        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0);
+        
+        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0);
+        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0);
+
+        let narrow_rail_width = p_narrow_apex.x - p_narrow_tuck.x;
+        let wide_rail_width = p_wide_apex.x - p_wide_tuck.x;
+
+        assert!((narrow_rail_width - wide_rail_width).abs() < 1e-4, "Rail width must be preserved regardless of overall board width.");
+        assert!(wide_rail_width > 0.0, "Rail width should be positive.");
+
+        println!("✅ test_absolute_rail_preservation passed.");
     }
 }
