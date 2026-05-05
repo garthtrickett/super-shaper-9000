@@ -57,10 +57,22 @@ impl SurferEngine {
                     let t1 = c.tangents1[seg + 1];
                     let p1 = c.control_points[seg + 1];
 
+                                        let weights = c.weights.as_ref().and_then(|w| {
+                        if w.len() > seg + 1 {
+                            Some((w[seg], 1.0, 1.0, w[seg + 1]))
+                        } else {
+                            None
+                        }
+                    });
+
                     for i in 0..=steps {
                         let t = i as f32 / steps as f32;
-                        let pt = crate::bezier::evaluate_bezier_cubic(p0, t0, t1, p1, t);
-                        let quill = crate::bezier::evaluate_curvature_quill(p0, t0, t1, p1, t, scale);
+                        let pt = if let Some((w0, w1, w2, w3)) = weights {
+                            crate::bezier::evaluate_rational_bezier_cubic(p0, t0, t1, p1, w0, w1, w2, w3, t)
+                        } else {
+                            crate::bezier::evaluate_bezier_cubic(p0, t0, t1, p1, t)
+                        };
+                        let quill = crate::bezier::evaluate_curvature_quill(p0, t0, t1, p1, weights, t, scale);
 
                         let tip = pt + quill;
 

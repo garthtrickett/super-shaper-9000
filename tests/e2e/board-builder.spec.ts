@@ -198,7 +198,50 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await t1LengthInput.fill('5.0');
     await t1LengthInput.press('Enter');
 
-    // 6. Assert that the T2 handle's length was auto-updated by the Rust solver
+        // 6. Assert that the T2 handle's length was auto-updated by the Rust solver
     await expect(t2LengthInput).not.toHaveValue(initialT2Length);
+  });
+
+  test("Node Inspector Weight Update", async ({ page }) => {
+    await page.goto('/');
+    const viewport = page.locator("board-viewport");
+    await expect(viewport).toBeVisible();
+    await expect(viewport.locator("canvas")).toBeVisible();
+    await page.waitForTimeout(500);
+
+    // 1. Programmatically find and click the middle anchor point
+    const hitPosition = await page.evaluate(() => {
+      type BoardViewportElement = HTMLElement & {
+        boardState?: { outline?: { controlPoints:[number, number, number][] } };
+      };
+      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
+      const cp = viewport.boardState.outline.controlPoints[1];
+      if (!cp) return null;
+      const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      const ndcX = (cp[0] / 12) / (5 * aspect);
+      const ndcY = -(cp[2] / 12) / 5;
+      return { x: rect.left + ((ndcX + 1) / 2 * rect.width), y: rect.top + ((1 - ndcY) / 2 * rect.height) };
+    });
+    expect(hitPosition).toBeTruthy();
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+
+    // 2. Verify the inspector appears
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+
+    // 3. Change Weight
+    const weightInput = inspector.locator('div:has-text("Weight") input[type="number"]');
+    await weightInput.fill('2.5');
+    await weightInput.press('Enter');
+
+    // 4. Verify no crash and the value updated
+    const canvas = viewport.locator("canvas");
+    await expect(canvas).toBeVisible();
+    
+    await expect(weightInput).toHaveValue('2.50');
   });
 });

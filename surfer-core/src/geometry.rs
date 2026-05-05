@@ -15,12 +15,24 @@ pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
     }
     let local_t = scaled_t - segment_idx as f32;
 
-    let p0 = curve.control_points[segment_idx];
+        let p0 = curve.control_points[segment_idx];
     let p1 = curve.control_points[segment_idx + 1];
     let t0 = curve.tangents2[segment_idx];
     let t1 = curve.tangents1[segment_idx + 1];
 
-    evaluate_bezier_cubic(p0, t0, t1, p1, local_t)
+    let weights = curve.weights.as_ref().and_then(|w| {
+        if w.len() > segment_idx + 1 {
+            Some((w[segment_idx], 1.0, 1.0, w[segment_idx + 1]))
+        } else {
+            None
+        }
+    });
+
+    if let Some((w0, w1, w2, w3)) = weights {
+        crate::bezier::evaluate_rational_bezier_cubic(p0, t0, t1, p1, w0, w1, w2, w3, local_t)
+    } else {
+        crate::bezier::evaluate_bezier_cubic(p0, t0, t1, p1, local_t)
+    }
 }
 
 pub fn get_board_bounds(model: &BoardModel) -> (f32, f32) {

@@ -59,6 +59,14 @@ export class NodeInspector extends LitElement {
     return undefined;
   }
 
+    private _handleWeightChange(val: number) {
+    const sel = this.boardState.selectedNode!;
+    this.dispatchEvent(new CustomEvent('update-node', {
+      detail: { curve: sel.curve, index: sel.index, weight: val },
+      bubbles: true, composed: true
+    }));
+  }
+
   private _handleAnchorChange(axis: 0|1|2, val: number) {
     const sel = this.boardState.selectedNode!;
     const curveData = this._getTargetCurve()!;
@@ -186,11 +194,12 @@ export class NodeInspector extends LitElement {
           </span>
         </div>
 
-        <div class="mb-4">
+                <div class="mb-4">
           <h4 class="text-xs font-bold text-blue-400 mb-2 uppercase tracking-widest">Anchor Position</h4>
           ${renderInput('X (W)', anc[0], isRocker, (v) => this._handleAnchorChange(0, v))}
           ${renderInput('Y (H)', anc[1], isOutline, (v) => this._handleAnchorChange(1, v))}
           ${renderInput('Z (L)', anc[2], isSlice, (v) => this._handleAnchorChange(2, v))}
+          ${renderInput('Weight', curveData.weights?.[sel.index] ?? 1.0, false, (v) => this._handleWeightChange(v))}
         </div>
 
                 ${isEndNode ? '' : html`

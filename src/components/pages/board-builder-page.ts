@@ -293,10 +293,10 @@ export class BoardBuilderPage extends LitElement {
         ></board-viewport>
 
         ${state.selectedNode ? html`
-          <node-inspector
+                      <node-inspector
             class="absolute top-16 right-4 z-20 w-[340px]"
             .boardState=${state}
-                                                                        @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number] }>) => this.wasmCtrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+                                                                        @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number], weight?: number }>) => this.wasmCtrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
             @apply-continuity=${(e: CustomEvent<{ curve: string, index: number, level: "G0" | "G1" | "G2", master?: string }>) => this.wasmCtrl.propose({ type: "APPLY_CONTINUITY", ...e.detail })}
             @continuity-changed=${(e: CustomEvent<{ level: 'G0' | 'G1' | 'G2' }>) => this._selectedNodeContinuity = e.detail.level}
           ></node-inspector>
