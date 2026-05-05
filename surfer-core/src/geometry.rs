@@ -829,6 +829,34 @@ mod tests {
         let thickness_1 = prof_1.top_y - prof_1.bot_y;
         assert!(thickness_1 > 0.0 && thickness_1 < 2.0, "Thickness must be squashed proportionally in fade zone");
 
-        println!("✅ test_geometric_tip_fading passed.");
+                println!("✅ test_geometric_tip_fading passed.");
+    }
+
+    #[test]
+    fn test_rational_geometry_integration() {
+        let mut curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 50.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
+            weights: Some(vec![1.0, 1.0]),
+        };
+        
+        // Evaluate target_z using standard weights
+        let t_std = find_v_at_z(&curve, 50.0, 0.0, 1.0);
+        let pt_std = evaluate_curve(&curve, t_std);
+        
+        // Increase tension/weight at the tail node
+        curve.weights = Some(vec![1.0, 5.0]);
+        let t_weighted = find_v_at_z(&curve, 50.0, 0.0, 1.0);
+        let pt_weighted = evaluate_curve(&curve, t_weighted);
+        
+        // Verify the binary search successfully resolves to z=50 for both
+        assert!((pt_std.z - 50.0).abs() < 1e-3);
+        assert!((pt_weighted.z - 50.0).abs() < 1e-3);
+        
+        // Verify the parameterization has shifted physically due to the rational weight
+        assert!(t_weighted < t_std, "Higher weight at P1 should pull the curve, reaching z=50 earlier in parameter t");
+        
+        println!("✅ test_rational_geometry_integration passed.");
     }
 }
