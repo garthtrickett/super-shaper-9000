@@ -19,7 +19,7 @@ describe("WasmSamController (FFI Integration)", () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(controller.model).to.exist;
-    expect(controller.model.length).to.equal(70.0); // Default Rust model length
+        expect(controller.model!.length).to.equal(70.0); // Default Rust model length
     expect(controller.mesh).to.exist;
     expect(controller.mesh?.vertices).to.exist;
     // Assert the new properties from the adaptive mesh step
@@ -49,7 +49,7 @@ describe("WasmSamController (FFI Integration)", () => {
     // Wait for round trip
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    expect(controller.model.length).to.equal(85.0);
+        expect(controller.model!.length).to.equal(85.0);
     expect(controller.curvatureCombs).to.exist;
     // The vertex count should change as the adaptive algorithm responds to new geometry
     expect(controller.mesh?.vertexCount).to.not.equal(initialVertexCount);

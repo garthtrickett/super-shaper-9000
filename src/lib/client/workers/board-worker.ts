@@ -14,7 +14,7 @@ init().then(() => {
     const mesh = engine.get_mesh() as RustMesh;
     const curvatureCombs = engine.get_curvature_combs() as Float32Array;
     
-    self.postMessage({
+        (self as unknown as Worker).postMessage({
         type: "STATE_UPDATED",
         state: initialState,
         mesh: mesh,
@@ -51,8 +51,8 @@ self.onmessage = (e: MessageEvent<{ type: string, action: BoardAction }>) => {
             const mesh = engine.get_mesh() as RustMesh;
             const curvatureCombs = engine.get_curvature_combs() as Float32Array;
 
-            // 4. Send updated State and Mesh back to Main Thread
-            self.postMessage({
+                        // 4. Send updated State and Mesh back to Main Thread
+            (self as unknown as Worker).postMessage({
                 type: "STATE_UPDATED",
                 state,
                 mesh,
