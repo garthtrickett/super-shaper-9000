@@ -126,7 +126,79 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(zebraCheckbox).not.toBeChecked();
 
     // 10. Verify the Slice Position slider dynamically appears in the DOM
-    const sliceSliderLabel = boardControls.locator('label').filter({ hasText: /Slice Position/i });
+        const sliceSliderLabel = boardControls.locator('label').filter({ hasText: /Slice Position/i });
     await expect(sliceSliderLabel).toBeVisible();
+  });
+
+  test("Node Inspector G2 Continuity", async ({ page }) => {
+    await page.goto('/');
+    const viewport = page.locator("board-viewport");
+    await expect(viewport).toBeVisible();
+    await expect(viewport.locator("canvas")).toBeVisible();
+    await page.waitForTimeout(500); // Allow initial render
+
+    // 1. Programmatically find and click the middle anchor point in the top-down view
+    const hitPosition = await page.evaluate(() => {
+      type BoardViewportElement = HTMLElement & {
+        boardState?: {
+          outline?: {
+            controlPoints:[number, number, number][];
+          };
+        };
+      };
+
+      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
+
+      const outline = viewport.boardState.outline;
+      const cp = outline.controlPoints[1]; // Target middle control point
+      if (!cp) return null;
+
+      const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
+      if (!canvas) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+
+      const worldX = cp[0] / 12;
+      const worldZ = cp[2] / 12;
+
+      const orthoRight = 5 * aspect;
+      const orthoTop = 5;
+
+      const ndcX = worldX / orthoRight;
+      const ndcY = -worldZ / orthoTop;
+
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+
+      const pixelX = rect.left + ((ndcX + 1) / 2 * w);
+      const pixelY = rect.top + ((1 - ndcY) / 2 * h);
+
+      return { x: pixelX, y: pixelY };
+    });
+    expect(hitPosition).toBeTruthy();
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+
+    // 2. Verify the inspector appears
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+
+    // 3. Set continuity to G2 (Fair)
+    await inspector.locator('button', { hasText: 'Fair' }).click();
+
+    // 4. Get tangent input fields
+    const t1LengthInput = inspector.locator('div:has-text("Incoming (T1)") input[type="number"]').last();
+    const t2LengthInput = inspector.locator('div:has-text("Outgoing (T2)") input[type="number"]').last();
+    
+    const initialT2Length = await t2LengthInput.inputValue();
+    expect(parseFloat(initialT2Length)).toBeGreaterThan(0);
+
+    // 5. Change the length of the T1 handle
+    await t1LengthInput.fill('5.0');
+    await t1LengthInput.press('Enter');
+
+    // 6. Assert that the T2 handle's length was auto-updated by the Rust solver
+    await expect(t2LengthInput).not.toHaveValue(initialT2Length);
   });
 });
