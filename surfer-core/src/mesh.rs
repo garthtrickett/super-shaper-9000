@@ -3,7 +3,6 @@ use crate::model::{BoardModel, RawGeometryData};
 use crate::geometry::*;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
-    let mut segments_v = 120; // Slightly lower res to ensure fast testing, can bump to 240 later
     let segments_u = 96;
     let scale = 1.0 / 12.0;
 
@@ -23,7 +22,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let notch_pt = evaluate_curve(outline, 1.0);
     let _notch_z = notch_pt.z; // Will be used for swallow tail later
 
-    let mut tip_z = f32::NEG_INFINITY;
+        let mut tip_z = f32::NEG_INFINITY;
     let mut v_tip = 1.0;
     let steps = 50;
     for i in 0..=steps {
@@ -35,13 +34,47 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-    let mut z_rings = Vec::with_capacity(segments_v + 1);
-    for i in 0..=segments_v {
-        let v_param = (1.0 - ((i as f32 / segments_v as f32) * std::f32::consts::PI).cos()) / 2.0;
-        z_rings.push(nose_z + v_param * (tip_z - nose_z));
+    let mut all_z = Vec::new();
+    let tolerance_degrees = 3.0;
+    let min_dist = 0.5;
+
+    if let Some(r_top) = &model.rocker_top {
+        for t in crate::bezier::adaptive_sample_t(r_top, tolerance_degrees, min_dist) {
+            all_z.push(evaluate_curve(r_top, t).z);
+        }
     }
-    z_rings.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    segments_v = z_rings.len() - 1;
+    if let Some(r_bot) = &model.rocker_bottom {
+        for t in crate::bezier::adaptive_sample_t(r_bot, tolerance_degrees, min_dist) {
+            all_z.push(evaluate_curve(r_bot, t).z);
+        }
+    }
+    for t in crate::bezier::adaptive_sample_t(outline, tolerance_degrees, min_dist) {
+        all_z.push(evaluate_curve(outline, t).z);
+    }
+    
+    all_z.push(nose_z);
+    all_z.push(tip_z);
+    all_z.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let mut z_rings = Vec::new();
+    for z in all_z {
+        let clamped = z.clamp(nose_z, tip_z);
+        if z_rings.is_empty() || clamped - z_rings.last().unwrap() > 0.1 {
+            z_rings.push(clamped);
+        }
+    }
+    
+    if let Some(last) = z_rings.last_mut() {
+        if (tip_z - *last).abs() > 1e-4 {
+            if tip_z - *last <= 0.1 {
+                *last = tip_z;
+            } else {
+                z_rings.push(tip_z);
+            }
+        }
+    }
+
+    let mut segments_v = z_rings.len() - 1;
 
     let mut slice_arc_lengths = vec![0.0; segments_v + 1];
     let mut total_arc_length = 0.0;

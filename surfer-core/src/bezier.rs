@@ -71,6 +71,93 @@ pub fn evaluate_curvature_quill(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, t: f32, 
     n * kappa * scale
 }
 
+/// Evaluates the position and tangent (normalized first derivative) of a composite Bezier curve at global `t` (0.0 to 1.0)
+#[inline]
+pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (Vec3, Vec3) {
+    let num_segments = curve.control_points.len().saturating_sub(1);
+    if num_segments == 0 {
+        return (curve.control_points.first().copied().unwrap_or(Vec3::ZERO), Vec3::X);
+    }
+
+    let num_segments_f = num_segments as f32;
+    let scaled_t = t * num_segments_f;
+    let mut segment_idx = scaled_t.floor() as usize;
+    if segment_idx >= num_segments {
+        segment_idx = num_segments - 1;
+    }
+    
+    let local_t = scaled_t - segment_idx as f32;
+
+    let p0 = curve.control_points[segment_idx];
+    let p1 = curve.control_points[segment_idx + 1];
+    let t0 = curve.tangents2[segment_idx];
+    let t1 = curve.tangents1[segment_idx + 1];
+
+    let pos = evaluate_bezier_cubic(p0, t0, t1, p1, local_t);
+    let d1 = evaluate_bezier_first_derivative(p0, t0, t1, p1, local_t);
+    
+    let tan = if d1.length_squared() > 1e-6 { d1.normalize() } else { Vec3::X };
+    
+    (pos, tan)
+}
+
+/// Dynamically samples a curve's parameter `t` (0.0 to 1.0) by subdividing areas of high curvature.
+/// Returns a sorted, deduplicated list of optimal `t` values.
+pub fn adaptive_sample_t(curve: &BezierCurveData, tolerance_degrees: f32, min_dist: f32) -> Vec<f32> {
+    let mut t_values = Vec::new();
+    if curve.control_points.is_empty() {
+        return t_values;
+    }
+
+    let tolerance_radians = tolerance_degrees.to_radians();
+    let max_depth = 8; // Prevent infinite recursion on micro-corners
+    
+    t_values.push(0.0);
+
+    fn subdivide(
+        curve: &BezierCurveData,
+        t_start: f32,
+        p_start: Vec3,
+        tan_start: Vec3,
+        t_end: f32,
+        p_end: Vec3,
+        tan_end: Vec3,
+        tolerance_radians: f32,
+        min_dist: f32,
+        depth: usize,
+        max_depth: usize,
+        results: &mut Vec<f32>,
+    ) {
+        let dist = p_start.distance(p_end);
+        
+        // Calculate angle between tangents. clamp to[-1, 1] to avoid NaN from float precision drifts.
+        let dot = tan_start.dot(tan_end).clamp(-1.0, 1.0);
+        let angle = dot.acos();
+
+        // Force at least depth 3 (8 segments base) to ensure we don't skip over massive 180-degree loops or S-curves
+        let needs_subdivision = (angle > tolerance_radians && dist > min_dist) || depth < 3;
+
+        if needs_subdivision && depth < max_depth && (t_end - t_start) > 0.0001 {
+            let t_mid = (t_start + t_end) / 2.0;
+            let (p_mid, tan_mid) = evaluate_composite_pos_and_tangent(curve, t_mid);
+
+            subdivide(curve, t_start, p_start, tan_start, t_mid, p_mid, tan_mid, tolerance_radians, min_dist, depth + 1, max_depth, results);
+            subdivide(curve, t_mid, p_mid, tan_mid, t_end, p_end, tan_end, tolerance_radians, min_dist, depth + 1, max_depth, results);
+        } else {
+            results.push(t_end);
+        }
+    }
+
+    let (p0, t0) = evaluate_composite_pos_and_tangent(curve, 0.0);
+    let (p1, t1) = evaluate_composite_pos_and_tangent(curve, 1.0);
+
+    subdivide(curve, 0.0, p0, t0, 1.0, p1, t1, tolerance_radians, min_dist, 0, max_depth, &mut t_values);
+
+    // Filter floating point overlaps
+    t_values.dedup_by(|a, b| (a - b).abs() < 1e-5);
+    t_values
+}
+
 /// Samples a composite Bezier curve with `steps` resolution. 
 /// Replicates the TypeScript `sampleBezierCurve` logic identically.
 pub fn sample_curve(curve: &BezierCurveData, steps: usize) -> Vec<Vec3> {
@@ -189,5 +276,30 @@ mod tests {
         assert_eq!(samples[1].x, 5.0);
         assert_eq!(samples[2].x, 10.0);
         println!("✅ sample_curve passed and generated expected vertex distribution.");
+    }
+
+    #[test]
+    fn test_adaptive_sampling() {
+        // Curve 1: Straight line
+        let straight = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+        };
+        let t_straight = adaptive_sample_t(&straight, 5.0, 0.1);
+        // With depth < 3 forced, it should split into 8 segments -> 9 points
+        assert_eq!(t_straight.len(), 9);
+
+        // Curve 2: Highly bent curve
+        let bent = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 10.0, 0.0)],
+            tangents2: vec![Vec3::new(0.0, 10.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+        };
+        let t_bent = adaptive_sample_t(&bent, 5.0, 0.1);
+        // The bent curve requires more subdivisions to meet the angle tolerance
+        assert!(t_bent.len() > 9, "Bent curve should subdivide heavily compared to a straight curve");
+        
+        println!("✅ test_adaptive_sampling passed.");
     }
 }
