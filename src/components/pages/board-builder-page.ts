@@ -3,7 +3,7 @@ import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
-import { INITIAL_STATE, BoardModelSchema, type BoardModel, type BoardAction, type Point3D } from "./board-builder-page.logic";
+import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builder-page.logic";
 import { runClientPromise } from "../../lib/client/runtime";
 import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";

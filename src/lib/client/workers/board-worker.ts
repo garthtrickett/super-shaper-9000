@@ -1,4 +1,6 @@
 import init, { WasmEngine } from '../wasm/surfer_wasm.js';
+import type { BoardModel, BoardAction } from '../../../components/pages/board-builder-page.logic';
+import type { RustMesh } from '../../../components/3d/board-viewport';
 
 let engine: WasmEngine | null = null;
 
@@ -7,10 +9,10 @@ init().then(() => {
     engine = new WasmEngine();
     console.info("[BoardWorker] Rust WASM Engine initialized.");
     
-        // Post initial state back
-        const initialState = engine.get_state();
-    const mesh = engine.get_mesh();
-    const curvatureCombs = engine.get_curvature_combs();
+    // Post initial state back
+    const initialState = engine.get_state() as BoardModel;
+    const mesh = engine.get_mesh() as RustMesh;
+    const curvatureCombs = engine.get_curvature_combs() as Float32Array;
     
     self.postMessage({
         type: "STATE_UPDATED",
@@ -22,19 +24,19 @@ init().then(() => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
 
-self.onmessage = (e: MessageEvent) => {
+self.onmessage = (e: MessageEvent<{ type: string, action: BoardAction }>) => {
     if (!engine) {
         console.warn("[BoardWorker] Engine not ready, ignoring message.");
         return;
     }
 
-    const msg = e.data as { type: string, action: unknown };
+    const msg = e.data;
     if (msg.type === "PROPOSE") {
         try {
             // 1. Propose action to Rust
-            const result = engine.propose(msg.action);
+            const result = engine.propose(msg.action) as { state: BoardModel, effects: { type: string, message?: string }[] };
             const state = result.state;
-            const effects = result.effects as { type: string, message?: string }[];
+            const effects = result.effects;
 
             // 2. Execute Effects-as-Data (JS side execution)
             if (Array.isArray(effects)) {
@@ -45,9 +47,9 @@ self.onmessage = (e: MessageEvent) => {
                 }
             }
 
-                                    // 3. Extract Mesh Buffer (Zero-Copy)
-            const mesh = engine.get_mesh();
-            const curvatureCombs = engine.get_curvature_combs();
+            // 3. Extract Mesh Buffer (Zero-Copy)
+            const mesh = engine.get_mesh() as RustMesh;
+            const curvatureCombs = engine.get_curvature_combs() as Float32Array;
 
             // 4. Send updated State and Mesh back to Main Thread
             self.postMessage({

@@ -1,40 +1,48 @@
 import type { ReactiveController, ReactiveControllerHost } from "lit";
+import type { BoardModel, BoardAction } from "../../components/pages/board-builder-page.logic";
+import type { RustMesh } from "../../components/3d/board-viewport";
+import { clientLog } from "./clientLog";
+import { runClientUnscoped } from "./runtime";
 
-export class WasmSamController<T extends ReactiveControllerHost> implements ReactiveController {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public model: any = null;
-  public mesh: any = null;
-  public curvatureCombs: Float32Array | null = null;
+interface WorkerMessage {
+  type: string;
+  state?: BoardModel;
+  mesh?: RustMesh;
+  curvatureCombs?: Float32Array;
+}
+
+export class WasmSamController implements ReactiveController {
+  public model?: BoardModel;
+  public mesh?: RustMesh;
+  public curvatureCombs?: Float32Array;
+
   private worker: Worker;
 
-  constructor(private host: T) {
+  constructor(private host: ReactiveControllerHost) {
     this.host.addController(this);
-    this.worker = new Worker(new URL("./workers/board-worker.ts", import.meta.url), { type: "module" });
-    
-    this.worker.onmessage = (e: MessageEvent) => {
-            if (e.data.type === "STATE_UPDATED") {
-        this.model = e.data.state;
-        this.mesh = e.data.mesh;
-        this.curvatureCombs = e.data.curvatureCombs;
-        
-        console.log("🌊[WasmSamController] Shadow State Updated!", {
-          model: this.model,
-          meshLength: this.mesh ? this.mesh.length : 0
-        });
-        
-        this.host.requestUpdate();
-      }
-    };
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  propose(action: any) {
-    this.worker.postMessage({ type: "PROPOSE", action });
+    this.worker = new Worker(new URL('./workers/board-worker.ts', import.meta.url), { type: 'module' });
+    this.worker.onmessage = this.onMessage;
   }
 
   hostConnected() {}
-  
   hostDisconnected() {
     this.worker.terminate();
+  }
+
+  propose(action: BoardAction) {
+    this.worker.postMessage({ type: 'PROPOSE', action });
+  }
+
+  private onMessage = (e: MessageEvent<WorkerMessage>) => {
+    const msg = e.data;
+    if (msg.type === "STATE_UPDATED" && msg.state && msg.mesh) {
+      this.model = msg.state;
+      this.mesh = msg.mesh;
+      this.curvatureCombs = msg.curvatureCombs;
+      
+      runClientUnscoped(clientLog("debug", "[WasmSamController] State updated", { length: this.model.length }));
+      
+      this.host.requestUpdate();
+    }
   }
 }
