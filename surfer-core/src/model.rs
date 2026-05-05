@@ -107,7 +107,16 @@ pub enum BoardAction {
     SelectNode { node: Option<SelectedNode> },
     #[serde(rename = "UPDATE_NODE_EXACT")]
     #[serde(rename_all = "camelCase")]
-    UpdateNodeExact { curve: String, index: usize, anchor: Option<[f32; 3]>, tangent1: Option<[f32; 3]>, tangent2: Option<[f32; 3]> },
+        UpdateNodeExact { curve: String, index: usize, anchor: Option<[f32; 3]>, tangent1: Option<[f32; 3]>, tangent2: Option<[f32; 3]> },
+    #[serde(rename = "APPLY_CONTINUITY")]
+    #[serde(rename_all = "camelCase")]
+    ApplyContinuity { 
+        curve: String, 
+        index: usize, 
+        level: String,
+        #[serde(default)]
+        master: Option<String>
+    },
     #[serde(rename = "SAVE_HISTORY_SNAPSHOT")]
     SaveHistorySnapshot,
     #[serde(rename = "UNDO")]
