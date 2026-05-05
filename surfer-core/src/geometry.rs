@@ -745,8 +745,58 @@ mod tests {
         // EaseInOut: Should be symmetric (midpoint == 0.5)
         assert!((radial_ease(0.0, EaseType::EaseInOut) - 0.0).abs() < eps);
         assert!((radial_ease(1.0, EaseType::EaseInOut) - 1.0).abs() < eps);
-        assert!((radial_ease(0.5, EaseType::EaseInOut) - 0.5).abs() < eps);
+                assert!((radial_ease(0.5, EaseType::EaseInOut) - 0.5).abs() < eps);
 
         println!("✅ test_radial_ease passed.");
+    }
+
+    #[test]
+    fn test_geometric_tip_fading() {
+        let mut model = BoardModel::default();
+        
+        // Setup simple straight board 100 inches long, 10 inches wide
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+        });
+        // 2 inches thick (+1 to -1)
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)] 
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)] 
+        });
+        
+        let (nose_z, tail_z) = get_board_bounds(&model);
+        assert_eq!(nose_z, 0.0);
+        assert_eq!(tail_z, 100.0);
+
+        // 1. At absolute nose (fade_factor = 0.0)
+        let fade_0 = calculate_tip_fade(nose_z, nose_z, tail_z);
+        assert_eq!(fade_0, 0.0);
+        let prof_0 = get_board_profile_at_z(&model, nose_z, 0.5, fade_0);
+        assert!((prof_0.top_y - prof_0.bot_y).abs() < 1e-5, "Top and bottom must perfectly merge at tip");
+        assert!((prof_0.apex_y - prof_0.bot_y).abs() < 1e-5, "Apex must merge at tip");
+        assert!((prof_0.tuck_y - prof_0.bot_y).abs() < 1e-5, "Tuck must merge at tip");
+
+        // 2. Outside fade zone (fade_factor = 1.0)
+        let fade_3 = calculate_tip_fade(nose_z + 3.0, nose_z, tail_z);
+        assert_eq!(fade_3, 1.0);
+        let prof_3 = get_board_profile_at_z(&model, nose_z + 3.0, 0.5, fade_3);
+        assert!((prof_3.top_y - prof_3.bot_y - 2.0).abs() < 1e-4, "Full thickness should be preserved outside fade zone");
+
+        // 3. Inside fade zone (fade_factor should be between 0 and 1)
+        let fade_1 = calculate_tip_fade(nose_z + 1.0, nose_z, tail_z);
+        assert!(fade_1 > 0.0 && fade_1 < 1.0, "Fade factor must ease between 0 and 1");
+        let prof_1 = get_board_profile_at_z(&model, nose_z + 1.0, 0.5, fade_1);
+        let thickness_1 = prof_1.top_y - prof_1.bot_y;
+        assert!(thickness_1 > 0.0 && thickness_1 < 2.0, "Thickness must be squashed proportionally in fade zone");
+
+        println!("✅ test_geometric_tip_fading passed.");
     }
 }
