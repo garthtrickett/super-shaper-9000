@@ -211,58 +211,35 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-    // Add Nose Cap
-    let cap_vertex_start_idx = (vertices.len() / 3) as u32;
-    let bot_y = grid[0][0].0.y;
-    let top_y = grid[0][right_half_cols - 1].0.y;
-    let center_y = bot_y + (top_y - bot_y) / 2.0;
-    let center_z = grid[0][0].0.z;
+        // Prepare Centerline Arrays for B-Rep Surface Patches (Nose and Tail)
+    let mut add_patch_centerline = |ring_index: usize, normal_z: f32| -> u32 {
+        let start_idx = (vertices.len() / 3) as u32;
+        let ring = &grid[ring_index];
+        
+        for j in 0..right_half_cols {
+            let (pos, color, _u, _v) = ring[j];
+            let v_interp = j as f32 / (right_half_cols - 1) as f32;
+            
+            vertices.push(0.0);
+            vertices.push(pos.y);
+            vertices.push(pos.z);
+            
+            uvs.push(0.5);
+            uvs.push(v_interp);
+            
+            colors.push(color.x);
+            colors.push(color.y);
+            colors.push(color.z);
+            
+            normals.push(0.0);
+            normals.push(0.0);
+            normals.push(normal_z);
+        }
+        start_idx
+    };
 
-    vertices.push(0.0); vertices.push(center_y); vertices.push(center_z);
-    uvs.push(0.5); uvs.push(0.0);
-    colors.push(1.0); colors.push(1.0); colors.push(1.0);
-    normals.push(0.0); normals.push(0.0); normals.push(-1.0);
-
-    let center_idx = cap_vertex_start_idx;
-    let perimeter_start_idx = center_idx + 1;
-
-    for j in 0..num_cols {
-        let hull_index = j;
-        vertices.push(vertices[hull_index * 3]); vertices.push(vertices[hull_index * 3 + 1]); vertices.push(vertices[hull_index * 3 + 2]);
-        uvs.push(uvs[hull_index * 2]); uvs.push(uvs[hull_index * 2 + 1]);
-        colors.push(colors[hull_index * 3]); colors.push(colors[hull_index * 3 + 1]); colors.push(colors[hull_index * 3 + 2]);
-        normals.push(0.0); normals.push(0.0); normals.push(-1.0);
-    }
-    for j in 0..num_cols - 1 {
-        indices.push(center_idx); indices.push(perimeter_start_idx + j as u32 + 1); indices.push(perimeter_start_idx + j as u32);
-    }
-
-    // Add Tail Cap
-    let tail_cap_vertex_start_idx = (vertices.len() / 3) as u32;
-    let tail_bot_y = grid[segments_v][0].0.y;
-    let tail_top_y = grid[segments_v][right_half_cols - 1].0.y;
-    let tail_center_y = tail_bot_y + (tail_top_y - tail_bot_y) / 2.0;
-    let tail_center_z = grid[segments_v][0].0.z;
-
-    vertices.push(0.0); vertices.push(tail_center_y); vertices.push(tail_center_z);
-    uvs.push(0.5); uvs.push(1.0);
-    colors.push(1.0); colors.push(1.0); colors.push(1.0);
-    normals.push(0.0); normals.push(0.0); normals.push(1.0);
-
-    let tail_center_idx = tail_cap_vertex_start_idx;
-    let tail_perimeter_start_idx = tail_center_idx + 1;
-
-    let ring_start_index = segments_v * num_cols;
-    for j in 0..num_cols {
-        let hull_index = ring_start_index + j;
-        vertices.push(vertices[hull_index * 3]); vertices.push(vertices[hull_index * 3 + 1]); vertices.push(vertices[hull_index * 3 + 2]);
-        uvs.push(uvs[hull_index * 2]); uvs.push(uvs[hull_index * 2 + 1]);
-        colors.push(colors[hull_index * 3]); colors.push(colors[hull_index * 3 + 1]); colors.push(colors[hull_index * 3 + 2]);
-        normals.push(0.0); normals.push(0.0); normals.push(1.0);
-    }
-    for j in 0..num_cols - 1 {
-        indices.push(tail_center_idx); indices.push(tail_perimeter_start_idx + j as u32); indices.push(tail_perimeter_start_idx + j as u32 + 1);
-    }
+    let _nose_centerline_start = add_patch_centerline(0, -1.0);
+    let _tail_centerline_start = add_patch_centerline(segments_v, 1.0);
 
     RawGeometryData {
         vertices,
