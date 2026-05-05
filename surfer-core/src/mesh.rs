@@ -7,6 +7,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let segments_u = 96;
     let scale = 1.0 / 12.0;
 
+    let (bound_nose_z, bound_tail_z) = crate::geometry::get_board_bounds(model);
+
     let outline = match &model.outline {
         Some(o) => o,
         None => return RawGeometryData::default(),
@@ -72,6 +74,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let z_inches = z_rings[i];
         let v_coord = slice_arc_lengths[i] / total_arc_length;
         let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
+        let fade_factor = crate::geometry::calculate_tip_fade(z_inches, bound_nose_z, bound_tail_z);
         
         let inner_x = 0.0; // Simplify for now (ignores swallow inner walls)
 
@@ -115,7 +118,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 t_shoulder + (1.0 - t_shoulder) * radial_ease(t_local, EaseType::EaseIn)
             };
 
-            let mut point = get_point_at_uv(model, u, v_outer, z_inches, inner_x);
+                        let mut point = get_point_at_uv(model, u, v_outer, z_inches, inner_x, fade_factor);
             if is_stringer { point.x = inner_x; }
             point.x *= side;
 

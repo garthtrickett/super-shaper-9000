@@ -23,6 +23,42 @@ pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
     evaluate_bezier_cubic(p0, t0, t1, p1, local_t)
 }
 
+pub fn get_board_bounds(model: &BoardModel) -> (f32, f32) {
+    let outline = match &model.outline {
+        Some(o) => o,
+        None => return (0.0, 0.0),
+    };
+    if outline.control_points.is_empty() {
+        return (0.0, 0.0);
+    }
+    
+    let mut min_z = f32::INFINITY;
+    let mut max_z = f32::NEG_INFINITY;
+    let steps = 50;
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32;
+        let p = evaluate_curve(outline, t);
+        if p.z < min_z { min_z = p.z; }
+        if p.z > max_z { max_z = p.z; }
+    }
+    
+    (min_z, max_z)
+}
+
+pub fn calculate_tip_fade(z: f32, nose_z: f32, tail_z: f32) -> f32 {
+    let fade_len = 2.0; // 2 inches fade zone
+    let dist_to_nose = (z - nose_z).abs();
+    let dist_to_tail = (tail_z - z).abs();
+    let min_dist = dist_to_nose.min(dist_to_tail);
+    
+    if min_dist >= fade_len {
+        1.0
+    } else {
+        let t = min_dist / fade_len;
+        t * t * (3.0 - 2.0 * t) // smoothstep interpolation
+    }
+}
+
 pub fn evaluate_bezier_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> Vec3 {
     let mut best_t = hint_t;
     let mut min_err = f32::INFINITY;
@@ -288,7 +324,7 @@ pub struct BoardProfile {
     pub outline_normal: Vec3,
 }
 
-pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> BoardProfile {
+pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, _fade_factor: f32) -> BoardProfile {
     let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
     let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, hint_t);
     let outline_pt = evaluate_composite_outline_at_z(model, z_inches, hint_t);
@@ -369,8 +405,8 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     }
 }
 
-pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_x: f32) -> Vec3 {
-    let profile = get_board_profile_at_z(model, z_inches, v);
+pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_x: f32, fade_factor: f32) -> Vec3 {
+    let profile = get_board_profile_at_z(model, z_inches, v, fade_factor);
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
 
     if blend.is_none() {
@@ -567,7 +603,7 @@ mod tests {
             tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)] 
         });
         
-        let profile = get_board_profile_at_z(&model, 50.0, 0.5);
+        let profile = get_board_profile_at_z(&model, 50.0, 0.5, 1.0);
         
         // Tangent should point completely along Z axis
         assert!((profile.outline_tangent.z - 1.0).abs() < 1e-4);
@@ -602,11 +638,11 @@ mod tests {
         }];
 
         // UV 0.0 should be at the bottom stringer (inner_x = 0)
-        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0);
+        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0);
         assert_eq!(pt_bot_stringer.x, 0.0);
 
         // UV 1.0 should be at the top stringer (inner_x = 0)
-        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0);
+        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0, 1.0);
         assert_eq!(pt_top_stringer.x, 0.0);
 
         println!("✅ test_zone_based_uv_evaluation passed.");
@@ -664,11 +700,11 @@ mod tests {
         let t_apex = blend.t_apex;
         let t_tuck = 0.01_f32.max(t_apex * 0.5);
 
-        let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0);
-        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0);
+        let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0);
+        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0);
         
-        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0);
-        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0);
+        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0);
+        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0);
 
         let narrow_rail_width = p_narrow_apex.x - p_narrow_tuck.x;
         let wide_rail_width = p_wide_apex.x - p_wide_tuck.x;
