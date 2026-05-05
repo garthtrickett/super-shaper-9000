@@ -532,20 +532,23 @@ mod tests {
 
     #[test]
     fn test_cross_section_blend_hermite() {
-        let cs1 = BezierCurveData {
+                let cs1 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
         };
         let cs2 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
         };
         let cs3 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(5.0, 0.0, 30.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
         };
 
         let sections = vec![cs1, cs2, cs3];
@@ -569,15 +572,17 @@ mod tests {
 
     #[test]
     fn test_cross_section_blend_out_of_bounds() {
-        let cs1 = BezierCurveData {
+                let cs1 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
         };
         let cs2 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
         };
         let sections = vec![cs1, cs2];
 
@@ -600,20 +605,23 @@ mod tests {
     fn test_board_profile_normals() {
         let mut model = BoardModel::default();
         // Setup straight outline: 10 units wide along Z
-        model.outline = Some(BezierCurveData {
+                model.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
         });
         model.rocker_top = Some(BezierCurveData { 
             control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
             tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)] 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
         });
         model.rocker_bottom = Some(BezierCurveData { 
             control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
             tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)] 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
         });
         
         let profile = get_board_profile_at_z(&model, 50.0, 0.5, 1.0);
@@ -629,25 +637,29 @@ mod tests {
         #[test]
     fn test_zone_based_uv_evaluation() {
         let mut model = BoardModel::default();
-        model.outline = Some(BezierCurveData {
+                model.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
         });
         model.rocker_top = Some(BezierCurveData { 
             control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], 
             tangents1: vec![Vec3::ZERO, Vec3::new(0., 0.6667, 66.6667)], 
-            tangents2: vec![Vec3::new(0., 0.3333, 33.3333), Vec3::new(0., 1., 100.0)] 
+            tangents2: vec![Vec3::new(0., 0.3333, 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
         });
         model.rocker_bottom = Some(BezierCurveData { 
             control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], 
             tangents1: vec![Vec3::ZERO, Vec3::new(0., -0.6667, 66.6667)], 
-            tangents2: vec![Vec3::new(0., -0.3333, 33.3333), Vec3::new(0., -1., 100.0)] 
+            tangents2: vec![Vec3::new(0., -0.3333, 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
         });
         model.cross_sections = vec![BezierCurveData { 
             control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.)], 
             tangents1: vec![Vec3::ZERO, Vec3::new(6.6667,0.,0.)], 
-            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)] 
+            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)],
+            ..Default::default()
         }];
 
         // UV 0.0 should be at the bottom stringer (inner_x = 0)
@@ -666,7 +678,7 @@ mod tests {
         let mut model_narrow = BoardModel::default();
         let mut model_wide = BoardModel::default();
 
-        let cs = BezierCurveData {
+                let cs = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.0, 0.0), // bot stringer
                 Vec3::new(4.0, -1.0, 0.0), // bot tuck
@@ -676,26 +688,30 @@ mod tests {
             ],
             tangents1: vec![Vec3::ZERO; 5],
             tangents2: vec![Vec3::ZERO; 5],
+            ..Default::default()
         };
 
         model_narrow.cross_sections = vec![cs.clone()];
         model_wide.cross_sections = vec![cs.clone()];
 
-        model_narrow.outline = Some(BezierCurveData {
+                model_narrow.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10., 0., 0.), Vec3::new(10., 0., 100.)],
             tangents2: vec![Vec3::new(10., 0., 0.), Vec3::new(10., 0., 100.)],
+            ..Default::default()
         });
         model_wide.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(20.0, 0.0, 0.0), Vec3::new(20.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(20., 0., 0.), Vec3::new(20., 0., 100.)],
             tangents2: vec![Vec3::new(20., 0., 0.), Vec3::new(20., 0., 100.)],
+            ..Default::default()
         });
 
         model_narrow.rocker_top = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
         });
         model_wide.rocker_top = model_narrow.rocker_top.clone();
 
@@ -703,6 +719,7 @@ mod tests {
             control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
         });
         model_wide.rocker_bottom = model_narrow.rocker_bottom.clone();
 
@@ -755,21 +772,24 @@ mod tests {
         let mut model = BoardModel::default();
         
         // Setup simple straight board 100 inches long, 10 inches wide
-        model.outline = Some(BezierCurveData {
+                model.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
         });
         // 2 inches thick (+1 to -1)
         model.rocker_top = Some(BezierCurveData { 
             control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
             tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)] 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
         });
         model.rocker_bottom = Some(BezierCurveData { 
             control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
             tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)] 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
         });
         
         let (nose_z, tail_z) = get_board_bounds(&model);

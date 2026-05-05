@@ -234,7 +234,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
             }
         }
-        BoardAction::UpdateNodeExact { curve, index, anchor, tangent1, tangent2 } => {
+                BoardAction::UpdateNodeExact { curve, index, anchor, tangent1, tangent2, weight } => {
             let is_cross_section = curve.starts_with("crossSection_");
             let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline";
 
@@ -255,6 +255,19 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
                 if let Some(t2) = tangent2 {
                     target.tangents2[index] = Vec3::from_array(t2);
+                }
+                if let Some(w) = weight {
+                    if target.weights.is_none() {
+                        target.weights = Some(vec![1.0; target.control_points.len()]);
+                    }
+                    if let Some(weights) = &mut target.weights {
+                        if index < weights.len() {
+                            weights[index] = w;
+                        } else {
+                            weights.resize(target.control_points.len(), 1.0);
+                            weights[index] = w;
+                        }
+                    }
                 }
             }
             push_history(model);
@@ -345,11 +358,12 @@ mod tests {
     use glam::Vec3;
 
     fn create_mock_model() -> BoardModel {
-        BoardModel {
+                BoardModel {
             outline: Some(BezierCurveData {
                 control_points: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 0.0), Vec3::ZERO],
                 tangents1: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, -2.0), Vec3::ZERO],
                 tangents2: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 2.0), Vec3::ZERO],
+                ..Default::default()
             }),
             ..Default::default()
         }
@@ -416,6 +430,28 @@ mod tests {
         assert_eq!(outline.control_points[1].x, 5.5);
         assert_eq!(outline.tangents1[1].x, 5.5);
         assert_eq!(outline.tangents2[1].x, 5.5);
+    }
+
+        #[test]
+    fn test_update_node_exact_weight() {
+        let mut model = create_mock_model();
+        let action = BoardAction::UpdateNodeExact {
+            curve: "outline".to_string(),
+            index: 1,
+            anchor: None,
+            tangent1: None,
+            tangent2: None,
+            weight: Some(2.5),
+        };
+        update(&mut model, action);
+        
+        let outline = model.outline.as_ref().unwrap();
+        // Weights should be initialized and set
+        let weights = outline.weights.as_ref().unwrap();
+        assert_eq!(weights.len(), 3);
+        assert_eq!(weights[0], 1.0); // Default initialized
+        assert_eq!(weights[1], 2.5); // Updated value
+        assert_eq!(weights[2], 1.0); // Default initialized
     }
 
     #[test]

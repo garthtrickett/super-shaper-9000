@@ -105,9 +105,9 @@ pub enum BoardAction {
     UpdateNodePosition { curve: String, index: usize, node_type: String, position: [f32; 3] },
     #[serde(rename = "SELECT_NODE")]
     SelectNode { node: Option<SelectedNode> },
-    #[serde(rename = "UPDATE_NODE_EXACT")]
+        #[serde(rename = "UPDATE_NODE_EXACT")]
     #[serde(rename_all = "camelCase")]
-        UpdateNodeExact { curve: String, index: usize, anchor: Option<[f32; 3]>, tangent1: Option<[f32; 3]>, tangent2: Option<[f32; 3]> },
+        UpdateNodeExact { curve: String, index: usize, anchor: Option<[f32; 3]>, tangent1: Option<[f32; 3]>, tangent2: Option<[f32; 3]>, weight: Option<f32> },
     #[serde(rename = "APPLY_CONTINUITY")]
     #[serde(rename_all = "camelCase")]
     ApplyContinuity { 
@@ -151,12 +151,14 @@ pub enum Effect {
     LogInfo { message: String },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BezierCurveData {
     pub control_points: Vec<Vec3>,
     pub tangents1: Vec<Vec3>,
     pub tangents2: Vec<Vec3>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weights: Option<Vec<f32>>,
 }
 
 #[derive(Debug, Clone, Default)]

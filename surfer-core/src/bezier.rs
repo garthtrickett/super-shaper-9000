@@ -305,10 +305,11 @@ mod tests {
 
     #[test]
     fn test_sample_curve() {
-        let curve = BezierCurveData {
+                let curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
             tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            ..Default::default()
         };
 
         let samples = sample_curve(&curve, 2);
@@ -367,20 +368,22 @@ mod tests {
     #[test]
     fn test_adaptive_sampling() {
         // Curve 1: Straight line
-        let straight = BezierCurveData {
+                let straight = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
             tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            ..Default::default()
         };
         let t_straight = adaptive_sample_t(&straight, 5.0, 0.1);
         // With depth < 3 forced, it should split into 8 segments -> 9 points
         assert_eq!(t_straight.len(), 9);
 
         // Curve 2: Highly bent curve
-        let bent = BezierCurveData {
+                let bent = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 10.0, 0.0)],
             tangents2: vec![Vec3::new(0.0, 10.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            ..Default::default()
         };
         let t_bent = adaptive_sample_t(&bent, 5.0, 0.1);
         // The bent curve requires more subdivisions to meet the angle tolerance

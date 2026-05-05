@@ -12,6 +12,7 @@ export const BezierCurveSchema = S.Struct({
   controlPoints: S.Array(Point3DSchema),
   tangents1: S.Array(Point3DSchema),
   tangents2: S.Array(Point3DSchema),
+  weights: S.optional(S.Array(S.Number)),
 });
 
 export const SelectedNodeSchema = S.Struct({
@@ -70,6 +71,7 @@ export interface BezierCurveData {
   controlPoints: Point3D[];
   tangents1: Point3D[];
   tangents2: Point3D[];
+  weights?: number[];
 }
 
 export type SelectedNode = {
@@ -131,27 +133,31 @@ export interface BoardModel {
 }
 
 const basicOutline: BezierCurveData = {
-  controlPoints: [[0, 0, -35],[9.375, 0, 0], [0, 0, 35]],
+  controlPoints: [[0, 0, -35],[9.375, 0, 0],[0, 0, 35]],
   tangents1: [[0, 0, -35],[9.375, 0, -10], [0, 0, 25]],
-  tangents2: [[0, 0, -25], [9.375, 0, 10],[0, 0, 35]]
+  tangents2: [[0, 0, -25],[9.375, 0, 10],[0, 0, 35]],
+  weights:[1, 1, 1]
 };
 
 const basicRockerTop: BezierCurveData = {
-  controlPoints: [[0, 1.25, -35],[0, 1.25, 0], [0, 1.25, 35]],
+  controlPoints: [[0, 1.25, -35],[0, 1.25, 0],[0, 1.25, 35]],
   tangents1: [[0, 1.25, -35], [0, 1.25, -10],[0, 1.25, 25]],
-  tangents2: [[0, 1.25, -25], [0, 1.25, 10],[0, 1.25, 35]]
+  tangents2: [[0, 1.25, -25], [0, 1.25, 10],[0, 1.25, 35]],
+  weights: [1, 1, 1]
 };
 
 const basicRockerBottom: BezierCurveData = {
-  controlPoints: [[0, -1.25, -35],[0, -1.25, 0], [0, -1.25, 35]],
+  controlPoints: [[0, -1.25, -35],[0, -1.25, 0],[0, -1.25, 35]],
   tangents1: [[0, -1.25, -35],[0, -1.25, -10], [0, -1.25, 25]],
-  tangents2: [[0, -1.25, -25], [0, -1.25, 10],[0, -1.25, 35]]
+  tangents2: [[0, -1.25, -25],[0, -1.25, 10],[0, -1.25, 35]],
+  weights: [1, 1, 1]
 };
 
 const basicCrossSection: BezierCurveData = {
   controlPoints: [[0, -1.25, 0],[6, -1.25, 0], [9.375, 0, 0],[6, 1.25, 0], [0, 1.25, 0]],
-  tangents1: [[0, -1.25, 0],[4, -1.25, 0], [9.375, -0.5, 0], [8, 1.25, 0],[2, 1.25, 0]],
+  tangents1: [[0, -1.25, 0],[4, -1.25, 0],[9.375, -0.5, 0],[8, 1.25, 0],[2, 1.25, 0]],
   tangents2: [[2, -1.25, 0], [8, -1.25, 0],[9.375, 0.5, 0], [4, 1.25, 0],[0, 1.25, 0]],
+  weights:[1, 1, 1, 1, 1]
 };
 
 export const INITIAL_STATE: BoardModel = {
@@ -198,7 +204,7 @@ export type BoardAction =
   | { type: "SET_CURVES"; outline?: BezierCurveData; railOutline?: BezierCurveData; apexOutline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
   | { type: "UPDATE_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
     | { type: "SELECT_NODE"; node: SelectedNode | null }
-  | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }
+    | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D; weight?: number }
   | { type: "APPLY_CONTINUITY"; curve: string; index: number; level: "G0" | "G1" | "G2"; master?: string }
   | { type: "SAVE_HISTORY_SNAPSHOT" }
   | { type: "UNDO" }
@@ -281,8 +287,8 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
       };
       return pushHistory(newState);
     }
-    case "UPDATE_NODE_EXACT": {
-      const { curve, index, anchor, tangent1, tangent2 } = action;
+        case "UPDATE_NODE_EXACT": {
+      const { curve, index, anchor, tangent1, tangent2, weight } = action;
       let targetCurve: BezierCurveData | undefined;
       let crossSectionIdx = -1;
 
@@ -318,8 +324,12 @@ export const update = (state: BoardModel, action: BoardAction): BoardModel => {
           if (updatedCurve.controlPoints[index][0] < 0) updatedCurve.controlPoints[index][0] = 0;
         }
       }
-      if (tangent1) updatedCurve.tangents1[index] =[...tangent1];
+            if (tangent1) updatedCurve.tangents1[index] =[...tangent1];
       if (tangent2) updatedCurve.tangents2[index] =[...tangent2];
+      if (weight !== undefined) {
+        if (!updatedCurve.weights) updatedCurve.weights = new Array(updatedCurve.controlPoints.length).fill(1.0);
+        updatedCurve.weights[index] = weight;
+      }
 
       let newState = state;
       if (curve === "outline") newState = { ...state, outline: updatedCurve };
