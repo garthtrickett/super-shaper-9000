@@ -120,9 +120,15 @@ export class NodeInspector extends LitElement {
     }
   }
 
-  private _handleContinuityChange(level: 'G0' | 'G1' | 'G2') {
+    private _handleContinuityChange(level: 'G0' | 'G1' | 'G2') {
     const sel = this.boardState.selectedNode!;
-    if (!sel || index === 0 || index === curveData.controlPoints.length - 1) return;
+    if (!sel) return;
+
+    const curveData = this._getTargetCurve();
+    if (!curveData) return;
+
+    // Continuity logic is not applicable for the first/last nodes of a curve
+    if (sel.index === 0 || sel.index === curveData.controlPoints.length - 1) return;
 
     this.continuityLevel = level;
     this.dispatchEvent(new CustomEvent('continuity-changed', {
