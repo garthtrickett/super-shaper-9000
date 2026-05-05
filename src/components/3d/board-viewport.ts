@@ -24,6 +24,8 @@ export interface RustMesh {
   colors: Float32Array;
   normals: Float32Array;
   volumeLiters: number;
+  vertexCount: number;
+  triangleCount: number;
 }
 
 @customElement("board-viewport")

@@ -54,6 +54,9 @@ impl WasmEngine {
     pub fn get_mesh(&self) -> Result<JsValue, JsValue> {
         let mesh = self.engine.compute_mesh();
         let obj = Object::new();
+
+        let vertex_count = mesh.vertices.len() / 3;
+        let triangle_count = mesh.indices.len() / 3;
         
         Reflect::set(&obj, &JsValue::from_str("vertices"), &Float32Array::from(mesh.vertices.as_slice()))?;
         Reflect::set(&obj, &JsValue::from_str("indices"), &Uint32Array::from(mesh.indices.as_slice()))?;
@@ -61,8 +64,10 @@ impl WasmEngine {
         Reflect::set(&obj, &JsValue::from_str("colors"), &Float32Array::from(mesh.colors.as_slice()))?;
         Reflect::set(&obj, &JsValue::from_str("normals"), &Float32Array::from(mesh.normals.as_slice()))?;
         Reflect::set(&obj, &JsValue::from_str("volumeLiters"), &JsValue::from_f64(mesh.volume_liters as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("vertexCount"), &JsValue::from_f64(vertex_count as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("triangleCount"), &JsValue::from_f64(triangle_count as f64))?;
         
-                Ok(obj.into())
+        Ok(obj.into())
     }
 
     #[wasm_bindgen]

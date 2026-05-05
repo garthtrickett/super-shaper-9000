@@ -179,6 +179,8 @@ export class BoardBuilderPage extends LitElement {
 
     override render() {
     const state = this.wasmCtrl.model || INITIAL_STATE;
+    const vertexCount = this.wasmCtrl.mesh?.vertexCount || 0;
+    const triangleCount = this.wasmCtrl.mesh?.triangleCount || 0;
 
     return html`
       ${this._renderExportModal()}
@@ -191,6 +193,8 @@ export class BoardBuilderPage extends LitElement {
           .width=${state.width}
           .thickness=${state.thickness}
           .volume=${state.volume}
+          .vertexCount=${vertexCount}
+          .triangleCount=${triangleCount}
           .finSetup=${state.finSetup}
           .frontFinZ=${state.frontFinZ}
           .frontFinX=${state.frontFinX}

@@ -28,6 +28,8 @@ export class BoardControls extends LitElement {
     @property({ type: Boolean }) showApexRocker = true;
   @property({ type: Boolean }) showCrossSections = true;
   @property({ type: Boolean }) showCurvature = false;
+  @property({ type: Number }) vertexCount = 0;
+  @property({ type: Number }) triangleCount = 0;
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -215,19 +217,34 @@ export class BoardControls extends LitElement {
           </label>
         </div>
 
-        <!-- Top HUD Panel (Volume & Weight) -->
-        <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 flex items-center justify-around shadow-inner">
+        <!-- Top HUD Panel -->
+        <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 grid grid-cols-2 gap-y-4 gap-x-2 shadow-inner">
+          <!-- Volume -->
           <div class="flex flex-col items-center">
             <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Est. Volume</span>
             <div class="text-2xl font-black text-blue-500 tracking-tighter">
               ${this.volume.toFixed(1)}<span class="text-sm text-zinc-400 ml-1">L</span>
             </div>
           </div>
-          <div class="w-px h-8 bg-zinc-800"></div>
+          <!-- Weight -->
           <div class="flex flex-col items-center">
             <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Est. Weight</span>
             <div class="text-2xl font-black text-emerald-500 tracking-tighter">
               ${this.estimatedWeight.toFixed(1)}<span class="text-sm text-zinc-400 ml-1">kg</span>
+            </div>
+          </div>
+          <!-- Vertices -->
+          <div class="flex flex-col items-center pt-2 border-t border-zinc-800">
+            <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Vertices</span>
+            <div class="text-xl font-black text-zinc-400 tracking-tighter">
+              ${(this.vertexCount / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
+            </div>
+          </div>
+          <!-- Triangles -->
+          <div class="flex flex-col items-center pt-2 border-t border-zinc-800">
+            <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Triangles</span>
+            <div class="text-xl font-black text-zinc-400 tracking-tighter">
+              ${(this.triangleCount / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
             </div>
           </div>
         </div>
