@@ -211,7 +211,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-        // Prepare Centerline Arrays for B-Rep Surface Patches (Nose and Tail)
+                // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
     let mut add_patch_centerline = |ring_index: usize, normal_z: f32| -> u32 {
         let start_idx = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
@@ -238,8 +238,55 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         start_idx
     };
 
-    let _nose_centerline_start = add_patch_centerline(0, -1.0);
-    let _tail_centerline_start = add_patch_centerline(segments_v, 1.0);
+    // --- Cap Generation (Nose) ---
+    let nose_centerline_start = add_patch_centerline(0, -1.0);
+    let nose_ring_start = 0 as u32;
+
+    // Right side of nose
+    for j in 0..right_half_cols - 1 {
+        let a = nose_ring_start + j as u32;
+        let b = a + 1;
+        let c = nose_centerline_start + j as u32;
+        let d = c + 1;
+        // Reversed winding for nose (faces -Z)
+        indices.push(a); indices.push(d); indices.push(b);
+        indices.push(a); indices.push(c); indices.push(d);
+    }
+
+    // Left side of nose
+    for k in 0..right_half_cols - 1 {
+        let a = nose_ring_start + (num_cols - 1 - k) as u32;
+        let b = nose_ring_start + (num_cols - 1 - (k + 1)) as u32;
+        let c = nose_centerline_start + k as u32;
+        let d = c + 1;
+        // Reversed winding for nose
+        indices.push(a); indices.push(d); indices.push(b);
+        indices.push(a); indices.push(c); indices.push(d);
+    }
+
+    // --- Cap Generation (Tail) ---
+    let tail_centerline_start = add_patch_centerline(segments_v, 1.0);
+    let tail_ring_start = (segments_v * num_cols) as u32;
+
+    // Right side of tail
+    for j in 0..right_half_cols - 1 {
+        let a = tail_ring_start + j as u32;
+        let b = a + 1;
+        let c = tail_centerline_start + j as u32;
+        let d = c + 1;
+        indices.push(a); indices.push(b); indices.push(d);
+        indices.push(a); indices.push(d); indices.push(c);
+    }
+
+    // Left side of tail
+    for k in 0..right_half_cols - 1 {
+        let a = tail_ring_start + (num_cols - 1 - k) as u32;
+        let b = tail_ring_start + (num_cols - 1 - (k + 1)) as u32;
+        let c = tail_centerline_start + k as u32;
+        let d = c + 1;
+        indices.push(a); indices.push(b); indices.push(d);
+        indices.push(a); indices.push(d); indices.push(c);
+    }
 
     RawGeometryData {
         vertices,
