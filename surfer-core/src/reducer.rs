@@ -368,10 +368,25 @@ mod tests {
         update(&mut model, action);
 
         assert_eq!(model.width, 22.0);
-        let outline = model.outline.as_ref().unwrap();
+                let outline = model.outline.as_ref().unwrap();
         // 5.0 * 1.1 = 5.5
         assert_eq!(outline.control_points[1].x, 5.5);
         assert_eq!(outline.tangents1[1].x, 5.5);
         assert_eq!(outline.tangents2[1].x, 5.5);
+    }
+
+    #[test]
+    fn test_mri_disables_zebra() {
+        let mut model = create_mock_model();
+        model.show_zebra = Some(true);
+        
+        let action = BoardAction::UpdateBoolean {
+            param: "showMriView".to_string(),
+            value: true,
+        };
+        update(&mut model, action);
+        
+        assert_eq!(model.show_mri_view, Some(true));
+        assert_eq!(model.show_zebra, Some(false));
     }
 }

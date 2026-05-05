@@ -92,11 +92,50 @@ describe("BoardControls (UI Component)", () => {
       const curveInput = curveLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement;
       expect(curveInput, "Could not find checkbox input associated with 'Curvature' label").to.exist;
 
-      curveInput.checked = true;
+            curveInput.checked = true;
       curveInput.dispatchEvent(new Event("change"));
 
       expect(spy.calledOnce).to.be.true;
       expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "showCurvature", value: true });
+    });
+
+    it("should emit boolean-changed event when MRI Slice toggle is clicked", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("boolean-changed", spy);
+
+      const labels = Array.from(el.querySelectorAll("label"));
+      const mriLabel = labels.find(l => l.textContent?.includes("MRI Slice"));
+      expect(mriLabel, "Could not find a label for 'MRI Slice'").to.exist;
+
+      const mriInput = mriLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      expect(mriInput, "Could not find checkbox input associated with 'MRI Slice' label").to.exist;
+
+      mriInput.checked = true;
+      mriInput.dispatchEvent(new Event("change"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "showMriView", value: true });
+    });
+
+    it("should emit number-changed event when Slice Position slider is moved", async () => {
+      // Provide showMriView = true so the conditional slider renders
+      const el = await fixture<BoardControls>(html`<board-controls .showMriView=${true}></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("number-changed", spy);
+
+      const labels = Array.from(el.querySelectorAll("label"));
+      const positionLabel = labels.find(l => l.textContent?.includes("Slice Position"));
+      expect(positionLabel, "Could not find a label for 'Slice Position'").to.exist;
+
+      const positionInput = positionLabel!.parentElement!.parentElement!.querySelector('input[type="range"]') as HTMLInputElement;
+      expect(positionInput, "Could not find range input associated with 'Slice Position' label").to.exist;
+
+      positionInput.value = "75";
+      positionInput.dispatchEvent(new Event("input"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "mriSlicePosition", value: 75 });
     });
   });
 

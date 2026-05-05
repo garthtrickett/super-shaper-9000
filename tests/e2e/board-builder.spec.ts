@@ -77,14 +77,16 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls).toBeVisible();
 
     // 3. Locate the checkboxes via their wrapping labels
-    const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Heatmap/i }).locator('input[type="checkbox"]');
+        const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Heatmap/i }).locator('input[type="checkbox"]');
     const zebraCheckbox = boardControls.locator('label').filter({ hasText: /Zebra Flow/i }).locator('input[type="checkbox"]');
     const curvatureCheckbox = boardControls.locator('label').filter({ hasText: /Curvature/i }).locator('input[type="checkbox"]');
+    const mriCheckbox = boardControls.locator('label').filter({ hasText: /MRI Slice/i }).locator('input[type="checkbox"]');
 
     // 4. Initially all should be off (based on INITIAL_STATE)
     await expect(heatmapCheckbox).not.toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
     await expect(curvatureCheckbox).not.toBeChecked();
+    await expect(mriCheckbox).not.toBeChecked();
 
     // 5. Turn on Curvature (should not affect others)
     console.info("Testing: Enabling Curvature");
@@ -107,10 +109,24 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(heatmapCheckbox).not.toBeChecked();
     await expect(curvatureCheckbox).toBeChecked(); // Curvature should still be checked
 
-    // 8. Turn on Heatmap again (Zebra should auto-disable)
+        // 8. Turn on Heatmap again (Zebra should auto-disable)
     console.info("Testing: Re-enabling Heatmap (Should disable Zebra Flow)");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
+
+    // 9. Turn on MRI Slice (Should disable Zebra Flow via Rust Reducer)
+    console.info("Testing: Enabling MRI Slice (Should disable Zebra Flow)");
+    await zebraCheckbox.check({ force: true }); // Turn Zebra back on first to test the override
+    await expect(zebraCheckbox).toBeChecked();
+    
+    await mriCheckbox.check({ force: true });
+    await expect(mriCheckbox).toBeChecked();
+    // Verify WASM pipeline successfully mutated state and updated UI
+    await expect(zebraCheckbox).not.toBeChecked();
+
+    // 10. Verify the Slice Position slider dynamically appears in the DOM
+    const sliceSliderLabel = boardControls.locator('label').filter({ hasText: /Slice Position/i });
+    await expect(sliceSliderLabel).toBeVisible();
   });
 });
