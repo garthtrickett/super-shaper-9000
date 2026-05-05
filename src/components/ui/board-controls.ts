@@ -26,8 +26,10 @@ export class BoardControls extends LitElement {
   @property({ type: Boolean }) showApexOutline = true;
   @property({ type: Boolean }) showRailOutline = true;
     @property({ type: Boolean }) showApexRocker = true;
-  @property({ type: Boolean }) showCrossSections = true;
+    @property({ type: Boolean }) showCrossSections = true;
   @property({ type: Boolean }) showCurvature = false;
+  @property({ type: Boolean }) showMriView = false;
+  @property({ type: Number }) mriSlicePosition = 50.0;
   @property({ type: Number }) vertexCount = 0;
   @property({ type: Number }) triangleCount = 0;
 
@@ -212,10 +214,29 @@ export class BoardControls extends LitElement {
               type="checkbox" 
               .checked=${this.showCurvature} 
               @change=${(e: Event) => this._dispatchBoolean('showCurvature', (e.target as HTMLInputElement).checked)} 
-              class="w-3 h-3 accent-fuchsia-500 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
+                            class="w-3 h-3 accent-fuchsia-500 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
+            />
+          </label>
+
+          <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showMriView ? 'ring-1 ring-cyan-400/50' : ''}">
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+              <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">MRI Slice</span>
+            </div>
+            <input 
+              type="checkbox" 
+              .checked=${this.showMriView} 
+              @change=${(e: Event) => this._dispatchBoolean('showMriView', (e.target as HTMLInputElement).checked)} 
+              class="w-3 h-3 accent-cyan-400 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
             />
           </label>
         </div>
+
+        ${this.showMriView ? html`
+          <div class="mb-4 bg-zinc-950 p-3 rounded border border-cyan-900/50 shadow-inner">
+            ${this._renderSlider("Slice Position", "mriSlicePosition", 0, 100, 0.1, this.mriSlicePosition, "%")}
+          </div>
+        ` : ''}
 
         <!-- Top HUD Panel -->
         <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 grid grid-cols-2 gap-y-4 gap-x-2 shadow-inner">
