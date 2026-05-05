@@ -142,7 +142,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 grid[i + 1][j].0 - grid[i - 1][j].0
             };
 
-            let tangent_u = if j > 0 && j < segments_u + 1 && j != segments_u / 2 && j != segments_u / 2 + 1 {
+                        let right_tuck_j = segments_u / 8;
+            let left_tuck_j = segments_u / 2 + 1 + (segments_u * 3) / 8;
+
+            let tangent_u = if j == right_tuck_j {
+                grid[i][j + 1].0 - grid[i][j].0
+            } else if j == left_tuck_j {
+                grid[i][j].0 - grid[i][j - 1].0
+            } else if j > 0 && j < segments_u + 1 && j != segments_u / 2 && j != segments_u / 2 + 1 {
                 grid[i][j + 1].0 - grid[i][j - 1].0
             } else if j == 0 {
                 grid[i][1].0 - grid[i][0].0
