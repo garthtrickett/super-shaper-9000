@@ -20,6 +20,7 @@ export class BoardBuilderPage extends LitElement {
   @state() private showImportModal = false;
   @state() private importError = "";
   @state() private importJson = "";
+  @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
 
   protected override createRenderRoot() { return this; }
 
@@ -136,6 +137,30 @@ export class BoardBuilderPage extends LitElement {
   override disconnectedCallback() {
     window.removeEventListener("keydown", this._handleKeyDown);
     super.disconnectedCallback();
+  }
+
+    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+    const { userData, position } = e.detail;
+    
+    // Dispatch the primary node position update
+    this.wasmCtrl.propose({
+      type: "UPDATE_NODE_POSITION",
+      curve: userData.curve,
+      nodeType: userData.type,
+      index: userData.index,
+      position: position
+    });
+
+    // If a continuity lock is active for the selected node, dispatch a follow-up action to the solver
+    if (this._selectedNodeContinuity !== 'G0' && (userData.type === 'tangent1' || userData.type === 'tangent2')) {
+      this.wasmCtrl.propose({
+        type: 'APPLY_CONTINUITY',
+        curve: userData.curve,
+        index: userData.index,
+        level: this._selectedNodeContinuity,
+        master: userData.type
+      });
+    }
   }
 
   private _renderImportModal() {
@@ -259,25 +284,21 @@ export class BoardBuilderPage extends LitElement {
           .curvatureCombs=${this.wasmCtrl.curvatureCombs}
                     @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.wasmCtrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
-            this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
+                        this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
+            // Reset continuity to a safe default when a new node is selected
+            this._selectedNodeContinuity = 'G1';
           }}
           @gizmo-drag-ended=${() => this.wasmCtrl.propose({ type: "SAVE_HISTORY_SNAPSHOT" })}
-          @gizmo-dragged=${(e: CustomEvent<{ userData: { type: 'anchor'|'tangent1'|'tangent2', curve: string, index: number }, position:[number, number, number] }>) => {
-            this.wasmCtrl.propose({
-              type: "UPDATE_NODE_POSITION",
-              curve: e.detail.userData.curve,
-              nodeType: e.detail.userData.type,
-              index: e.detail.userData.index,
-              position: e.detail.position
-            });
-          }}
+                    @gizmo-dragged=${this._handleGizmoDrag}
         ></board-viewport>
 
         ${state.selectedNode ? html`
           <node-inspector
             class="absolute top-16 right-4 z-20 w-[340px]"
             .boardState=${state}
-                        @update-node=${(e: CustomEvent<{ curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }>) => this.wasmCtrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+                                    @update-node=${(e: CustomEvent) => this.wasmCtrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+            @apply-continuity=${(e: CustomEvent) => this.wasmCtrl.propose({ type: "APPLY_CONTINUITY", ...e.detail })}
+            @continuity-changed=${(e: CustomEvent<{ level: 'G0' | 'G1' | 'G2' }>) => this._selectedNodeContinuity = e.detail.level}
           ></node-inspector>
         ` : ''}
       </div>

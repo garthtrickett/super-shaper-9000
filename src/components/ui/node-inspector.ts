@@ -5,7 +5,7 @@ import type { BoardModel, Point3D, BezierCurveData } from "../pages/board-builde
 @customElement("node-inspector")
 export class NodeInspector extends LitElement {
   @property({ type: Object }) boardState!: BoardModel;
-  @state() private c1Locked = true;
+  @state() private continuityLevel: "G0" | "G1" | "G2" = "G1";
 
   protected override createRenderRoot() { 
     return this; 
@@ -82,30 +82,61 @@ export class NodeInspector extends LitElement {
     }));
   }
 
-  private _handleTangentChange(isT1: boolean, prop: 'len' | 'ang', val: number) {
+    private _handleTangentChange(isT1: boolean, prop: 'len' | 'ang', val: number) {
     const sel = this.boardState.selectedNode!;
     const curveData = this._getTargetCurve()!;
     const anc = curveData.controlPoints[sel.index]!;
-    
+
     const t1Polar = this._getPolar(sel.curve, curveData.tangents1[sel.index]!, anc);
     const t2Polar = this._getPolar(sel.curve, curveData.tangents2[sel.index]!, anc);
 
-    if (isT1) t1Polar[prop] = val;
-    else t2Polar[prop] = val;
-
-    // Enforce C1 Continuity Lock if active
-    if (this.c1Locked && prop === 'ang') {
-      if (isT1) t2Polar.ang = (t1Polar.ang + 180) % 360;
-      else t1Polar.ang = (t2Polar.ang + 180) % 360;
+    if (isT1) {
+      t1Polar[prop] = val;
+    } else {
+      t2Polar[prop] = val;
     }
 
     const newT1 = this._getPt(sel.curve, t1Polar.len, t1Polar.ang, anc);
     const newT2 = this._getPt(sel.curve, t2Polar.len, t2Polar.ang, anc);
 
+    // Dispatch the direct update first
     this.dispatchEvent(new CustomEvent('update-node', {
       detail: { curve: sel.curve, index: sel.index, tangent1: newT1, tangent2: newT2 },
       bubbles: true, composed: true
     }));
+
+    // If continuity is active, dispatch a follow-up action for the solver
+    if (this.continuityLevel !== 'G0') {
+      const master = isT1 ? 'tangent1' : 'tangent2';
+      this.dispatchEvent(new CustomEvent('apply-continuity', {
+        detail: {
+          curve: sel.curve,
+          index: sel.index,
+          level: this.continuityLevel,
+          master,
+        },
+        bubbles: true, composed: true
+      }));
+    }
+  }
+
+  private _handleContinuityChange(level: 'G0' | 'G1' | 'G2') {
+    const sel = this.boardState.selectedNode!;
+    if (!sel || index === 0 || index === curveData.controlPoints.length - 1) return;
+
+    this.continuityLevel = level;
+    this.dispatchEvent(new CustomEvent('continuity-changed', {
+      detail: { level },
+      bubbles: true, composed: true
+    }));
+
+    // Immediately apply the new constraint
+    if (level !== 'G0') {
+      this.dispatchEvent(new CustomEvent('apply-continuity', {
+        detail: { curve: sel.curve, index: sel.index, level, master: 'tangent1' },
+        bubbles: true, composed: true
+      }));
+    }
   }
 
   override render() {
@@ -122,7 +153,8 @@ export class NodeInspector extends LitElement {
 
     const isOutline = sel.curve === 'outline';
     const isRocker = sel.curve.startsWith('rocker');
-    const isSlice = sel.curve.startsWith('crossSection');
+        const isSlice = sel.curve.startsWith('crossSection');
+    const isEndNode = sel.index === 0 || sel.index === curveData.controlPoints.length -1;
 
     const renderInput = (label: string, value: number, disabled: boolean, onChange: (v: number) => void) => html`
       <div class="flex items-center justify-between mb-2">
@@ -155,19 +187,28 @@ export class NodeInspector extends LitElement {
           ${renderInput('Z (L)', anc[2], isSlice, (v) => this._handleAnchorChange(2, v))}
         </div>
 
+                ${isEndNode ? '' : html`
         <div class="mb-4">
           <div class="flex justify-between items-center mb-2">
-            <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Tangents (Handles)</h4>
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input 
-                type="checkbox" 
-                .checked=${this.c1Locked}
-                @change=${(e: Event) => { this.c1Locked = (e.target as HTMLInputElement).checked; }}
-                class="accent-blue-500 rounded bg-zinc-950 border-zinc-700 w-3 h-3"
-              />
-              <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">C1 Lock</span>
-            </label>
+            <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Joint Continuity</h4>
           </div>
+          <div class="flex w-full bg-zinc-950 border border-zinc-800 rounded-md p-1 space-x-1">
+            ${['G0', 'G1', 'G2'].map(level => html`
+              <button 
+                @click=${() => this._handleContinuityChange(level as 'G0' | 'G1' | 'G2')}
+                class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider rounded py-1 transition-colors 
+                  ${this.continuityLevel === level 
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-zinc-400 hover:bg-zinc-800'}"
+              >
+                ${{ G0: 'Free', G1: 'Smooth', G2: 'Fair' }[level]}
+              </button>
+            `)}
+          </div>
+        </div>`}
+
+        <div class="mb-4">
+          <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Tangents (Handles)</h4>
           
           <div class="grid grid-cols-2 gap-4">
             <div class="bg-zinc-950/50 p-2 rounded border border-zinc-800">
