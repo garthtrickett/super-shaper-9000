@@ -197,8 +197,9 @@ export type BoardAction =
   | { type: "LOAD_DESIGN"; state: BoardModel }
   | { type: "SET_CURVES"; outline?: BezierCurveData; railOutline?: BezierCurveData; apexOutline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
   | { type: "UPDATE_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
-  | { type: "SELECT_NODE"; node: SelectedNode | null }
+    | { type: "SELECT_NODE"; node: SelectedNode | null }
   | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D }
+  | { type: "APPLY_CONTINUITY"; curve: string; index: number; level: "G0" | "G1" | "G2"; master?: string }
   | { type: "SAVE_HISTORY_SNAPSHOT" }
   | { type: "UNDO" }
   | { type: "REDO" }
