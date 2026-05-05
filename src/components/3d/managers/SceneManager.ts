@@ -49,8 +49,9 @@ export class SceneManager {
     this.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.localClippingEnabled = true;
 
     // 4. Environment & Lighting
     this.setupLighting();

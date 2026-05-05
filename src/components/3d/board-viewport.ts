@@ -53,8 +53,9 @@ export class BoardViewport extends LitElement {
     private sliceLinesGroup = new THREE.Group();
   private apexLineGroup = new THREE.Group();
   private curvatureGroup = new THREE.Group();
-  private zebraOffset = 0;
+    private zebraOffset = 0;
   private latestCurves?: BoardCurves;
+  private mriClippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1000);
     
   private matAnchor = new THREE.MeshBasicMaterial({ color: 0x2563eb, depthTest: false });
   private matHandle = new THREE.MeshBasicMaterial({ color: 0x71717a, depthTest: false });
@@ -94,7 +95,7 @@ export class BoardViewport extends LitElement {
           if (this.boardState[k] !== oldState[k]) {
             if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker'].includes(k)) {
               isManualDragUpdate = true;
-                        } else if (!['volume', 'selectedNode', 'showGizmos', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature'].includes(k)) {
+                                                } else if (!['volume', 'selectedNode', 'showGizmos', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition'].includes(k)) {
               needsFullGeometryUpdate = true;
               isManualDragUpdate = false;
               break;
@@ -117,9 +118,21 @@ export class BoardViewport extends LitElement {
                 if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
         if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
         if (oldState?.showApexLine !== this.boardState.showApexLine) this.apexLineGroup.visible = !!this.boardState.showApexLine;
-        if (oldState?.showCurvature !== this.boardState.showCurvature) {
+                if (oldState?.showCurvature !== this.boardState.showCurvature) {
           CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
         }
+      }
+
+      // Update clipping plane dynamically without rebuilding geometry
+      if (this.boardState.showMriView) {
+        const pct = this.boardState.mriSlicePosition ?? 50.0;
+        const scale = 1 / 12;
+        const L = this.boardState.length * scale;
+        const sliceZ = -L/2 + (L * (pct / 100.0));
+        this.mriClippingPlane.normal.set(0, 0, -1);
+        this.mriClippingPlane.constant = sliceZ;
+      } else {
+        this.mriClippingPlane.constant = 1000; // Disable clipping by moving plane far away
       }
     }
   }
@@ -265,30 +278,39 @@ export class BoardViewport extends LitElement {
     }
 
     const { map, bumpMap } = this.textureManager.getBoardTextures();
-    const standardMat = new THREE.MeshPhysicalMaterial({ 
+        const standardMat = new THREE.MeshPhysicalMaterial({ 
       map, bumpMap, bumpScale: 0.005, roughness: 0.4, metalness: 0.0, 
       clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.5, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      clippingPlanes: [this.mriClippingPlane]
     });
     const heatmapMat = new THREE.MeshStandardMaterial({ 
       vertexColors: true, roughness: 0.8, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      clippingPlanes:[this.mriClippingPlane]
     });
     const zebraMat = new THREE.MeshStandardMaterial({ 
       color: 0xffffff, metalness: 1.0, roughness: 0.0, envMap: this.textureManager.getZebraTexture(), side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      clippingPlanes:[this.mriClippingPlane]
     });
     let activeMat: THREE.Material = standardMat;
     if (this.boardState!.showHeatmap) activeMat = heatmapMat;
     else if (this.boardState!.showZebra) activeMat = zebraMat;
     const mesh = new THREE.Mesh(geom, activeMat);
-    mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
+        mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
     this.solidGroup.add(mesh);
-    const blueprintMat = new THREE.MeshBasicMaterial({ color: 0x09090b, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide });
+
+    const capMat = new THREE.MeshBasicMaterial({ color: 0x475569, side: THREE.BackSide, clippingPlanes:[this.mriClippingPlane] });
+    const capMesh = new THREE.Mesh(geom, capMat);
+    capMesh.layers.set(0);
+    this.solidGroup.add(capMesh);
+
+    const blueprintMat = new THREE.MeshBasicMaterial({ color: 0x09090b, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide, clippingPlanes: [this.mriClippingPlane] });
     const blueprintMesh = new THREE.Mesh(geom, blueprintMat);
     blueprintMesh.layers.set(5); this.solidGroup.add(blueprintMesh);
     const edgesGeo = new THREE.EdgesGeometry(geom, 15);
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4 });
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4, clippingPlanes:[this.mriClippingPlane] });
     const blueprintEdges = new THREE.LineSegments(edgesGeo, edgesMat);
     blueprintEdges.layers.set(5); this.solidGroup.add(blueprintEdges);
   }
@@ -308,30 +330,39 @@ export class BoardViewport extends LitElement {
       this.dispatchEvent(new CustomEvent("volume-calculated", { detail: { volume: meshData.volumeLiters }, bubbles: true, composed: true }));
     }
     const { map, bumpMap } = this.textureManager.getBoardTextures();
-    const standardMat = new THREE.MeshPhysicalMaterial({ 
+        const standardMat = new THREE.MeshPhysicalMaterial({ 
       map, bumpMap, bumpScale: 0.005, roughness: 0.4, metalness: 0.0, 
       clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.5, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      clippingPlanes: [this.mriClippingPlane]
     });
     const heatmapMat = new THREE.MeshStandardMaterial({ 
       vertexColors: true, roughness: 0.8, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      clippingPlanes: [this.mriClippingPlane]
     });
     const zebraMat = new THREE.MeshStandardMaterial({ 
       color: 0xffffff, metalness: 1.0, roughness: 0.0, envMap: this.textureManager.getZebraTexture(), side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      clippingPlanes: [this.mriClippingPlane]
     });
     let activeMat: THREE.Material = standardMat;
     if (this.boardState!.showHeatmap) activeMat = heatmapMat;
     else if (this.boardState!.showZebra) activeMat = zebraMat;
     const mesh = new THREE.Mesh(geom, activeMat);
-    mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
+        mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
     this.solidGroup.add(mesh);
-    const blueprintMat = new THREE.MeshBasicMaterial({ color: 0x09090b, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide });
+
+    const capMat = new THREE.MeshBasicMaterial({ color: 0x475569, side: THREE.BackSide, clippingPlanes: [this.mriClippingPlane] });
+    const capMesh = new THREE.Mesh(geom, capMat);
+    capMesh.layers.set(0);
+    this.solidGroup.add(capMesh);
+
+    const blueprintMat = new THREE.MeshBasicMaterial({ color: 0x09090b, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide, clippingPlanes: [this.mriClippingPlane] });
     const blueprintMesh = new THREE.Mesh(geom, blueprintMat);
     blueprintMesh.layers.set(5); this.solidGroup.add(blueprintMesh);
     const edgesGeo = new THREE.EdgesGeometry(geom, 15);
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4 });
+    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4, clippingPlanes: [this.mriClippingPlane] });
     const blueprintEdges = new THREE.LineSegments(edgesGeo, edgesMat);
     blueprintEdges.layers.set(5); this.solidGroup.add(blueprintEdges);
   }
