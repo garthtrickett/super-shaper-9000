@@ -676,6 +676,28 @@ mod tests {
         assert!((narrow_rail_width - wide_rail_width).abs() < 1e-4, "Rail width must be preserved regardless of overall board width.");
         assert!(wide_rail_width > 0.0, "Rail width should be positive.");
 
-        println!("✅ test_absolute_rail_preservation passed.");
+                println!("✅ test_absolute_rail_preservation passed.");
+    }
+
+    #[test]
+    fn test_radial_ease() {
+        let eps = 1e-5;
+        
+        // EaseIn: Should start slow and accelerate (midpoint < 0.5)
+        assert!((radial_ease(0.0, EaseType::EaseIn) - 0.0).abs() < eps);
+        assert!((radial_ease(1.0, EaseType::EaseIn) - 1.0).abs() < eps);
+        assert!(radial_ease(0.5, EaseType::EaseIn) < 0.5);
+        
+        // EaseOut: Should start fast and decelerate (midpoint > 0.5)
+        assert!((radial_ease(0.0, EaseType::EaseOut) - 0.0).abs() < eps);
+        assert!((radial_ease(1.0, EaseType::EaseOut) - 1.0).abs() < eps);
+        assert!(radial_ease(0.5, EaseType::EaseOut) > 0.5);
+
+        // EaseInOut: Should be symmetric (midpoint == 0.5)
+        assert!((radial_ease(0.0, EaseType::EaseInOut) - 0.0).abs() < eps);
+        assert!((radial_ease(1.0, EaseType::EaseInOut) - 1.0).abs() < eps);
+        assert!((radial_ease(0.5, EaseType::EaseInOut) - 0.5).abs() < eps);
+
+        println!("✅ test_radial_ease passed.");
     }
 }
