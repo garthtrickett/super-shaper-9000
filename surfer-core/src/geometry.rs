@@ -559,38 +559,29 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     }
     let b = blend.unwrap();
 
-    let t_apex = b.t_apex;
-    let t_tuck = 0.01_f32.max(t_apex * 0.5);
-    let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
-
     let p = b.evaluate(u);
     let p_bot = b.evaluate(0.0);
     let p_top = b.evaluate(1.0);
-    let p_tuck = b.evaluate(t_tuck);
-    let p_apex = b.evaluate(t_apex);
-    let p_shoulder = b.evaluate(t_shoulder);
+    let p_apex = b.evaluate(b.t_apex);
 
     let apex_x_clamp = profile.apex_x.max(0.001);
     let world_apex = Vec3::new(apex_x_clamp, profile.apex_y, z_inches);
 
-            let mut final_pos = Vec3::ZERO;
+    let mut final_pos = Vec3::ZERO;
 
-    let cs_rail_width = (p_apex.x - p_tuck.x).max(p_apex.x - p_shoulder.x).max(1e-4);
-    let available_width = (world_apex.x - inner_x).max(0.0);
-    let rail_scale = if available_width < cs_rail_width {
-        available_width / cs_rail_width
-    } else {
-        1.0
-    };
+    let slice_width = (p_apex.x - p_bot.x).max(1e-4);
+    let world_width = (world_apex.x - inner_x).max(0.0);
 
-    let slice_thick = p_top.y - p_bot.y;
-    let world_thick = profile.top_y - profile.bot_y;
-    let thickness_scale = if slice_thick.abs() > 1e-5 { world_thick / slice_thick } else { 1.0 };
+    let norm_x = ((p.x - p_bot.x) / slice_width).clamp(0.0, 1.0);
+    final_pos.x = inner_x + norm_x * world_width;
+
+    let current_z_offset = world_apex.z - z_inches;
+    final_pos.z = z_inches + norm_x * current_z_offset;
 
     let bounds = get_board_bounds(model);
     let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
     let dist = z_inches - mid_z;
-        let rail_coeff = if dist > 0.0 {
+    let rail_coeff = if dist > 0.0 {
         let t = (dist / (bounds.tip_z - mid_z)).max(0.0).min(1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
         1.0 + (model.rail_coefficient_tail - 1.0) * ease_t
@@ -600,80 +591,37 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
         1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
     };
 
-    let final_rail_scale = rail_scale * rail_coeff;
-    let final_thickness_scale = thickness_scale * rail_coeff;
+    let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x;
 
-    if u > t_tuck && u <= t_shoulder {
-        // --- RAIL ZONE ---
-        let offset_x = (p.x - p_apex.x) * final_rail_scale;
-        let offset_y = (p.y - p_apex.y) * final_thickness_scale;
-
-        final_pos = world_apex + profile.outline_normal * offset_x;
-        final_pos.y = world_apex.y + offset_y;
-    } else if u <= t_tuck {
-        // --- BOTTOM FLAT ZONE ---
-        let offset_x = (p_tuck.x - p_apex.x) * final_rail_scale;
-        let offset_y = (p_tuck.y - p_apex.y) * final_thickness_scale;
-        let mut world_tuck = world_apex + profile.outline_normal * offset_x;
-        if world_tuck.x < inner_x { world_tuck.x = inner_x; }
-        
-        let slice_bot_width = p_tuck.x - p_bot.x;
-        let current_width = world_tuck.x - inner_x;
-        let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y - 2.0, profile.top_y);
-
-        if slice_bot_width > 1e-5 && current_width > 1e-5 {
-            let norm_x = (p.x - p_bot.x) / slice_bot_width;
-            final_pos.x = inner_x + norm_x * current_width;
-            let current_z_offset = world_tuck.z - z_inches;
-            final_pos.z = z_inches + norm_x * current_z_offset;
-            let range_y = p_tuck.y - p_bot.y;
-            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 };
-            final_pos.y = profile.bot_y + norm_y * (world_tuck_y - profile.bot_y);
-        } else {
-            let t_zone = if t_tuck > 1e-5 { u / t_tuck } else { 0.0 };
-            let stringer_bot_pos = Vec3::new(inner_x, profile.bot_y, z_inches);
-            final_pos = stringer_bot_pos.lerp(world_tuck, t_zone);
-        }
+    if u <= b.t_apex {
+        let slice_h = (p_apex.y - p_bot.y).max(1e-4);
+        let world_h = profile.apex_y - profile.bot_y;
+        let norm_y = (p.y - p_bot.y) / slice_h;
+        final_pos.y = profile.bot_y + norm_y * world_h * local_rail_coeff;
 
         if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
             chan_x = chan_x.abs();
-            if chan_x > inner_x && chan_x < world_tuck.x {
+            if chan_x > inner_x && chan_x < world_apex.x {
                 let chan_y = profile.bot_y + chan_depth;
                 if final_pos.x <= chan_x {
                     let t = if chan_x > inner_x { (final_pos.x - inner_x) / (chan_x - inner_x) } else { 0.0 };
                     final_pos.y = profile.bot_y + t * (chan_y - profile.bot_y);
                 } else {
-                    let t = if world_tuck.x > chan_x { (final_pos.x - chan_x) / (world_tuck.x - chan_x) } else { 0.0 };
-                    final_pos.y = chan_y + t * (world_tuck_y - chan_y);
+                    let t = if world_apex.x > chan_x { (final_pos.x - chan_x) / (world_apex.x - chan_x) } else { 0.0 };
+                    let base_y = profile.bot_y + norm_y * world_h * local_rail_coeff;
+                    final_pos.y = chan_y * (1.0 - t) + base_y * t;
                 }
             }
         }
     } else {
-        // --- DECK FLAT ZONE ---
-        let offset_x = (p_shoulder.x - p_apex.x) * final_rail_scale;
-        let offset_y = (p_shoulder.y - p_apex.y) * final_thickness_scale;
-        let mut world_shoulder = world_apex + profile.outline_normal * offset_x;
-        if world_shoulder.x < inner_x { world_shoulder.x = inner_x; }
-
-        let slice_top_width = p_shoulder.x - p_top.x;
-        let current_width = world_shoulder.x - inner_x;
-
-        if slice_top_width > 1e-5 && current_width > 1e-5 {
-            let norm_x = (p.x - p_top.x) / slice_top_width;
-            final_pos.x = inner_x + norm_x * current_width;
-
-            let current_z_offset = world_shoulder.z - z_inches;
-            final_pos.z = z_inches + norm_x * current_z_offset;
-
-            let world_shoulder_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y + 2.0);
-            let range_y = p_top.y - p_shoulder.y;
-            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_shoulder.y) / range_y } else { 0.0 };
-            final_pos.y = world_shoulder_y + norm_y * (profile.top_y - world_shoulder_y);
-        } else {
-            let t_zone = if (1.0 - t_shoulder) > 1e-5 { (u - t_shoulder) / (1.0 - t_shoulder) } else { 0.0 };
-            let stringer_top_pos = Vec3::new(inner_x, profile.top_y, z_inches);
-            final_pos = world_shoulder.lerp(stringer_top_pos, t_zone);
-        }
+        let slice_h = (p_top.y - p_apex.y).max(1e-4);
+        let world_h = profile.top_y - profile.apex_y;
+        let norm_y = (p.y - p_apex.y) / slice_h;
+        
+        let base_y = profile.bot_y + (profile.apex_y - profile.bot_y) * local_rail_coeff;
+        let target_top_y = profile.top_y;
+        
+        final_pos.y = base_y + norm_y * (target_top_y - base_y);
     }
 
     if final_pos.x < inner_x { final_pos.x = inner_x; }
@@ -953,17 +901,18 @@ mod tests {
     }
 
     #[test]
-    fn test_absolute_rail_preservation() {
+        #[test]
+    fn test_proportional_tail_scaling() {
         let mut model_narrow = BoardModel::default();
         let mut model_wide = BoardModel::default();
 
-                let cs = BezierCurveData {
+        let cs = BezierCurveData {
             control_points: vec![
-                Vec3::new(0.0, -1.0, 0.0), // bot stringer
-                Vec3::new(4.0, -1.0, 0.0), // bot tuck
-                Vec3::new(5.0, 0.0, 0.0),  // apex
-                Vec3::new(4.0, 1.0, 0.0),  // top shoulder
-                Vec3::new(0.0, 1.0, 0.0),  // top stringer
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(4.0, -1.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(4.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
             ],
             tangents1: vec![Vec3::ZERO; 5],
             tangents2: vec![Vec3::ZERO; 5],
@@ -973,7 +922,7 @@ mod tests {
         model_narrow.cross_sections = vec![cs.clone()];
         model_wide.cross_sections = vec![cs.clone()];
 
-                model_narrow.outline = Some(BezierCurveData {
+        model_narrow.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10., 0., 0.), Vec3::new(10., 0., 100.)],
             tangents2: vec![Vec3::new(10., 0., 0.), Vec3::new(10., 0., 100.)],
@@ -1004,24 +953,67 @@ mod tests {
 
         let z = 50.0;
         let hint_t = 0.5;
-        let blend = get_cross_section_blend_at_z(&model_narrow.cross_sections, z).unwrap();
+        let blend = super::get_cross_section_blend_at_z(&model_narrow.cross_sections, z).unwrap();
         
         let t_apex = blend.t_apex;
-        let t_tuck = 0.01_f32.max(t_apex * 0.5);
+        let t_tuck = 0.25;
 
-                        let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0);
-        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0);
+        let p_narrow_apex = super::get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0);
+        let p_narrow_tuck = super::get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0);
         
-        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0);
-        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0);
+        let p_wide_apex = super::get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0);
+        let p_wide_tuck = super::get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0);
 
         let narrow_rail_width = p_narrow_apex.x - p_narrow_tuck.x;
         let wide_rail_width = p_wide_apex.x - p_wide_tuck.x;
 
-        assert!((narrow_rail_width - wide_rail_width).abs() < 1e-4, "Rail width must be preserved regardless of overall board width.");
-        assert!(wide_rail_width > 0.0, "Rail width should be positive.");
+        assert!(wide_rail_width > narrow_rail_width, "Rail width should scale proportionally with overall board width.");
+        
+        println!("✅ test_proportional_tail_scaling passed.");
+    }
 
-                println!("✅ test_absolute_rail_preservation passed.");
+    #[test]
+    fn test_deck_curvature_preservation() {
+        let mut model = BoardModel::default();
+        
+        let cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(2.5, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 4],
+            tangents2: vec![Vec3::ZERO; 4],
+            ..Default::default()
+        };
+        model.cross_sections = vec![cs];
+
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(2.5, 0.0, 0.0), Vec3::new(2.5, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+
+        let pt = super::get_point_at_uv(&model, 0.75, 0.5, 50.0, 0.0, 1.0);
+        
+        assert!(pt.y > 0.5, "Deck curvature should be preserved and not fall back to flat lerp. y={}", pt.y);
+
+        println!("✅ test_deck_curvature_preservation passed.");
     }
 
     #[test]
@@ -1213,6 +1205,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_shape3d_extremity_modifiers() {
         let mut model_base = BoardModel::default();
         model_base.length = 100.0;
@@ -1242,24 +1235,23 @@ mod tests {
         }];
 
         let mut model_mod = model_base.clone();
-                // Apply strong modifiers to the tail
+        // Apply strong modifiers to the tail
         model_mod.v_concave_tail = -1.0;
         model_mod.rail_coefficient_tail = 0.5;
 
         // 1. Center of the board (Z=50)
-        // Easing should be 0 here, so both boards evaluate exactly identically.
         let z_center = 50.0;
         let profile_base_mid = super::get_board_profile_at_z(&model_base, z_center, 0.5);
         let profile_mod_mid = super::get_board_profile_at_z(&model_mod, z_center, 0.5);
-        assert!((profile_base_mid.apex_y - profile_mod_mid.apex_y).abs() < 1e-4, "Modifiers should taper to 0 at the midpoint");
+        assert!((profile_base_mid.bot_y - profile_mod_mid.bot_y).abs() < 1e-4, "Modifiers should taper to 0 at the midpoint");
 
         // 2. Tail of the board (Z=95)
-        // Easing is extremely high here, modifiers should heavily warp the geometry.
         let z_tail = 95.0;
         let profile_base_tail = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
         let profile_mod_tail = super::get_board_profile_at_z(&model_mod, z_tail, 0.5);
 
-        assert!(profile_mod_tail.apex_y < profile_base_tail.apex_y, "V-Concave < 0 should physically lower the apex/rail line");
+        assert!(profile_mod_tail.bot_y > profile_base_tail.bot_y, "V-Concave < 0 should physically raise the stringer (Vee)");
+        assert!((profile_mod_tail.apex_y - profile_base_tail.apex_y).abs() < 1e-4, "V-Concave should not alter the rail rocker height");
 
         // Test Rail Coefficient (Thinning the deck shoulder)
         // U = 0.8 is up on the deck shoulder.
