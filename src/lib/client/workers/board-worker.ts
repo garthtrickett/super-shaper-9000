@@ -1,5 +1,5 @@
 import init, { WasmEngine } from '../wasm/surfer_wasm.js';
-import type { BoardModel, BoardAction } from '../../../components/pages/board-builder-page.logic';
+import { type BoardModel, type BoardAction, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
 import type { RustMesh } from '../../../components/3d/board-viewport';
 
 let engine: WasmEngine | null = null;
@@ -8,6 +8,9 @@ let engine: WasmEngine | null = null;
 init().then(() => {
     engine = new WasmEngine();
     console.info("[BoardWorker] Rust WASM Engine initialized.");
+
+    // Load the default initial state into the Rust engine
+    engine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
     
     // Post initial state back
     const initialState = engine.get_state() as BoardModel;
