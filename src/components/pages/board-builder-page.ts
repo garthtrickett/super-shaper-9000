@@ -4,8 +4,6 @@ import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builder-page.logic";
-import { runClientPromise } from "../../lib/client/runtime";
-import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
@@ -51,10 +49,11 @@ export class BoardBuilderPage extends LitElement {
       
       const xml = await new Promise<string>((resolve) => {
         const id = Math.random().toString();
-        const handler = (e: MessageEvent) => {
-          if (e.data.type === "EXPORT_S3DX_RESULT" && e.data.id === id) {
+                const handler = (e: MessageEvent) => {
+          const data = e.data as { type: string; id?: string; xml?: string };
+          if (data.type === "EXPORT_S3DX_RESULT" && data.id === id) {
             worker.removeEventListener("message", handler);
-            resolve(e.data.xml);
+            resolve(data.xml!);
           }
         };
         worker.addEventListener("message", handler);
