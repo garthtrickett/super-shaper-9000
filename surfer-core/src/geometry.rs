@@ -366,11 +366,13 @@ pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a[BezierCurveData], z_
     Some(BlendResult { t_apex, s_prev, s0, s1, s_next, lerp_factor })
 }
 
-pub fn evaluate_channel_depth(model: &BoardModel, x: f32, z_inches: f32) -> f32 {
+pub fn get_channel_profile_at_z(model: &BoardModel, is_left: bool, z_inches: f32) -> Option<(f32, f32)> {
+    let mut best_profile = None;
     let mut max_depth = 0.0_f32;
+    
     if let Some(channels) = &model.bottom_channels {
         for channel in channels {
-            let (outline, depth) = if x < 0.0 {
+            let (outline, depth) = if is_left {
                 (&channel.left_outline, &channel.left_depth)
             } else {
                 (&channel.right_outline, &channel.right_depth)
@@ -383,17 +385,15 @@ pub fn evaluate_channel_depth(model: &BoardModel, x: f32, z_inches: f32) -> f32 
             let max_z = outline.control_points.last().unwrap().z;
             if z_inches >= min_z - 1e-4 && z_inches <= max_z + 1e-4 {
                 let chan_x = evaluate_bezier_at_z(outline, z_inches, 0.5).x;
-                let inside = if x < 0.0 { x >= chan_x } else { x <= chan_x };
-                if inside {
-                    let current_depth = evaluate_bezier_at_z(depth, z_inches, 0.5).y;
-                    if current_depth > max_depth {
-                        max_depth = current_depth;
-                    }
+                let current_depth = evaluate_bezier_at_z(depth, z_inches, 0.5).y;
+                if current_depth > max_depth {
+                    max_depth = current_depth;
+                    best_profile = Some((chan_x, current_depth));
                 }
             }
         }
     }
-    max_depth
+    best_profile
 }
 
 pub struct BoardProfile {
@@ -522,7 +522,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fa
     }
 }
 
-pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_x: f32, fade_factor: f32) -> Vec3 {
+pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_x: f32, fade_factor: f32, side: f32) -> Vec3 {
     let profile = get_board_profile_at_z(model, z_inches, v, fade_factor);
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
 
@@ -563,30 +563,37 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
         let mut world_tuck = world_apex + profile.outline_normal * offset_x;
         if world_tuck.x < inner_x { world_tuck.x = inner_x; }
         
-        let slice_bot_width = p_tuck.x - p_bot.x;
+                let slice_bot_width = p_tuck.x - p_bot.x;
         let current_width = world_tuck.x - inner_x;
+        let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
 
         if slice_bot_width > 1e-5 && current_width > 1e-5 {
             let norm_x = (p.x - p_bot.x) / slice_bot_width;
             final_pos.x = inner_x + norm_x * current_width;
-
             let current_z_offset = world_tuck.z - z_inches;
             final_pos.z = z_inches + norm_x * current_z_offset;
-
-            let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
             let range_y = p_tuck.y - p_bot.y;
             let norm_y = if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 };
             final_pos.y = profile.bot_y + norm_y * (world_tuck_y - profile.bot_y);
-                } else {
+        } else {
             let t_zone = if t_tuck > 1e-5 { u / t_tuck } else { 0.0 };
             let stringer_bot_pos = Vec3::new(inner_x, profile.bot_y, z_inches);
             final_pos = stringer_bot_pos.lerp(world_tuck, t_zone);
             final_pos.y = profile.bot_y;
         }
 
-        let channel_depth = evaluate_channel_depth(model, final_pos.x, z_inches);
-        if channel_depth > 0.0 {
-            final_pos.y += channel_depth * fade_factor;
+        if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
+            chan_x = chan_x.abs();
+            if chan_x > inner_x && chan_x < world_tuck.x {
+                let chan_y = profile.bot_y + chan_depth * fade_factor;
+                if final_pos.x <= chan_x {
+                    let t = if chan_x > inner_x { (final_pos.x - inner_x) / (chan_x - inner_x) } else { 0.0 };
+                    final_pos.y = profile.bot_y + t * (chan_y - profile.bot_y);
+                } else {
+                    let t = if world_tuck.x > chan_x { (final_pos.x - chan_x) / (world_tuck.x - chan_x) } else { 0.0 };
+                    final_pos.y = chan_y + t * (world_tuck_y - chan_y);
+                }
+            }
         }
     } else {
                 // --- DECK FLAT ZONE ---
@@ -831,11 +838,11 @@ mod tests {
         }];
 
         // UV 0.0 should be at the bottom stringer (inner_x = 0)
-        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0);
+                let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0, 1.0);
         assert_eq!(pt_bot_stringer.x, 0.0);
 
         // UV 1.0 should be at the top stringer (inner_x = 0)
-        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0, 1.0);
+        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0, 1.0, 1.0);
         assert_eq!(pt_top_stringer.x, 0.0);
 
         println!("✅ test_zone_based_uv_evaluation passed.");
@@ -898,11 +905,11 @@ mod tests {
         let t_apex = blend.t_apex;
         let t_tuck = 0.01_f32.max(t_apex * 0.5);
 
-        let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0);
-        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0);
+                let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0, 1.0);
+        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0, 1.0);
         
-        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0);
-        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0);
+        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0, 1.0);
+        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0, 1.0);
 
         let narrow_rail_width = p_narrow_apex.x - p_narrow_tuck.x;
         let wide_rail_width = p_wide_apex.x - p_wide_tuck.x;
@@ -1126,49 +1133,43 @@ mod tests {
                 println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
     }
 
-    #[test]
-    fn test_evaluate_channel_depth() {
+        #[test]
+    fn test_asymmetric_channel_evaluation() {
         let mut model = BoardModel::default();
         use crate::model::ChannelLayer;
         
         let chan_start_z = 25.0;
         let chan_end_z = 75.0;
-        let out_start = Vec3::new(2.0, 0.0, chan_start_z);
-        let out_end = Vec3::new(2.0, 0.0, chan_end_z);
-        let depth_start = Vec3::new(0.0, 0.5, chan_start_z);
-        let depth_end = Vec3::new(0.0, 0.5, chan_end_z);
+        let right_out_start = Vec3::new(5.0, 0.0, chan_start_z);
+        let right_out_end = Vec3::new(5.0, 0.0, chan_end_z);
+        let right_depth_start = Vec3::new(0.0, 1.0, chan_start_z);
+        let right_depth_end = Vec3::new(0.0, 1.0, chan_end_z);
 
-                model.bottom_channels = Some(vec![ChannelLayer {
+        let left_out_start = Vec3::new(-5.0, 0.0, chan_start_z);
+        let left_out_end = Vec3::new(-5.0, 0.0, chan_end_z);
+        let left_depth_start = Vec3::new(0.0, 0.5, chan_start_z);
+        let left_depth_end = Vec3::new(0.0, 0.5, chan_end_z);
+
+        model.bottom_channels = Some(vec![ChannelLayer {
             name: "Test Channel".to_string(),
-            is_symmetric: true,
-            left_outline: BezierCurveData::default(),
-            left_depth: BezierCurveData::default(),
-            right_outline: BezierCurveData {
-                control_points: vec![out_start, out_end],
-                tangents1: vec![out_start, out_end],
-                tangents2: vec![out_start, out_end],
-                ..Default::default()
-            },
-            right_depth: BezierCurveData {
-                control_points: vec![depth_start, depth_end],
-                tangents1: vec![depth_start, depth_end],
-                tangents2: vec![depth_start, depth_end],
-                ..Default::default()
-            }
+            is_symmetric: false,
+            left_outline: BezierCurveData { control_points: vec![left_out_start, left_out_end], tangents1: vec![left_out_start, left_out_end], tangents2: vec![left_out_start, left_out_end], ..Default::default() },
+            left_depth: BezierCurveData { control_points: vec![left_depth_start, left_depth_end], tangents1: vec![left_depth_start, left_depth_end], tangents2: vec![left_depth_start, left_depth_end], ..Default::default() },
+            right_outline: BezierCurveData { control_points: vec![right_out_start, right_out_end], tangents1: vec![right_out_start, right_out_end], tangents2: vec![right_out_start, right_out_end], ..Default::default() },
+            right_depth: BezierCurveData { control_points: vec![right_depth_start, right_depth_end], tangents1: vec![right_depth_start, right_depth_end], tangents2: vec![right_depth_start, right_depth_end], ..Default::default() }
         }]);
 
-        // Inside bounds (Z=50, X=1.0) -> Depth should be 0.5
-        let depth_inside = super::evaluate_channel_depth(&model, 1.0, 50.0);
-        assert!((depth_inside - 0.5).abs() < 1e-4);
-
-        // Outside bounds Z (Z=10, X=1.0) -> Depth should be 0.0
-        let depth_outside_z = super::evaluate_channel_depth(&model, 1.0, 10.0);
-        assert_eq!(depth_outside_z, 0.0);
-
-        // Outside bounds X (Z=50, X=3.0) -> Depth should be 0.0
-        let depth_outside_x = super::evaluate_channel_depth(&model, 3.0, 50.0);
-        assert_eq!(depth_outside_x, 0.0);
+        let profile_right = super::get_channel_profile_at_z(&model, false, 50.0).unwrap();
+        let profile_left = super::get_channel_profile_at_z(&model, true, 50.0).unwrap();
         
-        println!("✅ test_evaluate_channel_depth passed.");
+        assert_eq!(profile_right.1, 1.0);
+        assert_eq!(profile_left.1, 0.5);
+        assert!(profile_right.1 != profile_left.1, "Asymmetric channels should have different depths");
+
+        // Outside bounds Z -> Should be None
+        let profile_outside_z = super::get_channel_profile_at_z(&model, false, 10.0);
+        assert!(profile_outside_z.is_none());
+        
+        println!("✅ test_asymmetric_channel_evaluation passed.");
     }
 }

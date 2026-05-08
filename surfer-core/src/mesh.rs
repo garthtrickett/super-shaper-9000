@@ -226,9 +226,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let local_thickness = 0.0_f32.max(top_pt.y - bot_pt.y);
         let heat_color = color_heatmap(0.0_f32.max(1.0_f32.min(local_thickness / model.thickness)));
 
-        for j in 0..num_cols {
+                for j in 0..num_cols {
             let (u_val, side, is_stringer) = u_columns[j];
-            let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, fade_factor);
+            let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, fade_factor, side);
             if is_stringer { point.x = inner_x; }
             point.x *= side;
 
@@ -818,6 +818,49 @@ mod tests {
         }
         assert!(found_cliff, "Topology should duplicate U-columns around the channel wall cliff");
         println!("✅ test_channel_u_column_clustering passed.");
+    }
+
+        #[test]
+    fn test_tri_plane_hull_normals() {
+        use crate::model::ChannelLayer;
+        let mut model = BoardModel::default();
+        
+        model.outline = Some(BezierCurveData { control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() });
+        model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() });
+        model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() });
+        model.cross_sections = vec![BezierCurveData { control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() }];
+
+        model.bottom_channels = Some(vec![ChannelLayer {
+            name: "Chine".to_string(),
+            is_symmetric: true,
+            left_outline: BezierCurveData { control_points: vec![Vec3::new(-5.0, 0.0, 0.0), Vec3::new(-5.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() },
+            right_outline: BezierCurveData { control_points: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() },
+            left_depth: BezierCurveData { control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() },
+            right_depth: BezierCurveData { control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() }
+        }]);
+
+        let mesh = super::generate_mesh(&model);
+        
+        let scale = 1.0 / 12.0;
+        let mut split_normals_found = false;
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
+            
+            // At the chine (X = 5 * scale)
+            if (x - 5.0 * scale).abs() < 1e-3 && (z - 50.0 * scale).abs() < 1e-2 {
+                let ny = mesh.normals[i * 3 + 1];
+                // One normal should point angled due to the V-shape of the hull panel.
+                // The flat bottom normally has NY = -1.0. The angled panel will have NY > -0.99.
+                if ny > -0.99 {
+                    split_normals_found = true;
+                }
+            }
+        }
+        
+        assert!(split_normals_found, "Topology should duplicate U-columns and split normals around hard chines to create faceted tri-plane faces.");
+        println!("✅ test_tri_plane_hull_normals passed.");
     }
 
     #[test]
