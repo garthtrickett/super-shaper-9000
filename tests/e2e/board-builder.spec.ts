@@ -338,7 +338,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       };
     });
 
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
+
+    // Select the gizmo to open the inspector
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    await page.waitForTimeout(100);
 
     // 3. Drag the gizmo outward (+X direction)
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
