@@ -18,19 +18,23 @@ pub struct WasmEngine {
 
 #[wasm_bindgen]
 impl WasmEngine {
-    #[wasm_bindgen(constructor)]
+        #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
+        // Route standard Rust logs to the browser console
+        let _ = console_log::init_with_level(log::Level::Info);
         Self {
             engine: SurferEngine::new(),
         }
     }
 
     #[wasm_bindgen]
-    pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
+        pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
         // Deserialize the JS action into our core Rust BoardAction
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            
+        log::info!("[Rust FFI] Processing action: {:?}", action);
             
         // Step the SAM state machine
         let (new_state, effects) = self.engine.update(action);

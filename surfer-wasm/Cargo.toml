@@ -15,3 +15,10 @@ js-sys = "=0.3.85"
 web-sys = "=0.3.85"
 serde = { version = "1.0", features = ["derive"] }
 console_error_panic_hook = "0.1"
+
+[dependencies.log]
+version = "0.4"
+
+[dependencies.console_log]
+version = "1.0"
+

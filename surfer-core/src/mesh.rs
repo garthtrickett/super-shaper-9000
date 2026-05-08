@@ -3,6 +3,7 @@ use crate::model::{BoardModel, RawGeometryData};
 use crate::geometry::*;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
+    log::info!("[Rust core] generate_mesh: Rebuilding for length {:.1} (Volume expected: ~{:.1}L)", model.length, model.volume);
     let scale = 1.0 / 12.0;
 
             let bounds = crate::geometry::get_board_bounds(model);
@@ -528,7 +529,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     };
 
-    // --- Swallow Notch Wall ---
+        // --- Swallow Notch Wall ---
+    if (tip_z - notch_z) >= 1e-3 {
+        log::info!("[Rust core] generate_mesh: Carving swallow tail notch (Depth: {:.2}in)", tip_z - notch_z);
+    }
     generate_swallow_notch_wall(&mut vertices, &mut uvs, &mut colors, &mut normals, &mut indices);
 
     // --- Cap Generation ---

@@ -10,4 +10,6 @@ crate-type = ["rlib"]
 serde = { version = "1.0", features = ["derive"] }
 glam = { version = "0.27", features = ["serde"] }
 
+[dependencies.log]
+version = "0.4"
 
