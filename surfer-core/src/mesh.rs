@@ -384,8 +384,7 @@ mod tests {
         for i in (0..(mesh.vertices.len() / 3)).rev() {
             let z = mesh.vertices[i * 3 + 2];
             let u = mesh.uvs[i * 2];
-            let v = mesh.uvs[i * 2 + 1];
-            let nz = mesh.normals[i * 3 + 2];
+                        let v = mesh.uvs[i * 2 + 1];
             
                         // Nose is at v=0 (approx, or v_coord 0). Because we iterate in reverse,
             // we will find the cap vertices before the hull vertices.
@@ -422,12 +421,18 @@ mod tests {
             tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
             ..Default::default()
         });
-        model.rocker_bottom = Some(BezierCurveData { 
+                model.rocker_bottom = Some(BezierCurveData { 
             control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
             tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
             tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
             ..Default::default()
         });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+            tangents1: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(5.0, -1.25, 0.0), Vec3::new(5.0, 1.25, 0.0)],
+            tangents2: vec![Vec3::new(5.0, -1.25, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+            ..Default::default()
+        }];
         
         let mesh = super::generate_mesh(&model);
         
