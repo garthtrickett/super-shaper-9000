@@ -52,8 +52,33 @@ describe("WasmSamController (FFI Integration)", () => {
         expect(controller.model!.length).to.equal(85.0);
     expect(controller.curvatureCombs).to.exist;
     // The vertex count should change as the adaptive algorithm responds to new geometry
-    expect(controller.mesh?.vertexCount).to.not.equal(initialVertexCount);
+        expect(controller.mesh?.vertexCount).to.not.equal(initialVertexCount);
     
+    controller.hostDisconnected();
+  });
+
+  it("returns a valid Float32Array of 2D coordinates for a given Z-slice", async () => {
+    const host = new MockHost();
+    const controller = new WasmSamController(host) as any;
+    
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Send message to worker directly if getSliceProfile is not yet fully typed
+    const profile = await new Promise<Float32Array>((resolve) => {
+      const id = Math.random().toString();
+      const handler = (e: MessageEvent) => {
+        if (e.data.type === "SLICE_PROFILE_RESULT" && e.data.id === id) {
+          controller.worker.removeEventListener("message", handler);
+          resolve(e.data.profile);
+        }
+      };
+      controller.worker.addEventListener("message", handler);
+      controller.worker.postMessage({ type: "GET_SLICE_PROFILE", z: 50.0, id });
+    });
+
+    expect(profile).to.be.instanceOf(Float32Array);
+    expect(profile.length).to.be.greaterThan(100); // Should contain points and channel data
+
     controller.hostDisconnected();
   });
 });

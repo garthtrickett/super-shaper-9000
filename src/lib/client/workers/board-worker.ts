@@ -24,13 +24,23 @@ init().then(() => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
 
-self.onmessage = (e: MessageEvent<{ type: string, action: BoardAction }>) => {
+self.onmessage = (e: MessageEvent<any>) => {
     if (!engine) {
         console.warn("[BoardWorker] Engine not ready, ignoring message.");
         return;
     }
 
     const msg = e.data;
+    if (msg.type === "GET_SLICE_PROFILE") {
+        const profile = engine.get_slice_profile(msg.z) as Float32Array;
+        (self as unknown as Worker).postMessage({
+            type: "SLICE_PROFILE_RESULT",
+            id: msg.id,
+            profile
+        }, [profile.buffer]);
+        return;
+    }
+
     if (msg.type === "PROPOSE") {
         try {
             // 1. Propose action to Rust

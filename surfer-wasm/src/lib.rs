@@ -70,10 +70,16 @@ impl WasmEngine {
         Ok(obj.into())
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn get_curvature_combs(&self) -> Result<JsValue, JsValue> {
         let combs = self.engine.compute_curvature_combs();
         Ok(Float32Array::from(combs.as_slice()).into())
+    }
+
+    #[wasm_bindgen]
+    pub fn get_slice_profile(&self, z: f32) -> Result<JsValue, JsValue> {
+        let profile = self.engine.compute_slice_profile(z);
+        Ok(Float32Array::from(profile.as_slice()).into())
     }
 }
 
