@@ -151,17 +151,16 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                             *z,
                         );
                         if let Some(b) = &blend {
-                            let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
                             let inner_x = if *z > notch_z {
                                 crate::geometry::evaluate_notch_inner_x(outline, v_tip, *z)
                             } else {
                                 0.0
                             };
-                            let current_width = profile.tuck_x - inner_x;
+                            let current_width = profile.apex_x - inner_x;
                             if current_width > 1e-4 {
                                 let norm_x = (chan_x.abs() - inner_x) / current_width;
-                                let approx_u = t_tuck * norm_x;
-                                let cu = approx_u.clamp(0.0, t_tuck);
+                                let approx_u = b.t_apex * norm_x;
+                                let cu = approx_u.clamp(0.0, b.t_apex);
                                 cliff_us.push(cu);
                             }
                         }

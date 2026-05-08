@@ -614,7 +614,6 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
         }
     } else {
         let slice_h = (p_top.y - p_apex.y).max(1e-4);
-        let world_h = profile.top_y - profile.apex_y;
         let norm_y = (p.y - p_apex.y) / slice_h;
         
         let base_y = profile.bot_y + (profile.apex_y - profile.bot_y) * local_rail_coeff;
@@ -882,9 +881,9 @@ mod tests {
             ..Default::default()
         });
         model.cross_sections = vec![BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.)], 
-            tangents1: vec![Vec3::ZERO, Vec3::new(6.6667,0.,0.)], 
-            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)],
+            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.), Vec3::ZERO], 
+            tangents1: vec![Vec3::ZERO, Vec3::new(10.,0.,0.), Vec3::ZERO], 
+            tangents2: vec![Vec3::ZERO, Vec3::new(10.,0.,0.), Vec3::ZERO],
             ..Default::default()
         }];
 
@@ -900,8 +899,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
-        #[test]
     fn test_proportional_tail_scaling() {
         let mut model_narrow = BoardModel::default();
         let mut model_wide = BoardModel::default();
@@ -914,8 +911,20 @@ mod tests {
                 Vec3::new(4.0, 1.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
             ],
-            tangents1: vec![Vec3::ZERO; 5],
-            tangents2: vec![Vec3::ZERO; 5],
+            tangents1: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(4.0, -1.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(4.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(4.0, -1.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(4.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
             ..Default::default()
         };
 
@@ -973,7 +982,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_deck_curvature_preservation() {
         let mut model = BoardModel::default();
         
@@ -984,8 +992,18 @@ mod tests {
                 Vec3::new(2.5, 1.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
             ],
-            tangents1: vec![Vec3::ZERO; 4],
-            tangents2: vec![Vec3::ZERO; 4],
+            tangents1: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(2.5, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(2.5, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
             ..Default::default()
         };
         model.cross_sections = vec![cs];
@@ -1206,8 +1224,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
-        #[test]
     fn test_shape3d_extremity_modifiers() {
         let mut model_base = BoardModel::default();
         model_base.length = 100.0;
@@ -1231,8 +1247,8 @@ mod tests {
         });
         model_base.cross_sections = vec![BezierCurveData {
             control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(8.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(8.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
-            tangents1: vec![Vec3::ZERO; 5],
-            tangents2: vec![Vec3::ZERO; 5],
+            tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(8.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(8.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
+            tangents2: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(8.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(8.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
             weights: Some(vec![1.0; 5]),
         }];
 
