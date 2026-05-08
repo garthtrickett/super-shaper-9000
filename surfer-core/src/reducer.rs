@@ -592,8 +592,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 BoardAction::AddBottomChannel => {
             let mut channels = model.bottom_channels.take().unwrap_or_default();
 
-            let bounds = get_board_bounds(model);
-            let tip_z = bounds.tip_z;
+                        let bounds = get_board_bounds(model);
+            // If outline isn't set yet, fallback to using the numerical length parameter
+            let tip_z = if bounds.tip_z.abs() < 1e-3 { model.length / 2.0 } else { bounds.tip_z };
 
             let channel_start_z = tip_z - 25.0;
             let channel_end_z = tip_z - 5.0;
