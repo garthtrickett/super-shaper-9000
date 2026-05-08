@@ -299,9 +299,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     const boardControls = page.locator("board-controls");
 
-    // 1. Find the 'ADD' button in the Curve Tree section
+        // 1. Find the 'ADD' button in the Curve Tree section
     // The Curve Tree accordion is open by default.
-    const addWingBtn = boardControls.getByRole("button", { name: /ADD/i });
+    const addWingBtn = boardControls.locator('button[title="Add Wing/Flyer"]');
     await expect(addWingBtn).toBeVisible();
 
     // 2. Click Add Wing
@@ -351,14 +351,14 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls.getByText(/No wings defined/i)).toBeVisible();
   });
 
-  test("Dynamically created Wing Gizmo Interaction", async ({ page }) => {
+    test("Dynamically created Wing Gizmo Interaction", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
     const boardControls = page.locator("board-controls");
 
     // 1. Create the wing
-    await boardControls.getByRole("button", { name: /ADD/i }).click();
+    await boardControls.locator('button[title="Add Wing/Flyer"]').click();
     await expect(boardControls.locator("span", { hasText: /Wing 1/i })).toBeVisible();
 
     // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
@@ -459,12 +459,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls.getByText(/No channels defined/i)).toBeVisible();
   });
 
-  test("Visual Confirmation of Interior (INT) Wing Selection", async ({ page }) => {
+    test("Visual Confirmation of Interior (INT) Wing Selection", async ({ page }) => {
     await page.goto("/");
     const boardControls = page.locator("board-controls");
 
     // 1. Create the wing
-    await boardControls.getByRole("button", { name: /ADD/i }).click();
+    await boardControls.locator('button[title="Add Wing/Flyer"]').click();
 
     // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
