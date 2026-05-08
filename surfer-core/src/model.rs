@@ -46,7 +46,7 @@ pub struct ManualSnapshot {
     pub cross_sections: Vec<BezierCurveData>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BoardModel {
     pub length: f32,
@@ -95,8 +95,61 @@ pub struct BoardModel {
     pub rocker_top: Option<BezierCurveData>,
     pub rocker_bottom: Option<BezierCurveData>,
     pub apex_rocker: Option<BezierCurveData>,
-    #[serde(default)]
+        #[serde(default)]
     pub cross_sections: Vec<BezierCurveData>,
+}
+
+impl Default for BoardModel {
+    fn default() -> Self {
+        Self {
+            length: 0.0,
+            width: 0.0,
+            thickness: 0.0,
+            volume: 0.0,
+            fin_setup: String::new(),
+            front_fin_z: 0.0,
+            front_fin_x: 0.0,
+            rear_fin_z: 0.0,
+            rear_fin_x: 0.0,
+            toe_angle: 0.0,
+            cant_angle: 0.0,
+            core_material: String::new(),
+            glassing_schedule: String::new(),
+            tail_type: String::new(),
+            swallow_depth: 0.0,
+            v_concave_tail: 0.0,
+            v_concave_nose: 0.0,
+            rail_coefficient_tail: 1.0,
+            rail_coefficient_nose: 1.0,
+            thickness_z_stretch: 1.0,
+            show_gizmos: None,
+            show_heatmap: None,
+            show_zebra: None,
+            show_apex_line: None,
+            show_outline: None,
+            show_rocker_top: None,
+            show_rocker_bottom: None,
+            show_apex_outline: None,
+            show_rail_outline: None,
+            show_apex_rocker: None,
+            show_cross_sections: None,
+            show_curvature: None,
+            show_mri_view: None,
+            mri_slice_position: None,
+            selected_node: None,
+            history: None,
+            history_index: None,
+            outline: None,
+            outline_layers: None,
+            bottom_channels: None,
+            rail_outline: None,
+            apex_outline: None,
+            rocker_top: None,
+            rocker_bottom: None,
+            apex_rocker: None,
+            cross_sections: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
