@@ -34,13 +34,19 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
     }
 
     const msg = e.data;
-        if (msg.type === "GET_SLICE_PROFILE") {
+                if (msg.type === "GET_SLICE_PROFILE") {
         const profile = engine.get_slice_profile(msg.z!) as Float32Array;
         (self as unknown as Worker).postMessage({
             type: "SLICE_PROFILE_RESULT",
             id: msg.id,
             profile
         },[profile.buffer]);
+        return;
+    }
+
+    if (msg.type === "EXPORT_S3DX") {
+        const xml = engine.export_s3dx();
+        (self as unknown as Worker).postMessage({ type: "EXPORT_S3DX_RESULT", id: msg.id, xml });
         return;
     }
 

@@ -4,6 +4,7 @@ pub mod geometry;
 pub mod mesh;
 pub mod reducer;
 pub mod s3dx_parser;
+pub mod s3dx_exporter;
 
 #[cfg(test)]
 #[ctor::ctor(unsafe)]
