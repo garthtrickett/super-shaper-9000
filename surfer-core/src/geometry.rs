@@ -612,11 +612,11 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
             }
         }
     } else {
-        let slice_h = (p_top.y - p_apex.y).max(1e-4);
+                let slice_h = (p_top.y - p_apex.y).max(1e-4);
         let norm_y = (p.y - p_apex.y) / slice_h;
         
         let base_y = profile.bot_y + (profile.apex_y - profile.bot_y) * local_rail_coeff;
-        let target_top_y = profile.top_y;
+        let target_top_y = profile.bot_y + (profile.top_y - profile.bot_y) * local_rail_coeff;
         
         final_pos.y = base_y + norm_y * (target_top_y - base_y);
     }
