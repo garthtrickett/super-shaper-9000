@@ -1,6 +1,5 @@
 use glam::Vec3;
-use glam::Vec3;
-use crate::model::{BoardModel, RawGeometryData, BezierCurveData};
+use crate::model::{BoardModel, RawGeometryData};
 use crate::geometry::*;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {

@@ -522,6 +522,61 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     final_pos
 }
 
+/// Spherical Linear Interpolation for normal vectors.
+/// Smoothly blends two direction vectors. If they are exactly opposite (180 deg),
+/// it routes the interpolation through the provided `fallback_mid` vector.
+pub fn slerp_normals(n1: Vec3, n2: Vec3, t: f32, fallback_mid: Vec3) -> Vec3 {
+    let t = t.clamp(0.0, 1.0);
+    let dot = n1.dot(n2).clamp(-1.0, 1.0);
+
+    if dot > 0.9999 {
+        return n1.lerp(n2, t).normalize();
+    }
+
+    if dot < -0.9999 {
+        if t < 0.5 {
+            return slerp_normals(n1, fallback_mid, t * 2.0, fallback_mid);
+        } else {
+            return slerp_normals(fallback_mid, n2, (t - 0.5) * 2.0, fallback_mid);
+        }
+    }
+
+    let theta = dot.acos();
+    let sin_theta = theta.sin();
+    let w1 = ((1.0 - t) * theta).sin() / sin_theta;
+    let w2 = (t * theta).sin() / sin_theta;
+
+    (n1 * w1 + n2 * w2).normalize()
+}
+
+/// Evaluates the analytical surface normals at the absolute Z-poles (nose or tail) of the board.
+/// Returns (top_normal, bottom_normal).
+pub fn get_pole_normals(model: &BoardModel, z_inches: f32, _is_nose: bool) -> (Vec3, Vec3) {
+    let r_top = model.rocker_top.as_ref().unwrap();
+    let r_bot = model.rocker_bottom.as_ref().unwrap();
+
+    let t_top = find_v_at_z(r_top, z_inches, 0.0, 1.0);
+    let t_bot = find_v_at_z(r_bot, z_inches, 0.0, 1.0);
+
+    let (_, tan_top) = crate::bezier::evaluate_composite_pos_and_tangent(r_top, t_top);
+    let (_, tan_bot) = crate::bezier::evaluate_composite_pos_and_tangent(r_bot, t_bot);
+
+    // The stringer lies on the YZ plane (X=0). The X-axis (1,0,0) is perpendicular to this plane.
+    // Top normal: Tangent x X-axis points outward (+Y)
+    let mut n_top = tan_top.cross(Vec3::X).normalize();
+    if n_top.is_nan() || n_top.length_squared() < 1e-5 {
+        n_top = Vec3::Y;
+    }
+
+    // Bottom normal: X-axis x Tangent points outward (-Y)
+    let mut n_bot = Vec3::X.cross(tan_bot).normalize();
+    if n_bot.is_nan() || n_bot.length_squared() < 1e-5 {
+        n_bot = Vec3::NEG_Y;
+    }
+
+    (n_top, n_bot)
+}
+
 pub fn color_heatmap(normalized_value: f32) -> Vec3 {
     let hue = (1.0 - normalized_value) * 240.0;
     let h = hue / 360.0;
@@ -830,6 +885,33 @@ mod tests {
         assert!(thickness_1 > 0.0 && thickness_1 < 2.0, "Thickness must be squashed proportionally in fade zone");
 
                 println!("✅ test_geometric_tip_fading passed.");
+    }
+
+        #[test]
+    fn test_normal_slerp() {
+        let n1 = Vec3::new(0.0, -1.0, 0.0);
+        let n2 = Vec3::new(0.0, 1.0, 0.0);
+        let fallback = Vec3::new(0.0, 0.0, -1.0);
+
+        // Midpoint should exactly hit the fallback vector due to the 180-degree slerp bypass
+        let mid = slerp_normals(n1, n2, 0.5, fallback);
+        assert!((mid.z - (-1.0)).abs() < 1e-5);
+        assert!(mid.y.abs() < 1e-5);
+        assert!(mid.x.abs() < 1e-5);
+
+        // 90-degree test (no fallback triggered)
+        let n3 = Vec3::new(0.0, -1.0, 0.0);
+        let n4 = Vec3::new(0.0, 0.0, -1.0);
+        let mid_90 = slerp_normals(n3, n4, 0.5, Vec3::X);
+        
+        // Linear interpolation would give (0, -0.5, -0.5) with magnitude 0.707
+        // Slerp must maintain a magnitude of 1.0, so the result should be (0, -0.707, -0.707)
+        let expected_val = -2.0_f32.sqrt() / 2.0;
+        assert!((mid_90.length() - 1.0).abs() < 1e-5, "Slerp must maintain unit length");
+        assert!((mid_90.y - expected_val).abs() < 1e-5, "Y should be -0.707");
+        assert!((mid_90.z - expected_val).abs() < 1e-5, "Z should be -0.707");
+
+        println!("✅ test_normal_slerp passed.");
     }
 
     #[test]
