@@ -4,6 +4,12 @@ pub mod geometry;
 pub mod mesh;
 pub mod reducer;
 
+#[cfg(test)]
+#[ctor::ctor]
+fn init_test_logger() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
+
 use model::{BoardAction, BoardModel, Effect, RawGeometryData};
 
 pub struct SurferEngine {
