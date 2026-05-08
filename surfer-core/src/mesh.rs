@@ -91,7 +91,52 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             assert!(n.z > 0.9, "Cap normals should point strongly towards +Z");
         }
         
-        println!("✅ test_split_normals_at_poles passed.");
+                println!("✅ test_split_normals_at_poles passed.");
+    }
+
+    #[test]
+    fn test_squash_tail_tessellation_density() {
+        let mut model_pintail = BoardModel::default();
+        model_pintail.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3), Vec3::new(0.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model_pintail.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
+        });
+        model_pintail.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
+        });
+        model_pintail.cross_sections = vec![BezierCurveData { 
+            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.)], 
+            tangents1: vec![Vec3::ZERO, Vec3::new(6.6667,0.,0.)], 
+            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)],
+            ..Default::default()
+        }];
+        
+        let mut model_squash = model_pintail.clone();
+        // Give it a 10" wide tail
+        model_squash.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+
+        let mesh_pin = generate_mesh(&model_pintail);
+        let mesh_squash = generate_mesh(&model_squash);
+
+        let diff = mesh_squash.indices.len() as isize - mesh_pin.indices.len() as isize;
+        assert!(diff > 100, "Difference in indices should be substantial due to cap tessellation grid. Diff: {}", diff);
+        println!("✅ test_squash_tail_tessellation_density passed.");
     }
 }
 
@@ -278,108 +323,60 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-                                                                // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
-    let mut add_patch_centerline = |ring_index: usize, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>| -> u32 {
-        let start_idx = (vertices.len() / 3) as u32;
+                                                                                                // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
+    let mut generate_cap = |ring_index: usize, z_inches: f32, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, is_nose: bool, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
+        let width = crate::geometry::evaluate_composite_outline_at_z(model, z_inches, if is_nose { 0.0 } else { 1.0 }).x;
+        let num_x_steps = (width / 0.5).ceil().max(1.0) as u32;
+        let start_vertex_index = (vertices.len() / 3) as u32;
+
         let ring = &grid[ring_index];
-        
-        for j in 0..right_half_cols {
-            let (pos, color, _u, _v) = ring[j];
-            let v_interp = j as f32 / (right_half_cols - 1) as f32;
-            
-            vertices.push(0.0);
-            vertices.push(pos.y);
-            vertices.push(pos.z);
-            
-            uvs.push(0.5);
-            uvs.push(v_interp);
-            
-            colors.push(color.x);
-            colors.push(color.y);
-            colors.push(color.z);
-            
-            let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, v_interp, fallback_mid);
-            
-            normals.push(blended_normal.x);
-            normals.push(blended_normal.y);
-            normals.push(blended_normal.z);
+
+        for step in 0..=num_x_steps {
+            let fraction = 1.0 - (step as f32 / num_x_steps as f32);
+            for j in 0..num_cols {
+                let (pos, color, u, v) = ring[j];
+                vertices.push(pos.x * fraction);
+                vertices.push(pos.y);
+                vertices.push(pos.z);
+                
+                uvs.push(u);
+                uvs.push(v);
+                
+                colors.push(color.x);
+                colors.push(color.y);
+                colors.push(color.z);
+                
+                let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
+                normals.push(blended_normal.x);
+                normals.push(blended_normal.y);
+                normals.push(blended_normal.z);
+            }
         }
-        start_idx
+
+        for step in 0..num_x_steps {
+            let ring_a_start = start_vertex_index + step * (num_cols as u32);
+            let ring_b_start = start_vertex_index + (step + 1) * (num_cols as u32);
+            
+            for j in 0..num_cols - 1 {
+                let a = ring_a_start + j as u32;
+                let b = a + 1;
+                let c = ring_b_start + j as u32;
+                let d = c + 1;
+                
+                if is_nose {
+                    indices.push(a); indices.push(d); indices.push(b);
+                    indices.push(a); indices.push(c); indices.push(d);
+                } else {
+                    indices.push(a); indices.push(b); indices.push(d);
+                    indices.push(a); indices.push(d); indices.push(c);
+                }
+            }
+        }
     };
 
-    let mut add_cap_boundary_ring = |ring_index: usize, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>| -> u32 {
-        let start_idx = (vertices.len() / 3) as u32;
-        let ring = &grid[ring_index];
-        for j in 0..num_cols {
-            let (pos, color, u, v) = ring[j];
-            vertices.push(pos.x);
-            vertices.push(pos.y);
-            vertices.push(pos.z);
-            
-            uvs.push(u);
-            uvs.push(v);
-            
-            colors.push(color.x);
-            colors.push(color.y);
-            colors.push(color.z);
-            
-            let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
-            normals.push(blended_normal.x);
-            normals.push(blended_normal.y);
-            normals.push(blended_normal.z);
-        }
-        start_idx
-    };
-
-        // --- Cap Generation (Nose) ---
-    let nose_centerline_start = add_patch_centerline(0, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
-    let nose_ring_start = add_cap_boundary_ring(0, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
-
-    // Right side of nose
-    for j in 0..right_half_cols - 1 {
-        let a = nose_ring_start + j as u32;
-        let b = a + 1;
-        let c = nose_centerline_start + j as u32;
-        let d = c + 1;
-        // Reversed winding for nose (faces -Z)
-        indices.push(a); indices.push(d); indices.push(b);
-        indices.push(a); indices.push(c); indices.push(d);
-    }
-
-    // Left side of nose
-    for k in 0..right_half_cols - 1 {
-        let a = nose_ring_start + (num_cols - 1 - k) as u32;
-        let b = nose_ring_start + (num_cols - 1 - (k + 1)) as u32;
-        let c = nose_centerline_start + k as u32;
-        let d = c + 1;
-        // Reversed winding for nose
-        indices.push(a); indices.push(d); indices.push(b);
-        indices.push(a); indices.push(c); indices.push(d);
-    }
-
-                        // --- Cap Generation (Tail) ---
-    let tail_centerline_start = add_patch_centerline(segments_v, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
-    let tail_ring_start = add_cap_boundary_ring(segments_v, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
-
-    // Right side of tail
-    for j in 0..right_half_cols - 1 {
-        let a = tail_ring_start + j as u32;
-        let b = a + 1;
-        let c = tail_centerline_start + j as u32;
-        let d = c + 1;
-        indices.push(a); indices.push(b); indices.push(d);
-        indices.push(a); indices.push(d); indices.push(c);
-    }
-
-    // Left side of tail
-    for k in 0..right_half_cols - 1 {
-        let a = tail_ring_start + (num_cols - 1 - k) as u32;
-        let b = tail_ring_start + (num_cols - 1 - (k + 1)) as u32;
-        let c = tail_centerline_start + k as u32;
-        let d = c + 1;
-        indices.push(a); indices.push(b); indices.push(d);
-        indices.push(a); indices.push(d); indices.push(c);
-    }
+    // --- Cap Generation ---
+    generate_cap(0, nose_z, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0), true, &mut vertices, &mut uvs, &mut colors, &mut normals, &mut indices);
+    generate_cap(segments_v, tip_z, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0), false, &mut vertices, &mut uvs, &mut colors, &mut normals, &mut indices);
 
     RawGeometryData {
         vertices,
