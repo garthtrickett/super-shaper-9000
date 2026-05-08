@@ -84,9 +84,10 @@ export class BottomContourEditor extends LitElement {
     this.boardState.bottomChannels.forEach((channel, idx) => {
       const drawSide = (curveData: any, curveName: string, isDepth: boolean) => {
         if (!curveData || !curveData.controlPoints) return;
-                curveData.controlPoints.forEach((cp: number[], i: number) => {
+                        curveData.controlPoints.forEach((cp: number[], i: number) => {
           const zDist = Math.abs(cp[2] - this.zPosition);
-          if (zDist < 15.0) {
+          console.info(`[ContourEditor] Checking ${curveName} node ${i}: Z=${cp[2].toFixed(1)}, TargetZ=${this.zPosition.toFixed(1)}, Dist=${zDist.toFixed(1)}`);
+          if (zDist < 30.0) {
             const isDragging = this.activeDrag?.curve === curveName && this.activeDrag?.index === i;
             nodes.push(svg`
               <circle
