@@ -13,8 +13,12 @@ pub struct OutlineLayer {
 #[serde(rename_all = "camelCase")]
 pub struct ChannelLayer {
     pub name: String,
-    pub outline: BezierCurveData,
-    pub depth: BezierCurveData,
+    #[serde(default)]
+    pub is_symmetric: bool,
+    pub left_outline: BezierCurveData,
+    pub right_outline: BezierCurveData,
+    pub left_depth: BezierCurveData,
+    pub right_depth: BezierCurveData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -146,7 +150,9 @@ pub enum BoardAction {
     #[serde(rename = "ADD_BOTTOM_CHANNEL")]
     AddBottomChannel,
     #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
-    RemoveBottomChannel { index: usize },
+        RemoveBottomChannel { index: usize },
+    #[serde(rename = "TOGGLE_CHANNEL_SYMMETRY")]
+    ToggleChannelSymmetry { index: usize },
     #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
     ImportS3dx {

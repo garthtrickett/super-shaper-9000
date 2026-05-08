@@ -418,7 +418,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
       const vp = document.querySelector('board-viewport') as any;
       if (!vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
-      const cp = vp.boardState.bottomChannels[0].outline.controlPoints[0];
+            const cp = vp.boardState.bottomChannels[0].rightOutline.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       const rect = canvas.getBoundingClientRect();
@@ -438,7 +438,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 5. Verify the inspector reveals the layer correctly
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible();
-    await expect(inspector).toContainText(/Channel 0 \(OUTLINE\)/i);
+        await expect(inspector).toContainText(/Channel 0 \(RIGHT OUTLINE\)/i);
 
     // 6. Test Removal
     const removeBtn = boardControls.locator('button[title="Remove Channel 1"]');

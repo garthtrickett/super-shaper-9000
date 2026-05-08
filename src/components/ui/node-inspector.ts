@@ -64,12 +64,13 @@ export class NodeInspector extends LitElement {
         return parts[2] === "ext" ? layer.otlExt : layer.otlInt;
       }
     }
-    if (sel.curve.startsWith("channel_")) {
+        if (sel.curve.startsWith("channel_")) {
       const parts = sel.curve.split("_");
       const idx = parseInt(parts[1]!, 10);
       const channel = this.boardState.bottomChannels?.[idx];
       if (channel) {
-        return parts[2] === "outline" ? channel.outline : channel.depth;
+        if (parts[3] === "outline") return parts[2] === "left" ? channel.leftOutline : channel.rightOutline;
+        if (parts[3] === "depth") return parts[2] === "left" ? channel.leftDepth : channel.rightDepth;
       }
     }
     return undefined;
@@ -202,9 +203,9 @@ export class NodeInspector extends LitElement {
     } else if (sel.curve.startsWith('outlineLayer_')) {
       const parts = sel.curve.split('_');
       title = `Layer ${parts[1]} (${parts[2].toUpperCase()})`;
-    } else if (sel.curve.startsWith('channel_')) {
+        } else if (sel.curve.startsWith('channel_')) {
       const parts = sel.curve.split('_');
-      title = `Channel ${parts[1]} (${parts[2].toUpperCase()})`;
+      title = `Channel ${parts[1]} (${parts[2].toUpperCase()} ${parts[3].toUpperCase()})`;
     }
 
     const renderInput = (label: string, value: number, disabled: boolean, onChange: (v: number) => void) => html`

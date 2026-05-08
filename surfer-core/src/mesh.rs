@@ -122,26 +122,29 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     }
 
     // --- NEW: Channel U-parameter injection ---
-    let mut cliff_us = Vec::new();
+        let mut cliff_us = Vec::new();
     if let Some(channels) = &model.bottom_channels {
         for channel in channels {
-            if channel.outline.control_points.is_empty() { continue; }
-            for z in &z_rings {
-                let min_z = channel.outline.control_points.first().unwrap().z;
-                let max_z = channel.outline.control_points.last().unwrap().z;
-                if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
-                    let chan_x = crate::geometry::evaluate_bezier_at_z(&channel.outline, *z, 0.5).x;
-                    let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5, 1.0);
-                    let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, *z);
-                    if let Some(b) = &blend {
-                        let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
-                        let inner_x = if *z > notch_z { crate::geometry::evaluate_notch_inner_x(outline, v_tip, *z) } else { 0.0 };
-                        let current_width = profile.tuck_x - inner_x;
-                        if current_width > 1e-4 {
-                            let norm_x = (chan_x - inner_x) / current_width;
-                            let approx_u = t_tuck * norm_x;
-                            let cu = approx_u.clamp(0.0, t_tuck);
-                            cliff_us.push(cu);
+            let outlines =[&channel.left_outline, &channel.right_outline];
+            for outline_curve in outlines {
+                if outline_curve.control_points.is_empty() { continue; }
+                for z in &z_rings {
+                    let min_z = outline_curve.control_points.first().unwrap().z;
+                    let max_z = outline_curve.control_points.last().unwrap().z;
+                    if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
+                        let chan_x = crate::geometry::evaluate_bezier_at_z(outline_curve, *z, 0.5).x;
+                        let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5, 1.0);
+                        let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, *z);
+                        if let Some(b) = &blend {
+                            let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+                            let inner_x = if *z > notch_z { crate::geometry::evaluate_notch_inner_x(outline, v_tip, *z) } else { 0.0 };
+                            let current_width = profile.tuck_x - inner_x;
+                            if current_width > 1e-4 {
+                                let norm_x = (chan_x.abs() - inner_x) / current_width;
+                                let approx_u = t_tuck * norm_x;
+                                let cu = approx_u.clamp(0.0, t_tuck);
+                                cliff_us.push(cu);
+                            }
                         }
                     }
                 }
@@ -779,15 +782,18 @@ mod tests {
         model.cross_sections = vec![BezierCurveData { control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(10., 0., 0.), Vec3::new(0., 1., 0.)], tangents1: vec![Vec3::ZERO; 3], tangents2: vec![Vec3::ZERO; 3], ..Default::default() }];
 
         // Add a bottom channel
-        model.bottom_channels = Some(vec![ChannelLayer {
+                model.bottom_channels = Some(vec![ChannelLayer {
             name: "Test Channel".to_string(),
-            outline: BezierCurveData {
+            is_symmetric: true,
+            left_outline: BezierCurveData::default(),
+            left_depth: BezierCurveData::default(),
+            right_outline: BezierCurveData {
                 control_points: vec![Vec3::new(2.0, 0.0, 25.0), Vec3::new(2.0, 0.0, 75.0)],
                 tangents1: vec![Vec3::new(2.0, 0.0, 25.0), Vec3::new(2.0, 0.0, 75.0)],
                 tangents2: vec![Vec3::new(2.0, 0.0, 25.0), Vec3::new(2.0, 0.0, 75.0)],
                 ..Default::default()
             },
-            depth: BezierCurveData {
+            right_depth: BezierCurveData {
                 control_points: vec![Vec3::new(0.0, 0.5, 25.0), Vec3::new(0.0, 0.5, 75.0)],
                 tangents1: vec![Vec3::new(0.0, 0.5, 25.0), Vec3::new(0.0, 0.5, 75.0)],
                 tangents2: vec![Vec3::new(0.0, 0.5, 25.0), Vec3::new(0.0, 0.5, 75.0)],
@@ -797,7 +803,6 @@ mod tests {
 
         let mesh = super::generate_mesh(&model);
         
-        let scale = 1.0 / 12.0;
         let mut u_vals: Vec<f32> = mesh.uvs.chunks_exact(2).map(|uv| uv[0]).collect();
         u_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
         u_vals.dedup_by(|a, b| (*a - *b).abs() < 1e-5);

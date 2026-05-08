@@ -30,16 +30,27 @@ test.describe('Board Viewport E2E', () => {
       const vp = document.querySelector('board-viewport') as any;
       if (!vp || !vp.boardState) return;
       
-      const channelLayer = {
+            const channelLayer = {
         name: "Test Channel",
-        outline: {
+        isSymmetric: true,
+        rightOutline: {
           controlPoints: [[2.0, 0.0, 25.0],[2.0, 0.0, 75.0]],
           tangents1: [[2.0, 0.0, 25.0],[2.0, 0.0, 75.0]],
           tangents2: [[2.0, 0.0, 25.0],[2.0, 0.0, 75.0]]
         },
-        depth: {
+        rightDepth: {
           controlPoints: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
-          tangents1: [[0.0, 0.5, 25.0], [0.0, 0.5, 75.0]],
+          tangents1: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
+          tangents2: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]]
+        },
+        leftOutline: {
+          controlPoints: [[-2.0, 0.0, 25.0],[-2.0, 0.0, 75.0]],
+          tangents1: [[-2.0, 0.0, 25.0],[-2.0, 0.0, 75.0]],
+          tangents2: [[-2.0, 0.0, 25.0],[-2.0, 0.0, 75.0]]
+        },
+        leftDepth: {
+          controlPoints: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
+          tangents1: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
           tangents2: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]]
         }
       };

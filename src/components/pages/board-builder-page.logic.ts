@@ -18,8 +18,11 @@ export const BezierCurveSchema = S.Struct({
 
 export const ChannelLayerSchema = S.Struct({
   name: S.String,
-  outline: BezierCurveSchema,
-  depth: BezierCurveSchema,
+  isSymmetric: S.Boolean,
+  leftOutline: BezierCurveSchema,
+  rightOutline: BezierCurveSchema,
+  leftDepth: BezierCurveSchema,
+  rightDepth: BezierCurveSchema,
 });
 
 export const SelectedNodeSchema = S.Struct({
@@ -86,8 +89,11 @@ export interface BezierCurveData {
 
 export interface ChannelLayer {
   name: string;
-  outline: BezierCurveData;
-  depth: BezierCurveData;
+  isSymmetric: boolean;
+  leftOutline: BezierCurveData;
+  rightOutline: BezierCurveData;
+  leftDepth: BezierCurveData;
+  rightDepth: BezierCurveData;
 }
 
 export type SelectedNode = {
@@ -236,7 +242,8 @@ export type BoardAction =
   | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[]; outlineLayers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[]; bottomChannels?: ChannelLayer[] }
   | { type: "ADD_OUTLINE_LAYER" }
   | { type: "REMOVE_OUTLINE_LAYER"; index: number }
-  | { type: "ADD_BOTTOM_CHANNEL" }
+    | { type: "ADD_BOTTOM_CHANNEL" }
+  | { type: "TOGGLE_CHANNEL_SYMMETRY"; index: number }
   | { type: "REMOVE_BOTTOM_CHANNEL"; index: number };
 
 export const update = (state: BoardModel, _action: BoardAction): BoardModel => state;

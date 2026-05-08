@@ -133,14 +133,19 @@ export class GizmoBuilder {
         });
     }
 
-    if (boardState.bottomChannels) {
+        if (boardState.bottomChannels) {
         boardState.bottomChannels.forEach((channel, idx) => {
-            if (channel.outline?.controlPoints?.length > 0) {
-                drawGizmosForCurve(channel.outline, `channel_${idx}_outline`, 1, true);
+            if (channel.leftOutline?.controlPoints?.length > 0) {
+                drawGizmosForCurve(channel.leftOutline, `channel_${idx}_left_outline`, 1, true);
             }
-            if (channel.depth?.controlPoints?.length > 0) {
-                // Layer 2 for profile views
-                drawGizmosForCurve(channel.depth, `channel_${idx}_depth`, 2, true);
+            if (channel.rightOutline?.controlPoints?.length > 0) {
+                drawGizmosForCurve(channel.rightOutline, `channel_${idx}_right_outline`, 1, true);
+            }
+            if (channel.leftDepth?.controlPoints?.length > 0) {
+                drawGizmosForCurve(channel.leftDepth, `channel_${idx}_left_depth`, 2, true);
+            }
+            if (channel.rightDepth?.controlPoints?.length > 0) {
+                drawGizmosForCurve(channel.rightDepth, `channel_${idx}_right_depth`, 2, true);
             }
         });
     }

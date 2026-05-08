@@ -370,17 +370,24 @@ pub fn evaluate_channel_depth(model: &BoardModel, x: f32, z_inches: f32) -> f32 
     let mut max_depth = 0.0_f32;
     if let Some(channels) = &model.bottom_channels {
         for channel in channels {
-            if channel.outline.control_points.is_empty() || channel.depth.control_points.is_empty() {
+            let (outline, depth) = if x < 0.0 {
+                (&channel.left_outline, &channel.left_depth)
+            } else {
+                (&channel.right_outline, &channel.right_depth)
+            };
+
+            if outline.control_points.is_empty() || depth.control_points.is_empty() {
                 continue;
             }
-            let min_z = channel.outline.control_points.first().unwrap().z;
-            let max_z = channel.outline.control_points.last().unwrap().z;
+            let min_z = outline.control_points.first().unwrap().z;
+            let max_z = outline.control_points.last().unwrap().z;
             if z_inches >= min_z - 1e-4 && z_inches <= max_z + 1e-4 {
-                let chan_x = evaluate_bezier_at_z(&channel.outline, z_inches, 0.5).x;
-                if x.abs() <= chan_x {
-                    let depth = evaluate_bezier_at_z(&channel.depth, z_inches, 0.5).y;
-                    if depth > max_depth {
-                        max_depth = depth;
+                let chan_x = evaluate_bezier_at_z(outline, z_inches, 0.5).x;
+                let inside = if x < 0.0 { x >= chan_x } else { x <= chan_x };
+                if inside {
+                    let current_depth = evaluate_bezier_at_z(depth, z_inches, 0.5).y;
+                    if current_depth > max_depth {
+                        max_depth = current_depth;
                     }
                 }
             }
@@ -1131,15 +1138,18 @@ mod tests {
         let depth_start = Vec3::new(0.0, 0.5, chan_start_z);
         let depth_end = Vec3::new(0.0, 0.5, chan_end_z);
 
-        model.bottom_channels = Some(vec![ChannelLayer {
+                model.bottom_channels = Some(vec![ChannelLayer {
             name: "Test Channel".to_string(),
-            outline: BezierCurveData {
+            is_symmetric: true,
+            left_outline: BezierCurveData::default(),
+            left_depth: BezierCurveData::default(),
+            right_outline: BezierCurveData {
                 control_points: vec![out_start, out_end],
                 tangents1: vec![out_start, out_end],
                 tangents2: vec![out_start, out_end],
                 ..Default::default()
             },
-            depth: BezierCurveData {
+            right_depth: BezierCurveData {
                 control_points: vec![depth_start, depth_end],
                 tangents1: vec![depth_start, depth_end],
                 tangents2: vec![depth_start, depth_end],
