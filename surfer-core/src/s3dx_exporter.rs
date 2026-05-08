@@ -19,8 +19,10 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 let mut p_str = String::new();
                 p_str.push_str(&format!("<{}>\n<Polygone3d>\n<Nb_of_points>{}</Nb_of_points>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n", tag, pts.len(), symmetry));
                 p_str.push_str(&format!("<Symmetry_center>\n<Point3d>\n<x>0.0</x><y>0.0</y><z>0.0</z><u>-1.0</u><color>0</color>\n</Point3d>\n</Symmetry_center>\n<Plan>{}</Plan>\n", plan));
+                                let half_len = model.length / 2.0;
                 for p in pts {
-                    p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>-1.000000</u><color>0</color>\n</Point3d>\n", p.z, p.x, p.y));
+                    let s3dx_x = p.z + half_len;
+                    p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>-1.000000</u><color>0</color>\n</Point3d>\n", s3dx_x, p.x, p.y));
                 }
                 p_str.push_str(&format!("</Polygone3d>\n</{}>\n", tag));
                 p_str

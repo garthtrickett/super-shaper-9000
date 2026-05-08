@@ -111,13 +111,13 @@ pub struct S3dxPoint3d {
 use crate::model::{BoardModel, BezierCurveData};
 use glam::Vec3;
 
-fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, is_longitudinal: bool) -> Option<BezierCurveData> {
+fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, scale: f32) -> Option<BezierCurveData> {
     let mut control_points = Vec::new();
     let mut weights = Vec::new();
     if let Some(poly) = &bezier3d.control_points {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                control_points.push(Vec3::new(p.y, p.z, (board_length / 2.0) - p.x));
+                control_points.push(Vec3::new(p.y * scale, p.z * scale, (p.x - board_length / 2.0) * scale));
                 let u_val = p.u.unwrap_or(-1.0);
                 // Map S3DX default of -1.0 to our engine's baseline of 1.0
                 weights.push(if (u_val - (-1.0)).abs() < 1e-5 { 1.0 } else { u_val });
@@ -129,7 +129,7 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, is_longitud
     if let Some(poly) = &bezier3d.tangents_1 {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                tangents1.push(Vec3::new(p.y, p.z, (board_length / 2.0) - p.x));
+                tangents1.push(Vec3::new(p.y * scale, p.z * scale, (p.x - board_length / 2.0) * scale));
             }
         }
     }
@@ -138,23 +138,13 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, is_longitud
     if let Some(poly) = &bezier3d.tangents_2 {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                tangents2.push(Vec3::new(p.y, p.z, (board_length / 2.0) - p.x));
+                tangents2.push(Vec3::new(p.y * scale, p.z * scale, (p.x - board_length / 2.0) * scale));
             }
         }
     }
     
-        if control_points.is_empty() {
+    if control_points.is_empty() {
         return None;
-    }
-
-    if is_longitudinal {
-        control_points.reverse();
-        tangents1.reverse();
-        tangents2.reverse();
-        weights.reverse();
-        
-        // Swap tangents1 and tangents2 to preserve derivative directionality after reversing control points
-        std::mem::swap(&mut tangents1, &mut tangents2);
     }
 
     let final_weights = if weights.is_empty() { None } else { Some(weights) };
@@ -167,19 +157,19 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, is_longitud
     })
 }
 
-fn convert_s3dx_curve(s3dx_curve: &Option<S3dxCurveContainer>, board_length: f32, is_longitudinal: bool) -> Option<BezierCurveData> {
+fn convert_s3dx_curve(s3dx_curve: &Option<S3dxCurveContainer>, board_length: f32, scale: f32) -> Option<BezierCurveData> {
     let bezier3d = s3dx_curve.as_ref()?.bezier3d.as_ref()?;
-    convert_s3dx_bezier3d(bezier3d, board_length, is_longitudinal)
+    convert_s3dx_bezier3d(bezier3d, board_length, scale)
 }
 
-fn convert_s3dx_bezier_def(s3dx_def: &Option<S3dxBezierDefContainer>, board_length: f32, is_longitudinal: bool) -> Option<BezierCurveData> {
+fn convert_s3dx_bezier_def(s3dx_def: &Option<S3dxBezierDefContainer>, board_length: f32, scale: f32) -> Option<BezierCurveData> {
     let bezier3d = s3dx_def.as_ref()?.bezier_def.as_ref()?.bezier3d.as_ref()?;
-    convert_s3dx_bezier3d(bezier3d, board_length, is_longitudinal)
+    convert_s3dx_bezier3d(bezier3d, board_length, scale)
 }
 
-fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>, board_length: f32) -> Option<BezierCurveData> {
+fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>, board_length: f32, scale: f32) -> Option<BezierCurveData> {
     let bezier3d = s3dx_couples.as_ref()?.bezier3d.as_ref()?;
-    convert_s3dx_bezier3d(bezier3d, board_length, false)
+    convert_s3dx_bezier3d(bezier3d, board_length, scale)
 }
 
 pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
@@ -202,30 +192,33 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
 
 impl From<S3dxBoard> for BoardModel {
     fn from(s3dx: S3dxBoard) -> Self {
-        let mut model = BoardModel::default();
+                let mut model = BoardModel::default();
         let bl = s3dx.length;
-                model.length = bl;
-        model.width = s3dx.width;
-        model.thickness = s3dx.thickness;
+        // Safely infer CM to Inches if the board is unreasonably long (> 130 units)
+        let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
         
-        model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0);
-        model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0);
+        model.length = bl * scale;
+        model.width = s3dx.width * scale;
+        model.thickness = s3dx.thickness * scale;
+        
+        model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0) * scale;
+        model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0) * scale;
         model.rail_coefficient_tail = s3dx.rail_coefficient_tail.unwrap_or(1.0);
         model.rail_coefficient_nose = s3dx.rail_coefficient_nose.unwrap_or(1.0);
         model.thickness_z_stretch = s3dx.thickness_z_stretch.unwrap_or(1.0);
 
-        model.outline = convert_s3dx_curve(&s3dx.otl, bl, true);
-        model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, true);
-        model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, true);
+        model.outline = convert_s3dx_curve(&s3dx.otl, bl, scale);
+        model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, scale);
+        model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, scale);
         
-        model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, true);
-        model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, true);
-        model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, true);
+        model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, scale);
+        model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
+        model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, scale);
         
-                let mut cross_sections = Vec::new();
+        let mut cross_sections = Vec::new();
         if let Some(couples) = s3dx.couples {
             for c in couples {
-                if let Some(cs) = convert_s3dx_couples(&Some(c), bl) {
+                if let Some(cs) = convert_s3dx_couples(&Some(c), bl, scale) {
                     cross_sections.push(cs);
                 }
             }
@@ -259,12 +252,12 @@ mod tests {
 
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        assert_eq!(model.length, 185.420);
-        assert_eq!(model.width, 53.790);
-        assert_eq!(model.thickness, 6.858);
+                assert!((model.length - 73.0).abs() < 0.1);
+        assert!((model.width - 21.177).abs() < 0.1);
+        assert!((model.thickness - 2.7).abs() < 0.1);
         
-        assert_eq!(model.v_concave_tail, -0.155);
-        assert_eq!(model.v_concave_nose, -0.185);
+        assert!((model.v_concave_tail - (-0.061)).abs() < 0.01);
+        assert!((model.v_concave_nose - (-0.072)).abs() < 0.01);
         assert_eq!(model.rail_coefficient_tail, 0.882);
         assert_eq!(model.rail_coefficient_nose, 0.876);
         assert_eq!(model.thickness_z_stretch, 1.0);
@@ -275,11 +268,11 @@ mod tests {
         
         assert_eq!(model.cross_sections.len(), 4, "Should have exactly 4 cross sections");
         
-                let outline = model.outline.unwrap();
+        let outline = model.outline.unwrap();
         assert_eq!(outline.control_points.len(), 4);
-        assert!((outline.control_points[0].z - (-185.420 / 2.0)).abs() < 1e-4); // Nose Z
-        assert!((outline.control_points[3].z - (185.420 / 2.0)).abs() < 1e-4);  // Tail Z
-        assert!((outline.control_points[3].x - 0.000001).abs() < 1e-4); // Tail width
+        assert!((outline.control_points[0].z - (-73.0 / 2.0)).abs() < 0.1); // Nose Z (Negative)
+        assert!((outline.control_points[3].z - (73.0 / 2.0)).abs() < 0.1);  // Tail Z (Positive)
+        assert!((outline.control_points[0].x - 0.0).abs() < 1e-4); // Nose Width should be 0
     }
 
         #[test]

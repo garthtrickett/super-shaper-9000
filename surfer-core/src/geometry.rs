@@ -498,7 +498,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             apex_y = bot_pt.y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
         }
     }
-    apex_y = apex_y.clamp(bot_pt.y - 2.0, top_y);
+        apex_y = apex_y.max(bot_pt.y - 2.0);
 
     let mut tuck_y = bot_pt.y;
     if let Some(b) = &blend {
@@ -512,7 +512,6 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             tuck_y = bot_pt.y + world_thick * ((p_tuck.y - p_bot.y) / slice_thick);
         }
     }
-    tuck_y = tuck_y.min(top_y);
 
     let mut tuck_x = outline_pt.x.max(0.0);
         if let Some(ro) = &model.rail_outline {
@@ -622,8 +621,8 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
         final_pos.y = base_y + norm_y * (target_top_y - base_y);
     }
 
-    if final_pos.x < inner_x { final_pos.x = inner_x; }
-    final_pos.y = final_pos.y.clamp(profile.bot_y - 2.0, profile.top_y + 2.0);
+        if final_pos.x < inner_x { final_pos.x = inner_x; }
+    final_pos.y = final_pos.y.max(profile.bot_y - 2.0);
 
     final_pos
 }
