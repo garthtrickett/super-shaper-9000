@@ -131,6 +131,11 @@ pub enum BoardAction {
     ScaleThickness { factor: f32 },
     #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
+        AddOutlineLayer,
+    #[serde(rename = "REMOVE_OUTLINE_LAYER")]
+    RemoveOutlineLayer { index: usize },
+    #[serde(rename = "IMPORT_S3DX")]
+    #[serde(rename_all = "camelCase")]
     ImportS3dx {
         length: f32,
         width: f32,

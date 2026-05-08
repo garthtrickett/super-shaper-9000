@@ -1,5 +1,6 @@
 use glam::Vec3;
 use crate::model::*;
+use crate::geometry::{evaluate_bezier_at_z, get_board_bounds};
 
 fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a mut BezierCurveData> {
     match curve_name {
@@ -424,8 +425,65 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             model.rocker_top = Some(rocker_top);
             model.rocker_bottom = Some(rocker_bottom);
             model.apex_rocker = Some(apex_rocker);
-            model.cross_sections = cross_sections;
+                        model.cross_sections = cross_sections;
             model.outline_layers = outline_layers;
+            push_history(model);
+        }
+        BoardAction::AddOutlineLayer => {
+            let mut layers = model.outline_layers.take().unwrap_or_default();
+
+            if let Some(outline) = &model.outline {
+                let bounds = get_board_bounds(model);
+                let tip_z = bounds.tip_z;
+
+                // Sensible default: A 10" long wing starting 15" from the absolute tail tip,
+                // stepping in 1" on the deck and 0.5" on the bottom.
+                let wing_start_z = tip_z - 15.0;
+                let wing_end_z = tip_z - 5.0;
+
+                let hint_t_start = crate::geometry::find_v_at_z(outline, wing_start_z, 0.0, 1.0);
+                let base_x_start = evaluate_bezier_at_z(outline, wing_start_z, hint_t_start).x;
+
+                let hint_t_end = crate::geometry::find_v_at_z(outline, wing_end_z, 0.0, 1.0);
+                let base_x_end = evaluate_bezier_at_z(outline, wing_end_z, hint_t_end).x;
+
+                let ext_start_pos = Vec3::new(base_x_start - 1.0, 0.0, wing_start_z);
+                let ext_end_pos = Vec3::new(base_x_end - 1.0, 0.0, wing_end_z);
+                
+                let int_start_pos = Vec3::new(base_x_start - 1.5, 0.0, wing_start_z);
+                let int_end_pos = Vec3::new(base_x_end - 1.5, 0.0, wing_end_z);
+
+                let otl_ext = BezierCurveData {
+                    control_points: vec![ext_start_pos, ext_end_pos],
+                    tangents1: vec![ext_start_pos, ext_end_pos.lerp(ext_start_pos, 0.33)],
+                    tangents2: vec![ext_start_pos.lerp(ext_end_pos, 0.33), ext_end_pos],
+                    ..Default::default()
+                };
+
+                let otl_int = BezierCurveData {
+                    control_points: vec![int_start_pos, int_end_pos],
+                    tangents1: vec![int_start_pos, int_end_pos.lerp(int_start_pos, 0.33)],
+                    tangents2: vec![int_start_pos.lerp(int_end_pos, 0.33), int_end_pos],
+                    ..Default::default()
+                };
+
+                layers.push(OutlineLayer {
+                    name: format!("Wing {}", layers.len() + 1),
+                    otl_ext,
+                    otl_int,
+                });
+            }
+
+            model.outline_layers = Some(layers);
+            push_history(model);
+        }
+        BoardAction::RemoveOutlineLayer { index } => {
+            if let Some(mut layers) = model.outline_layers.take() {
+                if index < layers.len() {
+                    layers.remove(index);
+                }
+                model.outline_layers = Some(layers);
+            }
             push_history(model);
         }
     }
