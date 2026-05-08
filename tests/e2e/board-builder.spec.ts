@@ -488,6 +488,43 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector.locator('h3')).toContainText("Layer 0 (INT)");
   });
 
+    test("S3DX Native Import Pipeline", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+
+    // 1. Capture initial volume from the HUD to compare later
+    const volumeDisplay = boardControls.locator('div.text-2xl.font-black.text-blue-500');
+    const initialVolume = await volumeDisplay.textContent();
+    expect(initialVolume).toBeTruthy();
+
+    // 2. Open the Import Modal
+    const importBtn = boardControls.getByRole('button', { name: /Import Design/i });
+    await importBtn.click();
+
+    const modalHeading = page.getByRole('heading', { name: "Import Design" });
+    await expect(modalHeading).toBeVisible();
+
+    // 3. Trigger the file chooser and upload the golden S3DX fixture
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByText('Select .s3dx File').click();
+    const fileChooser = await fileChooserPromise;
+    
+    // Use the known fixture file from the repository
+    await fileChooser.setFiles('./src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx');
+
+    // 4. The modal should automatically close upon successful Rust parsing and state update
+    await expect(modalHeading).toBeHidden();
+
+    // 5. Verify the WASM Worker processed the file by checking if the volume updated
+    // (The imported board should have a different volume than the default 70" squash tail)
+    await expect(volumeDisplay).not.toHaveText(initialVolume as string);
+    
+    // 6. Ensure the canvas is still rendering without WebGL crashes
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+  });
+
   test("Node Inspector Weight Update", async ({ page }) => {
     await page.goto('/');
     const viewport = page.locator("board-viewport");
