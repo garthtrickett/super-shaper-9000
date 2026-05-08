@@ -158,7 +158,7 @@ pub fn evaluate_composite_outline_at_z(model: &BoardModel, z_inches: f32, hint_t
             let z0 = min_z.min(max_z);
             let z1 = min_z.max(max_z);
 
-            if z_inches >= z0 - 0.01 && z_inches <= z1 + 0.01 {
+                        if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
                 let ext_pt = evaluate_bezier_at_z(&layer.otl_ext, z_inches, hint_t);
                 final_x = ext_pt.x;
             }
@@ -459,7 +459,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fa
             let z0 = min_z.min(max_z);
             let z1 = min_z.max(max_z);
 
-            if z_inches >= z0 - 0.01 && z_inches <= z1 + 0.01 {
+                        if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
                 // If we're inside a wing, the INNER outline dictates the tuck position
                 let int_pt = evaluate_bezier_at_z(&layer.otl_int, z_inches, hint_t);
                 tuck_x = int_pt.x; // This is an absolute X, not relative
