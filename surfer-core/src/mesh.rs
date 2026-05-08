@@ -280,7 +280,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 grid[i + 1][j].0 - grid[i - 1][j].0
             };
 
-                        let tangent_u = if j == 0 {
+                                                let tangent_u = if j == 0 {
                 grid[i][1].0 - grid[i][0].0
             } else if j == num_cols - 1 {
                 grid[i][j].0 - grid[i][j - 1].0
@@ -289,7 +289,29 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             } else if j == right_half_cols {
                 grid[i][j + 1].0 - grid[i][j].0
             } else {
-                grid[i][j + 1].0 - grid[i][j - 1].0
+                let mut is_cliff_u = false;
+                let mut cliff_tan_u = Vec3::ZERO;
+                
+                if j > 0 && j != right_half_cols {
+                    let u_diff = (u_columns[j].0 - u_columns[j-1].0).abs();
+                    if u_diff > 0.0 && u_diff <= 0.002 {
+                        is_cliff_u = true;
+                        cliff_tan_u = grid[i][j].0 - grid[i][j-1].0;
+                    }
+                }
+                if j < num_cols - 1 && j != right_half_cols - 1 {
+                    let u_diff = (u_columns[j+1].0 - u_columns[j].0).abs();
+                    if u_diff > 0.0 && u_diff <= 0.002 {
+                        is_cliff_u = true;
+                        cliff_tan_u = grid[i][j+1].0 - grid[i][j].0;
+                    }
+                }
+
+                if is_cliff_u {
+                    cliff_tan_u
+                } else {
+                    grid[i][j + 1].0 - grid[i][j - 1].0
+                }
             };
 
                         let mut n = tangent_u.cross(tangent_v).normalize();
