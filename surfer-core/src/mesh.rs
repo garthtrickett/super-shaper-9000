@@ -351,7 +351,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0);
             }
 
-            // Stringer seam smoothing: Force X=0 for perfect centerline reflection,
+                        // Stringer seam smoothing: Force X=0 for perfect centerline reflection,
             // EXCEPT in swallow tails where inner_x > 0.0 (exposed outer edge).
             let is_stringer = u_columns[j].2;
             let current_inner_x = grid[i][j].0.x.abs() / scale;
@@ -360,9 +360,16 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 n = n.normalize();
             }
 
-            normals.push(n.x);
-            normals.push(n.y);
-            normals.push(n.z);
+            // POLE NORMAL SMOOTHING: Prevent black shading artifacts at rounded pin tails
+            // If we are at the absolute tip, override the calculated normal with the 
+            // analytical pole normal, smoothly blended from top to bottom based on U.
+            if i == segments_v && (tip_z - z_inches).abs() < 1e-4 && current_inner_x < 1e-4 {
+                n = crate::geometry::slerp_normals(tail_n_bot, tail_n_top, u_columns[j].0, Vec3::new(0.0, 0.0, 1.0));
+            } else if i == 0 && (z_inches - nose_z).abs() < 1e-4 && current_inner_x < 1e-4 {
+                n = crate::geometry::slerp_normals(nose_n_bot, nose_n_top, u_columns[j].0, Vec3::new(0.0, 0.0, -1.0));
+            }
+
+            normals.push(n.x); normals.push(n.y); normals.push(n.z);
         }
     }
 
