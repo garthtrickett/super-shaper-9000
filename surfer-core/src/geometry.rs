@@ -901,6 +901,7 @@ mod tests {
 
     #[test]
         #[test]
+        #[test]
     fn test_proportional_tail_scaling() {
         let mut model_narrow = BoardModel::default();
         let mut model_wide = BoardModel::default();
@@ -972,6 +973,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_deck_curvature_preservation() {
         let mut model = BoardModel::default();
         
@@ -1204,6 +1206,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
         #[test]
     fn test_shape3d_extremity_modifiers() {
         let mut model_base = BoardModel::default();
