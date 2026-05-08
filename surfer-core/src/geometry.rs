@@ -1224,7 +1224,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_shape3d_extremity_modifiers() {
         let mut model_base = BoardModel::default();
         model_base.length = 100.0;

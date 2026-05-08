@@ -111,13 +111,13 @@ pub struct S3dxPoint3d {
 use crate::model::{BoardModel, BezierCurveData};
 use glam::Vec3;
 
-fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
+fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, is_longitudinal: bool) -> Option<BezierCurveData> {
     let mut control_points = Vec::new();
     let mut weights = Vec::new();
     if let Some(poly) = &bezier3d.control_points {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                control_points.push(Vec3::new(p.y, p.z, p.x));
+                control_points.push(Vec3::new(p.y, p.z, (board_length / 2.0) - p.x));
                 let u_val = p.u.unwrap_or(-1.0);
                 // Map S3DX default of -1.0 to our engine's baseline of 1.0
                 weights.push(if (u_val - (-1.0)).abs() < 1e-5 { 1.0 } else { u_val });
@@ -129,7 +129,7 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
     if let Some(poly) = &bezier3d.tangents_1 {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                tangents1.push(Vec3::new(p.y, p.z, p.x));
+                tangents1.push(Vec3::new(p.y, p.z, (board_length / 2.0) - p.x));
             }
         }
     }
@@ -138,13 +138,23 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
     if let Some(poly) = &bezier3d.tangents_2 {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                tangents2.push(Vec3::new(p.y, p.z, p.x));
+                tangents2.push(Vec3::new(p.y, p.z, (board_length / 2.0) - p.x));
             }
         }
     }
     
         if control_points.is_empty() {
         return None;
+    }
+
+    if is_longitudinal {
+        control_points.reverse();
+        tangents1.reverse();
+        tangents2.reverse();
+        weights.reverse();
+        
+        // Swap tangents1 and tangents2 to preserve derivative directionality after reversing control points
+        std::mem::swap(&mut tangents1, &mut tangents2);
     }
 
     let final_weights = if weights.is_empty() { None } else { Some(weights) };
@@ -157,19 +167,19 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
     })
 }
 
-fn convert_s3dx_curve(s3dx_curve: &Option<S3dxCurveContainer>) -> Option<BezierCurveData> {
+fn convert_s3dx_curve(s3dx_curve: &Option<S3dxCurveContainer>, board_length: f32, is_longitudinal: bool) -> Option<BezierCurveData> {
     let bezier3d = s3dx_curve.as_ref()?.bezier3d.as_ref()?;
-    convert_s3dx_bezier3d(bezier3d)
+    convert_s3dx_bezier3d(bezier3d, board_length, is_longitudinal)
 }
 
-fn convert_s3dx_bezier_def(s3dx_def: &Option<S3dxBezierDefContainer>) -> Option<BezierCurveData> {
+fn convert_s3dx_bezier_def(s3dx_def: &Option<S3dxBezierDefContainer>, board_length: f32, is_longitudinal: bool) -> Option<BezierCurveData> {
     let bezier3d = s3dx_def.as_ref()?.bezier_def.as_ref()?.bezier3d.as_ref()?;
-    convert_s3dx_bezier3d(bezier3d)
+    convert_s3dx_bezier3d(bezier3d, board_length, is_longitudinal)
 }
 
-fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>) -> Option<BezierCurveData> {
+fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>, board_length: f32) -> Option<BezierCurveData> {
     let bezier3d = s3dx_couples.as_ref()?.bezier3d.as_ref()?;
-    convert_s3dx_bezier3d(bezier3d)
+    convert_s3dx_bezier3d(bezier3d, board_length, false)
 }
 
 pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
@@ -193,7 +203,8 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
 impl From<S3dxBoard> for BoardModel {
     fn from(s3dx: S3dxBoard) -> Self {
         let mut model = BoardModel::default();
-                model.length = s3dx.length;
+        let bl = s3dx.length;
+                model.length = bl;
         model.width = s3dx.width;
         model.thickness = s3dx.thickness;
         
@@ -203,22 +214,28 @@ impl From<S3dxBoard> for BoardModel {
         model.rail_coefficient_nose = s3dx.rail_coefficient_nose.unwrap_or(1.0);
         model.thickness_z_stretch = s3dx.thickness_z_stretch.unwrap_or(1.0);
 
-        model.outline = convert_s3dx_curve(&s3dx.otl);
-        model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot);
-        model.rocker_top = convert_s3dx_curve(&s3dx.str_deck);
+        model.outline = convert_s3dx_curve(&s3dx.otl, bl, true);
+        model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, true);
+        model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, true);
         
-        model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1);
-        model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2);
-        model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2);
+        model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, true);
+        model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, true);
+        model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, true);
         
                 let mut cross_sections = Vec::new();
         if let Some(couples) = s3dx.couples {
             for c in couples {
-                if let Some(cs) = convert_s3dx_couples(&Some(c)) {
+                if let Some(cs) = convert_s3dx_couples(&Some(c), bl) {
                     cross_sections.push(cs);
                 }
             }
         }
+        
+        cross_sections.sort_by(|a, b| {
+            let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
+            let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
+            za.partial_cmp(&zb).unwrap()
+        });
         
         model.cross_sections = cross_sections;
         
@@ -258,10 +275,11 @@ mod tests {
         
         assert_eq!(model.cross_sections.len(), 4, "Should have exactly 4 cross sections");
         
-        let outline = model.outline.unwrap();
+                let outline = model.outline.unwrap();
         assert_eq!(outline.control_points.len(), 4);
-        assert_eq!(outline.control_points[3].z, 185.420); // Length
-        assert_eq!(outline.control_points[3].x, 0.201257); // Width
+        assert!((outline.control_points[0].z - (-185.420 / 2.0)).abs() < 1e-4); // Nose Z
+        assert!((outline.control_points[3].z - (185.420 / 2.0)).abs() < 1e-4);  // Tail Z
+        assert!((outline.control_points[3].x - 0.000001).abs() < 1e-4); // Tail width
     }
 
         #[test]
@@ -273,9 +291,11 @@ mod tests {
         
         assert_eq!(model.cross_sections.len(), 4, "Should dynamically parse 4 cross sections");
         
-        let z0 = model.cross_sections[0].control_points[0].z;
+                let z0 = model.cross_sections[0].control_points[0].z;
         let z3 = model.cross_sections[3].control_points[0].z;
         assert!(z0 < z3, "Cross sections should be ordered from nose to tail");
+        assert!(z0 < 0.0, "First cross section should be near the nose (negative Z)");
+        assert!(z3 > 0.0, "Last cross section should be near the tail (positive Z)");
         
         let weights = model.cross_sections[0].weights.as_ref().expect("Weights should be populated");
         assert_eq!(weights[0], 1.0, "S3DX default u=-1.0 should map to weight=1.0");
@@ -297,18 +317,20 @@ mod tests {
         assert!(mesh.vertices.len() > 0, "Mesh should have vertices");
         assert!(mesh.indices.len() > 0, "Mesh should have indices");
         
-        let scale = 1.0 / 12.0;
+                let scale = 1.0 / 12.0;
+        let tail_z = model.length / 2.0;
+        
         for i in 0..(mesh.vertices.len() / 3) {
             let y = mesh.vertices[i * 3 + 1];
             let z = mesh.vertices[i * 3 + 2];
             // Check for the \"up triangle\" - geometry sticking up past the rocker deck height
-            if (z - model.length * scale).abs() < 0.1 {
+            if (z - tail_z * scale).abs() < 0.1 {
                 assert!(y < 10.0 * scale, "GEOMETRY SPIKE DETECTED AT TAIL: y={} is way too high", y / scale);
             }
         }
 
         // Check rail mid-point collapse near the tail
-        let z_test = model.length - 1.0; 
+        let z_test = tail_z - 1.0; 
         let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_test).unwrap();
         let t_apex = blend.t_apex;
         let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
