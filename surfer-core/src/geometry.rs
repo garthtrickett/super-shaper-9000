@@ -381,7 +381,11 @@ pub struct BoardProfile {
 pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fade_factor: f32) -> BoardProfile {
     let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
     let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, hint_t);
+    
+    let base_outline_pt = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), z_inches, hint_t);
     let outline_pt = evaluate_composite_outline_at_z(model, z_inches, hint_t);
+    let outline_delta = outline_pt.x - base_outline_pt.x;
+
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
 
     let eps = 0.05;
@@ -406,7 +410,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fa
 
     if let Some(ao) = &model.apex_outline {
         if !ao.control_points.is_empty() {
-            apex_x = evaluate_bezier_at_z(ao, z_inches, hint_t).x.max(0.0);
+            apex_x = (evaluate_bezier_at_z(ao, z_inches, hint_t).x + outline_delta).max(0.0);
         }
     }
 
@@ -443,7 +447,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fa
     let mut tuck_x = outline_pt.x.max(0.0);
     if let Some(ro) = &model.rail_outline {
         if !ro.control_points.is_empty() {
-            tuck_x = evaluate_bezier_at_z(ro, z_inches, hint_t).x.max(0.0);
+            tuck_x = (evaluate_bezier_at_z(ro, z_inches, hint_t).x + outline_delta).max(0.0);
         }
     }
         let final_apex_x = apex_x.max(0.001);
@@ -1025,6 +1029,49 @@ mod tests {
         // Verify the parameterization has shifted physically due to the rational weight
         assert!(t_weighted < t_std, "Higher weight at P1 should pull the curve, reaching z=50 earlier in parameter t");
         
-        println!("✅ test_rational_geometry_integration passed.");
+                println!("✅ test_rational_geometry_integration passed.");
+    }
+
+    #[test]
+    fn test_wing_tuck_offset_prevents_intersection() {
+        use crate::model::OutlineLayer;
+        let mut model = BoardModel::default();
+        
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 40.0), Vec3::new(0.0, 0.0, 90.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 60.0), Vec3::ZERO],
+            ..Default::default()
+        });
+
+        model.rail_outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(9.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(9.0, 0.0, 40.0), Vec3::new(0.0, 0.0, 90.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(9.0, 0.0, 60.0), Vec3::ZERO],
+            ..Default::default()
+        });
+        
+        let base_outline_x = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), 75.0, 0.5).x;
+        
+        let wing_ext = BezierCurveData {
+            control_points: vec![Vec3::new(base_outline_x - 2.0, 0.0, 70.0), Vec3::new(base_outline_x - 2.0, 0.0, 80.0)],
+            tangents1: vec![Vec3::new(base_outline_x - 2.0, 0.0, 70.0), Vec3::new(base_outline_x - 2.0, 0.0, 75.0)],
+            tangents2: vec![Vec3::new(base_outline_x - 2.0, 0.0, 75.0), Vec3::new(base_outline_x - 2.0, 0.0, 80.0)],
+            ..Default::default()
+        };
+        model.outline_layers = Some(vec![OutlineLayer {
+            name: "Wing".to_string(),
+            otl_ext: wing_ext,
+            otl_int: BezierCurveData::default(),
+        }]);
+
+        model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], ..Default::default() });
+        model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], ..Default::default() });
+
+        let profile = super::get_board_profile_at_z(&model, 75.0, 0.5, 1.0);
+        
+        assert!(profile.tuck_x < profile.apex_x, "Tuck X ({}) must remain inside Apex X ({}) to prevent self-intersection", profile.tuck_x, profile.apex_x);
+        
+        println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
     }
 }
