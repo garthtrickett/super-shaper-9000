@@ -1019,6 +1019,59 @@ mod tests {
         println!("✅ test_normal_slerp passed.");
     }
 
+        #[test]
+    fn test_rail_does_not_collapse_at_pin_tail() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut model = BoardModel::default();
+        
+        // Pin tail: Z=100, X=0
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 40.0), Vec3::new(2.0, 0.0, 90.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 60.0), Vec3::new(0.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 66.0)],
+            tangents2: vec![Vec3::new(0.0, 1.0, 33.0), Vec3::new(0.0, 1.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 66.0)],
+            tangents2: vec![Vec3::new(0.0, -1.0, 33.0), Vec3::new(0.0, -1.0, 100.0)],
+            ..Default::default()
+        });
+        
+        // Very wide rail cross section to exaggerate the bug
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0), // stringer bot
+                Vec3::new(8.0, -1.0, 0.0), // tuck
+                Vec3::new(10.0, 0.0, 0.0), // apex
+                Vec3::new(8.0, 1.0, 0.0),  // shoulder
+                Vec3::new(0.0, 1.0, 0.0)   // stringer top
+            ],
+            tangents1: vec![Vec3::ZERO; 5],
+            tangents2: vec![Vec3::ZERO; 5],
+            ..Default::default()
+        }];
+
+        let z_test = 99.0; // Near the tail where width is > 0 but < cross section rail width
+        let blend = super::get_cross_section_blend_at_z(&model.cross_sections, z_test).unwrap();
+        let t_apex = blend.t_apex;
+        let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
+
+        let pt_apex = super::get_point_at_uv(&model, t_apex, 1.0, z_test, 0.0, 1.0);
+        let pt_shoulder = super::get_point_at_uv(&model, t_shoulder, 1.0, z_test, 0.0, 1.0);
+
+        // The shoulder should be BETWEEN the stringer (X=0) and the apex (X=pt_apex.x)
+        // If it collapsed past the stringer and got clamped to 0, it will equal 0.0 exactly.
+        assert!(pt_shoulder.x > 0.0, "Shoulder X collapsed to the stringer! Bug present.");
+        assert!(pt_shoulder.x < pt_apex.x, "Shoulder X is outside the apex!");
+    }
+
     #[test]
     fn test_rational_geometry_integration() {
         let mut curve = BezierCurveData {
