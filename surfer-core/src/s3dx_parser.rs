@@ -158,7 +158,8 @@ fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>) -> Option<B
 }
 
 pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
-    let design: Shape3dDesign = quick_xml::de::from_str(xml)
+    let sanitized = xml.replace("<Ref. point>", "<Ref_point>").replace("</Ref. point>", "</Ref_point>");
+    let design: Shape3dDesign = quick_xml::de::from_str(&sanitized)
         .map_err(|e| format!("XML parsing error: {}", e))?;
     Ok(design.board.into())
 }
@@ -197,6 +198,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
+        #[test]
     fn can_convert_s3dx_to_board_model() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -204,14 +206,15 @@ mod tests {
         let content = fs::read_to_string(&path)
             .unwrap_or_else(|_| panic!("Should be able to read the golden S3DX file from {:?}", path));
 
-        let design: Shape3dDesign = quick_xml::de::from_str(&content)
+        let sanitized = content.replace("<Ref. point>", "<Ref_point>").replace("</Ref. point>", "</Ref_point>");
+        let design: Shape3dDesign = quick_xml::de::from_str(&sanitized)
             .unwrap_or_else(|e| panic!("Failed to deserialize S3DX XML: {:?}", e));
 
         assert_eq!(design.board.length, 185.420);
         assert_eq!(design.board.width, 53.790);
         assert_eq!(design.board.thickness, 6.858);
         
-                let model: BoardModel = design.board.into();
+        let model: BoardModel = design.board.into();
 
         assert_eq!(model.length, 185.420);
         assert_eq!(model.width, 53.790);
@@ -223,13 +226,14 @@ mod tests {
         
         assert_eq!(model.cross_sections.len(), 4, "Should have exactly 4 cross sections");
         
-                let outline = model.outline.unwrap();
+        let outline = model.outline.unwrap();
         assert_eq!(outline.control_points.len(), 4);
         assert_eq!(outline.control_points[3].z, 185.420); // Length
         assert_eq!(outline.control_points[3].x, 0.201257); // Width
     }
 
     #[test]
+        #[test]
     fn test_golden_file_rounded_pin_mesh_generation() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -238,10 +242,7 @@ mod tests {
         let content = fs::read_to_string(&path)
             .unwrap_or_else(|_| panic!("Should be able to read the golden S3DX file from {:?}", path));
 
-        let design: Shape3dDesign = quick_xml::de::from_str(&content)
-            .unwrap_or_else(|e| panic!("Failed to deserialize S3DX XML: {:?}", e));
-
-        let model: BoardModel = design.board.into();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
         
         let mesh = crate::mesh::generate_mesh(&model);
         
