@@ -519,19 +519,27 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     let apex_x_clamp = profile.apex_x.max(0.001);
     let world_apex = Vec3::new(apex_x_clamp, profile.apex_y, z_inches);
 
-    let mut final_pos = Vec3::ZERO;
+        let mut final_pos = Vec3::ZERO;
+
+    let cs_rail_width = (p_apex.x - p_tuck.x).max(p_apex.x - p_shoulder.x).max(1e-4);
+    let available_width = (world_apex.x - inner_x).max(0.0);
+    let rail_scale = if available_width < cs_rail_width {
+        available_width / cs_rail_width
+    } else {
+        1.0
+    };
 
     if u > t_tuck && u <= t_shoulder {
                 // --- RAIL ZONE ---
         // Project absolutely from the 3D Apex coordinate along the normal
-                let offset_x = p.x - p_apex.x;
+        let offset_x = (p.x - p_apex.x) * rail_scale;
         let offset_y = p.y - p_apex.y;
 
         final_pos = world_apex + profile.outline_normal * offset_x;
         final_pos.y = world_apex.y + offset_y;
     } else if u <= t_tuck {
                                 // --- BOTTOM FLAT ZONE ---
-        let offset_x = p_tuck.x - p_apex.x;
+        let offset_x = (p_tuck.x - p_apex.x) * rail_scale;
         let offset_y = p_tuck.y - p_apex.y;
         let mut world_tuck = world_apex + profile.outline_normal * offset_x;
         if world_tuck.x < inner_x { world_tuck.x = inner_x; }
@@ -568,9 +576,9 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
                 }
             }
         }
-    } else {
+        } else {
                 // --- DECK FLAT ZONE ---
-                let offset_x = p_shoulder.x - p_apex.x;
+        let offset_x = (p_shoulder.x - p_apex.x) * rail_scale;
         let offset_y = p_shoulder.y - p_apex.y;
         let mut world_shoulder = world_apex + profile.outline_normal * offset_x;
         if world_shoulder.x < inner_x { world_shoulder.x = inner_x; }
@@ -1063,13 +1071,14 @@ mod tests {
         let t_apex = blend.t_apex;
         let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
-        let pt_apex = super::get_point_at_uv(&model, t_apex, 1.0, z_test, 0.0, 1.0);
-        let pt_shoulder = super::get_point_at_uv(&model, t_shoulder, 1.0, z_test, 0.0, 1.0);
+                let pt_apex = super::get_point_at_uv(&model, t_apex, 1.0, z_test, 0.0, 1.0);
+        let t_mid_rail = t_apex + (t_shoulder - t_apex) * 0.5;
+        let pt_mid_rail = super::get_point_at_uv(&model, t_mid_rail, 1.0, z_test, 0.0, 1.0);
 
-        // The shoulder should be BETWEEN the stringer (X=0) and the apex (X=pt_apex.x)
+        // The mid-rail should be BETWEEN the stringer (X=0) and the apex (X=pt_apex.x)
         // If it collapsed past the stringer and got clamped to 0, it will equal 0.0 exactly.
-        assert!(pt_shoulder.x > 0.0, "Shoulder X collapsed to the stringer! Bug present.");
-        assert!(pt_shoulder.x < pt_apex.x, "Shoulder X is outside the apex!");
+        assert!(pt_mid_rail.x > 0.0, "Mid-rail collapsed to the stringer! Bug present.");
+        assert!(pt_mid_rail.x < pt_apex.x, "Mid-rail is outside the apex!");
     }
 
     #[test]
