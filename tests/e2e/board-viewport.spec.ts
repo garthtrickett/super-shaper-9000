@@ -29,7 +29,7 @@ test.describe('Board Viewport E2E', () => {
 
     // Programmatically inject a bottom channel into the board state
     await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
       if (!vp || !vp.boardState) return;
       
             const channelLayer = {

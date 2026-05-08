@@ -1,5 +1,5 @@
 import init, { WasmEngine } from '../wasm/surfer_wasm.js';
-import { type BoardModel, type BoardAction, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
+import { type BoardModel, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
 import type { RustMesh } from '../../../components/3d/board-viewport';
 
 let engine: WasmEngine | null = null;
@@ -27,15 +27,15 @@ init().then(() => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
 
-self.onmessage = (e: MessageEvent<any>) => {
+self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; action?: any }>) => {
     if (!engine) {
         console.warn("[BoardWorker] Engine not ready, ignoring message.");
         return;
     }
 
     const msg = e.data;
-    if (msg.type === "GET_SLICE_PROFILE") {
-        const profile = engine.get_slice_profile(msg.z) as Float32Array;
+        if (msg.type === "GET_SLICE_PROFILE") {
+        const profile = engine.get_slice_profile(msg.z!) as Float32Array;
         (self as unknown as Worker).postMessage({
             type: "SLICE_PROFILE_RESULT",
             id: msg.id,

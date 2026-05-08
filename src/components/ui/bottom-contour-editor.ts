@@ -26,15 +26,15 @@ export class BottomContourEditor extends LitElement {
     return d;
   }
 
-  private _handlePointerDown(e: PointerEvent, curve: string, index: number, origZ: number) {
+    private _handlePointerDown = (e: PointerEvent, curve: string, index: number, origZ: number) => {
     e.preventDefault();
     e.stopPropagation();
     const target = e.target as Element;
     target.setPointerCapture(e.pointerId);
     this.activeDrag = { curve, index, origZ, pointerId: e.pointerId };
-  }
+  };
 
-  private _handlePointerMove(e: PointerEvent) {
+  private _handlePointerMove = (e: PointerEvent) => {
     if (!this.activeDrag || this.activeDrag.pointerId !== e.pointerId) return;
     
     const svgEl = this.querySelector('svg') as SVGSVGElement;
@@ -63,7 +63,7 @@ export class BottomContourEditor extends LitElement {
     }));
   }
 
-  private _handlePointerUp(e: PointerEvent) {
+    private _handlePointerUp = (e: PointerEvent) => {
     if (this.activeDrag && this.activeDrag.pointerId === e.pointerId) {
       const target = e.target as Element;
       if (target.hasPointerCapture(e.pointerId)) {
@@ -71,17 +71,17 @@ export class BottomContourEditor extends LitElement {
       }
       this.activeDrag = null;
     }
-  }
+  };
 
             private _renderNodes() {
     if (!this.boardState?.bottomChannels) {
       console.info("[ContourEditor] No bottomChannels in state");
       return null;
-    }
-    const nodes: any[] =[];
+        }
+    const nodes: import("lit").TemplateResult[] =[];
     
     this.boardState.bottomChannels.forEach((channel, idx) => {
-            const drawSide = (curveData: any, curveName: string, isDepth: boolean) => {
+            const drawSide = (curveData: { controlPoints: any[] } | undefined, curveName: string, isDepth: boolean) => {
         if (!curveData || !curveData.controlPoints) {
             console.info(`[ContourEditor] Missing curveData or controlPoints for ${curveName}`);
             return;
@@ -89,9 +89,9 @@ export class BottomContourEditor extends LitElement {
         console.info(`[ContourEditor] Drawing ${curveName} with ${curveData.controlPoints.length} points. zPosition=${this.zPosition}`);
         curveData.controlPoints.forEach((cp: any, i: number) => {
           // Support both array [x,y,z] (Rust fix) and object {x,y,z} formats for robustness
-          const z = Array.isArray(cp) ? cp[2] : cp.z;
-          const x = Array.isArray(cp) ? cp[0] : cp.x;
-          const y = Array.isArray(cp) ? cp[1] : cp.y;
+          const z = Array.isArray(cp) ? cp[2] : Number(cp.z);
+          const x = Array.isArray(cp) ? cp[0] : Number(cp.x);
+          const y = Array.isArray(cp) ? cp[1] : Number(cp.y);
           
           const zDist = Math.abs(z - this.zPosition);
           console.info(`[ContourEditor] ${curveName}[${i}]: x=${x}, y=${y}, z=${z}. zDist=${zDist}`);
@@ -103,7 +103,7 @@ export class BottomContourEditor extends LitElement {
                 fill=${isDepth ? "#f59e0b" : "#3b82f6"}
                 stroke="white" stroke-width="0.05"
                 class="cursor-pointer hover:opacity-80 transition-all drop-shadow-md"
-                @pointerdown=${(e: PointerEvent) => this._handlePointerDown(e, curveName, i, cp[2])}
+                                @pointerdown=${(e: PointerEvent) => this._handlePointerDown(e, curveName, i, Array.isArray(cp) ? cp[2] : Number(cp.z))}
               />
                             ${isDepth ? svg`<line x1=${x} y1=${y} x2=${x} y2="0" stroke="#f59e0b" stroke-width="0.02" opacity="0.3" stroke-dasharray="0.1 0.1"/>` : ''}
             `);

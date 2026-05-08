@@ -28,17 +28,18 @@ export class BoardBuilderPage extends LitElement {
 
   private requestSliceProfile() {
     if (!this.showContourEditor) return;
-    const worker = (this.wasmCtrl as any).worker as Worker | undefined;
+        const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
     if (worker) {
       worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor" });
     }
   }
 
-  private _handleWorkerMessage = (e: MessageEvent) => {
-    if (e.data.type === "SLICE_PROFILE_RESULT" && e.data.id === "contour-editor") {
-      this.contourSliceData = e.data.profile;
+    private _handleWorkerMessage = (e: MessageEvent) => {
+    const data = e.data as { type: string, id?: string, profile?: Float32Array };
+    if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
+      this.contourSliceData = data.profile;
     }
-    if (e.data.type === "STATE_UPDATED" && this.showContourEditor) {
+    if (data.type === "STATE_UPDATED" && this.showContourEditor) {
       this.requestSliceProfile();
     }
   };
@@ -153,17 +154,17 @@ export class BoardBuilderPage extends LitElement {
     override connectedCallback() {
     super.connectedCallback();
     window.addEventListener("keydown", this._handleKeyDown);
-    setTimeout(() => {
-      const worker = (this.wasmCtrl as any).worker as Worker | undefined;
+        setTimeout(() => {
+      const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
       if (worker) {
         worker.addEventListener("message", this._handleWorkerMessage);
       }
     }, 100);
   }
 
-  override disconnectedCallback() {
+    override disconnectedCallback() {
     window.removeEventListener("keydown", this._handleKeyDown);
-    const worker = (this.wasmCtrl as any).worker as Worker | undefined;
+    const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
     if (worker) {
       worker.removeEventListener("message", this._handleWorkerMessage);
     }
@@ -254,7 +255,7 @@ export class BoardBuilderPage extends LitElement {
                 this.requestSliceProfile();
               }}
               @close-editor=${() => { this.showContourEditor = false; }}
-              @update-node-position=${(e: CustomEvent<any>) => {
+                            @update-node-position=${(e: CustomEvent<{ curve: string, index: number, nodeType: "anchor" | "tangent1" | "tangent2", position: [number, number, number] }>) => {
                 this.wasmCtrl.propose({
                   type: "UPDATE_NODE_POSITION",
                   curve: e.detail.curve,

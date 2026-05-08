@@ -253,7 +253,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 1. Programmatically inject a wing layer into the state
     await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
       const wingLayer = {
         name: "Wing",
         otlExt: {
@@ -273,7 +273,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 2. Find and click the wing layer gizmo
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
             const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       const rect = canvas.getBoundingClientRect();
@@ -285,7 +285,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
     });
     expect(hitPosition).toBeTruthy();
-    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    await page.mouse.click(hitPosition.x, hitPosition.y);
 
         // 3. Verify inspector shows Wing Layer
     const inspector = page.locator("node-inspector");
@@ -314,7 +314,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 4. Verify 3D Gizmo selection for the new wing
     // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
       // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
       // The wing node for Layer 0 EXT should be there.
       if (!vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
@@ -363,7 +363,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
       if (!vp.boardState.outlineLayers?.length) return null;
             const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       
@@ -424,7 +424,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 4. Verify 3D Gizmo selection for the new channel
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
       if (!vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
                         const cp = vp.boardState.bottomChannels[0].rightOutline.controlPoints[0];
       
@@ -468,7 +468,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
       if (!vp.boardState.outlineLayers?.length) return null;
       // Target the Interior curve which is typically further IN than the exterior
             const cp = vp.boardState.outlineLayers[0].otlInt.controlPoints[0];
