@@ -94,6 +94,8 @@ pub struct BoardModel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum BoardAction {
     #[serde(rename = "UPDATE_NUMBER")]
     UpdateNumber { param: String, value: f32 },
@@ -121,9 +123,9 @@ pub enum BoardAction {
     UpdateNodePosition { curve: String, index: usize, node_type: String, position: [f32; 3] },
     #[serde(rename = "SELECT_NODE")]
     SelectNode { node: Option<SelectedNode> },
-        #[serde(rename = "UPDATE_NODE_EXACT")]
+    #[serde(rename = "UPDATE_NODE_EXACT")]
     #[serde(rename_all = "camelCase")]
-        UpdateNodeExact { curve: String, index: usize, anchor: Option<[f32; 3]>, tangent1: Option<[f32; 3]>, tangent2: Option<[f32; 3]>, weight: Option<f32> },
+    UpdateNodeExact { curve: String, index: usize, anchor: Option<[f32; 3]>, tangent1: Option<[f32; 3]>, tangent2: Option<[f32; 3]>, weight: Option<f32> },
     #[serde(rename = "APPLY_CONTINUITY")]
     #[serde(rename_all = "camelCase")]
     ApplyContinuity { 
@@ -141,16 +143,16 @@ pub enum BoardAction {
     Redo,
     #[serde(rename = "SCALE_WIDTH")]
     ScaleWidth { factor: f32 },
-        #[serde(rename = "SCALE_THICKNESS")]
+    #[serde(rename = "SCALE_THICKNESS")]
     ScaleThickness { factor: f32 },
-        #[serde(rename = "ADD_OUTLINE_LAYER")]
+    #[serde(rename = "ADD_OUTLINE_LAYER")]
     AddOutlineLayer,
     #[serde(rename = "REMOVE_OUTLINE_LAYER")]
     RemoveOutlineLayer { index: usize },
-        #[serde(rename = "ADD_BOTTOM_CHANNEL")]
+    #[serde(rename = "ADD_BOTTOM_CHANNEL")]
     AddBottomChannel,
     #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
-        RemoveBottomChannel { index: usize },
+    RemoveBottomChannel { index: usize },
     #[serde(rename = "TOGGLE_CHANNEL_SYMMETRY")]
     ToggleChannelSymmetry { index: usize },
     #[serde(rename = "IMPORT_S3DX")]
@@ -164,7 +166,7 @@ pub enum BoardAction {
         apex_outline: BezierCurveData,
         rocker_top: BezierCurveData,
         rocker_bottom: BezierCurveData,
-                apex_rocker: BezierCurveData,
+        apex_rocker: BezierCurveData,
         cross_sections: Vec<BezierCurveData>,
         outline_layers: Option<Vec<OutlineLayer>>,
         bottom_channels: Option<Vec<ChannelLayer>>,
