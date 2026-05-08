@@ -6,7 +6,9 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) length = 70;
   @property({ type: Number }) width = 18.75;
   @property({ type: Number }) thickness = 2.5;
-  @property({ type: Number }) volume = 30.5;
+    @property({ type: Number }) volume = 30.5;
+  @property({ type: String }) tailType = "squash";
+  @property({ type: Number }) swallowDepth = 4.0;
   @property({ type: String }) finSetup = "quad";
   @property({ type: Number }) frontFinZ = 11.0;
   @property({ type: Number }) frontFinX = 1.25;
@@ -308,6 +310,15 @@ export class BoardControls extends LitElement {
               <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_THICKNESS', factor: 0.95 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Thick -5%</button>
             </div>
           </div>
+        `, true)}
+
+                ${this._renderAccordion("Tail Shape", html`
+          ${this._renderSelect("Tail Type", "tailType",[
+            {value: "squash", label: "Squash / Square"},
+            {value: "pin", label: "Pin / Round"},
+            {value: "swallow", label: "Swallow / Fish"}
+          ], this.tailType)}
+          ${this.tailType === 'swallow' ? this._renderSlider("Notch Depth", "swallowDepth", 1.0, 10.0, 0.25, this.swallowDepth) : ''}
         `, true)}
 
         ${this._renderAccordion("Fins & Placement", html`

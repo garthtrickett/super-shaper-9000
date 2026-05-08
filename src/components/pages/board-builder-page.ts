@@ -217,7 +217,9 @@ export class BoardBuilderPage extends LitElement {
           .length=${state.length}
           .width=${state.width}
           .thickness=${state.thickness}
-          .volume=${state.volume}
+                    .volume=${state.volume}
+          .tailType=${state.tailType ?? 'squash'}
+          .swallowDepth=${state.swallowDepth ?? 4.0}
           .vertexCount=${vertexCount}
           .triangleCount=${triangleCount}
           .finSetup=${state.finSetup}

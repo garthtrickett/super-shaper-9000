@@ -3,6 +3,7 @@ import { Effect, Schema as S } from "effect";
 import { clientLog } from "../../lib/client/clientLog";
 import type { FullClientContext } from "../../lib/client/runtime";
 
+export type TailType = "squash" | "pin" | "swallow";
 export type FinSetup = "thruster" | "quad" | "twin";
 export type CoreMaterial = "pu" | "eps";
 export type GlassingSchedule = "light" | "standard" | "heavy";
@@ -61,7 +62,9 @@ export const BoardModelSchema = S.Struct({
   rearFinZ: S.Number,
   rearFinX: S.Number,
   toeAngle: S.Number,
-  cantAngle: S.Number,
+    cantAngle: S.Number,
+  tailType: S.Literal("squash", "pin", "swallow"),
+  swallowDepth: S.Number,
   coreMaterial: S.Literal("pu", "eps"),
   glassingSchedule: S.Literal("light", "standard", "heavy"),
 });
@@ -127,7 +130,9 @@ export interface BoardModel {
   rearFinZ: number;
   rearFinX: number;
   toeAngle: number;
-  cantAngle: number;
+    cantAngle: number;
+  tailType: TailType;
+  swallowDepth: number;
   coreMaterial: CoreMaterial;
   glassingSchedule: GlassingSchedule;
 }
@@ -189,8 +194,10 @@ export const INITIAL_STATE: BoardModel = {
   frontFinX: 1.25, 
   rearFinZ: 6.0, 
   rearFinX: 1.5, 
-  toeAngle: 3.0, 
+    toeAngle: 3.0, 
   cantAngle: 6.0, 
+  tailType: "squash",
+  swallowDepth: 4.0,
   coreMaterial: "pu", 
   glassingSchedule: "heavy", 
 };

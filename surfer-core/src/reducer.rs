@@ -62,13 +62,69 @@ fn scale_curve_thickness(curve: &mut Option<BezierCurveData>, factor: f32) {
     }
 }
 
+fn apply_tail_type(model: &mut BoardModel) {
+    let is_swallow = model.tail_type == "swallow";
+    let depth = model.swallow_depth;
+    let width = model.width;
+
+    let outline = match model.outline.as_mut() {
+        Some(o) => o,
+        None => return,
+    };
+    let len = outline.control_points.len();
+    if len < 2 { return; }
+
+    let last_z = outline.control_points[len - 1].z;
+    let prev_z = outline.control_points[len - 2].z;
+    let currently_swallow = last_z < prev_z - 0.1;
+
+    if is_swallow && !currently_swallow {
+        let tip_z = outline.control_points[len - 1].z;
+        
+        // Old tail point becomes the prong
+        outline.control_points[len - 1].x = (width / 4.0).max(1.0);
+        
+        // Add the notch
+        let notch_z = tip_z - depth;
+        let notch_pos = Vec3::new(0.0, 0.0, notch_z);
+        
+        outline.control_points.push(notch_pos);
+        let incoming = notch_pos - Vec3::new(1.0, 0.0, -1.0);
+        outline.tangents1.push(incoming);
+        outline.tangents2.push(notch_pos);
+        if let Some(w) = &mut outline.weights {
+            w.push(1.0);
+        }
+    } else if !is_swallow && currently_swallow {
+        outline.control_points.pop();
+        outline.tangents1.pop();
+        outline.tangents2.pop();
+        if let Some(w) = &mut outline.weights {
+            w.pop();
+        }
+        let new_len = outline.control_points.len();
+        outline.control_points[new_len - 1].x = 0.0;
+    } else if is_swallow && currently_swallow {
+        let tip_z = outline.control_points[len - 2].z;
+        let new_notch_z = tip_z - depth;
+        let delta_z = new_notch_z - outline.control_points[len - 1].z;
+        outline.control_points[len - 1].z = new_notch_z;
+        outline.tangents1[len - 1].z += delta_z;
+        outline.tangents2[len - 1].z += delta_z;
+    }
+}
+
 pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();
 
     match action {
-        BoardAction::UpdateNumber { param, value } => match param.as_str() {
+                BoardAction::UpdateNumber { param, value } => match param.as_str() {
             "length" => model.length = value,
             "width" => model.width = value,
+            "swallowDepth" => {
+                model.swallow_depth = value;
+                apply_tail_type(model);
+            }
             "thickness" => model.thickness = value,
             "frontFinZ" => model.front_fin_z = value,
             "frontFinX" => model.front_fin_x = value,
@@ -79,10 +135,15 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "mriSlicePosition" => model.mri_slice_position = Some(value),
             _ => {}
         },
-        BoardAction::UpdateString { param, value } => match param.as_str() {
+                BoardAction::UpdateString { param, value } => match param.as_str() {
             "finSetup" => model.fin_setup = value,
             "coreMaterial" => model.core_material = value,
             "glassingSchedule" => model.glassing_schedule = value,
+            "tailType" => {
+                model.tail_type = value;
+                apply_tail_type(model);
+                push_history(model);
+            }
             _ => {}
         },
         BoardAction::UpdateBoolean { param, value } => match param.as_str() {
