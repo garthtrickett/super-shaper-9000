@@ -141,11 +141,11 @@ pub enum BoardAction {
     Redo,
     #[serde(rename = "SCALE_WIDTH")]
     ScaleWidth { factor: f32 },
-    #[serde(rename = "SCALE_THICKNESS")]
+        #[serde(rename = "SCALE_THICKNESS")]
     ScaleThickness { factor: f32 },
-    #[serde(rename_all = "camelCase")]
-        AddOutlineLayer,
-        #[serde(rename = "REMOVE_OUTLINE_LAYER")]
+    #[serde(rename = "ADD_OUTLINE_LAYER")]
+    AddOutlineLayer,
+    #[serde(rename = "REMOVE_OUTLINE_LAYER")]
     RemoveOutlineLayer { index: usize },
     #[serde(rename = "ADD_BOTTOM_CHANNEL")]
     AddBottomChannel,
