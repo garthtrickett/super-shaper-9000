@@ -269,8 +269,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
     let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
 
-    let mut normals = Vec::new();
+        let mut normals = Vec::new();
     for i in 0..=segments_v {
+        let z_inches = z_rings[i];
         for j in 0..num_cols {
             let (pos, color, u, v) = grid[i][j];
             vertices.push(pos.x);
