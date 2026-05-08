@@ -11,6 +11,7 @@ import { parseS3dx } from "../../lib/client/geometry/s3dx-importer";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
+import "../ui/bottom-contour-editor";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
@@ -18,9 +19,29 @@ export class BoardBuilderPage extends LitElement {
 
   @state() private showExportModal = false;
   @state() private showImportModal = false;
-  @state() private importError = "";
+    @state() private importError = "";
   @state() private importJson = "";
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
+  @state() private showContourEditor = false;
+  @state() private contourZPosition = 50.0;
+  @state() private contourSliceData?: Float32Array;
+
+  private requestSliceProfile() {
+    if (!this.showContourEditor) return;
+    const worker = (this.wasmCtrl as any).worker as Worker | undefined;
+    if (worker) {
+      worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor" });
+    }
+  }
+
+  private _handleWorkerMessage = (e: MessageEvent) => {
+    if (e.data.type === "SLICE_PROFILE_RESULT" && e.data.id === "contour-editor") {
+      this.contourSliceData = e.data.profile;
+    }
+    if (e.data.type === "STATE_UPDATED" && this.showContourEditor) {
+      this.requestSliceProfile();
+    }
+  };
 
   protected override createRenderRoot() { return this; }
 
@@ -129,13 +150,23 @@ export class BoardBuilderPage extends LitElement {
     }
   };
 
-  override connectedCallback() {
+    override connectedCallback() {
     super.connectedCallback();
     window.addEventListener("keydown", this._handleKeyDown);
+    setTimeout(() => {
+      const worker = (this.wasmCtrl as any).worker as Worker | undefined;
+      if (worker) {
+        worker.addEventListener("message", this._handleWorkerMessage);
+      }
+    }, 100);
   }
 
   override disconnectedCallback() {
     window.removeEventListener("keydown", this._handleKeyDown);
+    const worker = (this.wasmCtrl as any).worker as Worker | undefined;
+    if (worker) {
+      worker.removeEventListener("message", this._handleWorkerMessage);
+    }
     super.disconnectedCallback();
   }
 
@@ -208,8 +239,33 @@ export class BoardBuilderPage extends LitElement {
     const triangleCount = this.wasmCtrl.mesh?.triangleCount || 0;
 
     return html`
-      ${this._renderExportModal()}
+            ${this._renderExportModal()}
       ${this._renderImportModal()}
+      ${this.showContourEditor ? html`
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div class="w-[800px] max-w-full h-[600px] flex flex-col">
+            <bottom-contour-editor
+              .boardState=${state}
+              .sliceData=${this.contourSliceData}
+              .zPosition=${this.contourZPosition}
+              @z-changed=${(e: CustomEvent<number>) => {
+                this.contourZPosition = e.detail;
+                this.requestSliceProfile();
+              }}
+              @close-editor=${() => { this.showContourEditor = false; }}
+              @update-node-position=${(e: CustomEvent<any>) => {
+                this.wasmCtrl.propose({
+                  type: "UPDATE_NODE_POSITION",
+                  curve: e.detail.curve,
+                  index: e.detail.index,
+                  nodeType: e.detail.nodeType,
+                  position: e.detail.position
+                });
+              }}
+            ></bottom-contour-editor>
+          </div>
+        </div>
+      ` : ''}
       <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
         <!-- UI Controls Panel -->
         <board-controls
@@ -261,8 +317,10 @@ export class BoardBuilderPage extends LitElement {
                     @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this.wasmCtrl.propose({ type: e.detail.type, factor: e.detail.factor })}
                     @add-outline-layer=${() => this.wasmCtrl.propose({ type: 'ADD_OUTLINE_LAYER' })}
           @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this.wasmCtrl.propose({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
-          @add-bottom-channel=${() => this.wasmCtrl.propose({ type: 'ADD_BOTTOM_CHANNEL' })}
+                    @add-bottom-channel=${() => this.wasmCtrl.propose({ type: 'ADD_BOTTOM_CHANNEL' })}
           @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this.wasmCtrl.propose({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
+          @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this.wasmCtrl.propose({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
+          @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
         ></board-controls>
 
                 <div class="absolute top-4 right-4 z-10 flex gap-2">
