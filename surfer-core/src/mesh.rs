@@ -1185,14 +1185,22 @@ mod tests {
             tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
             ..Default::default()
         });
-        model.cross_sections = vec![BezierCurveData {
+                model.cross_sections = vec![BezierCurveData {
             control_points: vec![
-                Vec3::new(0., -1., 0.),
-                Vec3::new(10., 0., 0.),
-                Vec3::new(0., 1., 0.),
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
             ],
-            tangents1: vec![Vec3::ZERO; 3],
-            tangents2: vec![Vec3::ZERO; 3],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(5.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.5, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
             ..Default::default()
         }];
 
@@ -1421,14 +1429,22 @@ mod tests {
             tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
             ..Default::default()
         });
-        model.cross_sections = vec![BezierCurveData {
+                model.cross_sections = vec![BezierCurveData {
             control_points: vec![
-                Vec3::new(0., -1., 0.),
-                Vec3::new(10., 0., 0.),
-                Vec3::new(0., 1., 0.),
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
             ],
-            tangents1: vec![Vec3::ZERO; 3],
-            tangents2: vec![Vec3::ZERO; 3],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(5.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.5, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
             ..Default::default()
         }];
 
@@ -1508,14 +1524,22 @@ mod tests {
             tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
             ..Default::default()
         });
-        model.cross_sections = vec![BezierCurveData {
+                model.cross_sections = vec![BezierCurveData {
             control_points: vec![
-                Vec3::new(0., -1., 0.),
-                Vec3::new(10., 0., 0.),
-                Vec3::new(0., 1., 0.),
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
             ],
-            tangents1: vec![Vec3::ZERO; 3],
-            tangents2: vec![Vec3::ZERO; 3],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(5.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.5, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
             ..Default::default()
         }];
 

@@ -1052,7 +1052,7 @@ mod tests {
             ..Default::default()
         });
         
-        // Very wide rail cross section to exaggerate the bug
+                // Very wide rail cross section to exaggerate the bug
         model.cross_sections = vec![BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.0, 0.0), // stringer bot
@@ -1061,8 +1061,20 @@ mod tests {
                 Vec3::new(8.0, 1.0, 0.0),  // shoulder
                 Vec3::new(0.0, 1.0, 0.0)   // stringer top
             ],
-            tangents1: vec![Vec3::ZERO; 5],
-            tangents2: vec![Vec3::ZERO; 5],
+            tangents1: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(4.0, -1.0, 0.0),
+                Vec3::new(9.0, -0.5, 0.0),
+                Vec3::new(9.0, 0.5, 0.0),
+                Vec3::new(4.0, 1.0, 0.0)
+            ],
+            tangents2: vec![
+                Vec3::new(4.0, -1.0, 0.0),
+                Vec3::new(9.0, -0.5, 0.0),
+                Vec3::new(9.0, 0.5, 0.0),
+                Vec3::new(4.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0)
+            ],
             ..Default::default()
         }];
 
