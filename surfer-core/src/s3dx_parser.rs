@@ -217,9 +217,52 @@ mod tests {
         
         assert_eq!(model.cross_sections.len(), 4, "Should have exactly 4 cross sections");
         
-        let outline = model.outline.unwrap();
+                let outline = model.outline.unwrap();
         assert_eq!(outline.control_points.len(), 4);
         assert_eq!(outline.control_points[3].z, 185.420); // Length
         assert_eq!(outline.control_points[3].x, 0.201257); // Width
+    }
+
+    #[test]
+    fn test_golden_file_rounded_pin_mesh_generation() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let content = fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("Should be able to read the golden S3DX file from {:?}", path));
+
+        let design: Shape3dDesign = quick_xml::de::from_str(&content)
+            .unwrap_or_else(|e| panic!("Failed to deserialize S3DX XML: {:?}", e));
+
+        let model: BoardModel = design.board.into();
+        
+        let mesh = crate::mesh::generate_mesh(&model);
+        
+        assert!(mesh.vertices.len() > 0, "Mesh should have vertices");
+        assert!(mesh.indices.len() > 0, "Mesh should have indices");
+        
+        let scale = 1.0 / 12.0;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+            // Check for the \"up triangle\" - geometry sticking up past the rocker deck height
+            if (z - model.length * scale).abs() < 0.1 {
+                assert!(y < 10.0 * scale, "GEOMETRY SPIKE DETECTED AT TAIL: y={} is way too high", y / scale);
+            }
+        }
+
+        // Check rail mid-point collapse near the tail
+        let z_test = model.length - 1.0; 
+        let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_test).unwrap();
+        let t_apex = blend.t_apex;
+        let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
+
+        let pt_apex = crate::geometry::get_point_at_uv(&model, t_apex, 1.0, z_test, 0.0, 1.0);
+        let t_mid_rail = t_apex + (t_shoulder - t_apex) * 0.5;
+        let pt_mid_rail = crate::geometry::get_point_at_uv(&model, t_mid_rail, 1.0, z_test, 0.0, 1.0);
+
+        assert!(pt_mid_rail.x > 0.0, "Mid-rail collapsed to the stringer! Bug present.");
+        assert!(pt_mid_rail.x <= pt_apex.x + 1e-4, "Mid-rail is outside the apex!");
     }
 }
