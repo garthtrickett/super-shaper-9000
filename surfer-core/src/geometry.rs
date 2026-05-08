@@ -366,6 +366,29 @@ pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a[BezierCurveData], z_
     Some(BlendResult { t_apex, s_prev, s0, s1, s_next, lerp_factor })
 }
 
+pub fn evaluate_channel_depth(model: &BoardModel, x: f32, z_inches: f32) -> f32 {
+    let mut max_depth = 0.0_f32;
+    if let Some(channels) = &model.bottom_channels {
+        for channel in channels {
+            if channel.outline.control_points.is_empty() || channel.depth.control_points.is_empty() {
+                continue;
+            }
+            let min_z = channel.outline.control_points.first().unwrap().z;
+            let max_z = channel.outline.control_points.last().unwrap().z;
+            if z_inches >= min_z - 1e-4 && z_inches <= max_z + 1e-4 {
+                let chan_x = evaluate_bezier_at_z(&channel.outline, z_inches, 0.5).x;
+                if x.abs() <= chan_x {
+                    let depth = evaluate_bezier_at_z(&channel.depth, z_inches, 0.5).y;
+                    if depth > max_depth {
+                        max_depth = depth;
+                    }
+                }
+            }
+        }
+    }
+    max_depth
+}
+
 pub struct BoardProfile {
     pub top_y: f32,
     pub bot_y: f32,
@@ -547,11 +570,16 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
             let range_y = p_tuck.y - p_bot.y;
             let norm_y = if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 };
             final_pos.y = profile.bot_y + norm_y * (world_tuck_y - profile.bot_y);
-        } else {
+                } else {
             let t_zone = if t_tuck > 1e-5 { u / t_tuck } else { 0.0 };
             let stringer_bot_pos = Vec3::new(inner_x, profile.bot_y, z_inches);
             final_pos = stringer_bot_pos.lerp(world_tuck, t_zone);
             final_pos.y = profile.bot_y;
+        }
+
+        let channel_depth = evaluate_channel_depth(model, final_pos.x, z_inches);
+        if channel_depth > 0.0 {
+            final_pos.y += channel_depth * fade_factor;
         }
     } else {
                 // --- DECK FLAT ZONE ---
@@ -1088,6 +1116,49 @@ mod tests {
         
         assert!(profile.tuck_x < profile.apex_x, "Tuck X ({}) must remain inside Apex X ({}) to prevent self-intersection", profile.tuck_x, profile.apex_x);
         
-        println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
+                println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
+    }
+
+    #[test]
+    fn test_evaluate_channel_depth() {
+        let mut model = BoardModel::default();
+        use crate::model::ChannelLayer;
+        
+        let chan_start_z = 25.0;
+        let chan_end_z = 75.0;
+        let out_start = Vec3::new(2.0, 0.0, chan_start_z);
+        let out_end = Vec3::new(2.0, 0.0, chan_end_z);
+        let depth_start = Vec3::new(0.0, 0.5, chan_start_z);
+        let depth_end = Vec3::new(0.0, 0.5, chan_end_z);
+
+        model.bottom_channels = Some(vec![ChannelLayer {
+            name: "Test Channel".to_string(),
+            outline: BezierCurveData {
+                control_points: vec![out_start, out_end],
+                tangents1: vec![out_start, out_end],
+                tangents2: vec![out_start, out_end],
+                ..Default::default()
+            },
+            depth: BezierCurveData {
+                control_points: vec![depth_start, depth_end],
+                tangents1: vec![depth_start, depth_end],
+                tangents2: vec![depth_start, depth_end],
+                ..Default::default()
+            }
+        }]);
+
+        // Inside bounds (Z=50, X=1.0) -> Depth should be 0.5
+        let depth_inside = super::evaluate_channel_depth(&model, 1.0, 50.0);
+        assert!((depth_inside - 0.5).abs() < 1e-4);
+
+        // Outside bounds Z (Z=10, X=1.0) -> Depth should be 0.0
+        let depth_outside_z = super::evaluate_channel_depth(&model, 1.0, 10.0);
+        assert_eq!(depth_outside_z, 0.0);
+
+        // Outside bounds X (Z=50, X=3.0) -> Depth should be 0.0
+        let depth_outside_x = super::evaluate_channel_depth(&model, 3.0, 50.0);
+        assert_eq!(depth_outside_x, 0.0);
+        
+        println!("✅ test_evaluate_channel_depth passed.");
     }
 }

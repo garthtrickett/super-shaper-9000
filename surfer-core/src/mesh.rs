@@ -114,12 +114,56 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     base_u.push(1.0);
     base_u.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-    let mut u_params_half = Vec::new();
+        let mut u_params_half = Vec::new();
     for u in base_u {
         if u_params_half.is_empty() || u - u_params_half.last().unwrap() > 0.01 {
             u_params_half.push(u);
         }
     }
+
+    // --- NEW: Channel U-parameter injection ---
+    let mut cliff_us = Vec::new();
+    if let Some(channels) = &model.bottom_channels {
+        for channel in channels {
+            if channel.outline.control_points.is_empty() { continue; }
+            for z in &z_rings {
+                let min_z = channel.outline.control_points.first().unwrap().z;
+                let max_z = channel.outline.control_points.last().unwrap().z;
+                if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
+                    let chan_x = crate::geometry::evaluate_bezier_at_z(&channel.outline, *z, 0.5).x;
+                    let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5, 1.0);
+                    let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, *z);
+                    if let Some(b) = &blend {
+                        let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+                        let inner_x = if *z > notch_z { crate::geometry::evaluate_notch_inner_x(outline, v_tip, *z) } else { 0.0 };
+                        let current_width = profile.tuck_x - inner_x;
+                        if current_width > 1e-4 {
+                            let norm_x = (chan_x - inner_x) / current_width;
+                            let approx_u = t_tuck * norm_x;
+                            let cu = approx_u.clamp(0.0, t_tuck);
+                            cliff_us.push(cu);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for cu in cliff_us {
+        u_params_half.push((cu - 0.001).max(0.0));
+        u_params_half.push(cu);
+        u_params_half.push((cu + 0.001).min(1.0));
+    }
+
+    u_params_half.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let mut final_u = Vec::new();
+    for u in u_params_half {
+        if final_u.is_empty() || u - final_u.last().unwrap() > 0.0005 {
+            final_u.push(u);
+        }
+    }
+    u_params_half = final_u;
+    // --- END NEW ---
 
         let mut u_columns = Vec::new();
     let half = u_params_half.len() - 1;
@@ -717,6 +761,58 @@ mod tests {
                 let diff = mesh_squash.indices.len() as isize - mesh_pin.indices.len() as isize;
         assert!(diff > 100, "Difference in indices should be substantial due to cap tessellation grid. Diff: {}", diff);
         println!("✅ test_squash_tail_tessellation_density passed.");
+    }
+
+        #[test]
+    fn test_channel_u_column_clustering() {
+        use crate::model::ChannelLayer;
+        let mut model = BoardModel::default();
+        
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 40.0), Vec3::new(0.0, 0.0, 90.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 60.0), Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], ..Default::default() });
+        model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], ..Default::default() });
+        model.cross_sections = vec![BezierCurveData { control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(10., 0., 0.), Vec3::new(0., 1., 0.)], tangents1: vec![Vec3::ZERO; 3], tangents2: vec![Vec3::ZERO; 3], ..Default::default() }];
+
+        // Add a bottom channel
+        model.bottom_channels = Some(vec![ChannelLayer {
+            name: "Test Channel".to_string(),
+            outline: BezierCurveData {
+                control_points: vec![Vec3::new(2.0, 0.0, 25.0), Vec3::new(2.0, 0.0, 75.0)],
+                tangents1: vec![Vec3::new(2.0, 0.0, 25.0), Vec3::new(2.0, 0.0, 75.0)],
+                tangents2: vec![Vec3::new(2.0, 0.0, 25.0), Vec3::new(2.0, 0.0, 75.0)],
+                ..Default::default()
+            },
+            depth: BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 0.5, 25.0), Vec3::new(0.0, 0.5, 75.0)],
+                tangents1: vec![Vec3::new(0.0, 0.5, 25.0), Vec3::new(0.0, 0.5, 75.0)],
+                tangents2: vec![Vec3::new(0.0, 0.5, 25.0), Vec3::new(0.0, 0.5, 75.0)],
+                ..Default::default()
+            }
+        }]);
+
+        let mesh = super::generate_mesh(&model);
+        
+        let scale = 1.0 / 12.0;
+        let mut u_vals: Vec<f32> = mesh.uvs.chunks_exact(2).map(|uv| uv[0]).collect();
+        u_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        u_vals.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
+        
+        let mut found_cliff = false;
+        for i in 0..u_vals.len() - 1 {
+            let diff = (u_vals[i+1] - u_vals[i]).abs();
+            // Confirm there are U-rings extremely close together (cliff) but not overlapping
+            if diff > 1e-4 && diff < 0.005 {
+                found_cliff = true;
+                break;
+            }
+        }
+        assert!(found_cliff, "Topology should duplicate U-columns around the channel wall cliff");
+        println!("✅ test_channel_u_column_clustering passed.");
     }
 
     #[test]
