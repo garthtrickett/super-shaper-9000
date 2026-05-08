@@ -5,7 +5,6 @@ import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builder-page.logic";
 import { runClientPromise } from "../../lib/client/runtime";
-import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
 import "../3d/board-viewport";
 import "../ui/board-controls";
@@ -45,16 +44,30 @@ export class BoardBuilderPage extends LitElement {
 
   protected override createRenderRoot() { return this; }
 
-  private async _handleExportS3dx() {
+    private async _handleExportS3dx() {
     try {
-            const state = this.wasmCtrl.model || INITIAL_STATE;
-      const curves = await generateBoardCurves(state);
-      const xml = await runClientPromise(exportS3dx(state, curves));
+      const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+      if (!worker) return;
+      
+      const xml = await new Promise<string>((resolve) => {
+        const id = Math.random().toString();
+        const handler = (e: MessageEvent) => {
+          if (e.data.type === "EXPORT_S3DX_RESULT" && e.data.id === id) {
+            worker.removeEventListener("message", handler);
+            resolve(e.data.xml);
+          }
+        };
+        worker.addEventListener("message", handler);
+        worker.postMessage({ type: "EXPORT_S3DX", id });
+      });
+
+      const state = this.wasmCtrl.model;
+      const length = state ? state.length.toFixed(1) : "Unknown";
       const blob = new Blob([xml], { type: "application/xml" });
-            const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `SuperShaper_${state.length.toFixed(1)}.s3dx`;
+      a.download = `SuperShaper_${length}.s3dx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
