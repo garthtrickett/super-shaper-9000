@@ -105,7 +105,7 @@ use glam::Vec3;
 fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
     let mut control_points = Vec::new();
     if let Some(poly) = &bezier3d.control_points {
-        if let Some(pts) = &poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
+        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
                 control_points.push(Vec3::new(p.y, p.z, p.x));
             }
@@ -114,7 +114,7 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
     
     let mut tangents1 = Vec::new();
     if let Some(poly) = &bezier3d.tangents_1 {
-        if let Some(pts) = &poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
+        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
                 tangents1.push(Vec3::new(p.y, p.z, p.x));
             }
@@ -123,7 +123,7 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
     
     let mut tangents2 = Vec::new();
     if let Some(poly) = &bezier3d.tangents_2 {
-        if let Some(pts) = &poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
+        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
                 tangents2.push(Vec3::new(p.y, p.z, p.x));
             }
