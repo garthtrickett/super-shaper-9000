@@ -357,9 +357,74 @@ mod tests {
 
         // With a patch, there should be a vertical line of vertices at the centerline (x=0) for the nose and tail.
         // A single vertex would indicate a triangle fan "pole". We expect at least 2 for a line.
-        assert!(nose_pole_vertices > 1, "Nose cap should be a patch (multiple vertices at x=0), not a single pole vertex.");
+                assert!(nose_pole_vertices > 1, "Nose cap should be a patch (multiple vertices at x=0), not a single pole vertex.");
         assert!(tail_pole_vertices > 1, "Tail cap should be a patch (multiple vertices at x=0), not a single pole vertex.");
         
         println!("✅ test_patch_caps_avoid_poles passed.");
+    }
+
+    #[test]
+    fn test_c2_continuous_pole_normals() {
+        let model = BoardModel {
+            length: 70.0,
+            width: 20.0,
+            thickness: 2.5,
+            outline: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 0.0, -35.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 35.0)],
+                tangents1: vec![Vec3::new(0.0, 0.0, -35.0), Vec3::new(10.0, 0.0, -10.0), Vec3::new(0.0, 0.0, 25.0)],
+                tangents2: vec![Vec3::new(0.0, 0.0, -25.0), Vec3::new(10.0, 0.0, 10.0), Vec3::new(0.0, 0.0, 35.0)],
+                ..Default::default()
+            }),
+            rocker_top: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 35.0)],
+                tangents1: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 0.0)],
+                tangents2: vec![Vec3::new(0.0, 1.25, 0.0), Vec3::new(0.0, 1.25, 35.0)],
+                ..Default::default()
+            }),
+            rocker_bottom: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 35.0)],
+                tangents1: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 0.0)],
+                tangents2: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(0.0, -1.25, 35.0)],
+                ..Default::default()
+            }),
+            cross_sections: vec![BezierCurveData {
+                control_points: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+                tangents1: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(5.0, -1.25, 0.0), Vec3::new(5.0, 1.25, 0.0)],
+                tangents2: vec![Vec3::new(5.0, -1.25, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let mesh = generate_mesh(&model);
+
+        // Obtain exact analytical normals
+        let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(&model, -35.0, true);
+        
+        let scale = 1.0 / 12.0;
+        let mut nose_bot_idx = None;
+        let mut nose_top_idx = None;
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            let u = mesh.uvs[i * 2];
+            let v = mesh.uvs[i * 2 + 1];
+            
+            // Nose is at v=0 (approx, or v_coord 0)
+            if v < 0.01 && (z - (-35.0 * scale)).abs() < 1e-4 {
+                if u < 0.01 { nose_bot_idx = Some(i); }
+                if (u - 1.0).abs() < 0.01 { nose_top_idx = Some(i); }
+            }
+        }
+        
+        let n_bot_idx = nose_bot_idx.expect("Should find bottom nose vertex");
+        let retrieved_n_bot = Vec3::new(mesh.normals[n_bot_idx * 3], mesh.normals[n_bot_idx * 3 + 1], mesh.normals[n_bot_idx * 3 + 2]);
+        assert!((retrieved_n_bot.dot(nose_n_bot) - 1.0).abs() < 1e-4, "Bottom nose ring normal should exactly match analytical normal for C2 blending.");
+
+        let n_top_idx = nose_top_idx.expect("Should find top nose vertex");
+        let retrieved_n_top = Vec3::new(mesh.normals[n_top_idx * 3], mesh.normals[n_top_idx * 3 + 1], mesh.normals[n_top_idx * 3 + 2]);
+        assert!((retrieved_n_top.dot(nose_n_top) - 1.0).abs() < 1e-4, "Top nose ring normal should exactly match analytical normal for C2 blending.");
+        
+        println!("✅ test_c2_continuous_pole_normals passed.");
     }
 }
