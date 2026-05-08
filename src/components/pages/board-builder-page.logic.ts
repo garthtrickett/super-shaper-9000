@@ -218,7 +218,9 @@ export type BoardAction =
   | { type: "REDO" }
   | { type: "SCALE_WIDTH"; factor: number }
   | { type: "SCALE_THICKNESS"; factor: number }
-  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[]; outlineLayers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[] };
+  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[]; outlineLayers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[] }
+  | { type: "ADD_OUTLINE_LAYER" }
+  | { type: "REMOVE_OUTLINE_LAYER"; index: number };
 
 /*
   const snapshot: ManualSnapshot = {

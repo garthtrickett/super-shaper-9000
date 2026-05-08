@@ -34,6 +34,7 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) mriSlicePosition = 50.0;
   @property({ type: Number }) vertexCount = 0;
   @property({ type: Number }) triangleCount = 0;
+  @property({ type: Array }) outlineLayers: { name: string }[] = [];
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -292,6 +293,29 @@ export class BoardControls extends LitElement {
               <input type="checkbox" .checked=${Boolean((this as unknown as Record<string, boolean>)[c.key])} @change=${(e: Event) => this._dispatchBoolean(c.key, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
             </label>
           `)}
+          <div class="h-px bg-zinc-800 my-3"></div>
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Outline Layers</label>
+              <button 
+                @click=${() => this.dispatchEvent(new CustomEvent('add-outline-layer', { bubbles: true, composed: true }))} 
+                class="px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+                title="Add Wing/Flyer"
+              >ADD</button>
+            </div>
+            ${(this.outlineLayers || []).length === 0 
+              ? html`<p class="text-xs text-zinc-500 text-center py-2">No wings defined.</p>`
+              : (this.outlineLayers || []).map((layer, index) => html`
+              <div class="flex items-center justify-between mb-1 bg-zinc-800/50 p-1.5 rounded">
+                <span class="text-xs text-zinc-400">${layer.name}</span>
+                <button 
+                  @click=${() => this.dispatchEvent(new CustomEvent('remove-outline-layer', { detail: { index }, bubbles: true, composed: true }))}
+                  class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
+                  title="Remove Layer ${index + 1}"
+                >&times;</button>
+              </div>
+            `)}
+          </div>
         `, true)}
 
         ${this._renderAccordion("Global Transforms", html`

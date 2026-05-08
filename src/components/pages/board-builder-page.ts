@@ -253,10 +253,13 @@ export class BoardBuilderPage extends LitElement {
           .showCurvature=${state.showCurvature ?? false}
           .showMriView=${state.showMriView ?? false}
           .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
+          .outlineLayers=${state.outlineLayers || []}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
                     @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this.wasmCtrl.propose({ type: e.detail.type, factor: e.detail.factor })}
+          @add-outline-layer=${() => this.wasmCtrl.propose({ type: 'ADD_OUTLINE_LAYER' })}
+          @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this.wasmCtrl.propose({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
         ></board-controls>
 
                 <div class="absolute top-4 right-4 z-10 flex gap-2">
