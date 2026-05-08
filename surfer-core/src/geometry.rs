@@ -423,14 +423,14 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let dist = z_inches - mid_z;
     let mut v_concave_add = 0.0;
     
-    if dist > 0.0 {
+        if dist > 0.0 {
         let t = (dist / (bounds.tip_z - mid_z)).max(0.0).min(1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
-        v_concave_add = model.v_concave_tail.unwrap_or(0.0) * ease_t;
+        v_concave_add = model.v_concave_tail * ease_t;
     } else {
         let t = ((-dist) / (mid_z - bounds.nose_z)).max(0.0).min(1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
-        v_concave_add = model.v_concave_nose.unwrap_or(0.0) * ease_t;
+        v_concave_add = model.v_concave_nose * ease_t;
     }
 
     let mut top_y = top_pt.y;
@@ -555,14 +555,14 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     let dist = z_inches - mid_z;
     let mut rail_coeff = 1.0;
     
-    if dist > 0.0 {
+        if dist > 0.0 {
         let t = (dist / (bounds.tip_z - mid_z)).max(0.0).min(1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
-        rail_coeff = 1.0 + (model.rail_coefficient_tail.unwrap_or(1.0) - 1.0) * ease_t;
+        rail_coeff = 1.0 + (model.rail_coefficient_tail - 1.0) * ease_t;
     } else {
         let t = ((-dist) / (mid_z - bounds.nose_z)).max(0.0).min(1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
-        rail_coeff = 1.0 + (model.rail_coefficient_nose.unwrap_or(1.0) - 1.0) * ease_t;
+        rail_coeff = 1.0 + (model.rail_coefficient_nose - 1.0) * ease_t;
     }
 
     let final_rail_scale = rail_scale * rail_coeff;
@@ -1207,9 +1207,9 @@ mod tests {
         }];
 
         let mut model_mod = model_base.clone();
-        // Apply strong modifiers to the tail
-        model_mod.v_concave_tail = Some(-1.0);
-        model_mod.rail_coefficient_tail = Some(0.5);
+                // Apply strong modifiers to the tail
+        model_mod.v_concave_tail = -1.0;
+        model_mod.rail_coefficient_tail = 0.5;
 
         // 1. Center of the board (Z=50)
         // Easing should be 0 here, so both boards evaluate exactly identically.
