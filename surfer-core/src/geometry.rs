@@ -1271,10 +1271,10 @@ mod tests {
         assert!(profile_mod_tail.bot_y > profile_base_tail.bot_y, "V-Concave < 0 should physically raise the stringer (Vee)");
         assert!((profile_mod_tail.apex_y - profile_base_tail.apex_y).abs() < 1e-4, "V-Concave should not alter the rail rocker height");
 
-        // Test Rail Coefficient (Thinning the deck shoulder)
-        // U = 0.8 is up on the deck shoulder.
-        let pt_base = super::get_point_at_uv(&model_base, 0.8, 0.5, z_tail, 0.0, 1.0);
-        let pt_mod = super::get_point_at_uv(&model_mod, 0.8, 0.5, z_tail, 0.0, 1.0);
+                // Test Rail Coefficient (Thinning the deck shoulder)
+        // U = 0.625 is halfway up on the deck shoulder.
+        let pt_base = super::get_point_at_uv(&model_base, 0.625, 0.5, z_tail, 0.0, 1.0);
+        let pt_mod = super::get_point_at_uv(&model_mod, 0.625, 0.5, z_tail, 0.0, 1.0);
 
         assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
 
