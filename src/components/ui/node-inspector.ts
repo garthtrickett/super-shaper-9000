@@ -56,12 +56,20 @@ export class NodeInspector extends LitElement {
       const idx = parseInt(sel.curve.split("_")[1]!, 10);
       return this.boardState.crossSections?.[idx];
     }
-    if (sel.curve.startsWith("outlineLayer_")) {
+        if (sel.curve.startsWith("outlineLayer_")) {
       const parts = sel.curve.split("_");
       const idx = parseInt(parts[1]!, 10);
       const layer = this.boardState.outlineLayers?.[idx];
       if (layer) {
         return parts[2] === "ext" ? layer.otlExt : layer.otlInt;
+      }
+    }
+    if (sel.curve.startsWith("channel_")) {
+      const parts = sel.curve.split("_");
+      const idx = parseInt(parts[1]!, 10);
+      const channel = this.boardState.bottomChannels?.[idx];
+      if (channel) {
+        return parts[2] === "outline" ? channel.outline : channel.depth;
       }
     }
     return undefined;
@@ -188,12 +196,15 @@ export class NodeInspector extends LitElement {
       apexRocker: "Rail Apex (Profile)"
     };
 
-    let title = friendlyNames[sel.curve] || sel.curve;
+        let title = friendlyNames[sel.curve] || sel.curve;
     if (sel.curve.startsWith('crossSection_')) {
       title = `Slice ${sel.curve.split('_')[1]}`;
     } else if (sel.curve.startsWith('outlineLayer_')) {
       const parts = sel.curve.split('_');
       title = `Layer ${parts[1]} (${parts[2].toUpperCase()})`;
+    } else if (sel.curve.startsWith('channel_')) {
+      const parts = sel.curve.split('_');
+      title = `Channel ${parts[1]} (${parts[2].toUpperCase()})`;
     }
 
     const renderInput = (label: string, value: number, disabled: boolean, onChange: (v: number) => void) => html`
@@ -285,115 +296,7 @@ export class NodeInspector extends LitElement {
               ${renderInput('Angle', t2Polar.ang, false, (v) => this._handleTangentChange(false, 'ang', v))}
               ${renderInput('Length', t2Polar.len, false, (v) => this._handleTangentChange(false, 'len', v))}
             </div>
-          </div>
-        </div>
-      </div>
-    `;
-    const curveData = this._getTargetCurve();
-    if (!sel || !curveData) return html``;
-
-    const anc = curveData.controlPoints[sel.index]!;
-    const t1 = curveData.tangents1[sel.index]!;
-    const t2 = curveData.tangents2[sel.index]!;
-
-    const t1Polar = this._getPolar(sel.curve, t1, anc);
-    const t2Polar = this._getPolar(sel.curve, t2, anc);
-
-    const isOutline = sel.curve === 'outline';
-    const isRocker = sel.curve.startsWith('rocker');
-        const isSlice = sel.curve.startsWith('crossSection');
-    const isEndNode = sel.index === 0 || sel.index === curveData.controlPoints.length -1;
-
-    const renderInput = (label: string, value: number, disabled: boolean, onChange: (v: number) => void) => html`
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-semibold text-zinc-400 w-16">${label}</span>
-        <input 
-          type="number" step="0.01"
-          .value=${value.toFixed(2)}
-          ?disabled=${disabled}
-          @change=${(e: Event) => onChange(parseFloat((e.target as HTMLInputElement).value))}
-          class="bg-zinc-950 text-zinc-200 text-xs px-2 py-1 rounded border border-zinc-700 w-24 focus:outline-none focus:border-blue-500 disabled:opacity-30 disabled:cursor-not-allowed"
-        />
-      </div>
-    `;
-
-    return html`
-      <div class="bg-zinc-900 border border-zinc-700 shadow-2xl rounded-lg p-4 font-mono">
-        <div class="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800">
-                    <h3 class="text-sm font-bold text-zinc-100 uppercase tracking-widest">
-            ${sel.curve.startsWith('outlineLayer_') ? `Layer ${sel.curve.split('_')[1]} (${sel.curve.split('_')[2].toUpperCase()})` : sel.curve.replace('crossSection_', 'Slice ')}
-          </h3>
-          <span class="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
-            Node ${sel.index}
-          </span>
-        </div>
-
-                        <div class="mb-4">
-          <h4 class="text-xs font-bold text-blue-400 mb-2 uppercase tracking-widest">Anchor Position</h4>
-          ${renderInput('X (W)', anc[0], isRocker, (v) => this._handleAnchorChange(0, v))}
-          ${renderInput('Y (H)', anc[1], isOutline, (v) => this._handleAnchorChange(1, v))}
-          ${renderInput('Z (L)', anc[2], isSlice, (v) => this._handleAnchorChange(2, v))}
-        </div>
-
-        <div class="mb-4 bg-zinc-950/50 p-2 rounded border border-zinc-800">
-          <div class="flex justify-between items-center mb-2">
-            <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Node Tension (Weight)</h4>
-            <span class="text-[10px] font-mono bg-zinc-900 text-emerald-400 px-1.5 py-0.5 rounded border border-zinc-700 shadow-inner">
-              ${(curveData.weights?.[sel.index] ?? 1.0).toFixed(2)}x
-            </span>
-          </div>
-          <div class="flex items-center gap-2">
-            <input 
-              type="range" min="0.1" max="10.0" step="0.1"
-              .value=${(curveData.weights?.[sel.index] ?? 1.0).toString()}
-              @input=${(e: Event) => this._handleWeightChange(parseFloat((e.target as HTMLInputElement).value))}
-              class="w-full accent-emerald-500 cursor-pointer"
-            />
-            <button 
-              @click=${() => this._handleWeightChange(1.0)}
-              class="text-[10px] font-bold tracking-wider uppercase bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors"
-              title="Reset to Standard Bezier (1.0)"
-            >
-              RST
-            </button>
-          </div>
-        </div>
-
-                ${isEndNode ? '' : html`
-        <div class="mb-4">
-          <div class="flex justify-between items-center mb-2">
-            <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Joint Continuity</h4>
-          </div>
-          <div class="flex w-full bg-zinc-950 border border-zinc-800 rounded-md p-1 space-x-1">
-            ${['G0', 'G1', 'G2'].map(level => html`
-              <button 
-                @click=${() => this._handleContinuityChange(level as 'G0' | 'G1' | 'G2')}
-                class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider rounded py-1 transition-colors 
-                  ${this.continuityLevel === level 
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-zinc-400 hover:bg-zinc-800'}"
-              >
-                ${{ G0: 'Free', G1: 'Smooth', G2: 'Fair' }[level]}
-              </button>
-            `)}
-          </div>
-        </div>`}
-
-        <div class="mb-4">
-          <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Tangents (Handles)</h4>
-          
-          <div class="grid grid-cols-2 gap-4">
-            <div class="bg-zinc-950/50 p-2 rounded border border-zinc-800">
-              <span class="block text-[10px] text-zinc-500 mb-2 uppercase font-bold tracking-widest">Incoming (T1)</span>
-              ${renderInput('Angle', t1Polar.ang, false, (v) => this._handleTangentChange(true, 'ang', v))}
-              ${renderInput('Length', t1Polar.len, false, (v) => this._handleTangentChange(true, 'len', v))}
-            </div>
-            <div class="bg-zinc-950/50 p-2 rounded border border-zinc-800">
-              <span class="block text-[10px] text-zinc-500 mb-2 uppercase font-bold tracking-widest">Outgoing (T2)</span>
-              ${renderInput('Angle', t2Polar.ang, false, (v) => this._handleTangentChange(false, 'ang', v))}
-              ${renderInput('Length', t2Polar.len, false, (v) => this._handleTangentChange(false, 'len', v))}
-            </div>
-          </div>
+                    </div>
         </div>
       </div>
     `;
