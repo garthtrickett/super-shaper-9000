@@ -397,6 +397,58 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     expect(xValue).toBeGreaterThan(12.0);
   });
 
+    test("Bottom Channel Creation and Manipulation Flow", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+
+    // 1. Find the 'ADD' button for channels (using its specific title)
+    const addBtn = boardControls.locator('button[title="Add Bottom Channel"]');
+    await expect(addBtn).toBeVisible();
+
+    // 2. Click Add Channel
+    await addBtn.click();
+
+    // 3. Verify 'Channel 1' appears in the controls list
+    const channelItem = boardControls.locator("span", { hasText: /Channel 1/i });
+    await expect(channelItem).toBeVisible();
+
+    // 4. Verify 3D Gizmo selection for the new channel
+    const hitPosition = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      if (!vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
+      const cp = vp.boardState.bottomChannels[0].outline.controlPoints[0];
+      
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      // Project CAD inches to normalized viewport coords
+      const ndcX = (cp[0] / 12) / (5 * aspect);
+      const ndcY = -(cp[2] / 12) / 5;
+      return {
+        x: rect.left + ((ndcX + 1) / 2 * rect.width),
+        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+      };
+    });
+
+    expect(hitPosition).toBeTruthy();
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+
+    // 5. Verify the inspector reveals the layer correctly
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText(/Channel 0 \(OUTLINE\)/i);
+
+    // 6. Test Removal
+    const removeBtn = boardControls.locator('button[title="Remove Channel 1"]');
+    await removeBtn.click();
+
+    // 7. Verify channel is gone from list
+    await expect(channelItem).toBeHidden();
+    await expect(boardControls.getByText(/No channels defined/i)).toBeVisible();
+  });
+
   test("Visual Confirmation of Interior (INT) Wing Selection", async ({ page }) => {
     await page.goto("/");
     const boardControls = page.locator("board-controls");
