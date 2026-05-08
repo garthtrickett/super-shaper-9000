@@ -37,19 +37,55 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             all_z.push(evaluate_curve(r_bot, t).z);
         }
     }
-    for t in crate::bezier::adaptive_sample_t(outline, tolerance_degrees, min_dist) {
+        for t in crate::bezier::adaptive_sample_t(outline, tolerance_degrees, min_dist) {
         all_z.push(evaluate_curve(outline, t).z);
+    }
+
+    let mut cliff_zs = Vec::new();
+    if let Some(layers) = &model.outline_layers {
+        for layer in layers {
+            if !layer.otl_ext.control_points.is_empty() {
+                for t in crate::bezier::adaptive_sample_t(&layer.otl_ext, tolerance_degrees, min_dist) {
+                    all_z.push(evaluate_curve(&layer.otl_ext, t).z);
+                }
+                let first_z = layer.otl_ext.control_points.first().unwrap().z;
+                let last_z = layer.otl_ext.control_points.last().unwrap().z;
+                cliff_zs.push(first_z.min(last_z));
+                cliff_zs.push(first_z.max(last_z));
+            }
+            if !layer.otl_int.control_points.is_empty() {
+                for t in crate::bezier::adaptive_sample_t(&layer.otl_int, tolerance_degrees, min_dist) {
+                    all_z.push(evaluate_curve(&layer.otl_int, t).z);
+                }
+            }
+        }
     }
     
     all_z.push(nose_z);
     all_z.push(tip_z);
+
+    // Inject cliff offsets for sharp wings
+    for &cz in &cliff_zs {
+        all_z.push(cz - 1e-3);
+        all_z.push(cz);
+        all_z.push(cz + 1e-3);
+    }
+
     all_z.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
     let mut z_rings = Vec::new();
     for z in all_z {
         let clamped = z.clamp(nose_z, tip_z);
-        if z_rings.is_empty() || clamped - z_rings.last().unwrap() > 0.1 {
+        if z_rings.is_empty() {
             z_rings.push(clamped);
+        } else {
+            let last_z = *z_rings.last().unwrap();
+            let diff = clamped - last_z;
+            let is_cliff = cliff_zs.iter().any(|&cz| (clamped - cz).abs() <= 1.5e-3 || (last_z - cz).abs() <= 1.5e-3);
+            
+            if diff > 0.1 || (is_cliff && diff >= 1e-4) {
+                z_rings.push(clamped);
+            }
         }
     }
     
@@ -224,7 +260,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     }
 
                                                                                                 // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
-                let mut generate_swallow_notch_wall = |vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
+                let generate_swallow_notch_wall = |vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
         if (tip_z - notch_z) < 1e-3 { return; }
 
         let mut notch_start_idx = 0;
@@ -696,6 +732,54 @@ mod tests {
         assert!(mesh.vertices.len() > 1000, "Mesh should generate successfully without crashing");
         assert!(mesh.indices.len() > 1000, "Indices should be populated");
         
-        println!("✅ test_bifurcated_mesh_vertex_count passed.");
+                println!("✅ test_bifurcated_mesh_vertex_count passed.");
+    }
+
+    #[test]
+    fn test_wing_z_ring_duplication() {
+        use crate::model::OutlineLayer;
+        let mut model = BoardModel::default();
+        
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 40.0), Vec3::new(0.0, 0.0, 90.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 60.0), Vec3::ZERO],
+            ..Default::default()
+        });
+        
+        let wing_ext = BezierCurveData {
+            control_points: vec![Vec3::new(12.0, 0.0, 70.0), Vec3::new(12.0, 0.0, 80.0)],
+            tangents1: vec![Vec3::new(12.0, 0.0, 70.0), Vec3::new(12.0, 0.0, 75.0)],
+            tangents2: vec![Vec3::new(12.0, 0.0, 75.0), Vec3::new(12.0, 0.0, 80.0)],
+            ..Default::default()
+        };
+        model.outline_layers = Some(vec![OutlineLayer {
+            name: "Wing".to_string(),
+            otl_ext: wing_ext,
+            otl_int: BezierCurveData::default(),
+        }]);
+
+        model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], ..Default::default() });
+        model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], ..Default::default() });
+        model.cross_sections = vec![BezierCurveData { control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(10., 0., 0.), Vec3::new(0., 1., 0.)], tangents1: vec![Vec3::ZERO; 3], tangents2: vec![Vec3::ZERO; 3], ..Default::default() }];
+
+        let mesh = super::generate_mesh(&model);
+        
+        let scale = 1.0 / 12.0;
+        let mut unique_zs: Vec<f32> = mesh.vertices.chunks_exact(3).map(|v| v[2] / scale).collect();
+        unique_zs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        unique_zs.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
+        
+        let mut found_cliff = false;
+        for i in 0..unique_zs.len() - 1 {
+            let diff = (unique_zs[i+1] - unique_zs[i]).abs();
+            // Confirm there are rings extremely close together near Z=70 (the start of the wing)
+            if diff > 1e-4 && diff < 0.01 && (unique_zs[i] - 70.0).abs() < 0.1 {
+                found_cliff = true;
+                break;
+            }
+        }
+        assert!(found_cliff, "Topology should duplicate Z-rings around the wing cliff");
+        println!("✅ test_wing_z_ring_duplication passed.");
     }
 }
