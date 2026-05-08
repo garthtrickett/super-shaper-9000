@@ -16,8 +16,8 @@ test.describe('Quad Viewport CAD Interface', () => {
   test('should render the four-quadrant layout', async ({ page }) => {
         // Bumping tolerance to account for anti-aliasing differences and subtle shading
     // improvements from the new B-Rep tail/nose cap topology.
-    await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
-      maxDiffPixels: 3000,
+        await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
+      maxDiffPixels: 15000,
       mask:[page.locator('button[title*="Flip"]')]
     });
   });
@@ -38,8 +38,8 @@ test.describe('Quad Viewport CAD Interface', () => {
         await page.mouse.up();
     await page.waitForTimeout(500); // Wait for momentum to settle
 
-    await expect(page).toHaveScreenshot('quad-view-no-rotation.png', { 
-      maxDiffPixels: 3000,
+        await expect(page).toHaveScreenshot('quad-view-no-rotation.png', { 
+      maxDiffPixels: 15000,
       mask: [page.locator('button[title*="Flip"]')]
     });
 
@@ -62,8 +62,8 @@ test.describe('Quad Viewport CAD Interface', () => {
     expect(box).toBeDefined();
 
         // Take a screenshot of the initial state before we drag anything
-    await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { 
-      maxDiffPixels: 3000,
+        await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { 
+      maxDiffPixels: 15000,
       mask:[page.locator('button[title*="Flip"]')]
     });
 

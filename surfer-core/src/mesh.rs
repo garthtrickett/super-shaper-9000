@@ -27,8 +27,73 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         if p.z > tip_z {
             tip_z = p.z;
             v_tip = t;
+            }
+
+    #[test]
+    fn test_split_normals_at_poles() {
+        let mut model = BoardModel::default();
+        // Setup straight outline: 10 units wide along Z
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
+        });
+        
+        let mesh = generate_mesh(&model);
+        
+        // Find tail vertices (z = 100.0 * scale)
+        let scale = 1.0 / 12.0;
+        let target_z = 100.0 * scale;
+        
+        let mut hull_normals = Vec::new();
+        let mut cap_normals = Vec::new();
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - target_z).abs() < 1e-4 {
+                let nz = mesh.normals[i * 3 + 2];
+                if nz > 0.5 {
+                    cap_normals.push(Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]));
+                } else {
+                    hull_normals.push(Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]));
+                }
+            }
         }
+        
+        assert!(!hull_normals.is_empty(), "Should have hull vertices at the tail");
+        assert!(!cap_normals.is_empty(), "Should have cap vertices at the tail");
+        
+        // For a straight blocky tail, the hull normal should be pointing outward (+X or -X or Y)
+        // while cap normals should point towards +Z
+        let mut found_side_facing_hull = false;
+        for n in &hull_normals {
+            if n.z.abs() < 0.1 { // mostly pointing sideways/up/down
+                found_side_facing_hull = true;
+                break;
+            }
+        }
+        assert!(found_side_facing_hull, "Hull should maintain natural side-facing normals up to the tail pole");
+        
+        for n in &cap_normals {
+            assert!(n.z > 0.9, "Cap normals should point strongly towards +Z");
+        }
+        
+        println!("✅ test_split_normals_at_poles passed.");
     }
+}
 
     // Adaptive Lengthwise (V) Slicing
     let mut all_z = Vec::new();
@@ -171,29 +236,29 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             colors.push(color.x); colors.push(color.y); colors.push(color.z);
             uvs.push(u); uvs.push(v);
 
-            let mut n;
-            if i == 0 {
-                n = crate::geometry::slerp_normals(nose_n_bot, nose_n_top, u, Vec3::new(0.0, 0.0, -1.0));
+                        let tangent_v = if i == 0 {
+                grid[i + 1][j].0 - grid[i][j].0
             } else if i == segments_v {
-                n = crate::geometry::slerp_normals(tail_n_bot, tail_n_top, u, Vec3::new(0.0, 0.0, 1.0));
+                grid[i][j].0 - grid[i - 1][j].0
             } else {
-                let tangent_v = grid[i + 1][j].0 - grid[i - 1][j].0;
-                let tangent_u = if j == 0 {
-                    grid[i][1].0 - grid[i][0].0
-                } else if j == right_half_cols - 1 {
-                    grid[i][j].0 - grid[i][j - 1].0
-                } else if j == right_half_cols {
-                    grid[i][j + 1].0 - grid[i][j].0
-                } else if j == num_cols - 1 {
-                    grid[i][j].0 - grid[i][j - 1].0
-                } else {
-                    grid[i][j + 1].0 - grid[i][j - 1].0
-                };
+                grid[i + 1][j].0 - grid[i - 1][j].0
+            };
 
-                n = tangent_u.cross(tangent_v).normalize();
-                if n.is_nan() || n.length_squared() < 0.0001 {
-                    n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0);
-                }
+            let tangent_u = if j == 0 {
+                grid[i][1].0 - grid[i][0].0
+            } else if j == right_half_cols - 1 {
+                grid[i][j].0 - grid[i][j - 1].0
+            } else if j == right_half_cols {
+                grid[i][j + 1].0 - grid[i][j].0
+            } else if j == num_cols - 1 {
+                grid[i][j].0 - grid[i][j - 1].0
+            } else {
+                grid[i][j + 1].0 - grid[i][j - 1].0
+            };
+
+            let mut n = tangent_u.cross(tangent_v).normalize();
+            if n.is_nan() || n.length_squared() < 0.0001 {
+                n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0);
             }
 
             normals.push(n.x); normals.push(n.y); normals.push(n.z);
@@ -213,8 +278,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-                                // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
-    let mut add_patch_centerline = |ring_index: usize, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3| -> u32 {
+                                                                // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
+    let mut add_patch_centerline = |ring_index: usize, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>| -> u32 {
         let start_idx = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
         
@@ -242,9 +307,33 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         start_idx
     };
 
+    let mut add_cap_boundary_ring = |ring_index: usize, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>| -> u32 {
+        let start_idx = (vertices.len() / 3) as u32;
+        let ring = &grid[ring_index];
+        for j in 0..num_cols {
+            let (pos, color, u, v) = ring[j];
+            vertices.push(pos.x);
+            vertices.push(pos.y);
+            vertices.push(pos.z);
+            
+            uvs.push(u);
+            uvs.push(v);
+            
+            colors.push(color.x);
+            colors.push(color.y);
+            colors.push(color.z);
+            
+            let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
+            normals.push(blended_normal.x);
+            normals.push(blended_normal.y);
+            normals.push(blended_normal.z);
+        }
+        start_idx
+    };
+
         // --- Cap Generation (Nose) ---
-    let nose_centerline_start = add_patch_centerline(0, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0));
-    let nose_ring_start = 0 as u32;
+    let nose_centerline_start = add_patch_centerline(0, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
+    let nose_ring_start = add_cap_boundary_ring(0, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
 
     // Right side of nose
     for j in 0..right_half_cols - 1 {
@@ -268,9 +357,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         indices.push(a); indices.push(c); indices.push(d);
     }
 
-            // --- Cap Generation (Tail) ---
-    let tail_centerline_start = add_patch_centerline(segments_v, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0));
-    let tail_ring_start = (segments_v * num_cols) as u32;
+                        // --- Cap Generation (Tail) ---
+    let tail_centerline_start = add_patch_centerline(segments_v, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
+    let tail_ring_start = add_cap_boundary_ring(segments_v, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0), &mut vertices, &mut uvs, &mut colors, &mut normals);
 
     // Right side of tail
     for j in 0..right_half_cols - 1 {
@@ -402,16 +491,17 @@ mod tests {
         let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(&model, -35.0, true);
         
         let scale = 1.0 / 12.0;
-        let mut nose_bot_idx = None;
+                let mut nose_bot_idx = None;
         let mut nose_top_idx = None;
         
-        for i in 0..(mesh.vertices.len() / 3) {
+        for i in (0..(mesh.vertices.len() / 3)).rev() {
             let z = mesh.vertices[i * 3 + 2];
             let u = mesh.uvs[i * 2];
             let v = mesh.uvs[i * 2 + 1];
+            let nz = mesh.normals[i * 3 + 2];
             
-            // Nose is at v=0 (approx, or v_coord 0)
-            if v < 0.01 && (z - (-35.0 * scale)).abs() < 1e-4 {
+            // Nose is at v=0 (approx, or v_coord 0) and normal z is negative for the cap
+            if v < 0.01 && (z - (-35.0 * scale)).abs() < 1e-4 && nz < -0.5 {
                 if u < 0.01 { nose_bot_idx = Some(i); }
                 if (u - 1.0).abs() < 0.01 { nose_top_idx = Some(i); }
             }
