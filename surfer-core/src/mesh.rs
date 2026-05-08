@@ -843,7 +843,6 @@ mod tests {
     }
 
         #[test]
-        #[test]
     fn test_tri_plane_hull_normals() {
         use crate::model::ChannelLayer;
         let mut model = BoardModel::default();

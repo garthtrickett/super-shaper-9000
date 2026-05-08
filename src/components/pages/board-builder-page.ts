@@ -22,8 +22,8 @@ export class BoardBuilderPage extends LitElement {
     @state() private importError = "";
   @state() private importJson = "";
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
-  @state() private showContourEditor = false;
-  @state() private contourZPosition = 50.0;
+    @state() private showContourEditor = false;
+  @state() private contourZPosition = 20.0;
   @state() private contourSliceData?: Float32Array;
 
   private requestSliceProfile() {

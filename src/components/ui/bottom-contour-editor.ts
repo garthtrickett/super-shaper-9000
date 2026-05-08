@@ -5,8 +5,8 @@ import type { BoardModel } from "../pages/board-builder-page.logic";
 @customElement("bottom-contour-editor")
 export class BottomContourEditor extends LitElement {
   @property({ type: Object }) boardState!: BoardModel;
-  @property({ type: Object }) sliceData?: Float32Array;
-  @property({ type: Number }) zPosition = 50.0;
+    @property({ type: Object }) sliceData?: Float32Array;
+  @property({ type: Number }) zPosition = 20.0;
 
   @state() private activeDrag: { curve: string; index: number; origZ: number; pointerId: number } | null = null;
 
@@ -121,9 +121,9 @@ export class BottomContourEditor extends LitElement {
           </div>
         </div>
         
-        <div class="p-4 border-b border-zinc-800 bg-zinc-950/50">
+                <div class="p-4 border-b border-zinc-800 bg-zinc-950/50">
           <input 
-            type="range" min="0" max=${this.boardState?.length || 100} step="0.5"
+            type="range" min=${-(this.boardState?.length || 100) / 2} max=${(this.boardState?.length || 100) / 2} step="0.5"
             .value=${this.zPosition.toString()}
             @input=${(e: Event) => this.dispatchEvent(new CustomEvent('z-changed', { detail: parseFloat((e.target as HTMLInputElement).value), bubbles: true, composed: true }))}
             class="w-full accent-emerald-500 cursor-pointer"
