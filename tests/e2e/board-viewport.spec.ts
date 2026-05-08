@@ -27,9 +27,13 @@ test.describe('Board Viewport E2E', () => {
     await expect(viewport.locator('canvas')).toBeVisible();
     await page.waitForTimeout(500);
 
-    // Programmatically inject a bottom channel into the board state
+        // Programmatically inject a bottom channel into the board state
     await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport');
+      type BoardViewportElement = HTMLElement & {
+        boardState?: any;
+        requestUpdate?: (name?: string) => void;
+      };
+      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
       if (!vp || !vp.boardState) return;
       
             const channelLayer = {
@@ -57,13 +61,13 @@ test.describe('Board Viewport E2E', () => {
         }
       };
       
-      vp.boardState = {
+            vp.boardState = {
         ...vp.boardState,
         bottomChannels: [channelLayer]
       };
       
       // Force an update to trigger the geometry rebuild
-      vp.requestUpdate('boardState');
+      if (vp.requestUpdate) vp.requestUpdate('boardState');
     });
 
     // Wait for the geometry debounce and WASM generation to settle

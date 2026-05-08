@@ -251,31 +251,41 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(viewport.locator("canvas")).toBeVisible();
     await page.waitForTimeout(500);
 
-    // 1. Programmatically inject a wing layer into the state
+        // 1. Programmatically inject a wing layer into the state
     await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport');
+      type BoardViewportElement = HTMLElement & {
+        boardState?: any;
+        requestUpdate?: (name?: string) => void;
+      };
+      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      if (!vp || !vp.boardState) return;
+      
       const wingLayer = {
         name: "Wing",
         otlExt: {
           controlPoints: [[8.0, 0.0, 70.0],[8.0, 0.0, 80.0]],
-          tangents1: [[8.0, 0.0, 70.0], [8.0, 0.0, 75.0]],
+          tangents1: [[8.0, 0.0, 70.0],[8.0, 0.0, 75.0]],
           tangents2: [[8.0, 0.0, 75.0],[8.0, 0.0, 80.0]]
         },
         otlInt: {
-          controlPoints: [], tangents1: [], tangents2:[]
+          controlPoints:[], tangents1: [], tangents2:[]
         }
       };
-      vp.boardState.outlineLayers = [wingLayer];
+      vp.boardState.outlineLayers =[wingLayer];
       // Force re-render of gizmos
-      vp.requestUpdate();
+      if (vp.requestUpdate) vp.requestUpdate();
     });
     await page.waitForTimeout(200);
 
-    // 2. Find and click the wing layer gizmo
+        // 2. Find and click the wing layer gizmo
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport');
-            const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+      type BoardViewportElement = HTMLElement & { boardState?: any };
+      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      if (!vp || !vp.boardState || !vp.boardState.outlineLayers || !vp.boardState.outlineLayers[0]) return null;
+      
+      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       const ndcX = (cp[0] / 12) / (5 * aspect);
@@ -312,15 +322,17 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(wingItem).toBeVisible();
 
     // 4. Verify 3D Gizmo selection for the new wing
-    // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
+        // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport');
+      type BoardViewportElement = HTMLElement & { boardState?: any };
+      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
       // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
       // The wing node for Layer 0 EXT should be there.
-      if (!vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
+      if (!vp || !vp.boardState || !vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
             const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
@@ -361,13 +373,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
     await expect(boardControls.locator("span", { hasText: /Wing 1/i })).toBeVisible();
 
-    // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
+        // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport');
-      if (!vp.boardState.outlineLayers?.length) return null;
+      type BoardViewportElement = HTMLElement & { boardState?: any };
+      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
             const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       
@@ -422,13 +436,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const channelItem = boardControls.locator("span", { hasText: /Channel 1/i });
     await expect(channelItem).toBeVisible();
 
-    // 4. Verify 3D Gizmo selection for the new channel
+        // 4. Verify 3D Gizmo selection for the new channel
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport');
-      if (!vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
+      type BoardViewportElement = HTMLElement & { boardState?: any };
+      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      if (!vp || !vp.boardState || !vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
                         const cp = vp.boardState.bottomChannels[0].rightOutline.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
@@ -466,14 +482,16 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 1. Create the wing
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
 
-    // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
+        // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport');
-      if (!vp.boardState.outlineLayers?.length) return null;
+      type BoardViewportElement = HTMLElement & { boardState?: any };
+      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
       // Target the Interior curve which is typically further IN than the exterior
             const cp = vp.boardState.outlineLayers[0].otlInt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       const ndcX = (cp[0] / 12) / (5 * aspect);
