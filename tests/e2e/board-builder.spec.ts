@@ -530,11 +530,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible();
 
-            // 3. Change Tension/Weight via the new UI slider
-    // Use a more specific locator for the container to avoid matching the parent inspector
-    const tensionContainer = inspector.locator('div.mb-4').filter({ hasText: /^Node Tension/i });
+                // 3. Change Tension/Weight via the new UI slider
+    // Find the specific section div that contains the Tension heading
+    const tensionContainer = inspector.locator('div.mb-4').filter({
+      has: page.getByRole('heading', { name: /Node Tension/i })
+    });
     const weightSlider = tensionContainer.locator('input[type="range"]');
-    // Use a regex to match the numeric format (e.g., 1.00x) to avoid matching 'X (W)'
+    // Use a regex to match the numeric format (e.g., 1.00x) to avoid matching other labels like 'X (W)'
     const weightBadge = tensionContainer.locator('span').filter({ hasText: /\d\.\d{2}x/ });
     
     // Default should be 1.00x
