@@ -413,9 +413,24 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     }
     
     // Normal in the XZ plane, pointing "outward" to the right (+X)
-    let mut outline_normal = Vec3::new(outline_tangent.z, 0.0, -outline_tangent.x).normalize();
+        let mut outline_normal = Vec3::new(outline_tangent.z, 0.0, -outline_tangent.x).normalize();
     if outline_normal.is_nan() || outline_normal.length_squared() < 1e-5 {
         outline_normal = Vec3::new(1.0, 0.0, 0.0);
+    }
+
+    let bounds = get_board_bounds(model);
+    let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+    let dist = z_inches - mid_z;
+    let mut v_concave_add = 0.0;
+    
+    if dist > 0.0 {
+        let t = (dist / (bounds.tip_z - mid_z)).max(0.0).min(1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        v_concave_add = model.v_concave_tail.unwrap_or(0.0) * ease_t;
+    } else {
+        let t = ((-dist) / (mid_z - bounds.nose_z)).max(0.0).min(1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        v_concave_add = model.v_concave_nose.unwrap_or(0.0) * ease_t;
     }
 
     let mut top_y = top_pt.y;
@@ -444,7 +459,8 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             apex_y = bot_pt.y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
         }
     }
-    apex_y = apex_y.clamp(bot_pt.y, top_y);
+    apex_y += v_concave_add;
+    apex_y = apex_y.clamp(bot_pt.y - 2.0, top_y);
 
     let mut tuck_y = bot_pt.y;
     if let Some(b) = &blend {
@@ -458,6 +474,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             tuck_y = bot_pt.y + world_thick * ((p_tuck.y - p_bot.y) / slice_thick);
         }
     }
+    tuck_y += v_concave_add;
     tuck_y = tuck_y.min(top_y);
 
     let mut tuck_x = outline_pt.x.max(0.0);
@@ -519,7 +536,7 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     let apex_x_clamp = profile.apex_x.max(0.001);
     let world_apex = Vec3::new(apex_x_clamp, profile.apex_y, z_inches);
 
-        let mut final_pos = Vec3::ZERO;
+            let mut final_pos = Vec3::ZERO;
 
     let cs_rail_width = (p_apex.x - p_tuck.x).max(p_apex.x - p_shoulder.x).max(1e-4);
     let available_width = (world_apex.x - inner_x).max(0.0);
@@ -529,24 +546,45 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
         1.0
     };
 
+    let slice_thick = p_top.y - p_bot.y;
+    let world_thick = profile.top_y - profile.bot_y;
+    let thickness_scale = if slice_thick.abs() > 1e-5 { world_thick / slice_thick } else { 1.0 };
+
+    let bounds = get_board_bounds(model);
+    let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+    let dist = z_inches - mid_z;
+    let mut rail_coeff = 1.0;
+    
+    if dist > 0.0 {
+        let t = (dist / (bounds.tip_z - mid_z)).max(0.0).min(1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        rail_coeff = 1.0 + (model.rail_coefficient_tail.unwrap_or(1.0) - 1.0) * ease_t;
+    } else {
+        let t = ((-dist) / (mid_z - bounds.nose_z)).max(0.0).min(1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        rail_coeff = 1.0 + (model.rail_coefficient_nose.unwrap_or(1.0) - 1.0) * ease_t;
+    }
+
+    let final_rail_scale = rail_scale * rail_coeff;
+    let final_thickness_scale = thickness_scale * rail_coeff;
+
     if u > t_tuck && u <= t_shoulder {
-                // --- RAIL ZONE ---
-        // Project absolutely from the 3D Apex coordinate along the normal
-        let offset_x = (p.x - p_apex.x) * rail_scale;
-        let offset_y = p.y - p_apex.y;
+        // --- RAIL ZONE ---
+        let offset_x = (p.x - p_apex.x) * final_rail_scale;
+        let offset_y = (p.y - p_apex.y) * final_thickness_scale;
 
         final_pos = world_apex + profile.outline_normal * offset_x;
         final_pos.y = world_apex.y + offset_y;
     } else if u <= t_tuck {
-                                // --- BOTTOM FLAT ZONE ---
-        let offset_x = (p_tuck.x - p_apex.x) * rail_scale;
-        let offset_y = p_tuck.y - p_apex.y;
+        // --- BOTTOM FLAT ZONE ---
+        let offset_x = (p_tuck.x - p_apex.x) * final_rail_scale;
+        let offset_y = (p_tuck.y - p_apex.y) * final_thickness_scale;
         let mut world_tuck = world_apex + profile.outline_normal * offset_x;
         if world_tuck.x < inner_x { world_tuck.x = inner_x; }
         
-                let slice_bot_width = p_tuck.x - p_bot.x;
+        let slice_bot_width = p_tuck.x - p_bot.x;
         let current_width = world_tuck.x - inner_x;
-        let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
+        let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y - 2.0, profile.top_y);
 
         if slice_bot_width > 1e-5 && current_width > 1e-5 {
             let norm_x = (p.x - p_bot.x) / slice_bot_width;
@@ -560,10 +598,9 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
             let t_zone = if t_tuck > 1e-5 { u / t_tuck } else { 0.0 };
             let stringer_bot_pos = Vec3::new(inner_x, profile.bot_y, z_inches);
             final_pos = stringer_bot_pos.lerp(world_tuck, t_zone);
-            final_pos.y = profile.bot_y;
         }
 
-                if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
+        if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
             chan_x = chan_x.abs();
             if chan_x > inner_x && chan_x < world_tuck.x {
                 let chan_y = profile.bot_y + chan_depth;
@@ -576,10 +613,10 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
                 }
             }
         }
-        } else {
-                // --- DECK FLAT ZONE ---
-        let offset_x = (p_shoulder.x - p_apex.x) * rail_scale;
-        let offset_y = p_shoulder.y - p_apex.y;
+    } else {
+        // --- DECK FLAT ZONE ---
+        let offset_x = (p_shoulder.x - p_apex.x) * final_rail_scale;
+        let offset_y = (p_shoulder.y - p_apex.y) * final_thickness_scale;
         let mut world_shoulder = world_apex + profile.outline_normal * offset_x;
         if world_shoulder.x < inner_x { world_shoulder.x = inner_x; }
 
@@ -593,7 +630,7 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
             let current_z_offset = world_shoulder.z - z_inches;
             final_pos.z = z_inches + norm_x * current_z_offset;
 
-            let world_shoulder_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
+            let world_shoulder_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y + 2.0);
             let range_y = p_top.y - p_shoulder.y;
             let norm_y = if range_y.abs() > 1e-5 { (p.y - p_shoulder.y) / range_y } else { 0.0 };
             final_pos.y = world_shoulder_y + norm_y * (profile.top_y - world_shoulder_y);
@@ -601,7 +638,6 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
             let t_zone = if (1.0 - t_shoulder) > 1e-5 { (u - t_shoulder) / (1.0 - t_shoulder) } else { 0.0 };
             let stringer_top_pos = Vec3::new(inner_x, profile.top_y, z_inches);
             final_pos = world_shoulder.lerp(stringer_top_pos, t_zone);
-            final_pos.y = profile.top_y;
         }
     }
 
