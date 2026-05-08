@@ -5,9 +5,10 @@ use crate::geometry::*;
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let scale = 1.0 / 12.0;
 
-        let bounds = crate::geometry::get_board_bounds(model);
+            let bounds = crate::geometry::get_board_bounds(model);
     let bound_nose_z = bounds.nose_z;
     let bound_tail_z = bounds.tip_z;
+    let notch_z = bounds.notch_z;
 
     let outline = match &model.outline {
         Some(o) => o,
@@ -84,15 +85,15 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-    let mut u_columns = Vec::new();
+        let mut u_columns = Vec::new();
     let half = u_params_half.len() - 1;
     for (idx, &u) in u_params_half.iter().enumerate() {
         let is_stringer = idx == 0 || idx == half;
         u_columns.push((u, 1.0, is_stringer)); // Right side
     }
-    // Add left side, skipping the center stringer to avoid duplication
-    for (idx, &u) in u_params_half.iter().rev().skip(1).enumerate() {
-        let is_stringer = idx == (half - 1);
+    // Add left side, explicitly duplicating the center stringers so the mesh can bifurcate
+    for (idx, &u) in u_params_half.iter().rev().enumerate() {
+        let is_stringer = idx == 0 || idx == half;
         u_columns.push((u, -1.0, is_stringer)); // Left side
     }
     let num_cols = u_columns.len();
@@ -128,10 +129,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let mut ring = Vec::new();
         let z_inches = z_rings[i];
         let v_coord = slice_arc_lengths[i] / total_arc_length;
-        let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
+                let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
         let fade_factor = crate::geometry::calculate_tip_fade(z_inches, bound_nose_z, bound_tail_z);
         
-        let inner_x = 0.0; // Simplify for now
+        let inner_x = if z_inches > notch_z {
+            crate::geometry::evaluate_notch_inner_x(outline, v_tip, z_inches)
+        } else {
+            0.0
+        };
 
         let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, v_outer);
         let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, v_outer);
@@ -182,18 +187,32 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 grid[i][j + 1].0 - grid[i][j - 1].0
             };
 
-            let mut n = tangent_u.cross(tangent_v).normalize();
+                        let mut n = tangent_u.cross(tangent_v).normalize();
             if n.is_nan() || n.length_squared() < 0.0001 {
                 n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0);
+            }
+
+            // Stringer seam smoothing: Force X=0 for perfect centerline reflection,
+            // EXCEPT in swallow tails where inner_x > 0.0 (exposed outer edge).
+            let is_stringer = u_columns[j].2;
+            let current_inner_x = grid[i][j].0.x.abs() / scale;
+            if is_stringer && current_inner_x < 1e-4 {
+                n.x = 0.0;
+                n = n.normalize();
             }
 
             normals.push(n.x); normals.push(n.y); normals.push(n.z);
         }
     }
 
-    let mut indices = Vec::new();
+        let mut indices = Vec::new();
     for i in 0..segments_v {
         for j in 0..num_cols - 1 {
+            // Do not bridge the right and left halves at the top stringer!
+            if j == right_half_cols - 1 {
+                continue;
+            }
+
             let a = (i * num_cols + j) as u32;
             let b = a + 1;
             let c = ((i + 1) * num_cols + j) as u32;
@@ -234,11 +253,15 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         }
 
-        for step in 0..num_x_steps {
+                for step in 0..num_x_steps {
             let ring_a_start = start_vertex_index + step * (num_cols as u32);
             let ring_b_start = start_vertex_index + (step + 1) * (num_cols as u32);
             
             for j in 0..num_cols - 1 {
+                if j == right_half_cols - 1 {
+                    continue; // Do not bridge the right and left halves on the caps!
+                }
+
                 let a = ring_a_start + j as u32;
                 let b = a + 1;
                 let c = ring_b_start + j as u32;
