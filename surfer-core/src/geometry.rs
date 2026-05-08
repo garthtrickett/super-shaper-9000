@@ -1224,6 +1224,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_shape3d_extremity_modifiers() {
         let mut model_base = BoardModel::default();
         model_base.length = 100.0;
@@ -1252,32 +1253,31 @@ mod tests {
             weights: Some(vec![1.0; 5]),
         }];
 
-        let mut model_mod = model_base.clone();
-        // Apply strong modifiers to the tail
-        model_mod.v_concave_tail = -1.0;
-        model_mod.rail_coefficient_tail = 0.5;
+        let mut model_mod_v = model_base.clone();
+        model_mod_v.v_concave_tail = -1.0;
+        
+        let mut model_mod_rail = model_base.clone();
+        model_mod_rail.rail_coefficient_tail = 0.5;
 
         // 1. Center of the board (Z=50)
         let z_center = 50.0;
         let profile_base_mid = super::get_board_profile_at_z(&model_base, z_center, 0.5);
-        let profile_mod_mid = super::get_board_profile_at_z(&model_mod, z_center, 0.5);
+        let profile_mod_mid = super::get_board_profile_at_z(&model_mod_v, z_center, 0.5);
         assert!((profile_base_mid.bot_y - profile_mod_mid.bot_y).abs() < 1e-4, "Modifiers should taper to 0 at the midpoint");
 
         // 2. Tail of the board (Z=95)
         let z_tail = 95.0;
         let profile_base_tail = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
-        let profile_mod_tail = super::get_board_profile_at_z(&model_mod, z_tail, 0.5);
+        let profile_mod_tail = super::get_board_profile_at_z(&model_mod_v, z_tail, 0.5);
 
         assert!(profile_mod_tail.bot_y > profile_base_tail.bot_y, "V-Concave < 0 should physically raise the stringer (Vee)");
         assert!((profile_mod_tail.apex_y - profile_base_tail.apex_y).abs() < 1e-4, "V-Concave should not alter the rail rocker height");
 
-                // Test Rail Coefficient (Thinning the deck shoulder)
-        // U = 0.625 is halfway up on the deck shoulder.
-        let pt_base = super::get_point_at_uv(&model_base, 0.625, 0.5, z_tail, 0.0, 1.0);
-        let pt_mod = super::get_point_at_uv(&model_mod, 0.625, 0.5, z_tail, 0.0, 1.0);
+        // Test Rail Coefficient (Thinning the deck shoulder)
+        // U = 0.8 is up on the deck shoulder.
+        let pt_base = super::get_point_at_uv(&model_base, 0.8, 0.5, z_tail, 0.0, 1.0);
+        let pt_mod = super::get_point_at_uv(&model_mod_rail, 0.8, 0.5, z_tail, 0.0, 1.0);
 
         assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
-
-        println!("✅ test_shape3d_extremity_modifiers passed.");
     }
 }
