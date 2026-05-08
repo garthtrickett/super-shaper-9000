@@ -144,7 +144,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       type BoardViewportElement = HTMLElement & {
         boardState?: {
           outline?: {
-            controlPoints: [number, number, number][];
+            controlPoints:[number, number, number][];
           };
         };
       };
@@ -205,7 +205,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
   });
 
   test("Swallow Tail Generation and Geometry Validation", async ({ page }) => {
-    const errors: string[] = [];
+    const errors: string[] =[];
     page.on('console', msg => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
@@ -267,7 +267,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & { 
         boardState?: {
-          outlineLayers?: { otlExt: { controlPoints: [number, number, number][] } }[]
+          outlineLayers?: { otlExt: { controlPoints:[number, number, number][] } }[]
         }
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
@@ -488,7 +488,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector.locator('h3')).toContainText("Layer 0 (INT)");
   });
 
-      test("S3DX Native Export Pipeline", async ({ page }) => {
+  test("S3DX Native Export Pipeline", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
@@ -512,6 +512,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
   });
 
   test("S3DX Native Import Pipeline", async ({ page }) => {
+    const errors: string[] =[];
+    page.on('console', msg => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    page.on('pageerror', err => errors.push(err.message));
+
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
@@ -544,8 +550,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // (The imported board should have a different volume than the default 70" squash tail)
     await expect(volumeDisplay).not.toHaveText(initialVolume as string);
     
+    // Wait briefly for debounce and geometry to build
+    await page.waitForTimeout(500);
+
     // 6. Ensure the canvas is still rendering without WebGL crashes
     await expect(page.locator("board-viewport canvas")).toBeVisible();
+    
+    // 7. Verify no WebGL or NaN errors occurred during the mesh generation of the imported file
+    const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));
+    expect(criticalErrors).toHaveLength(0);
   });
 
   test("Node Inspector Weight Update", async ({ page }) => {

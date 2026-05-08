@@ -233,6 +233,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
+        #[test]
     fn can_convert_s3dx_to_board_model() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -240,17 +241,9 @@ mod tests {
         let content = fs::read_to_string(&path)
             .unwrap_or_else(|_| panic!("Should be able to read the golden S3DX file from {:?}", path));
 
-        let sanitized = content.replace("<Ref. point>", "<Ref_point>").replace("</Ref. point>", "</Ref_point>");
-        let design: Shape3dDesign = quick_xml::de::from_str(&sanitized)
-            .unwrap_or_else(|e| panic!("Failed to deserialize S3DX XML: {:?}", e));
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        assert_eq!(design.board.length, 185.420);
-        assert_eq!(design.board.width, 53.790);
-        assert_eq!(design.board.thickness, 6.858);
-        
-        let model: BoardModel = design.board.into();
-
-                assert_eq!(model.length, 185.420);
+        assert_eq!(model.length, 185.420);
         assert_eq!(model.width, 53.790);
         assert_eq!(model.thickness, 6.858);
         
