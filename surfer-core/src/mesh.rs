@@ -211,8 +211,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-                // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
-    let mut add_patch_centerline = |ring_index: usize, normal_z: f32| -> u32 {
+                                // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
+    let mut add_patch_centerline = |ring_index: usize, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3| -> u32 {
         let start_idx = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
         
@@ -231,15 +231,18 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             colors.push(color.y);
             colors.push(color.z);
             
-            normals.push(0.0);
-            normals.push(0.0);
-            normals.push(normal_z);
+            let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, v_interp, fallback_mid);
+            
+            normals.push(blended_normal.x);
+            normals.push(blended_normal.y);
+            normals.push(blended_normal.z);
         }
         start_idx
     };
 
+    let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
     // --- Cap Generation (Nose) ---
-    let nose_centerline_start = add_patch_centerline(0, -1.0);
+    let nose_centerline_start = add_patch_centerline(0, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0));
     let nose_ring_start = 0 as u32;
 
     // Right side of nose
@@ -264,8 +267,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         indices.push(a); indices.push(c); indices.push(d);
     }
 
+        let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
     // --- Cap Generation (Tail) ---
-    let tail_centerline_start = add_patch_centerline(segments_v, 1.0);
+    let tail_centerline_start = add_patch_centerline(segments_v, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0));
     let tail_ring_start = (segments_v * num_cols) as u32;
 
     // Right side of tail
