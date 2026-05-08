@@ -106,10 +106,14 @@ def apply_smart_replace(text, search, replace):
 
 def apply_entity_replace(text, entity_type, name, replace):
     entity_pattern = ''
+    # Polyglot support: Supports fun (Kotlin), fn (Rust), function (JS/TS)
+    # and modifiers like pub, pub(crate), async, override, etc.
+    modifiers = r"(?:[a-zA-Z0-9_\(\)]+\s+)*"
+    
     if entity_type == "replace_function":
-        entity_pattern = r"(?:@\w+\s*)*(?:override\s+|private\s+|public\s+|protected\s+|internal\s+|suspend\s+|inline\s+)*fun\s+(?:<[\w\s,<>]+>\s*)?" + re.escape(name) + r"\b"
-    else: # class, interface, object
-        entity_pattern = r"(?:@\w+\s*)*(?:data\s+|sealed\s+|open\s+|abstract\s+|inner\s+|enum\s+|annotation\s+)?(?:class|interface|object)\s+" + re.escape(name) + r"\b"
+        entity_pattern = r"(?:@\w+\s*)*" + modifiers + r"(?:fun|fn|function)\s+(?:<[\w\s,<>]+>\s*)?" + re.escape(name) + r"\b"
+    else: # class, interface, object, struct, trait, impl
+        entity_pattern = r"(?:@\w+\s*)*" + modifiers + r"(?:class|interface|object|struct|enum|trait|impl)\s+" + re.escape(name) + r"\b"
 
     match = re.search(entity_pattern, text)
     if not match:

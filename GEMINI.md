@@ -14,8 +14,8 @@ Before generating an edit, ask yourself these questions in order:
 1.  **Is this a brand new file?**
     *   YES: Use **one** `smart_replace` edit with an empty `\"search\": \"\"` block. The `replace` block will become the entire content of the new file.
 
-2.  **Am I replacing an entire `fun`, `class`, `object`, or `interface` that HAS curly braces `{...}`?**
-    *   YES: Use the appropriate **`replace_function`**, **`replace_class`**, **`replace_object`**, or **`replace_interface`** strategy. It is robust and doesn't require a search block.
+2.  **Am I replacing an entire `fun`/`fn`/`function`, `class`/`struct`, `object`/`impl`, or `interface`/`trait` that HAS curly braces `{...}`?**
+    *   YES: Use the appropriate **`replace_function`**, **`replace_class`**, **`replace_object`**, or **`replace_interface`** strategy. It is robust, language-agnostic (supports Kotlin, Rust, TS), and doesn't require a search block.
 
 3.  **Is it anything else?** (e.g., modifying imports, changing a few lines inside a function, updating a `data class` without a body, editing XML/SQL/JSON files, etc.)
     *   YES: Use the **`smart_replace`** strategy. This should be your default choice for most modifications.
