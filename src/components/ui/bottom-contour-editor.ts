@@ -1,6 +1,8 @@
 import { LitElement, html, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import type { BoardModel } from "../pages/board-builder-page.logic";
+import type { BoardModel, Point3D } from "../pages/board-builder-page.logic";
+
+type CP = Point3D | { x: number; y: number; z: number };
 
 @customElement("bottom-contour-editor")
 export class BottomContourEditor extends LitElement {
@@ -80,18 +82,18 @@ export class BottomContourEditor extends LitElement {
         }
     const nodes: import("lit").TemplateResult[] =[];
     
-    this.boardState.bottomChannels.forEach((channel, idx) => {
-            const drawSide = (curveData: { controlPoints: any[] } | undefined, curveName: string, isDepth: boolean) => {
+        this.boardState.bottomChannels.forEach((channel, idx) => {
+            const drawSide = (curveData: { controlPoints: CP[] } | undefined, curveName: string, isDepth: boolean) => {
         if (!curveData || !curveData.controlPoints) {
             console.info(`[ContourEditor] Missing curveData or controlPoints for ${curveName}`);
             return;
         }
         console.info(`[ContourEditor] Drawing ${curveName} with ${curveData.controlPoints.length} points. zPosition=${this.zPosition}`);
-        curveData.controlPoints.forEach((cp: any, i: number) => {
+        curveData.controlPoints.forEach((cp: CP, i: number) => {
           // Support both array [x,y,z] (Rust fix) and object {x,y,z} formats for robustness
-          const z = Array.isArray(cp) ? cp[2] : Number(cp.z);
-          const x = Array.isArray(cp) ? cp[0] : Number(cp.x);
-          const y = Array.isArray(cp) ? cp[1] : Number(cp.y);
+          const z = Array.isArray(cp) ? cp[2] : Number((cp as { z: number }).z);
+          const x = Array.isArray(cp) ? cp[0] : Number((cp as { x: number }).x);
+          const y = Array.isArray(cp) ? cp[1] : Number((cp as { y: number }).y);
           
           const zDist = Math.abs(z - this.zPosition);
           console.info(`[ContourEditor] ${curveName}[${i}]: x=${x}, y=${y}, z=${z}. zDist=${zDist}`);
@@ -103,7 +105,7 @@ export class BottomContourEditor extends LitElement {
                 fill=${isDepth ? "#f59e0b" : "#3b82f6"}
                 stroke="white" stroke-width="0.05"
                 class="cursor-pointer hover:opacity-80 transition-all drop-shadow-md"
-                                @pointerdown=${(e: PointerEvent) => this._handlePointerDown(e, curveName, i, Array.isArray(cp) ? cp[2] : Number(cp.z))}
+                                @pointerdown=${(e: PointerEvent) => this._handlePointerDown(e, curveName, i, Array.isArray(cp) ? cp[2] : Number((cp as { z: number }).z))}
               />
                             ${isDepth ? svg`<line x1=${x} y1=${y} x2=${x} y2="0" stroke="#f59e0b" stroke-width="0.02" opacity="0.3" stroke-dasharray="0.1 0.1"/>` : ''}
             `);

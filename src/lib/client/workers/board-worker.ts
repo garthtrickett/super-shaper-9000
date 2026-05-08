@@ -1,5 +1,5 @@
 import init, { WasmEngine } from '../wasm/surfer_wasm.js';
-import { type BoardModel, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
+import { type BoardModel, type BoardAction, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
 import type { RustMesh } from '../../../components/3d/board-viewport';
 
 let engine: WasmEngine | null = null;
@@ -27,7 +27,7 @@ init().then(() => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
 
-self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; action?: any }>) => {
+self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; action?: BoardAction }>) => {
     if (!engine) {
         console.warn("[BoardWorker] Engine not ready, ignoring message.");
         return;
@@ -40,11 +40,11 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
             type: "SLICE_PROFILE_RESULT",
             id: msg.id,
             profile
-        }, [profile.buffer]);
+        },[profile.buffer]);
         return;
     }
 
-        if (msg.type === "PROPOSE") {
+        if (msg.type === "PROPOSE" && msg.action) {
         console.info("[BoardWorker] Action received:", msg.action.type);
         try {
             // 1. Propose action to Rust

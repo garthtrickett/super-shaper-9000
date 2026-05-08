@@ -264,13 +264,17 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 4. Verify 3D Gizmo selection for the new wing
         // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
-    const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { boardState?: any };
+        const hitPosition = await page.evaluate(() => {
+      type BoardViewportElement = HTMLElement & { 
+        boardState?: {
+          outlineLayers?: { otlExt: { controlPoints: [number, number, number][] } }[]
+        }
+      };
       const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
       // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
       // The wing node for Layer 0 EXT should be there.
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
-            const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+            const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
@@ -315,11 +319,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls.locator("span", { hasText: /Wing 1/i })).toBeVisible();
 
         // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
-    const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { boardState?: any };
+        const hitPosition = await page.evaluate(() => {
+      type BoardViewportElement = HTMLElement & { 
+        boardState?: {
+          outlineLayers?: { otlExt: { controlPoints: [number, number, number][] } }[]
+        }
+      };
       const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
-            const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+            const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
@@ -382,11 +390,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(channelItem).toBeVisible();
 
         // 4. Verify 3D Gizmo selection for the new channel
-    const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { boardState?: any };
+        const hitPosition = await page.evaluate(() => {
+      type BoardViewportElement = HTMLElement & { 
+        boardState?: {
+          bottomChannels?: { rightOutline: { controlPoints:[number, number, number][] } }[]
+        }
+      };
       const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
-                        const cp = vp.boardState.bottomChannels[0].rightOutline.controlPoints[0];
+                        const cp = vp.boardState.bottomChannels[0]!.rightOutline.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
@@ -428,12 +440,16 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
 
         // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
-    const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { boardState?: any };
+        const hitPosition = await page.evaluate(() => {
+      type BoardViewportElement = HTMLElement & { 
+        boardState?: {
+          outlineLayers?: { otlInt: { controlPoints: [number, number, number][] } }[]
+        }
+      };
       const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
       // Target the Interior curve which is typically further IN than the exterior
-            const cp = vp.boardState.outlineLayers[0].otlInt.controlPoints[0];
+            const cp = vp.boardState.outlineLayers[0]!.otlInt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
