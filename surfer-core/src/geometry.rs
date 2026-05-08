@@ -1273,8 +1273,22 @@ mod tests {
 
         // Test Rail Coefficient (Thinning the deck shoulder)
         // U = 0.8 is up on the deck shoulder.
-        let pt_base = super::get_point_at_uv(&model_base, 0.8, 0.5, z_tail, 0.0, 1.0);
+                let pt_base = super::get_point_at_uv(&model_base, 0.8, 0.5, z_tail, 0.0, 1.0);
         let pt_mod = super::get_point_at_uv(&model_mod_rail, 0.8, 0.5, z_tail, 0.0, 1.0);
+
+        println!("\n--- DIAGNOSTICS FOR EXTREMITY MODIFIERS ---");
+        println!("pt_base: {:?}", pt_base);
+        println!("pt_mod: {:?}", pt_mod);
+        
+        let profile_base = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
+        let profile_mod = super::get_board_profile_at_z(&model_mod_rail, z_tail, 0.5);
+        println!("profile_base: top_y={}, bot_y={}, apex_y={}", profile_base.top_y, profile_base.bot_y, profile_base.apex_y);
+        println!("profile_mod: top_y={}, bot_y={}, apex_y={}", profile_mod.top_y, profile_mod.bot_y, profile_mod.apex_y);
+        
+        let blend = super::get_cross_section_blend_at_z(&model_base.cross_sections, z_tail).unwrap();
+        let p = blend.evaluate(0.8);
+        println!("blend at u=0.8: t_apex={}, p={:?}", blend.t_apex, p);
+        println!("-------------------------------------------\n");
 
         assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
     }
