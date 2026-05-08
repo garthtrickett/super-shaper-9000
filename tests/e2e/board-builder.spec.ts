@@ -21,7 +21,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls).toBeVisible();
     // The volume calculates dynamically on mount based on the mesh geometry.
     // We just verify the HUD renders a valid floating point number.
-        await expect(boardControls.getByText(/\d+\.\d+L/)).toBeVisible();
+    await expect(boardControls.getByText(/\d+\.\d+L/)).toBeVisible();
     await expect(boardControls.getByText(/Vertices/)).toBeVisible();
     await expect(boardControls.getByText(/\d+(\.\d+)?k/).first()).toBeVisible();
     await expect(boardControls.getByText(/Triangles/)).toBeVisible();
@@ -68,7 +68,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(modalHeading).toBeHidden();
   });
 
-    test("Diagnostic toggles (Heatmap, Zebra, Curvature)", async ({ page }) => {
+  test("Diagnostic toggles (Heatmap, Zebra, Curvature)", async ({ page }) => {
     // 1. Load the app
     await page.goto("/");
     await expect(page.locator("app-shell")).toBeVisible();
@@ -79,7 +79,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls).toBeVisible();
 
     // 3. Locate the checkboxes via their wrapping labels
-        const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Heatmap/i }).locator('input[type="checkbox"]');
+    const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Heatmap/i }).locator('input[type="checkbox"]');
     const zebraCheckbox = boardControls.locator('label').filter({ hasText: /Zebra Flow/i }).locator('input[type="checkbox"]');
     const curvatureCheckbox = boardControls.locator('label').filter({ hasText: /Curvature/i }).locator('input[type="checkbox"]');
     const mriCheckbox = boardControls.locator('label').filter({ hasText: /MRI Slice/i }).locator('input[type="checkbox"]');
@@ -111,7 +111,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(heatmapCheckbox).not.toBeChecked();
     await expect(curvatureCheckbox).toBeChecked(); // Curvature should still be checked
 
-        // 8. Turn on Heatmap again (Zebra should auto-disable)
+    // 8. Turn on Heatmap again (Zebra should auto-disable)
     console.info("Testing: Re-enabling Heatmap (Should disable Zebra Flow)");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();
@@ -128,7 +128,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(zebraCheckbox).not.toBeChecked();
 
     // 10. Verify the Slice Position slider dynamically appears in the DOM
-        const sliceSliderLabel = boardControls.locator('label').filter({ hasText: /Slice Position/i });
+    const sliceSliderLabel = boardControls.locator('label').filter({ hasText: /Slice Position/i });
     await expect(sliceSliderLabel).toBeVisible();
   });
 
@@ -144,7 +144,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       type BoardViewportElement = HTMLElement & {
         boardState?: {
           outline?: {
-            controlPoints:[number, number, number][];
+            controlPoints: [number, number, number][];
           };
         };
       };
@@ -200,12 +200,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await t1LengthInput.fill('5.0');
     await t1LengthInput.press('Enter');
 
-        // 6. Assert that the T2 handle's length was auto-updated by the Rust solver
+    // 6. Assert that the T2 handle's length was auto-updated by the Rust solver
     await expect(t2LengthInput).not.toHaveValue(initialT2Length);
   });
 
-    test("Swallow Tail Generation and Geometry Validation", async ({ page }) => {
-    const errors: string[] =[];
+  test("Swallow Tail Generation and Geometry Validation", async ({ page }) => {
+    const errors: string[] = [];
     page.on('console', msg => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
@@ -244,13 +244,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
-      test("Wing Creation and Removal UI Flow", async ({ page }) => {
+  test("Wing Creation and Removal UI Flow", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
     const boardControls = page.locator("board-controls");
 
-        // 1. Find the 'ADD' button in the Curve Tree section
+    // 1. Find the 'ADD' button in the Curve Tree section
     // The Curve Tree accordion is open by default.
     const addWingBtn = boardControls.locator('button[title="Add Wing/Flyer"]');
     await expect(addWingBtn).toBeVisible();
@@ -263,32 +263,35 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(wingItem).toBeVisible();
 
     // 4. Verify 3D Gizmo selection for the new wing
-        // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
-        const hitPosition = await page.evaluate(() => {
+    // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
+    const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & { 
         boardState?: {
           outlineLayers?: { otlExt: { controlPoints: [number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
       // The wing node for Layer 0 EXT should be there.
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
-            const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
+      const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
-      const ndcX = (cp[0] / 12) / (5 * aspect);
-      const ndcY = -(cp[2] / 12) / 5;
-      const w = rect.width / 2;
-      const h = rect.height / 2;
-      return {
-        x: rect.left + ((ndcX + 1) / 2 * w),
-        y: rect.top + ((1 - ndcY) / 2 * h)
-      };
+      if (cp) {
+        const ndcX = (cp[0] / 12) / (5 * aspect);
+        const ndcY = -(cp[2] / 12) / 5;
+        const w = rect.width / 2;
+        const h = rect.height / 2;
+        return {
+          x: rect.left + ((ndcX + 1) / 2 * w),
+          y: rect.top + ((1 - ndcY) / 2 * h)
+        };
+      }
+      return null;
     });
 
     expect(hitPosition).toBeTruthy();
@@ -304,11 +307,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await removeBtn.click();
 
     // 7. Verify wing is gone from list
-        await expect(wingItem).toBeHidden();
+    await expect(wingItem).toBeHidden();
     await expect(boardControls.getByText(/No wings defined/i)).toBeVisible();
   });
 
-    test("Dynamically created Wing Gizmo Interaction", async ({ page }) => {
+  test("Dynamically created Wing Gizmo Interaction", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
@@ -318,16 +321,16 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
     await expect(boardControls.locator("span", { hasText: /Wing 1/i })).toBeVisible();
 
-        // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
-        const hitPosition = await page.evaluate(() => {
+    // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
+    const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & { 
         boardState?: {
           outlineLayers?: { otlExt: { controlPoints: [number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
-            const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
+      const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
@@ -335,18 +338,21 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const aspect = rect.width / rect.height;
       
       // Project CAD inches to normalized viewport coords using Top Ortho logic
-      const ndcX = (cp[0] / 12) / (5 * aspect);
-      const ndcY = -(cp[2] / 12) / 5;
-      const w = rect.width / 2;
-      const h = rect.height / 2;
-      
-      return {
-        x: rect.left + ((ndcX + 1) / 2 * w),
-        y: rect.top + ((1 - ndcY) / 2 * h)
-      };
+      if (cp) {
+        const ndcX = (cp[0] / 12) / (5 * aspect);
+        const ndcY = -(cp[2] / 12) / 5;
+        const w = rect.width / 2;
+        const h = rect.height / 2;
+        
+        return {
+          x: rect.left + ((ndcX + 1) / 2 * w),
+          y: rect.top + ((1 - ndcY) / 2 * h)
+        };
+      }
+      return null;
     });
 
-        expect(hitPosition).toBeTruthy();
+    expect(hitPosition).toBeTruthy();
 
     // Select the gizmo to open the inspector
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
@@ -367,12 +373,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const xInput = inspector.locator('div:has-text("Anchor Position") input').first();
     const xValue = parseFloat(await xInput.inputValue());
     
-        // The default start X for a 18.75" board is approx 8.3". 
+    // The default start X for a 18.75" board is approx 8.3". 
     // Dragging right in the top quadrant (+X world) should increase this significantly.
     expect(xValue).toBeGreaterThan(12.0);
   });
 
-    test("Bottom Channel Creation and Manipulation Flow", async ({ page }) => {
+  test("Bottom Channel Creation and Manipulation Flow", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
@@ -389,30 +395,33 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const channelItem = boardControls.locator("span", { hasText: /Channel 1/i });
     await expect(channelItem).toBeVisible();
 
-        // 4. Verify 3D Gizmo selection for the new channel
-        const hitPosition = await page.evaluate(() => {
+    // 4. Verify 3D Gizmo selection for the new channel
+    const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & { 
         boardState?: {
           bottomChannels?: { rightOutline: { controlPoints:[number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
-                        const cp = vp.boardState.bottomChannels[0]!.rightOutline.controlPoints[0];
+      const cp = vp.boardState.bottomChannels[0]!.rightOutline.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
-      const ndcX = (cp[0] / 12) / (5 * aspect);
-      const ndcY = -(cp[2] / 12) / 5;
-      const w = rect.width / 2;
-      const h = rect.height / 2;
-      return {
-        x: rect.left + ((ndcX + 1) / 2 * w),
-        y: rect.top + ((1 - ndcY) / 2 * h)
-      };
+      if (cp) {
+        const ndcX = (cp[0] / 12) / (5 * aspect);
+        const ndcY = -(cp[2] / 12) / 5;
+        const w = rect.width / 2;
+        const h = rect.height / 2;
+        return {
+          x: rect.left + ((ndcX + 1) / 2 * w),
+          y: rect.top + ((1 - ndcY) / 2 * h)
+        };
+      }
+      return null;
     });
 
     expect(hitPosition).toBeTruthy();
@@ -421,7 +430,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 5. Verify the inspector reveals the layer correctly
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible();
-        await expect(inspector).toContainText(/Channel 0 \(RIGHT OUTLINE\)/i);
+    await expect(inspector).toContainText(/Channel 0 \(RIGHT OUTLINE\)/i);
 
     // 6. Test Removal
     const removeBtn = boardControls.locator('button[title="Remove Channel 1"]');
@@ -432,38 +441,41 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(boardControls.getByText(/No channels defined/i)).toBeVisible();
   });
 
-    test("Visual Confirmation of Interior (INT) Wing Selection", async ({ page }) => {
+  test("Visual Confirmation of Interior (INT) Wing Selection", async ({ page }) => {
     await page.goto("/");
     const boardControls = page.locator("board-controls");
 
     // 1. Create the wing
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
 
-        // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
-        const hitPosition = await page.evaluate(() => {
+    // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
+    const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & { 
         boardState?: {
           outlineLayers?: { otlInt: { controlPoints: [number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
       // Target the Interior curve which is typically further IN than the exterior
-            const cp = vp.boardState.outlineLayers[0]!.otlInt.controlPoints[0];
+      const cp = vp.boardState.outlineLayers[0]!.otlInt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
-      const ndcX = (cp[0] / 12) / (5 * aspect);
-      const ndcY = -(cp[2] / 12) / 5;
-      const w = rect.width / 2;
-      const h = rect.height / 2;
+      if (cp) {
+        const ndcX = (cp[0] / 12) / (5 * aspect);
+        const ndcY = -(cp[2] / 12) / 5;
+        const w = rect.width / 2;
+        const h = rect.height / 2;
       
-      return {
-        x: rect.left + ((ndcX + 1) / 2 * w),
-        y: rect.top + ((1 - ndcY) / 2 * h)
-      };
+        return {
+          x: rect.left + ((ndcX + 1) / 2 * w),
+          y: rect.top + ((1 - ndcY) / 2 * h)
+        };
+      }
+      return null;
     });
 
     expect(hitPosition).toBeTruthy();
@@ -486,13 +498,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 1. Programmatically find and click the middle anchor point
     const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & {
-        boardState?: { outline?: { controlPoints:[number, number, number][] } };
+        boardState?: { outline?: { controlPoints: [number, number, number][] } };
       };
       const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
       const cp = viewport.boardState.outline.controlPoints[1];
       if (!cp) return null;
-            const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
+      const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
@@ -509,7 +521,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible();
 
-                // 3. Change Tension/Weight via the new UI slider
+    // 3. Change Tension/Weight via the new UI slider
     // Find the specific section div that contains the Tension heading
     const tensionContainer = inspector.locator('div.mb-4').filter({
       has: page.getByRole('heading', { name: /Node Tension/i })
