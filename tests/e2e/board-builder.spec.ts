@@ -272,13 +272,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 2. Find and click the wing layer gizmo
     const hitPosition = await page.evaluate(() => {
       const vp = document.querySelector('board-viewport') as any;
-      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+            const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       const ndcX = (cp[0] / 12) / (5 * aspect);
       const ndcY = -(cp[2] / 12) / 5;
-      return { x: rect.left + ((ndcX + 1) / 2 * rect.width), y: rect.top + ((1 - ndcY) / 2 * rect.height) };
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+      return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
     });
     expect(hitPosition).toBeTruthy();
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
@@ -314,7 +316,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
       // The wing node for Layer 0 EXT should be there.
       if (!vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
-      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+            const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       const rect = canvas.getBoundingClientRect();
@@ -322,9 +324,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       // Project CAD inches to normalized viewport coords
       const ndcX = (cp[0] / 12) / (5 * aspect);
       const ndcY = -(cp[2] / 12) / 5;
+      const w = rect.width / 2;
+      const h = rect.height / 2;
       return {
-        x: rect.left + ((ndcX + 1) / 2 * rect.width),
-        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+        x: rect.left + ((ndcX + 1) / 2 * w),
+        y: rect.top + ((1 - ndcY) / 2 * h)
       };
     });
 
@@ -359,7 +363,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
       const vp = document.querySelector('board-viewport') as any;
       if (!vp.boardState.outlineLayers?.length) return null;
-      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+            const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       const rect = canvas.getBoundingClientRect();
@@ -368,10 +372,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       // Project CAD inches to normalized viewport coords using Top Ortho logic
       const ndcX = (cp[0] / 12) / (5 * aspect);
       const ndcY = -(cp[2] / 12) / 5;
+      const w = rect.width / 2;
+      const h = rect.height / 2;
       
       return {
-        x: rect.left + ((ndcX + 1) / 2 * rect.width),
-        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+        x: rect.left + ((ndcX + 1) / 2 * w),
+        y: rect.top + ((1 - ndcY) / 2 * h)
       };
     });
 
@@ -418,7 +424,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
       const vp = document.querySelector('board-viewport') as any;
       if (!vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
-            const cp = vp.boardState.bottomChannels[0].rightOutline.controlPoints[0];
+                        const cp = vp.boardState.bottomChannels[0].rightOutline.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       const rect = canvas.getBoundingClientRect();
@@ -426,9 +432,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       // Project CAD inches to normalized viewport coords
       const ndcX = (cp[0] / 12) / (5 * aspect);
       const ndcY = -(cp[2] / 12) / 5;
+      const w = rect.width / 2;
+      const h = rect.height / 2;
       return {
-        x: rect.left + ((ndcX + 1) / 2 * rect.width),
-        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+        x: rect.left + ((ndcX + 1) / 2 * w),
+        y: rect.top + ((1 - ndcY) / 2 * h)
       };
     });
 
@@ -461,17 +469,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const vp = document.querySelector('board-viewport') as any;
       if (!vp.boardState.outlineLayers?.length) return null;
       // Target the Interior curve which is typically further IN than the exterior
-      const cp = vp.boardState.outlineLayers[0].otlInt.controlPoints[0];
+            const cp = vp.boardState.outlineLayers[0].otlInt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       const ndcX = (cp[0] / 12) / (5 * aspect);
       const ndcY = -(cp[2] / 12) / 5;
+      const w = rect.width / 2;
+      const h = rect.height / 2;
       
       return {
-        x: rect.left + ((ndcX + 1) / 2 * rect.width),
-        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+        x: rect.left + ((ndcX + 1) / 2 * w),
+        y: rect.top + ((1 - ndcY) / 2 * h)
       };
     });
 
@@ -501,13 +511,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
       const cp = viewport.boardState.outline.controlPoints[1];
       if (!cp) return null;
-      const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
+            const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       const ndcX = (cp[0] / 12) / (5 * aspect);
       const ndcY = -(cp[2] / 12) / 5;
-      return { x: rect.left + ((ndcX + 1) / 2 * rect.width), y: rect.top + ((1 - ndcY) / 2 * rect.height) };
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+      return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
     });
     expect(hitPosition).toBeTruthy();
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
