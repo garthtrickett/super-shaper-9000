@@ -44,10 +44,9 @@ impl SurferEngine {
     }
 
     /// Generates a flat Float32Array-compatible buffer of [x1, y1, z1, x2, y2, z2] segments for curvature combs.
-        pub fn compute_slice_profile(&self, z_inches: f32) -> Vec<f32> {
+            pub fn compute_slice_profile(&self, z_inches: f32) -> Vec<f32> {
         let mut pts = Vec::new();
         let bounds = crate::geometry::get_board_bounds(&self.model);
-        let fade_factor = crate::geometry::calculate_tip_fade(z_inches, bounds.nose_z, bounds.tip_z);
         let outline = match &self.model.outline {
             Some(o) => o,
             None => return pts,
@@ -71,21 +70,21 @@ impl SurferEngine {
         let steps = 100;
         pts.push((steps + 1) as f32);
         
-        for i in 0..=steps {
+                for i in 0..=steps {
             let f = i as f32 / steps as f32;
             let (u, side) = if f < 0.5 {
                 (t_tuck * (1.0 - f * 2.0), -1.0)
             } else {
                 (t_tuck * ((f - 0.5) * 2.0), 1.0)
             };
-            let pt = crate::geometry::get_point_at_uv(&self.model, u, v_outer, z_inches, inner_x, fade_factor, side);
+            let pt = crate::geometry::get_point_at_uv(&self.model, u, v_outer, z_inches, inner_x, side);
             pts.push(pt.x);
             pts.push(pt.y);
         }
 
         if let Some(channels) = &self.model.bottom_channels {
             pts.push(channels.len() as f32);
-            let profile = crate::geometry::get_board_profile_at_z(&self.model, z_inches, v_outer, 1.0);
+            let profile = crate::geometry::get_board_profile_at_z(&self.model, z_inches, v_outer);
             for channel in channels {
                 if channel.left_outline.control_points.is_empty() {
                     pts.push(0.0); pts.push(0.0);
@@ -93,7 +92,7 @@ impl SurferEngine {
                     let cx = crate::geometry::evaluate_bezier_at_z(&channel.left_outline, z_inches, 0.5).x;
                     let cy = crate::geometry::evaluate_bezier_at_z(&channel.left_depth, z_inches, 0.5).y;
                     pts.push(cx);
-                    pts.push(profile.bot_y + cy * fade_factor);
+                    pts.push(profile.bot_y + cy);
                 }
                 if channel.right_outline.control_points.is_empty() {
                     pts.push(0.0); pts.push(0.0);
@@ -101,7 +100,7 @@ impl SurferEngine {
                     let cx = crate::geometry::evaluate_bezier_at_z(&channel.right_outline, z_inches, 0.5).x;
                     let cy = crate::geometry::evaluate_bezier_at_z(&channel.right_depth, z_inches, 0.5).y;
                     pts.push(cx);
-                    pts.push(profile.bot_y + cy * fade_factor);
+                    pts.push(profile.bot_y + cy);
                 }
             }
         } else {

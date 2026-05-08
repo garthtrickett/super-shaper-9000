@@ -132,9 +132,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 for z in &z_rings {
                     let min_z = outline_curve.control_points.first().unwrap().z;
                     let max_z = outline_curve.control_points.last().unwrap().z;
-                    if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
+                                        if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
                         let chan_x = crate::geometry::evaluate_bezier_at_z(outline_curve, *z, 0.5).x;
-                        let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5, 1.0);
+                        let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5);
                         let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, *z);
                         if let Some(b) = &blend {
                             let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
@@ -209,12 +209,11 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let nose_width = evaluate_composite_outline_at_z(model, nose_z, 0.0).x;
 
-    for i in 0..=segments_v {
+        for i in 0..=segments_v {
         let mut ring = Vec::new();
         let z_inches = z_rings[i];
         let v_coord = slice_arc_lengths[i] / total_arc_length;
                 let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
-        let fade_factor = crate::geometry::calculate_tip_fade(z_inches, bound_nose_z, bound_tail_z);
         
         let inner_x = if z_inches > notch_z {
             crate::geometry::evaluate_notch_inner_x(outline, v_tip, z_inches)
@@ -229,7 +228,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
                 for j in 0..num_cols {
             let (u_val, side, is_stringer) = u_columns[j];
-            let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, fade_factor, side);
+            let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, side);
             if is_stringer { point.x = inner_x; }
             point.x *= side;
 

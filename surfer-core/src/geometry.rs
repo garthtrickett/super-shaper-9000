@@ -89,20 +89,6 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     BoardBounds { nose_z, tip_z, notch_z, tip_t }
 }
 
-pub fn calculate_tip_fade(z: f32, nose_z: f32, tail_z: f32) -> f32 {
-    let fade_len = 2.0; // 2 inches fade zone
-    let dist_to_nose = (z - nose_z).abs();
-    let dist_to_tail = (tail_z - z).abs();
-    let min_dist = dist_to_nose.min(dist_to_tail);
-    
-    if min_dist >= fade_len {
-        1.0
-    } else {
-        let t = min_dist / fade_len;
-        t * t * (3.0 - 2.0 * t) // smoothstep interpolation
-    }
-}
-
 pub fn evaluate_bezier_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> Vec3 {
     let mut best_t = hint_t;
     let mut min_err = f32::INFINITY;
@@ -408,7 +394,7 @@ pub struct BoardProfile {
     pub outline_normal: Vec3,
 }
 
-pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fade_factor: f32) -> BoardProfile {
+pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> BoardProfile {
     let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
     let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, hint_t);
     
@@ -499,31 +485,18 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32, fa
         let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
 
-    let mut final_top_y = top_y;
-    let mut final_bot_y = bot_pt.y;
-    let mut final_apex_y = apex_y;
-    let mut final_tuck_y = tuck_y;
-
-    if fade_factor < 1.0 {
-        let center_y = final_bot_y + (final_top_y - final_bot_y) / 2.0;
-        final_top_y = center_y + (final_top_y - center_y) * fade_factor;
-        final_bot_y = center_y + (final_bot_y - center_y) * fade_factor;
-        final_apex_y = center_y + (final_apex_y - center_y) * fade_factor;
-        final_tuck_y = center_y + (final_tuck_y - center_y) * fade_factor;
-    }
-
-    BoardProfile {
-        top_y: final_top_y, bot_y: final_bot_y,
-        apex_x: final_apex_x, apex_y: final_apex_y,
-        tuck_x: final_tuck_x, tuck_y: final_tuck_y,
+        BoardProfile {
+        top_y, bot_y: bot_pt.y,
+        apex_x: final_apex_x, apex_y,
+        tuck_x: final_tuck_x, tuck_y,
         half_width: outline_pt.x.max(0.0),
         outline_tangent,
         outline_normal,
     }
 }
 
-pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_x: f32, fade_factor: f32, side: f32) -> Vec3 {
-    let profile = get_board_profile_at_z(model, z_inches, v, fade_factor);
+pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_x: f32, side: f32) -> Vec3 {
+    let profile = get_board_profile_at_z(model, z_inches, v);
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
 
     if blend.is_none() {
@@ -551,15 +524,15 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     if u > t_tuck && u <= t_shoulder {
                 // --- RAIL ZONE ---
         // Project absolutely from the 3D Apex coordinate along the normal
-        let offset_x = p.x - p_apex.x;
-        let offset_y = (p.y - p_apex.y) * fade_factor;
+                let offset_x = p.x - p_apex.x;
+        let offset_y = p.y - p_apex.y;
 
         final_pos = world_apex + profile.outline_normal * offset_x;
         final_pos.y = world_apex.y + offset_y;
     } else if u <= t_tuck {
                                 // --- BOTTOM FLAT ZONE ---
         let offset_x = p_tuck.x - p_apex.x;
-        let offset_y = (p_tuck.y - p_apex.y) * fade_factor;
+        let offset_y = p_tuck.y - p_apex.y;
         let mut world_tuck = world_apex + profile.outline_normal * offset_x;
         if world_tuck.x < inner_x { world_tuck.x = inner_x; }
         
@@ -582,10 +555,10 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
             final_pos.y = profile.bot_y;
         }
 
-        if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
+                if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
             chan_x = chan_x.abs();
             if chan_x > inner_x && chan_x < world_tuck.x {
-                let chan_y = profile.bot_y + chan_depth * fade_factor;
+                let chan_y = profile.bot_y + chan_depth;
                 if final_pos.x <= chan_x {
                     let t = if chan_x > inner_x { (final_pos.x - inner_x) / (chan_x - inner_x) } else { 0.0 };
                     final_pos.y = profile.bot_y + t * (chan_y - profile.bot_y);
@@ -597,8 +570,8 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
         }
     } else {
                 // --- DECK FLAT ZONE ---
-        let offset_x = p_shoulder.x - p_apex.x;
-        let offset_y = (p_shoulder.y - p_apex.y) * fade_factor;
+                let offset_x = p_shoulder.x - p_apex.x;
+        let offset_y = p_shoulder.y - p_apex.y;
         let mut world_shoulder = world_apex + profile.outline_normal * offset_x;
         if world_shoulder.x < inner_x { world_shoulder.x = inner_x; }
 
@@ -799,7 +772,7 @@ mod tests {
             ..Default::default()
         });
         
-        let profile = get_board_profile_at_z(&model, 50.0, 0.5, 1.0);
+                let profile = get_board_profile_at_z(&model, 50.0, 0.5);
         
         // Tangent should point completely along Z axis
         assert!((profile.outline_tangent.z - 1.0).abs() < 1e-4);
@@ -838,11 +811,11 @@ mod tests {
         }];
 
         // UV 0.0 should be at the bottom stringer (inner_x = 0)
-                let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0, 1.0);
+                        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0);
         assert_eq!(pt_bot_stringer.x, 0.0);
 
         // UV 1.0 should be at the top stringer (inner_x = 0)
-        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0, 1.0, 1.0);
+        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0, 1.0);
         assert_eq!(pt_top_stringer.x, 0.0);
 
         println!("✅ test_zone_based_uv_evaluation passed.");
@@ -905,11 +878,11 @@ mod tests {
         let t_apex = blend.t_apex;
         let t_tuck = 0.01_f32.max(t_apex * 0.5);
 
-                let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0, 1.0);
-        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0, 1.0);
+                        let p_narrow_apex = get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0);
+        let p_narrow_tuck = get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0);
         
-        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0, 1.0);
-        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0, 1.0);
+        let p_wide_apex = get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0);
+        let p_wide_tuck = get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0);
 
         let narrow_rail_width = p_narrow_apex.x - p_narrow_tuck.x;
         let wide_rail_width = p_wide_apex.x - p_wide_tuck.x;
@@ -942,75 +915,7 @@ mod tests {
         println!("✅ test_radial_ease passed.");
     }
 
-    #[test]
-    fn test_geometric_tip_fading() {
-        let mut model = BoardModel::default();
-        
-        // Setup simple straight board 100 inches long, 10 inches wide
-                model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        // 2 inches thick (+1 to -1)
-        model.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
-            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
-            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
-            ..Default::default()
-        });
-        
-            let bounds = get_board_bounds(&model);
-    let nose_z = bounds.nose_z;
-    let tail_z = bounds.tip_z;
-    assert_eq!(nose_z, 0.0);
-    assert_eq!(tail_z, 100.0);
-
-        // 1. At absolute nose (fade_factor = 0.0)
-        let fade_0 = calculate_tip_fade(nose_z, nose_z, tail_z);
-        assert_eq!(fade_0, 0.0);
-        let prof_0 = get_board_profile_at_z(&model, nose_z, 0.5, fade_0);
-        assert!((prof_0.top_y - prof_0.bot_y).abs() < 1e-5, "Top and bottom must perfectly merge at tip");
-        assert!((prof_0.apex_y - prof_0.bot_y).abs() < 1e-5, "Apex must merge at tip");
-        assert!((prof_0.tuck_y - prof_0.bot_y).abs() < 1e-5, "Tuck must merge at tip");
-
-        // 2. Outside fade zone (fade_factor = 1.0)
-        let fade_3 = calculate_tip_fade(nose_z + 3.0, nose_z, tail_z);
-        assert_eq!(fade_3, 1.0);
-        let prof_3 = get_board_profile_at_z(&model, nose_z + 3.0, 0.5, fade_3);
-        assert!((prof_3.top_y - prof_3.bot_y - 2.0).abs() < 1e-4, "Full thickness should be preserved outside fade zone");
-
-                // 3. Inside fade zone (fade_factor should be between 0 and 1)
-        let fade_1 = calculate_tip_fade(nose_z + 1.0, nose_z, tail_z);
-        assert!(fade_1 > 0.0 && fade_1 < 1.0, "Fade factor must ease between 0 and 1");
-        let prof_1 = get_board_profile_at_z(&model, nose_z + 1.0, 0.5, fade_1);
-        let thickness_1 = prof_1.top_y - prof_1.bot_y;
-        assert!(thickness_1 > 0.0 && thickness_1 < 2.0, "Thickness must be squashed proportionally in fade zone");
-
-        // 4. Extreme Squash Tail Edge Case
-        let mut model_squash = model.clone();
-        model_squash.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(15.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(15.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(15.0, 0.0, 33.3333), Vec3::new(15.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        
-        let fade_squash = calculate_tip_fade(tail_z, nose_z, tail_z);
-        let prof_squash = get_board_profile_at_z(&model_squash, tail_z, 0.5, fade_squash);
-        assert!(prof_squash.top_y >= prof_squash.bot_y, "Top deck should not clip through bottom deck on extreme squash profiles");
-
-                println!("✅ test_geometric_tip_fading passed.");
-    }
-
-            #[test]
+                #[test]
     fn test_swallow_tail_notch_detection() {
         let mut model = BoardModel::default();
         // Swallow tail: outline goes out to Z=100 (tip), then cuts back to Z=95 at stringer (X=0)
@@ -1126,7 +1031,7 @@ mod tests {
         model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], ..Default::default() });
         model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], ..Default::default() });
 
-        let profile = super::get_board_profile_at_z(&model, 75.0, 0.5, 1.0);
+                let profile = super::get_board_profile_at_z(&model, 75.0, 0.5);
         
         assert!(profile.tuck_x < profile.apex_x, "Tuck X ({}) must remain inside Apex X ({}) to prevent self-intersection", profile.tuck_x, profile.apex_x);
         
