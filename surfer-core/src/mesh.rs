@@ -5,7 +5,9 @@ use crate::geometry::*;
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let scale = 1.0 / 12.0;
 
-    let (bound_nose_z, bound_tail_z) = crate::geometry::get_board_bounds(model);
+        let bounds = crate::geometry::get_board_bounds(model);
+    let bound_nose_z = bounds.nose_z;
+    let bound_tail_z = bounds.tip_z;
 
     let outline = match &model.outline {
         Some(o) => o,
@@ -15,20 +17,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         return RawGeometryData::default();
     }
 
-    let nose_pt = evaluate_curve(outline, 0.0);
-    let nose_z = nose_pt.z;
-
-    let mut tip_z = f32::NEG_INFINITY;
-    let mut v_tip = 1.0;
-    let steps = 50;
-    for i in 0..=steps {
-        let t = i as f32 / steps as f32;
-                let p = evaluate_curve(outline, t);
-        if p.z > tip_z {
-            tip_z = p.z;
-            v_tip = t;
-        }
-    }
+    let nose_z = bounds.nose_z;
+    let tip_z = bounds.tip_z;
+    let v_tip = bounds.tip_t;
 
     // Adaptive Lengthwise (V) Slicing
     let mut all_z = Vec::new();
