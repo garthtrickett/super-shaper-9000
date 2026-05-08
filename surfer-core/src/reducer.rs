@@ -31,6 +31,24 @@ fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a 
                     }
                 }
             }
+                        None
+        },
+        name if name.starts_with("channel_") => {
+            let parts: Vec<&str> = name.split('_').collect();
+            if parts.len() == 3 {
+                let idx: usize = parts[1].parse().ok()?;
+                if let Some(channels) = &mut model.bottom_channels {
+                    if let Some(channel) = channels.get_mut(idx) {
+                        return if parts[2] == "outline" {
+                            Some(&mut channel.outline)
+                        } else if parts[2] == "depth" {
+                            Some(&mut channel.depth)
+                        } else {
+                            None
+                        };
+                    }
+                }
+            }
             None
         },
         _ => None
@@ -38,9 +56,10 @@ fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a 
 }
 
 pub fn push_history(model: &mut BoardModel) {
-    let snapshot = ManualSnapshot {
+        let snapshot = ManualSnapshot {
         outline: model.outline.clone(),
         outline_layers: model.outline_layers.clone(),
+        bottom_channels: model.bottom_channels.clone(),
         rail_outline: model.rail_outline.clone(),
         apex_outline: model.apex_outline.clone(),
         rocker_top: model.rocker_top.clone(),
@@ -207,9 +226,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             if let Some(cs) = cross_sections { model.cross_sections = cs; }
             push_history(model);
         }
-                BoardAction::UpdateNodePosition { curve, index, node_type, position } => {
+                        BoardAction::UpdateNodePosition { curve, index, node_type, position } => {
             let is_cross_section = curve.starts_with("crossSection_");
-            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline" || curve.starts_with("outlineLayer_");
+            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline" || curve.starts_with("outlineLayer_") || (curve.starts_with("channel_") && curve.ends_with("_outline"));
 
             if let Some(target) = get_curve_mut(model, &curve) {
                 let mut pos = Vec3::from_array(position);
@@ -315,9 +334,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
             }
         }
-                        BoardAction::UpdateNodeExact { curve, index, anchor, tangent1, tangent2, weight } => {
+                                BoardAction::UpdateNodeExact { curve, index, anchor, tangent1, tangent2, weight } => {
             let is_cross_section = curve.starts_with("crossSection_");
-            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline" || curve.starts_with("outlineLayer_");
+            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline" || curve.starts_with("outlineLayer_") || (curve.starts_with("channel_") && curve.ends_with("_outline"));
 
             if let Some(target) = get_curve_mut(model, &curve) {
                                 if let Some(a) = anchor {
@@ -357,7 +376,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
-        BoardAction::Undo => {
+                BoardAction::Undo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx > 0 {
                     idx -= 1;
@@ -365,6 +384,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     model.history_index = Some(idx);
                     model.outline = snap.outline.clone();
                     model.outline_layers = snap.outline_layers.clone();
+                    model.bottom_channels = snap.bottom_channels.clone();
                     model.rail_outline = snap.rail_outline.clone();
                     model.apex_outline = snap.apex_outline.clone();
                     model.rocker_top = snap.rocker_top.clone();
@@ -374,7 +394,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
             }
         }
-        BoardAction::Redo => {
+                BoardAction::Redo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx + 1 < history.len() {
                     idx += 1;
@@ -382,6 +402,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     model.history_index = Some(idx);
                     model.outline = snap.outline.clone();
                     model.outline_layers = snap.outline_layers.clone();
+                    model.bottom_channels = snap.bottom_channels.clone();
                     model.rail_outline = snap.rail_outline.clone();
                     model.apex_outline = snap.apex_outline.clone();
                     model.rocker_top = snap.rocker_top.clone();
@@ -415,7 +436,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-        BoardAction::ImportS3dx { length, width, thickness, outline, rail_outline, apex_outline, rocker_top, rocker_bottom, apex_rocker, cross_sections, outline_layers } => {
+                BoardAction::ImportS3dx { length, width, thickness, outline, rail_outline, apex_outline, rocker_top, rocker_bottom, apex_rocker, cross_sections, outline_layers, bottom_channels } => {
             model.length = length;
             model.width = width;
             model.thickness = thickness;
@@ -427,6 +448,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             model.apex_rocker = Some(apex_rocker);
                         model.cross_sections = cross_sections;
             model.outline_layers = outline_layers;
+            model.bottom_channels = bottom_channels;
             push_history(model);
         }
         BoardAction::AddOutlineLayer => {
@@ -474,7 +496,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 });
             }
 
-            model.outline_layers = Some(layers);
+                        model.outline_layers = Some(layers);
             push_history(model);
         }
         BoardAction::RemoveOutlineLayer { index } => {
@@ -483,6 +505,53 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     layers.remove(index);
                 }
                 model.outline_layers = Some(layers);
+            }
+            push_history(model);
+        }
+        BoardAction::AddBottomChannel => {
+            let mut channels = model.bottom_channels.take().unwrap_or_default();
+
+            let bounds = get_board_bounds(model);
+            let tip_z = bounds.tip_z;
+
+            let channel_start_z = tip_z - 25.0;
+            let channel_end_z = tip_z - 5.0;
+            
+            let out_start = Vec3::new(2.0, 0.0, channel_start_z);
+            let out_end = Vec3::new(2.0, 0.0, channel_end_z);
+            
+            let depth_start = Vec3::new(0.0, 0.5, channel_start_z);
+            let depth_end = Vec3::new(0.0, 0.5, channel_end_z);
+
+            let outline = BezierCurveData {
+                control_points: vec![out_start, out_end],
+                tangents1: vec![out_start, out_end.lerp(out_start, 0.33)],
+                tangents2: vec![out_start.lerp(out_end, 0.33), out_end],
+                ..Default::default()
+            };
+
+            let depth = BezierCurveData {
+                control_points: vec![depth_start, depth_end],
+                tangents1: vec![depth_start, depth_end.lerp(depth_start, 0.33)],
+                tangents2: vec![depth_start.lerp(depth_end, 0.33), depth_end],
+                ..Default::default()
+            };
+
+            channels.push(ChannelLayer {
+                name: format!("Channel {}", channels.len() + 1),
+                outline,
+                depth,
+            });
+
+            model.bottom_channels = Some(channels);
+            push_history(model);
+        }
+        BoardAction::RemoveBottomChannel { index } => {
+            if let Some(mut channels) = model.bottom_channels.take() {
+                if index < channels.len() {
+                    channels.remove(index);
+                }
+                model.bottom_channels = Some(channels);
             }
             push_history(model);
         }
@@ -591,6 +660,30 @@ mod tests {
         assert_eq!(weights[0], 1.0); // Default initialized
         assert_eq!(weights[1], 2.5); // Updated value
         assert_eq!(weights[2], 1.0); // Default initialized
+    }
+
+        #[test]
+    fn test_bottom_channels() {
+        let mut model = create_mock_model();
+        assert!(model.bottom_channels.is_none());
+
+        update(&mut model, BoardAction::AddBottomChannel);
+        assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 1);
+        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].name, "Channel 1");
+
+        assert_eq!(model.history.as_ref().unwrap().last().unwrap().bottom_channels.as_ref().unwrap().len(), 1);
+
+        let action = BoardAction::UpdateNodePosition {
+            curve: "channel_0_depth".to_string(),
+            index: 0,
+            node_type: "anchor".to_string(),
+            position:[0.0, 1.0, 0.0],
+        };
+        update(&mut model, action);
+        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].depth.control_points[0].y, 1.0);
+
+        update(&mut model, BoardAction::RemoveBottomChannel { index: 0 });
+        assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
     }
 
     #[test]

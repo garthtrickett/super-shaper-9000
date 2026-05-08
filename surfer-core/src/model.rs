@@ -9,6 +9,14 @@ pub struct OutlineLayer {
     pub otl_int: BezierCurveData,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelLayer {
+    pub name: String,
+    pub outline: BezierCurveData,
+    pub depth: BezierCurveData,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SelectedNode {
@@ -23,6 +31,7 @@ pub struct SelectedNode {
 pub struct ManualSnapshot {
     pub outline: Option<BezierCurveData>,
     pub outline_layers: Option<Vec<OutlineLayer>>,
+    pub bottom_channels: Option<Vec<ChannelLayer>>,
     pub rail_outline: Option<BezierCurveData>,
     pub apex_outline: Option<BezierCurveData>,
     pub rocker_top: Option<BezierCurveData>,
@@ -67,8 +76,9 @@ pub struct BoardModel {
     pub history: Option<Vec<ManualSnapshot>>,
     pub history_index: Option<usize>,
     
-    pub outline: Option<BezierCurveData>,
+        pub outline: Option<BezierCurveData>,
     pub outline_layers: Option<Vec<OutlineLayer>>,
+    pub bottom_channels: Option<Vec<ChannelLayer>>,
     pub rail_outline: Option<BezierCurveData>,
     pub apex_outline: Option<BezierCurveData>,
     pub rocker_top: Option<BezierCurveData>,
@@ -131,8 +141,12 @@ pub enum BoardAction {
     ScaleThickness { factor: f32 },
     #[serde(rename_all = "camelCase")]
         AddOutlineLayer,
-    #[serde(rename = "REMOVE_OUTLINE_LAYER")]
+        #[serde(rename = "REMOVE_OUTLINE_LAYER")]
     RemoveOutlineLayer { index: usize },
+    #[serde(rename = "ADD_BOTTOM_CHANNEL")]
+    AddBottomChannel,
+    #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
+    RemoveBottomChannel { index: usize },
     #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
     ImportS3dx {
@@ -144,9 +158,10 @@ pub enum BoardAction {
         apex_outline: BezierCurveData,
         rocker_top: BezierCurveData,
         rocker_bottom: BezierCurveData,
-        apex_rocker: BezierCurveData,
+                apex_rocker: BezierCurveData,
         cross_sections: Vec<BezierCurveData>,
         outline_layers: Option<Vec<OutlineLayer>>,
+        bottom_channels: Option<Vec<ChannelLayer>>,
     }
 }
 
