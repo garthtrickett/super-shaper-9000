@@ -143,11 +143,11 @@ pub enum BoardAction {
     ScaleWidth { factor: f32 },
         #[serde(rename = "SCALE_THICKNESS")]
     ScaleThickness { factor: f32 },
-    #[serde(rename = "ADD_OUTLINE_LAYER")]
+        #[serde(rename = "ADD_OUTLINE_LAYER")]
     AddOutlineLayer,
     #[serde(rename = "REMOVE_OUTLINE_LAYER")]
     RemoveOutlineLayer { index: usize },
-    #[serde(rename = "ADD_BOTTOM_CHANNEL")]
+        #[serde(rename = "ADD_BOTTOM_CHANNEL")]
     AddBottomChannel,
     #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
         RemoveBottomChannel { index: usize },
