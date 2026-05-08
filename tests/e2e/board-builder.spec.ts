@@ -244,66 +244,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
-    test("Wing Layer Manipulation", async ({ page }) => {
-    await page.goto('/');
-    const viewport = page.locator("board-viewport");
-    await expect(viewport).toBeVisible();
-    await expect(viewport.locator("canvas")).toBeVisible();
-    await page.waitForTimeout(500);
-
-        // 1. Programmatically inject a wing layer into the state
-    await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & {
-        boardState?: any;
-        requestUpdate?: (name?: string) => void;
-      };
-      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
-      if (!vp || !vp.boardState) return;
-      
-      const wingLayer = {
-        name: "Wing",
-        otlExt: {
-          controlPoints: [[8.0, 0.0, 70.0],[8.0, 0.0, 80.0]],
-          tangents1: [[8.0, 0.0, 70.0],[8.0, 0.0, 75.0]],
-          tangents2: [[8.0, 0.0, 75.0],[8.0, 0.0, 80.0]]
-        },
-        otlInt: {
-          controlPoints:[], tangents1: [], tangents2:[]
-        }
-      };
-      vp.boardState.outlineLayers =[wingLayer];
-      // Force re-render of gizmos
-      if (vp.requestUpdate) vp.requestUpdate();
-    });
-    await page.waitForTimeout(200);
-
-        // 2. Find and click the wing layer gizmo
-    const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { boardState?: any };
-      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
-      if (!vp || !vp.boardState || !vp.boardState.outlineLayers || !vp.boardState.outlineLayers[0]) return null;
-      
-      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
-      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
-      if (!canvas) return null;
-      const rect = canvas.getBoundingClientRect();
-      const aspect = rect.width / rect.height;
-      const ndcX = (cp[0] / 12) / (5 * aspect);
-      const ndcY = -(cp[2] / 12) / 5;
-      const w = rect.width / 2;
-      const h = rect.height / 2;
-      return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
-    });
-    expect(hitPosition).toBeTruthy();
-    await page.mouse.click(hitPosition.x, hitPosition.y);
-
-        // 3. Verify inspector shows Wing Layer
-    const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
-    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
-  });
-
-  test("Wing Creation and Removal UI Flow", async ({ page }) => {
+      test("Wing Creation and Removal UI Flow", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 

@@ -27,48 +27,8 @@ test.describe('Board Viewport E2E', () => {
     await expect(viewport.locator('canvas')).toBeVisible();
     await page.waitForTimeout(500);
 
-        // Programmatically inject a bottom channel into the board state
-    await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & {
-        boardState?: any;
-        requestUpdate?: (name?: string) => void;
-      };
-      const vp = document.querySelector('board-viewport') as BoardViewportElement | null;
-      if (!vp || !vp.boardState) return;
-      
-            const channelLayer = {
-        name: "Test Channel",
-        isSymmetric: true,
-        rightOutline: {
-          controlPoints: [[2.0, 0.0, 25.0],[2.0, 0.0, 75.0]],
-          tangents1: [[2.0, 0.0, 25.0],[2.0, 0.0, 75.0]],
-          tangents2: [[2.0, 0.0, 25.0],[2.0, 0.0, 75.0]]
-        },
-        rightDepth: {
-          controlPoints: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
-          tangents1: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
-          tangents2: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]]
-        },
-        leftOutline: {
-          controlPoints: [[-2.0, 0.0, 25.0],[-2.0, 0.0, 75.0]],
-          tangents1: [[-2.0, 0.0, 25.0],[-2.0, 0.0, 75.0]],
-          tangents2: [[-2.0, 0.0, 25.0],[-2.0, 0.0, 75.0]]
-        },
-        leftDepth: {
-          controlPoints: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
-          tangents1: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]],
-          tangents2: [[0.0, 0.5, 25.0],[0.0, 0.5, 75.0]]
-        }
-      };
-      
-            vp.boardState = {
-        ...vp.boardState,
-        bottomChannels: [channelLayer]
-      };
-      
-      // Force an update to trigger the geometry rebuild
-      if (vp.requestUpdate) vp.requestUpdate('boardState');
-    });
+            const boardControls = page.locator('board-controls');
+    await boardControls.locator('button[title="Add Bottom Channel"]').click();
 
     // Wait for the geometry debounce and WASM generation to settle
     await page.waitForTimeout(1000);
