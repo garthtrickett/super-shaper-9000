@@ -250,9 +250,15 @@ mod tests {
         
         let model: BoardModel = design.board.into();
 
-        assert_eq!(model.length, 185.420);
+                assert_eq!(model.length, 185.420);
         assert_eq!(model.width, 53.790);
         assert_eq!(model.thickness, 6.858);
+        
+        assert_eq!(model.v_concave_tail, -0.155);
+        assert_eq!(model.v_concave_nose, -0.185);
+        assert_eq!(model.rail_coefficient_tail, 0.882);
+        assert_eq!(model.rail_coefficient_nose, 0.876);
+        assert_eq!(model.thickness_z_stretch, 1.0);
         
         assert!(model.outline.is_some(), "Outline should be converted");
         assert!(model.rocker_bottom.is_some(), "Rocker bottom should be converted");
@@ -264,6 +270,23 @@ mod tests {
         assert_eq!(outline.control_points.len(), 4);
         assert_eq!(outline.control_points[3].z, 185.420); // Length
         assert_eq!(outline.control_points[3].x, 0.201257); // Width
+    }
+
+        #[test]
+    fn test_s3dx_extracts_all_couples_and_weights() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+        let content = fs::read_to_string(&path).unwrap();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        
+        assert_eq!(model.cross_sections.len(), 4, "Should dynamically parse 4 cross sections");
+        
+        let z0 = model.cross_sections[0].control_points[0].z;
+        let z3 = model.cross_sections[3].control_points[0].z;
+        assert!(z0 < z3, "Cross sections should be ordered from nose to tail");
+        
+        let weights = model.cross_sections[0].weights.as_ref().expect("Weights should be populated");
+        assert_eq!(weights[0], 1.0, "S3DX default u=-1.0 should map to weight=1.0");
     }
 
     #[test]
@@ -302,7 +325,11 @@ mod tests {
         let t_mid_rail = t_apex + (t_shoulder - t_apex) * 0.5;
         let pt_mid_rail = crate::geometry::get_point_at_uv(&model, t_mid_rail, 1.0, z_test, 0.0, 1.0);
 
-        assert!(pt_mid_rail.x > 0.0, "Mid-rail collapsed to the stringer! Bug present.");
+                assert!(pt_mid_rail.x > 0.0, "Mid-rail collapsed to the stringer! Bug present.");
         assert!(pt_mid_rail.x <= pt_apex.x + 1e-4, "Mid-rail is outside the apex!");
+        
+        let pt_bot = crate::geometry::get_point_at_uv(&model, 0.0, 1.0, z_test, 0.0, 1.0);
+        let pt_top = crate::geometry::get_point_at_uv(&model, 1.0, 1.0, z_test, 0.0, 1.0);
+        assert!(pt_top.y - pt_bot.y > 0.0, "Tail thickness should not collapse to zero");
     }
 }
