@@ -475,8 +475,12 @@ export class BoardViewport extends LitElement {
     updatePositionsForCurve(this.boardState.rockerBottom, 'rockerBottom');
     updatePositionsForCurve(this.boardState.apexOutline, 'apexOutline');
     updatePositionsForCurve(this.boardState.railOutline, 'railOutline');
-    updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
+        updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
     this.boardState.crossSections?.forEach((cs, idx) => updatePositionsForCurve(cs, `crossSection_${idx}`));
+    this.boardState.outlineLayers?.forEach((layer, idx) => {
+        updatePositionsForCurve(layer.otlExt, `outlineLayer_${idx}_ext`);
+        updatePositionsForCurve(layer.otlInt, `outlineLayer_${idx}_int`);
+    });
   }
 
   private updateGizmoHighlights() {

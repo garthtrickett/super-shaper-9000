@@ -9,10 +9,28 @@ fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a 
         "apexOutline" => model.apex_outline.as_mut(),
         "railOutline" => model.rail_outline.as_mut(),
         "apexRocker" => model.apex_rocker.as_mut(),
-        name if name.starts_with("crossSection_") => {
+                name if name.starts_with("crossSection_") => {
             let idx_str = name.strip_prefix("crossSection_")?;
             let idx: usize = idx_str.parse().ok()?;
             model.cross_sections.get_mut(idx)
+        },
+        name if name.starts_with("outlineLayer_") => {
+            let parts: Vec<&str> = name.split('_').collect();
+            if parts.len() == 3 {
+                let idx: usize = parts[1].parse().ok()?;
+                if let Some(layers) = &mut model.outline_layers {
+                    if let Some(layer) = layers.get_mut(idx) {
+                        return if parts[2] == "ext" {
+                            Some(&mut layer.otl_ext)
+                        } else if parts[2] == "int" {
+                            Some(&mut layer.otl_int)
+                        } else {
+                            None
+                        };
+                    }
+                }
+            }
+            None
         },
         _ => None
     }
@@ -188,16 +206,17 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             if let Some(cs) = cross_sections { model.cross_sections = cs; }
             push_history(model);
         }
-        BoardAction::UpdateNodePosition { curve, index, node_type, position } => {
+                BoardAction::UpdateNodePosition { curve, index, node_type, position } => {
             let is_cross_section = curve.starts_with("crossSection_");
-            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline";
+            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline" || curve.starts_with("outlineLayer_");
 
             if let Some(target) = get_curve_mut(model, &curve) {
                 let mut pos = Vec3::from_array(position);
 
-                if node_type == "anchor" {
+                                if node_type == "anchor" {
                     let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
-                    if is_end_node && (is_cross_section || is_outline_type) {
+                    let is_layer = curve.starts_with("outlineLayer_");
+                    if is_end_node && (is_cross_section || (is_outline_type && !is_layer)) {
                         pos.x = 0.0;
                     }
                     if is_cross_section || is_outline_type {
@@ -295,15 +314,16 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
             }
         }
-                BoardAction::UpdateNodeExact { curve, index, anchor, tangent1, tangent2, weight } => {
+                        BoardAction::UpdateNodeExact { curve, index, anchor, tangent1, tangent2, weight } => {
             let is_cross_section = curve.starts_with("crossSection_");
-            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline";
+            let is_outline_type = curve == "outline" || curve == "apexOutline" || curve == "railOutline" || curve.starts_with("outlineLayer_");
 
             if let Some(target) = get_curve_mut(model, &curve) {
-                if let Some(a) = anchor {
+                                if let Some(a) = anchor {
                     let mut pos = Vec3::from_array(a);
                     let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
-                    if is_end_node && (is_cross_section || is_outline_type) {
+                    let is_layer = curve.starts_with("outlineLayer_");
+                    if is_end_node && (is_cross_section || (is_outline_type && !is_layer)) {
                         pos.x = 0.0;
                     }
                     if is_cross_section || is_outline_type {

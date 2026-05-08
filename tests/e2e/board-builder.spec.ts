@@ -242,6 +242,53 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
+    test("Wing Layer Manipulation", async ({ page }) => {
+    await page.goto('/');
+    const viewport = page.locator("board-viewport");
+    await expect(viewport).toBeVisible();
+    await expect(viewport.locator("canvas")).toBeVisible();
+    await page.waitForTimeout(500);
+
+    // 1. Programmatically inject a wing layer into the state
+    await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      const wingLayer = {
+        name: "Wing",
+        otlExt: {
+          controlPoints: [[8.0, 0.0, 70.0],[8.0, 0.0, 80.0]],
+          tangents1: [[8.0, 0.0, 70.0], [8.0, 0.0, 75.0]],
+          tangents2: [[8.0, 0.0, 75.0],[8.0, 0.0, 80.0]]
+        },
+        otlInt: {
+          controlPoints: [], tangents1: [], tangents2:[]
+        }
+      };
+      vp.boardState.outlineLayers = [wingLayer];
+      // Force re-render of gizmos
+      vp.requestUpdate();
+    });
+    await page.waitForTimeout(200);
+
+    // 2. Find and click the wing layer gizmo
+    const hitPosition = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      const ndcX = (cp[0] / 12) / (5 * aspect);
+      const ndcY = -(cp[2] / 12) / 5;
+      return { x: rect.left + ((ndcX + 1) / 2 * rect.width), y: rect.top + ((1 - ndcY) / 2 * rect.height) };
+    });
+    expect(hitPosition).toBeTruthy();
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+
+    // 3. Verify inspector shows Wing Layer
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
+  });
+
   test("Node Inspector Weight Update", async ({ page }) => {
     await page.goto('/');
     const viewport = page.locator("board-viewport");

@@ -203,7 +203,29 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             colors.push(color.x); colors.push(color.y); colors.push(color.z);
             uvs.push(u); uvs.push(v);
 
-                        let tangent_v = if i == 0 {
+                                    let mut is_cliff_wall = false;
+            let mut cliff_tangent = Vec3::ZERO;
+
+            if i > 0 {
+                let z_diff = (grid[i][j].0.z - grid[i-1][j].0.z).abs();
+                let x_diff = (grid[i][j].0.x - grid[i-1][j].0.x).abs();
+                if z_diff <= 0.005 * scale && x_diff > 0.005 * scale {
+                    is_cliff_wall = true;
+                    cliff_tangent = grid[i][j].0 - grid[i-1][j].0;
+                }
+            }
+            if i < segments_v {
+                let z_diff = (grid[i+1][j].0.z - grid[i][j].0.z).abs();
+                let x_diff = (grid[i+1][j].0.x - grid[i][j].0.x).abs();
+                if z_diff <= 0.005 * scale && x_diff > 0.005 * scale {
+                    is_cliff_wall = true;
+                    cliff_tangent = grid[i+1][j].0 - grid[i][j].0;
+                }
+            }
+
+            let tangent_v = if is_cliff_wall {
+                cliff_tangent
+            } else if i == 0 {
                 grid[i + 1][j].0 - grid[i][j].0
             } else if i == segments_v {
                 grid[i][j].0 - grid[i - 1][j].0
@@ -733,6 +755,55 @@ mod tests {
         assert!(mesh.indices.len() > 1000, "Indices should be populated");
         
                 println!("✅ test_bifurcated_mesh_vertex_count passed.");
+    }
+
+        #[test]
+    fn test_wing_split_normals() {
+        use crate::model::OutlineLayer;
+        let mut model = BoardModel::default();
+        
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 40.0), Vec3::new(0.0, 0.0, 90.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 60.0), Vec3::ZERO],
+            ..Default::default()
+        });
+        
+        let wing_ext = BezierCurveData {
+            control_points: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
+            tangents1: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 75.0)],
+            tangents2: vec![Vec3::new(8.0, 0.0, 75.0), Vec3::new(8.0, 0.0, 80.0)],
+            ..Default::default()
+        };
+        model.outline_layers = Some(vec![OutlineLayer {
+            name: "Wing".to_string(),
+            otl_ext: wing_ext,
+            otl_int: BezierCurveData::default(),
+        }]);
+
+        model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], ..Default::default() });
+        model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], ..Default::default() });
+        model.cross_sections = vec![BezierCurveData { control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(10., 0., 0.), Vec3::new(0., 1., 0.)], tangents1: vec![Vec3::ZERO; 3], tangents2: vec![Vec3::ZERO; 3], ..Default::default() }];
+
+        let mesh = super::generate_mesh(&model);
+        
+        let scale = 1.0 / 12.0;
+        let target_z = 70.0 * scale;
+        
+        let mut cliff_normals = Vec::new();
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - target_z).abs() <= 0.005 {
+                let nz = mesh.normals[i * 3 + 2];
+                if nz.abs() > 0.8 {
+                    cliff_normals.push(Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]));
+                }
+            }
+        }
+        
+        assert!(!cliff_normals.is_empty(), "Should have detected and split normals at the vertical cliff");
+        println!("✅ test_wing_split_normals passed.");
     }
 
     #[test]

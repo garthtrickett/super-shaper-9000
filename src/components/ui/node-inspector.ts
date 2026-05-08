@@ -52,9 +52,17 @@ export class NodeInspector extends LitElement {
     if (sel.curve === "apexOutline") return this.boardState.apexOutline;
     if (sel.curve === "railOutline") return this.boardState.railOutline;
     if (sel.curve === "apexRocker") return this.boardState.apexRocker;
-    if (sel.curve.startsWith("crossSection_")) {
+        if (sel.curve.startsWith("crossSection_")) {
       const idx = parseInt(sel.curve.split("_")[1]!, 10);
       return this.boardState.crossSections?.[idx];
+    }
+    if (sel.curve.startsWith("outlineLayer_")) {
+      const parts = sel.curve.split("_");
+      const idx = parseInt(parts[1]!, 10);
+      const layer = this.boardState.outlineLayers?.[idx];
+      if (layer) {
+        return parts[2] === "ext" ? layer.otlExt : layer.otlInt;
+      }
     }
     return undefined;
   }
@@ -186,8 +194,8 @@ export class NodeInspector extends LitElement {
     return html`
       <div class="bg-zinc-900 border border-zinc-700 shadow-2xl rounded-lg p-4 font-mono">
         <div class="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800">
-          <h3 class="text-sm font-bold text-zinc-100 uppercase tracking-widest">
-            ${sel.curve.replace('crossSection_', 'Slice ')}
+                    <h3 class="text-sm font-bold text-zinc-100 uppercase tracking-widest">
+            ${sel.curve.startsWith('outlineLayer_') ? `Layer ${sel.curve.split('_')[1]} (${sel.curve.split('_')[2].toUpperCase()})` : sel.curve.replace('crossSection_', 'Slice ')}
           </h3>
           <span class="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
             Node ${sel.index}

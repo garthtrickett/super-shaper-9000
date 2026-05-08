@@ -40,7 +40,12 @@ export class GizmoBuilder {
         return yInches;
     };
 
-    const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number) => {
+        const matLayerAnchor = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false });
+    const matLayerHandle = new THREE.MeshBasicMaterial({ color: 0xfcd34d, depthTest: false });
+
+    const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number, isLayer = false) => {
+        const aMat = isLayer ? matLayerAnchor : matAnchor;
+        const hMat = isLayer ? matLayerHandle : matHandle;
         if (!curve) return;
         for (let i = 0; i < curve.controlPoints.length; i++) {
             const cp = curve.controlPoints[i]!;
@@ -49,7 +54,7 @@ export class GizmoBuilder {
             
             const cpY = getZHeight(curveName, cp[1], cp[2]);
 
-            const anchorMesh = new THREE.Mesh(anchorGeo, matAnchor);
+                        const anchorMesh = new THREE.Mesh(anchorGeo, aMat);
             anchorMesh.position.set(cp[0] * scale, cpY * scale, cp[2] * scale);
             anchorMesh.renderOrder = 999;
             anchorMesh.layers.set(layerIndex);
@@ -67,7 +72,7 @@ export class GizmoBuilder {
                 if (Math.abs(t[0]-cp[0]) < 0.001 && Math.abs(t[1]-cp[1]) < 0.001 && Math.abs(t[2]-cp[2]) < 0.001) return;
 
                 const tY = getZHeight(curveName, t[1], t[2]);
-                const handleMesh = new THREE.Mesh(handleGeo, matHandle);
+                                const handleMesh = new THREE.Mesh(handleGeo, hMat);
                 handleMesh.position.set(t[0] * scale, tY * scale, t[2] * scale);
                 handleMesh.renderOrder = 999;
                 handleMesh.layers.set(layerIndex);
@@ -104,9 +109,20 @@ export class GizmoBuilder {
     if (boardState.showRailOutline !== false) drawGizmosForCurve(boardState.railOutline, 'railOutline', 1);
     if (boardState.showApexRocker !== false) drawGizmosForCurve(boardState.apexRocker, 'apexRocker', 2);
     
-    if (boardState.showCrossSections !== false && boardState.crossSections) {
+        if (boardState.showCrossSections !== false && boardState.crossSections) {
         boardState.crossSections.forEach((cs, idx) => {
             drawGizmosForCurve(cs, `crossSection_${idx}`, 3);
+        });
+    }
+
+    if (boardState.showOutline !== false && boardState.outlineLayers) {
+        boardState.outlineLayers.forEach((layer, idx) => {
+            if (layer.otlExt?.controlPoints?.length > 0) {
+                drawGizmosForCurve(layer.otlExt, `outlineLayer_${idx}_ext`, 1, true);
+            }
+            if (layer.otlInt?.controlPoints?.length > 0) {
+                drawGizmosForCurve(layer.otlInt, `outlineLayer_${idx}_int`, 1, true);
+            }
         });
     }
   }

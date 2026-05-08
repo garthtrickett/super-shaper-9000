@@ -203,7 +203,7 @@ export class InteractionManager {
           stateInches.x = 0;
         }
       }
-      if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_'))) {
+            if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_') || curveName.startsWith('outlineLayer_'))) {
         if (stateInches.x < 0) stateInches.x = 0;
       }
 
