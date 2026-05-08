@@ -465,15 +465,17 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
         final_pos = world_apex + profile.outline_normal * offset_x;
         final_pos.y = world_apex.y + offset_y;
     } else if u <= t_tuck {
-                // --- BOTTOM FLAT ZONE ---
+                                // --- BOTTOM FLAT ZONE ---
         let offset_x = p_tuck.x - p_apex.x;
         let offset_y = (p_tuck.y - p_apex.y) * fade_factor;
-        let world_tuck = world_apex + profile.outline_normal * offset_x;
+        let mut world_tuck = world_apex + profile.outline_normal * offset_x;
+        if world_tuck.x < inner_x { world_tuck.x = inner_x; }
         
         let slice_bot_width = p_tuck.x - p_bot.x;
-        if slice_bot_width > 1e-5 {
+        let current_width = world_tuck.x - inner_x;
+
+        if slice_bot_width > 1e-5 && current_width > 1e-5 {
             let norm_x = (p.x - p_bot.x) / slice_bot_width;
-            let current_width = world_tuck.x - inner_x;
             final_pos.x = inner_x + norm_x * current_width;
 
             let current_z_offset = world_tuck.z - z_inches;
@@ -481,10 +483,10 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
 
             let world_tuck_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
             let range_y = p_tuck.y - p_bot.y;
-            let norm_y = (if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 }) * fade_factor;
+            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_bot.y) / range_y } else { 0.0 };
             final_pos.y = profile.bot_y + norm_y * (world_tuck_y - profile.bot_y);
         } else {
-            let t_zone = u / t_tuck;
+            let t_zone = if t_tuck > 1e-5 { u / t_tuck } else { 0.0 };
             let stringer_bot_pos = Vec3::new(inner_x, profile.bot_y, z_inches);
             final_pos = stringer_bot_pos.lerp(world_tuck, t_zone);
             final_pos.y = profile.bot_y;
@@ -493,12 +495,14 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
                 // --- DECK FLAT ZONE ---
         let offset_x = p_shoulder.x - p_apex.x;
         let offset_y = (p_shoulder.y - p_apex.y) * fade_factor;
-        let world_shoulder = world_apex + profile.outline_normal * offset_x;
+        let mut world_shoulder = world_apex + profile.outline_normal * offset_x;
+        if world_shoulder.x < inner_x { world_shoulder.x = inner_x; }
 
         let slice_top_width = p_shoulder.x - p_top.x;
-        if slice_top_width > 1e-5 {
+        let current_width = world_shoulder.x - inner_x;
+
+        if slice_top_width > 1e-5 && current_width > 1e-5 {
             let norm_x = (p.x - p_top.x) / slice_top_width;
-            let current_width = world_shoulder.x - inner_x;
             final_pos.x = inner_x + norm_x * current_width;
 
             let current_z_offset = world_shoulder.z - z_inches;
@@ -506,10 +510,10 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
 
             let world_shoulder_y = (world_apex.y + offset_y).clamp(profile.bot_y, profile.top_y);
             let range_y = p_top.y - p_shoulder.y;
-            let norm_y = (if range_y.abs() > 1e-5 { (p.y - p_shoulder.y) / range_y } else { 0.0 }) * fade_factor;
+            let norm_y = if range_y.abs() > 1e-5 { (p.y - p_shoulder.y) / range_y } else { 0.0 };
             final_pos.y = world_shoulder_y + norm_y * (profile.top_y - world_shoulder_y);
         } else {
-            let t_zone = (u - t_shoulder) / (1.0 - t_shoulder);
+            let t_zone = if (1.0 - t_shoulder) > 1e-5 { (u - t_shoulder) / (1.0 - t_shoulder) } else { 0.0 };
             let stringer_top_pos = Vec3::new(inner_x, profile.top_y, z_inches);
             final_pos = world_shoulder.lerp(stringer_top_pos, t_zone);
             final_pos.y = profile.top_y;
@@ -877,12 +881,25 @@ mod tests {
         let prof_3 = get_board_profile_at_z(&model, nose_z + 3.0, 0.5, fade_3);
         assert!((prof_3.top_y - prof_3.bot_y - 2.0).abs() < 1e-4, "Full thickness should be preserved outside fade zone");
 
-        // 3. Inside fade zone (fade_factor should be between 0 and 1)
+                // 3. Inside fade zone (fade_factor should be between 0 and 1)
         let fade_1 = calculate_tip_fade(nose_z + 1.0, nose_z, tail_z);
         assert!(fade_1 > 0.0 && fade_1 < 1.0, "Fade factor must ease between 0 and 1");
         let prof_1 = get_board_profile_at_z(&model, nose_z + 1.0, 0.5, fade_1);
         let thickness_1 = prof_1.top_y - prof_1.bot_y;
         assert!(thickness_1 > 0.0 && thickness_1 < 2.0, "Thickness must be squashed proportionally in fade zone");
+
+        // 4. Extreme Squash Tail Edge Case
+        let mut model_squash = model.clone();
+        model_squash.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(15.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(15.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(15.0, 0.0, 33.3333), Vec3::new(15.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        
+        let fade_squash = calculate_tip_fade(tail_z, nose_z, tail_z);
+        let prof_squash = get_board_profile_at_z(&model_squash, tail_z, 0.5, fade_squash);
+        assert!(prof_squash.top_y >= prof_squash.bot_y, "Top deck should not clip through bottom deck on extreme squash profiles");
 
                 println!("✅ test_geometric_tip_fading passed.");
     }
