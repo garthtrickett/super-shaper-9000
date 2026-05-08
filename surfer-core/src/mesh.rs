@@ -843,22 +843,43 @@ mod tests {
     }
 
         #[test]
+        #[test]
     fn test_tri_plane_hull_normals() {
         use crate::model::ChannelLayer;
         let mut model = BoardModel::default();
         
-        model.outline = Some(BezierCurveData { control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() });
-        model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() });
-        model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() });
-        model.cross_sections = vec![BezierCurveData { control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() }];
+        model.outline = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)], 
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)], 
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)], 
+            ..Default::default() 
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)], 
+            tangents1: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 66.6667)], 
+            tangents2: vec![Vec3::new(0.0, 1.0, 33.3333), Vec3::new(0.0, 1.0, 100.0)], 
+            ..Default::default() 
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)], 
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6667)], 
+            tangents2: vec![Vec3::new(0.0, 0.0, 33.3333), Vec3::new(0.0, 0.0, 100.0)], 
+            ..Default::default() 
+        });
+        model.cross_sections = vec![BezierCurveData { 
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)], 
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(6.6667, 0.0, 0.0)], 
+            tangents2: vec![Vec3::new(3.3333, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)], 
+            ..Default::default() 
+        }];
 
         model.bottom_channels = Some(vec![ChannelLayer {
             name: "Chine".to_string(),
             is_symmetric: true,
-            left_outline: BezierCurveData { control_points: vec![Vec3::new(-5.0, 0.0, 0.0), Vec3::new(-5.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() },
-            right_outline: BezierCurveData { control_points: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() },
-            left_depth: BezierCurveData { control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() },
-            right_depth: BezierCurveData { control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)], tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO], ..Default::default() }
+            left_outline: BezierCurveData { control_points: vec![Vec3::new(-5.0, 0.0, 0.0), Vec3::new(-5.0, 0.0, 100.0)], tangents1: vec![Vec3::new(-5.0, 0.0, 0.0), Vec3::new(-5.0, 0.0, 66.6667)], tangents2: vec![Vec3::new(-5.0, 0.0, 33.3333), Vec3::new(-5.0, 0.0, 100.0)], ..Default::default() },
+            right_outline: BezierCurveData { control_points: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)], tangents1: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 66.6667)], tangents2: vec![Vec3::new(5.0, 0.0, 33.3333), Vec3::new(5.0, 0.0, 100.0)], ..Default::default() },
+            left_depth: BezierCurveData { control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)], tangents1: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 66.6667)], tangents2: vec![Vec3::new(0.0, 2.0, 33.3333), Vec3::new(0.0, 2.0, 100.0)], ..Default::default() },
+            right_depth: BezierCurveData { control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)], tangents1: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 66.6667)], tangents2: vec![Vec3::new(0.0, 2.0, 33.3333), Vec3::new(0.0, 2.0, 100.0)], ..Default::default() }
         }]);
 
         let mesh = super::generate_mesh(&model);
@@ -882,7 +903,6 @@ mod tests {
         }
         
         assert!(split_normals_found, "Topology should duplicate U-columns and split normals around hard chines to create faceted tri-plane faces.");
-        println!("✅ test_tri_plane_hull_normals passed.");
     }
 
     #[test]
