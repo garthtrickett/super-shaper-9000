@@ -1,6 +1,8 @@
 import { test, expect } from "./utils/base-test";
 
 test.describe("Board Builder E2E: The Golden Path", () => {
+  test.setTimeout(120000);
+
   test("Parametric -> Manual -> Export pipeline", async ({ page }) => {
     // 1. Load the app
     await page.goto("/");

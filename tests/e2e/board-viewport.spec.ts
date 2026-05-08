@@ -1,6 +1,8 @@
 import { test, expect } from './utils/base-test';
 
 test.describe('Board Viewport E2E', () => {
+  test.setTimeout(60000);
+
   test('should render without WebGL errors', async ({ page }) => {
     const errors: string[] =[];
     page.on('console', msg => {

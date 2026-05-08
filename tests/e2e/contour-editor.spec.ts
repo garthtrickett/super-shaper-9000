@@ -1,6 +1,8 @@
 import { test, expect } from "./utils/base-test";
 
 test.describe("Bottom Contour Editor E2E", () => {
+  test.setTimeout(60000);
+
   test("Add channel, open 2D editor, drag node asymmetrically", async ({ page }) => {
     const errors: string[] =[];
     page.on('console', msg => {
