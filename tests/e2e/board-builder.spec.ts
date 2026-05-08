@@ -202,6 +202,46 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(t2LengthInput).not.toHaveValue(initialT2Length);
   });
 
+    test("Swallow Tail Generation and Geometry Validation", async ({ page }) => {
+    const errors: string[] =[];
+    page.on('console', msg => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    page.on('pageerror', err => errors.push(err.message));
+
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+    
+    // 1. Change Tail Type to "swallow"
+    const tailTypeContainer = boardControls.locator('.mb-4').filter({ hasText: /Tail Type/i }).first();
+    const tailTypeSelect = tailTypeContainer.locator('select');
+    await tailTypeSelect.selectOption('swallow');
+    
+    // Wait a bit for the Rust Web Worker to finish processing the state change
+    await page.waitForTimeout(200);
+
+    // 2. Verify the depth slider appears
+    const depthContainer = boardControls.locator('.mb-4').filter({ hasText: /Notch Depth/i }).first();
+    await expect(depthContainer).toBeVisible();
+
+    // 3. Adjust the depth
+    const depthInput = depthContainer.locator('input[type="range"]');
+    await depthInput.fill('6.5');
+    await depthInput.dispatchEvent('input');
+    
+    // Wait for the geometry debounce to settle
+    await page.waitForTimeout(500);
+
+    // 4. Verify the canvas doesn't crash
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+    
+    // Assert no WebGL or NaN errors were thrown by the bifurcated mesh generator
+    const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));
+    expect(criticalErrors).toHaveLength(0);
+  });
+
   test("Node Inspector Weight Update", async ({ page }) => {
     await page.goto('/');
     const viewport = page.locator("board-viewport");
