@@ -5,7 +5,7 @@ pub mod mesh;
 pub mod reducer;
 
 #[cfg(test)]
-#[ctor::ctor]
+#[ctor::ctor(unsafe)]
 fn init_test_logger() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
