@@ -341,8 +341,60 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await removeBtn.click();
 
     // 7. Verify wing is gone from list
-    await expect(wingItem).toBeHidden();
+        await expect(wingItem).toBeHidden();
     await expect(boardControls.getByText(/No wings defined/i)).toBeVisible();
+  });
+
+  test("Dynamically created Wing Gizmo Interaction", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+
+    // 1. Create the wing
+    await boardControls.getByRole("button", { name: /ADD/i }).click();
+    await expect(boardControls.locator("span", { hasText: /Wing 1/i })).toBeVisible();
+
+    // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
+    const hitPosition = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      if (!vp.boardState.outlineLayers?.length) return null;
+      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+      
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      
+      // Project CAD inches to normalized viewport coords using Top Ortho logic
+      const ndcX = (cp[0] / 12) / (5 * aspect);
+      const ndcY = -(cp[2] / 12) / 5;
+      
+      return {
+        x: rect.left + ((ndcX + 1) / 2 * rect.width),
+        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+      };
+    });
+
+    expect(hitPosition).toBeTruthy();
+
+    // 3. Drag the gizmo outward (+X direction)
+    await page.mouse.move(hitPosition!.x, hitPosition!.y);
+    await page.mouse.down();
+    // Move pixels right to ensure a significant coordinate change
+    await page.mouse.move(hitPosition!.x + 100, hitPosition!.y, { steps: 10 });
+    await page.mouse.up();
+
+    // 4. Verify Node Inspector reflects the change
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
+
+    const xInput = inspector.locator('div:has-text("Anchor Position") input').first();
+    const xValue = parseFloat(await xInput.inputValue());
+    
+    // The default start X for a 18.75" board is approx 8.3". 
+    // Dragging right in the top quadrant (+X world) should increase this significantly.
+    expect(xValue).toBeGreaterThan(12.0);
   });
 
   test("Node Inspector Weight Update", async ({ page }) => {
