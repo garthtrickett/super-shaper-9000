@@ -7,7 +7,6 @@ import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builde
 import { runClientPromise } from "../../lib/client/runtime";
 import { exportS3dx } from "../../lib/client/geometry/s3dx-exporter";
 import { generateBoardCurves } from "../../lib/client/geometry/board-curves";
-import { parseS3dx } from "../../lib/client/geometry/s3dx-importer";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
@@ -63,26 +62,25 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _handleS3dxUpload = async (e: Event) => {
+    private _handleS3dxUpload = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
     try {
       const text = await file.text();
-      const importedData = await runClientPromise(parseS3dx(text));
       
-            this.wasmCtrl.propose({
+      this.wasmCtrl.propose({
         type: "IMPORT_S3DX",
-        ...importedData
+        xml: text
       });
 
       this.showImportModal = false;
       this.importJson = "";
       this.importError = "";
     } catch (err) {
-      console.error("Failed to parse .s3dx file", err);
-      this.importError = err instanceof Error ? err.message : "Failed to parse .s3dx file";
+      console.error("Failed to read .s3dx file", err);
+      this.importError = err instanceof Error ? err.message : "Failed to read .s3dx file";
     } finally {
       // Reset input so the same file can be selected again if needed
       input.value = "";

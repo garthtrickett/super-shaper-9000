@@ -153,22 +153,9 @@ pub enum BoardAction {
     RemoveBottomChannel { index: usize },
     #[serde(rename = "TOGGLE_CHANNEL_SYMMETRY")]
     ToggleChannelSymmetry { index: usize },
-    #[serde(rename = "IMPORT_S3DX")]
+        #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
-    ImportS3dx {
-        length: f32,
-        width: f32,
-        thickness: f32,
-        outline: BezierCurveData,
-        rail_outline: BezierCurveData,
-        apex_outline: BezierCurveData,
-        rocker_top: BezierCurveData,
-        rocker_bottom: BezierCurveData,
-        apex_rocker: BezierCurveData,
-        cross_sections: Vec<BezierCurveData>,
-        outline_layers: Option<Vec<OutlineLayer>>,
-        bottom_channels: Option<Vec<ChannelLayer>>,
-    }
+    ImportS3dx { xml: String }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

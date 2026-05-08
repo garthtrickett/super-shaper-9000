@@ -239,7 +239,7 @@ export type BoardAction =
   | { type: "REDO" }
   | { type: "SCALE_WIDTH"; factor: number }
   | { type: "SCALE_THICKNESS"; factor: number }
-  | { type: "IMPORT_S3DX"; length: number; width: number; thickness: number; outline: BezierCurveData; railOutline: BezierCurveData; apexOutline: BezierCurveData; rockerTop: BezierCurveData; rockerBottom: BezierCurveData; apexRocker: BezierCurveData; crossSections: BezierCurveData[]; outlineLayers: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[]; bottomChannels?: ChannelLayer[] }
+    | { type: "IMPORT_S3DX"; xml: string }
   | { type: "ADD_OUTLINE_LAYER" }
   | { type: "REMOVE_OUTLINE_LAYER"; index: number }
     | { type: "ADD_BOTTOM_CHANNEL" }
@@ -256,8 +256,8 @@ export const handleAction = (
   Effect.gen(function* () {
     yield* clientLog("debug", "[BoardBuilder] State Action processed", action);
     if (action.type === "IMPORT_S3DX") {
-      yield* clientLog("info", "[BoardBuilder] Imported S3DX file", {
-        length: action.length, width: action.width, thickness: action.thickness
+      yield* clientLog("info", "[BoardBuilder] Sent S3DX XML to Rust Core for parsing", {
+        xmlLength: action.xml.length
       });
     }
     if (action.type === "SET_CURVES") {

@@ -517,20 +517,33 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-                BoardAction::ImportS3dx { length, width, thickness, outline, rail_outline, apex_outline, rocker_top, rocker_bottom, apex_rocker, cross_sections, outline_layers, bottom_channels } => {
-            model.length = length;
-            model.width = width;
-            model.thickness = thickness;
-            model.outline = Some(outline);
-            model.rail_outline = Some(rail_outline);
-            model.apex_outline = Some(apex_outline);
-            model.rocker_top = Some(rocker_top);
-            model.rocker_bottom = Some(rocker_bottom);
-            model.apex_rocker = Some(apex_rocker);
-                        model.cross_sections = cross_sections;
-            model.outline_layers = outline_layers;
-            model.bottom_channels = bottom_channels;
-            push_history(model);
+                        BoardAction::ImportS3dx { xml } => {
+            match crate::s3dx_parser::parse_s3dx(&xml) {
+                Ok(mut parsed_model) => {
+                    // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
+                    parsed_model.show_gizmos = model.show_gizmos;
+                    parsed_model.show_heatmap = model.show_heatmap;
+                    parsed_model.show_zebra = model.show_zebra;
+                    parsed_model.show_apex_line = model.show_apex_line;
+                    parsed_model.show_outline = model.show_outline;
+                    parsed_model.show_rocker_top = model.show_rocker_top;
+                    parsed_model.show_rocker_bottom = model.show_rocker_bottom;
+                    parsed_model.show_apex_outline = model.show_apex_outline;
+                    parsed_model.show_rail_outline = model.show_rail_outline;
+                    parsed_model.show_apex_rocker = model.show_apex_rocker;
+                    parsed_model.show_cross_sections = model.show_cross_sections;
+                    parsed_model.show_curvature = model.show_curvature;
+                    parsed_model.show_mri_view = model.show_mri_view;
+                    parsed_model.mri_slice_position = model.mri_slice_position;
+                    
+                    *model = parsed_model;
+                    push_history(model);
+                    effects.push(Effect::LogInfo { message: "Rust Engine: S3DX file imported successfully.".to_string() });
+                }
+                Err(e) => {
+                    effects.push(Effect::LogInfo { message: format!("Rust Engine Error: Failed to parse S3DX: {}", e) });
+                }
+            }
         }
         BoardAction::AddOutlineLayer => {
             let mut layers = model.outline_layers.take().unwrap_or_default();

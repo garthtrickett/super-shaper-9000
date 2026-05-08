@@ -157,6 +157,12 @@ fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>) -> Option<B
     convert_s3dx_bezier3d(bezier3d)
 }
 
+pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
+    let design: Shape3dDesign = quick_xml::de::from_str(xml)
+        .map_err(|e| format!("XML parsing error: {}", e))?;
+    Ok(design.board.into())
+}
+
 impl From<S3dxBoard> for BoardModel {
     fn from(s3dx: S3dxBoard) -> Self {
         let mut model = BoardModel::default();
