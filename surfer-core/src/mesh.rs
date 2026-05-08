@@ -747,8 +747,9 @@ mod tests {
         println!("✅ test_split_normals_at_poles passed.");
     }
 
-        #[test]
+            #[test]
     fn test_rounded_pin_thickness_does_not_pinch_to_zero() {
+        let _ = env_logger::builder().is_test(true).try_init();
         let mut model = BoardModel::default();
         
         // Setup a rounded pin tail (ends at X=0 but with rounded tangents)
