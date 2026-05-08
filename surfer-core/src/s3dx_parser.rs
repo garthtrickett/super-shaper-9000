@@ -94,6 +94,7 @@ pub struct S3dxPoint3d {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+    pub u: Option<f32>,
 }
 
 use crate::model::{BoardModel, BezierCurveData};
@@ -101,10 +102,14 @@ use glam::Vec3;
 
 fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
     let mut control_points = Vec::new();
+    let mut weights = Vec::new();
     if let Some(poly) = &bezier3d.control_points {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
                 control_points.push(Vec3::new(p.y, p.z, p.x));
+                let u_val = p.u.unwrap_or(-1.0);
+                // Map S3DX default of -1.0 to our engine's baseline of 1.0
+                weights.push(if (u_val - (-1.0)).abs() < 1e-5 { 1.0 } else { u_val });
             }
         }
     }
@@ -127,15 +132,17 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d) -> Option<BezierCurveData> {
         }
     }
     
-    if control_points.is_empty() {
+        if control_points.is_empty() {
         return None;
     }
+
+    let final_weights = if weights.is_empty() { None } else { Some(weights) };
 
     Some(BezierCurveData {
         control_points,
         tangents1,
         tangents2,
-        weights: None,
+        weights: final_weights,
     })
 }
 
