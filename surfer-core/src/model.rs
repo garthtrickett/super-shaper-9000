@@ -181,8 +181,11 @@ pub enum Effect {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BezierCurveData {
+    #[serde(with = "serde_vec3_as_array")]
     pub control_points: Vec<Vec3>,
+    #[serde(with = "serde_vec3_as_array")]
     pub tangents1: Vec<Vec3>,
+    #[serde(with = "serde_vec3_as_array")]
     pub tangents2: Vec<Vec3>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weights: Option<Vec<f32>>,
@@ -196,4 +199,25 @@ pub struct RawGeometryData {
     pub colors: Vec<f32>,
     pub normals: Vec<f32>,
     pub volume_liters: f32,
+}
+
+mod serde_vec3_as_array {
+    use glam::Vec3;
+    use serde::{Serialize, Deserialize, Serializer, Deserializer};
+
+    pub fn serialize<S>(vecs: &Vec<Vec3>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let arrays: Vec<[f32; 3]> = vecs.iter().map(|v| [v.x, v.y, v.z]).collect();
+        arrays.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec3>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let arrays: Vec<[f32; 3]> = Vec::deserialize(deserializer)?;
+        Ok(arrays.iter().map(|a| Vec3::new(a[0], a[1], a[2])).collect())
+    }
 }

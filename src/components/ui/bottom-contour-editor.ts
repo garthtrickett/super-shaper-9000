@@ -80,19 +80,25 @@ export class BottomContourEditor extends LitElement {
     this.boardState.bottomChannels.forEach((channel, idx) => {
       const drawSide = (curveData: any, curveName: string, isDepth: boolean) => {
         if (!curveData || !curveData.controlPoints) return;
-                                curveData.controlPoints.forEach((cp: number[], i: number) => {
-          const zDist = Math.abs(cp[2] - this.zPosition);
+                                        curveData.controlPoints.forEach((cp: any, i: number) => {
+          // Support both array [x,y,z] (Rust fix) and object {x,y,z} formats for robustness
+          const z = Array.isArray(cp) ? cp[2] : cp.z;
+          const x = Array.isArray(cp) ? cp[0] : cp.x;
+          const y = Array.isArray(cp) ? cp[1] : cp.y;
+          
+          const zDist = Math.abs(z - this.zPosition);
           if (zDist < 15.0) {
             const isDragging = this.activeDrag?.curve === curveName && this.activeDrag?.index === i;
-            nodes.push(svg`
+            const isDragging = this.activeDrag?.curve === curveName && this.activeDrag?.index === i;
+                        nodes.push(svg`
               <circle
-                cx=${cp[0]} cy=${cp[1]} r=${isDragging ? 0.4 : 0.25}
+                cx=${x} cy=${y} r=${isDragging ? 0.4 : 0.25}
                 fill=${isDepth ? "#f59e0b" : "#3b82f6"}
                 stroke="white" stroke-width="0.05"
                 class="cursor-pointer hover:opacity-80 transition-all drop-shadow-md"
                 @pointerdown=${(e: PointerEvent) => this._handlePointerDown(e, curveName, i, cp[2])}
               />
-              ${isDepth ? svg`<line x1=${cp[0]} y1=${cp[1]} x2=${cp[0]} y2="0" stroke="#f59e0b" stroke-width="0.02" opacity="0.3" stroke-dasharray="0.1 0.1"/>` : ''}
+                            ${isDepth ? svg`<line x1=${x} y1=${y} x2=${x} y2="0" stroke="#f59e0b" stroke-width="0.02" opacity="0.3" stroke-dasharray="0.1 0.1"/>` : ''}
             `);
           }
         });
