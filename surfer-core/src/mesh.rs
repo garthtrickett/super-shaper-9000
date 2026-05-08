@@ -160,6 +160,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         grid.push(ring);
     }
 
+        let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
+    let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
+
     let mut normals = Vec::new();
     for i in 0..=segments_v {
         for j in 0..num_cols {
@@ -168,32 +171,31 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             colors.push(color.x); colors.push(color.y); colors.push(color.z);
             uvs.push(u); uvs.push(v);
 
-            let tangent_v = if i == 0 {
-                grid[1][j].0 - grid[0][j].0
+            let mut n;
+            if i == 0 {
+                n = crate::geometry::slerp_normals(nose_n_bot, nose_n_top, u, Vec3::new(0.0, 0.0, -1.0));
             } else if i == segments_v {
-                grid[segments_v][j].0 - grid[segments_v - 1][j].0
+                n = crate::geometry::slerp_normals(tail_n_bot, tail_n_top, u, Vec3::new(0.0, 0.0, 1.0));
             } else {
-                grid[i + 1][j].0 - grid[i - 1][j].0
-            };
+                let tangent_v = grid[i + 1][j].0 - grid[i - 1][j].0;
+                let tangent_u = if j == 0 {
+                    grid[i][1].0 - grid[i][0].0
+                } else if j == right_half_cols - 1 {
+                    grid[i][j].0 - grid[i][j - 1].0
+                } else if j == right_half_cols {
+                    grid[i][j + 1].0 - grid[i][j].0
+                } else if j == num_cols - 1 {
+                    grid[i][j].0 - grid[i][j - 1].0
+                } else {
+                    grid[i][j + 1].0 - grid[i][j - 1].0
+                };
 
-            let tangent_u = if j == 0 {
-                grid[i][1].0 - grid[i][0].0
-            } else if j == right_half_cols - 1 {
-                grid[i][j].0 - grid[i][j - 1].0
-            } else if j == right_half_cols {
-                grid[i][j + 1].0 - grid[i][j].0
-            } else if j == num_cols - 1 {
-                grid[i][j].0 - grid[i][j - 1].0
-            } else {
-                grid[i][j + 1].0 - grid[i][j - 1].0
-            };
-
-            let mut n = tangent_u.cross(tangent_v).normalize();
-            if n.is_nan() || n.length_squared() < 0.0001 {
-                if i == 0 { n = Vec3::new(0.0, 0.0, -1.0); }
-                else if i == segments_v { n = Vec3::new(0.0, 0.0, 1.0); }
-                else { n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0); }
+                n = tangent_u.cross(tangent_v).normalize();
+                if n.is_nan() || n.length_squared() < 0.0001 {
+                    n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0);
+                }
             }
+
             normals.push(n.x); normals.push(n.y); normals.push(n.z);
         }
     }
@@ -240,8 +242,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         start_idx
     };
 
-    let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
-    // --- Cap Generation (Nose) ---
+        // --- Cap Generation (Nose) ---
     let nose_centerline_start = add_patch_centerline(0, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0));
     let nose_ring_start = 0 as u32;
 
@@ -267,8 +268,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         indices.push(a); indices.push(c); indices.push(d);
     }
 
-        let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
-    // --- Cap Generation (Tail) ---
+            // --- Cap Generation (Tail) ---
     let tail_centerline_start = add_patch_centerline(segments_v, tail_n_top, tail_n_bot, Vec3::new(0.0, 0.0, 1.0));
     let tail_ring_start = (segments_v * num_cols) as u32;
 
