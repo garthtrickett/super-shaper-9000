@@ -747,6 +747,83 @@ mod tests {
         println!("✅ test_split_normals_at_poles passed.");
     }
 
+        #[test]
+    fn test_rounded_pin_thickness_does_not_pinch_to_zero() {
+        let mut model = BoardModel::default();
+        
+        // Setup a rounded pin tail (ends at X=0 but with rounded tangents)
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),      // Nose
+                Vec3::new(10.0, 0.0, 50.0),    // Wide point
+                Vec3::new(0.0, 0.0, 100.0),    // Tail (Pin, X=0)
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 40.0),
+                Vec3::new(2.0, 0.0, 95.0),     // Rounded approach
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, 0.0, 5.0),      // Rounded approach
+                Vec3::new(10.0, 0.0, 60.0),
+                Vec3::new(0.0, 0.0, 100.0),
+            ],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+            tangents1: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(5.0, -1.25, 0.0), Vec3::new(5.0, 1.25, 0.0)],
+            tangents2: vec![Vec3::new(5.0, -1.25, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+            ..Default::default()
+        }];
+
+        let mesh = super::generate_mesh(&model);
+
+        // Check the thickness at the absolute nose (z = 0) and tail (z = 100)
+        let scale = 1.0 / 12.0;
+        let target_z_tail = 100.0 * scale;
+        let target_z_nose = 0.0 * scale;
+        
+        let mut tail_min_y = f32::INFINITY;
+        let mut tail_max_y = f32::NEG_INFINITY;
+        let mut nose_min_y = f32::INFINITY;
+        let mut nose_max_y = f32::NEG_INFINITY;
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            let y = mesh.vertices[i * 3 + 1];
+            
+            if (z - target_z_tail).abs() < 1e-4 {
+                tail_min_y = tail_min_y.min(y);
+                tail_max_y = tail_max_y.max(y);
+            }
+            if (z - target_z_nose).abs() < 1e-4 {
+                nose_min_y = nose_min_y.min(y);
+                nose_max_y = nose_max_y.max(y);
+            }
+        }
+        
+        let tail_thickness = tail_max_y - tail_min_y;
+        let nose_thickness = nose_max_y - nose_min_y;
+        
+        // The test SHOULD fail because the geometric fade_factor forces thickness to exactly 0.0 at poles,
+        // leaving a razor thin tip. A true CAD loft should retain the actual rocker profile thickness.
+        assert!(tail_thickness > 0.01 * scale, "Rounded pin tail should not be infinitely thin, actual thickness: {}", tail_thickness / scale);
+        assert!(nose_thickness > 0.01 * scale, "Rounded pin nose should not be infinitely thin, actual thickness: {}", nose_thickness / scale);
+    }
+
     #[test]
     fn test_squash_tail_tessellation_density() {
         let mut model_pintail = BoardModel::default();
