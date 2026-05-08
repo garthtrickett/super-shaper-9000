@@ -224,18 +224,141 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     }
 
                                                                                                 // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
-        let generate_cap = |ring_index: usize, z_inches: f32, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, is_nose: bool, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
+                let mut generate_swallow_notch_wall = |vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
+        if (tip_z - notch_z) < 1e-3 { return; }
+
+        let mut notch_start_idx = 0;
+        for i in 0..=segments_v {
+            if z_rings[i] > notch_z + 1e-4 {
+                notch_start_idx = i.saturating_sub(1);
+                break;
+            }
+        }
+        
+        let num_z_steps = segments_v - notch_start_idx;
+        if num_z_steps < 1 { return; }
+        
+        let num_y_steps = 10;
+        
+        // Right Wall
+        let start_v_idx = (vertices.len() / 3) as u32;
+        for i in notch_start_idx..=segments_v {
+            let p_bot = grid[i][0].0; 
+            let p_top = grid[i][half].0; 
+            let c_bot = grid[i][0].1;
+            let c_top = grid[i][half].1;
+            let u_bot = grid[i][0].2;
+            let u_top = grid[i][half].2;
+            let v_coord = grid[i][0].3;
+            
+            let mut n_wall = Vec3::new(-1.0, 0.0, 0.0);
+            
+            if i > 0 && i < segments_v {
+                let p_bot_prev = grid[i-1][0].0;
+                let p_bot_next = grid[i+1][0].0;
+                let tangent_z = (p_bot_next - p_bot_prev).normalize();
+                let tangent_y = (p_top - p_bot).normalize();
+                n_wall = tangent_y.cross(tangent_z).normalize();
+                if n_wall.x > 0.0 { n_wall = -n_wall; }
+            }
+
+            for step in 0..=num_y_steps {
+                let fraction = step as f32 / num_y_steps as f32;
+                let pos = p_bot.lerp(p_top, fraction);
+                let color = c_bot.lerp(c_top, fraction);
+                let u = u_bot + (u_top - u_bot) * fraction;
+
+                vertices.push(pos.x); vertices.push(pos.y); vertices.push(pos.z);
+                uvs.push(u); uvs.push(v_coord);
+                colors.push(color.x); colors.push(color.y); colors.push(color.z);
+                normals.push(n_wall.x); normals.push(n_wall.y); normals.push(n_wall.z);
+            }
+        }
+
+        for i in 0..num_z_steps {
+            let ring_a = start_v_idx + i as u32 * (num_y_steps + 1);
+            let ring_b = start_v_idx + (i + 1) as u32 * (num_y_steps + 1);
+            for j in 0..num_y_steps {
+                let a = ring_a + j;
+                let b = a + 1;
+                let c = ring_b + j;
+                let d = c + 1;
+                indices.push(a); indices.push(c); indices.push(b);
+                indices.push(b); indices.push(c); indices.push(d);
+            }
+        }
+
+        // Left Wall
+        let start_v_idx_left = (vertices.len() / 3) as u32;
+        for i in notch_start_idx..=segments_v {
+            let p_top = grid[i][half + 1].0; 
+            let p_bot = grid[i][num_cols - 1].0; 
+            let c_top = grid[i][half + 1].1;
+            let c_bot = grid[i][num_cols - 1].1;
+            let u_top = grid[i][half + 1].2;
+            let u_bot = grid[i][num_cols - 1].2;
+            let v_coord = grid[i][num_cols - 1].3;
+            
+            let mut n_wall = Vec3::new(1.0, 0.0, 0.0);
+            
+            if i > 0 && i < segments_v {
+                let p_bot_prev = grid[i-1][num_cols - 1].0;
+                let p_bot_next = grid[i+1][num_cols - 1].0;
+                let tangent_z = (p_bot_next - p_bot_prev).normalize();
+                let tangent_y = (p_bot - p_top).normalize();
+                n_wall = tangent_z.cross(tangent_y).normalize();
+                if n_wall.x < 0.0 { n_wall = -n_wall; }
+            }
+
+            for step in 0..=num_y_steps {
+                let fraction = step as f32 / num_y_steps as f32;
+                let pos = p_top.lerp(p_bot, fraction); 
+                let color = c_top.lerp(c_bot, fraction);
+                let u = u_top + (u_bot - u_top) * fraction;
+
+                vertices.push(pos.x); vertices.push(pos.y); vertices.push(pos.z);
+                uvs.push(u); uvs.push(v_coord);
+                colors.push(color.x); colors.push(color.y); colors.push(color.z);
+                normals.push(n_wall.x); normals.push(n_wall.y); normals.push(n_wall.z);
+            }
+        }
+
+        for i in 0..num_z_steps {
+            let ring_a = start_v_idx_left + i as u32 * (num_y_steps + 1);
+            let ring_b = start_v_idx_left + (i + 1) as u32 * (num_y_steps + 1);
+            for j in 0..num_y_steps {
+                let a = ring_a + j;
+                let b = a + 1;
+                let c = ring_b + j;
+                let d = c + 1;
+                indices.push(a); indices.push(c); indices.push(b);
+                indices.push(b); indices.push(c); indices.push(d);
+            }
+        }
+    };
+
+    let generate_cap = |ring_index: usize, z_inches: f32, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, is_nose: bool, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
         let width = crate::geometry::evaluate_composite_outline_at_z(model, z_inches, if is_nose { 0.0 } else { 1.0 }).x;
         let num_x_steps = (width / 0.5).ceil().max(1.0) as u32;
         let start_vertex_index = (vertices.len() / 3) as u32;
 
         let ring = &grid[ring_index];
+        let right_target_x = ring[0].0.x;
+        let left_target_x = ring[num_cols - 1].0.x;
 
         for step in 0..=num_x_steps {
             let fraction = 1.0 - (step as f32 / num_x_steps as f32);
             for j in 0..num_cols {
                 let (pos, color, u, v) = ring[j];
-                vertices.push(pos.x * fraction);
+                let side = u_columns[j].1;
+                
+                let target_x = if is_nose { 0.0 } else {
+                    if side > 0.0 { right_target_x } else { left_target_x }
+                };
+                
+                let new_x = target_x + (pos.x - target_x) * fraction;
+
+                vertices.push(new_x);
                 vertices.push(pos.y);
                 vertices.push(pos.z);
                 
@@ -253,7 +376,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         }
 
-                for step in 0..num_x_steps {
+        for step in 0..num_x_steps {
             let ring_a_start = start_vertex_index + step * (num_cols as u32);
             let ring_b_start = start_vertex_index + (step + 1) * (num_cols as u32);
             
@@ -277,6 +400,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         }
     };
+
+    // --- Swallow Notch Wall ---
+    generate_swallow_notch_wall(&mut vertices, &mut uvs, &mut colors, &mut normals, &mut indices);
 
     // --- Cap Generation ---
     generate_cap(0, nose_z, nose_n_top, nose_n_bot, Vec3::new(0.0, 0.0, -1.0), true, &mut vertices, &mut uvs, &mut colors, &mut normals, &mut indices);
@@ -530,8 +656,46 @@ mod tests {
         let mesh_pin = super::generate_mesh(&model_pintail);
         let mesh_squash = super::generate_mesh(&model_squash);
 
-        let diff = mesh_squash.indices.len() as isize - mesh_pin.indices.len() as isize;
+                let diff = mesh_squash.indices.len() as isize - mesh_pin.indices.len() as isize;
         assert!(diff > 100, "Difference in indices should be substantial due to cap tessellation grid. Diff: {}", diff);
         println!("✅ test_squash_tail_tessellation_density passed.");
+    }
+
+    #[test]
+    fn test_bifurcated_mesh_vertex_count() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0), Vec3::new(0.0, 0.0, 95.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 80.0), Vec3::new(5.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 110.0), Vec3::new(0.0, 0.0, 95.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3), Vec3::new(0., 1., 100.)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3), Vec3::new(0., -1., 100.)],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData { 
+            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.)], 
+            tangents1: vec![Vec3::ZERO, Vec3::new(6.6667,0.,0.)], 
+            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)],
+            ..Default::default()
+        }];
+
+        let mesh = super::generate_mesh(&model);
+
+        // A regular pintail board has roughly X vertices. A swallow tail has the inner wall stitched in.
+        // We verify that the mesh generates successfully without crashing, and has a reasonable density.
+        assert!(mesh.vertices.len() > 1000, "Mesh should generate successfully without crashing");
+        assert!(mesh.indices.len() > 1000, "Indices should be populated");
+        
+        println!("✅ test_bifurcated_mesh_vertex_count passed.");
     }
 }
