@@ -36,9 +36,9 @@ describe("BottomContourEditor", () => {
     const spy = sinon.spy();
     el.addEventListener("update-node-position", spy);
 
-    // Simulate pointer down on the first circle (leftOutline)
+        // Simulate pointer down on the first circle (leftOutline)
     const circle = circles[0];
-    circle.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true }));
+    circle!.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true }));
 
     // Simulate pointer move on SVG
     const svg = el.querySelector("svg")!;

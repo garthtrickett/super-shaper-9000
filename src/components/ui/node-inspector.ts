@@ -198,14 +198,14 @@ export class NodeInspector extends LitElement {
     };
 
         let title = friendlyNames[sel.curve] || sel.curve;
-    if (sel.curve.startsWith('crossSection_')) {
+        if (sel.curve.startsWith('crossSection_')) {
       title = `Slice ${sel.curve.split('_')[1]}`;
     } else if (sel.curve.startsWith('outlineLayer_')) {
       const parts = sel.curve.split('_');
-      title = `Layer ${parts[1]} (${parts[2].toUpperCase()})`;
+      title = `Layer ${parts[1]} (${parts[2]!.toUpperCase()})`;
         } else if (sel.curve.startsWith('channel_')) {
       const parts = sel.curve.split('_');
-      title = `Channel ${parts[1]} (${parts[2].toUpperCase()} ${parts[3].toUpperCase()})`;
+      title = `Channel ${parts[1]} (${parts[2]!.toUpperCase()} ${parts[3]!.toUpperCase()})`;
     }
 
     const renderInput = (label: string, value: number, disabled: boolean, onChange: (v: number) => void) => html`
