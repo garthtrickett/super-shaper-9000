@@ -1174,6 +1174,65 @@ mod tests {
         let profile_outside_z = super::get_channel_profile_at_z(&model, false, 10.0);
         assert!(profile_outside_z.is_none());
         
-        println!("✅ test_asymmetric_channel_evaluation passed.");
+                println!("✅ test_asymmetric_channel_evaluation passed.");
+    }
+
+    #[test]
+    fn test_shape3d_extremity_modifiers() {
+        let mut model_base = BoardModel::default();
+        model_base.length = 100.0;
+        model_base.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model_base.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
+        });
+        model_base.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
+        });
+        model_base.cross_sections = vec![BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(8.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(8.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
+            tangents1: vec![Vec3::ZERO; 5],
+            tangents2: vec![Vec3::ZERO; 5],
+            weights: Some(vec![1.0; 5]),
+        }];
+
+        let mut model_mod = model_base.clone();
+        // Apply strong modifiers to the tail
+        model_mod.v_concave_tail = Some(-1.0);
+        model_mod.rail_coefficient_tail = Some(0.5);
+
+        // 1. Center of the board (Z=50)
+        // Easing should be 0 here, so both boards evaluate exactly identically.
+        let z_center = 50.0;
+        let profile_base_mid = super::get_board_profile_at_z(&model_base, z_center, 0.5);
+        let profile_mod_mid = super::get_board_profile_at_z(&model_mod, z_center, 0.5);
+        assert!((profile_base_mid.apex_y - profile_mod_mid.apex_y).abs() < 1e-4, "Modifiers should taper to 0 at the midpoint");
+
+        // 2. Tail of the board (Z=95)
+        // Easing is extremely high here, modifiers should heavily warp the geometry.
+        let z_tail = 95.0;
+        let profile_base_tail = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
+        let profile_mod_tail = super::get_board_profile_at_z(&model_mod, z_tail, 0.5);
+
+        assert!(profile_mod_tail.apex_y < profile_base_tail.apex_y, "V-Concave < 0 should physically lower the apex/rail line");
+
+        // Test Rail Coefficient (Thinning the deck shoulder)
+        // U = 0.8 is up on the deck shoulder.
+        let pt_base = super::get_point_at_uv(&model_base, 0.8, 0.5, z_tail, 0.0, 1.0);
+        let pt_mod = super::get_point_at_uv(&model_mod, 0.8, 0.5, z_tail, 0.0, 1.0);
+
+        assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
+
+        println!("✅ test_shape3d_extremity_modifiers passed.");
     }
 }
