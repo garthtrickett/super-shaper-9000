@@ -23,122 +23,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let steps = 50;
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
-        let p = evaluate_curve(outline, t);
+                let p = evaluate_curve(outline, t);
         if p.z > tip_z {
             tip_z = p.z;
             v_tip = t;
-            }
-
-    #[test]
-    fn test_split_normals_at_poles() {
-        let mut model = BoardModel::default();
-        // Setup straight outline: 10 units wide along Z
-        model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
-            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
-            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
-            ..Default::default()
-        });
-        
-        let mesh = generate_mesh(&model);
-        
-        // Find tail vertices (z = 100.0 * scale)
-        let scale = 1.0 / 12.0;
-        let target_z = 100.0 * scale;
-        
-        let mut hull_normals = Vec::new();
-        let mut cap_normals = Vec::new();
-        
-        for i in 0..(mesh.vertices.len() / 3) {
-            let z = mesh.vertices[i * 3 + 2];
-            if (z - target_z).abs() < 1e-4 {
-                let nz = mesh.normals[i * 3 + 2];
-                if nz > 0.5 {
-                    cap_normals.push(Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]));
-                } else {
-                    hull_normals.push(Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]));
-                }
-            }
         }
-        
-        assert!(!hull_normals.is_empty(), "Should have hull vertices at the tail");
-        assert!(!cap_normals.is_empty(), "Should have cap vertices at the tail");
-        
-        // For a straight blocky tail, the hull normal should be pointing outward (+X or -X or Y)
-        // while cap normals should point towards +Z
-        let mut found_side_facing_hull = false;
-        for n in &hull_normals {
-            if n.z.abs() < 0.1 { // mostly pointing sideways/up/down
-                found_side_facing_hull = true;
-                break;
-            }
-        }
-        assert!(found_side_facing_hull, "Hull should maintain natural side-facing normals up to the tail pole");
-        
-        for n in &cap_normals {
-            assert!(n.z > 0.9, "Cap normals should point strongly towards +Z");
-        }
-        
-                println!("✅ test_split_normals_at_poles passed.");
     }
-
-    #[test]
-    fn test_squash_tail_tessellation_density() {
-        let mut model_pintail = BoardModel::default();
-        model_pintail.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3), Vec3::new(0.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        model_pintail.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
-            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
-            ..Default::default()
-        });
-        model_pintail.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
-            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
-            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
-            ..Default::default()
-        });
-        model_pintail.cross_sections = vec![BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.)], 
-            tangents1: vec![Vec3::ZERO, Vec3::new(6.6667,0.,0.)], 
-            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)],
-            ..Default::default()
-        }];
-        
-        let mut model_squash = model_pintail.clone();
-        // Give it a 10" wide tail
-        model_squash.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3), Vec3::new(10.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-
-        let mesh_pin = generate_mesh(&model_pintail);
-        let mesh_squash = generate_mesh(&model_squash);
-
-        let diff = mesh_squash.indices.len() as isize - mesh_pin.indices.len() as isize;
-        assert!(diff > 100, "Difference in indices should be substantial due to cap tessellation grid. Diff: {}", diff);
-        println!("✅ test_squash_tail_tessellation_density passed.");
-    }
-}
 
     // Adaptive Lengthwise (V) Slicing
     let mut all_z = Vec::new();
@@ -324,7 +214,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     }
 
                                                                                                 // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
-    let mut generate_cap = |ring_index: usize, z_inches: f32, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, is_nose: bool, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
+        let generate_cap = |ring_index: usize, z_inches: f32, n_top: Vec3, n_bot: Vec3, fallback_mid: Vec3, is_nose: bool, vertices: &mut Vec<f32>, uvs: &mut Vec<f32>, colors: &mut Vec<f32>, normals: &mut Vec<f32>, indices: &mut Vec<u32>| {
         let width = crate::geometry::evaluate_composite_outline_at_z(model, z_inches, if is_nose { 0.0 } else { 1.0 }).x;
         let num_x_steps = (width / 0.5).ceil().max(1.0) as u32;
         let start_vertex_index = (vertices.len() / 3) as u32;
@@ -508,10 +398,120 @@ mod tests {
         let retrieved_n_bot = Vec3::new(mesh.normals[n_bot_idx * 3], mesh.normals[n_bot_idx * 3 + 1], mesh.normals[n_bot_idx * 3 + 2]);
         assert!((retrieved_n_bot.dot(nose_n_bot) - 1.0).abs() < 1e-4, "Bottom nose ring normal should exactly match analytical normal for C2 blending.");
 
-        let n_top_idx = nose_top_idx.expect("Should find top nose vertex");
+                let n_top_idx = nose_top_idx.expect("Should find top nose vertex");
         let retrieved_n_top = Vec3::new(mesh.normals[n_top_idx * 3], mesh.normals[n_top_idx * 3 + 1], mesh.normals[n_top_idx * 3 + 2]);
         assert!((retrieved_n_top.dot(nose_n_top) - 1.0).abs() < 1e-4, "Top nose ring normal should exactly match analytical normal for C2 blending.");
         
         println!("✅ test_c2_continuous_pole_normals passed.");
+    }
+
+    #[test]
+    fn test_split_normals_at_poles() {
+        let mut model = BoardModel::default();
+        // Setup straight outline: 10 units wide along Z
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
+        });
+        
+        let mesh = super::generate_mesh(&model);
+        
+        // Find tail vertices (z = 100.0 * scale)
+        let scale = 1.0 / 12.0;
+        let target_z = 100.0 * scale;
+        
+        let mut hull_normals = Vec::new();
+        let mut cap_normals = Vec::new();
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - target_z).abs() < 1e-4 {
+                let nz = mesh.normals[i * 3 + 2];
+                if nz > 0.5 {
+                    cap_normals.push(Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]));
+                } else {
+                    hull_normals.push(Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]));
+                }
+            }
+        }
+        
+        assert!(!hull_normals.is_empty(), "Should have hull vertices at the tail");
+        assert!(!cap_normals.is_empty(), "Should have cap vertices at the tail");
+        
+        // For a straight blocky tail, the hull normal should be pointing outward (+X or -X or Y)
+        // while cap normals should point towards +Z
+        let mut found_side_facing_hull = false;
+        for n in &hull_normals {
+            if n.z.abs() < 0.1 { // mostly pointing sideways/up/down
+                found_side_facing_hull = true;
+                break;
+            }
+        }
+        assert!(found_side_facing_hull, "Hull should maintain natural side-facing normals up to the tail pole");
+        
+        for n in &cap_normals {
+            assert!(n.z > 0.9, "Cap normals should point strongly towards +Z");
+        }
+        
+        println!("✅ test_split_normals_at_poles passed.");
+    }
+
+    #[test]
+    fn test_squash_tail_tessellation_density() {
+        let mut model_pintail = BoardModel::default();
+        model_pintail.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3), Vec3::new(0.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model_pintail.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
+        });
+        model_pintail.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
+        });
+        model_pintail.cross_sections = vec![BezierCurveData { 
+            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.)], 
+            tangents1: vec![Vec3::ZERO, Vec3::new(6.6667,0.,0.)], 
+            tangents2: vec![Vec3::new(3.3333,0.,0.), Vec3::new(10.,0.,0.)],
+            ..Default::default()
+        }];
+        
+        let mut model_squash = model_pintail.clone();
+        // Give it a 10" wide tail
+        model_squash.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+
+        let mesh_pin = super::generate_mesh(&model_pintail);
+        let mesh_squash = super::generate_mesh(&model_squash);
+
+        let diff = mesh_squash.indices.len() as isize - mesh_pin.indices.len() as isize;
+        assert!(diff > 100, "Difference in indices should be substantial due to cap tessellation grid. Diff: {}", diff);
+        println!("✅ test_squash_tail_tessellation_density passed.");
     }
 }
