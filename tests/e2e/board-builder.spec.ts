@@ -392,9 +392,45 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const xInput = inspector.locator('div:has-text("Anchor Position") input').first();
     const xValue = parseFloat(await xInput.inputValue());
     
-    // The default start X for a 18.75" board is approx 8.3". 
+        // The default start X for a 18.75" board is approx 8.3". 
     // Dragging right in the top quadrant (+X world) should increase this significantly.
     expect(xValue).toBeGreaterThan(12.0);
+  });
+
+  test("Visual Confirmation of Interior (INT) Wing Selection", async ({ page }) => {
+    await page.goto("/");
+    const boardControls = page.locator("board-controls");
+
+    // 1. Create the wing
+    await boardControls.getByRole("button", { name: /ADD/i }).click();
+
+    // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
+    const hitPosition = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      if (!vp.boardState.outlineLayers?.length) return null;
+      // Target the Interior curve which is typically further IN than the exterior
+      const cp = vp.boardState.outlineLayers[0].otlInt.controlPoints[0];
+      
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      const ndcX = (cp[0] / 12) / (5 * aspect);
+      const ndcY = -(cp[2] / 12) / 5;
+      
+      return {
+        x: rect.left + ((ndcX + 1) / 2 * rect.width),
+        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+      };
+    });
+
+    expect(hitPosition).toBeTruthy();
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+
+    // 3. Verify Node Inspector specifically confirms 'INT'
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+    // The refined title logic should display 'Layer 0 (INT)'
+    await expect(inspector.locator('h3')).toContainText("Layer 0 (INT)");
   });
 
   test("Node Inspector Weight Update", async ({ page }) => {
