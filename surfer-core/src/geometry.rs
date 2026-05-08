@@ -128,12 +128,51 @@ pub fn evaluate_bezier_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32)
     evaluate_curve(curve, t_search)
 }
 
-pub fn evaluate_composite_outline_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> Vec3 {
+pub fn evaluate_bezier_pos_and_tan_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> (Vec3, Vec3) {
+    let mut best_t = hint_t;
+    let mut min_err = f32::INFINITY;
+    let steps = 50;
+    
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32;
+        let p = evaluate_curve(curve, t);
+        let z_err = (p.z - target_z).abs();
+        let t_err = (t - hint_t).abs() * 0.1;
+        let total_err = z_err + t_err;
+        if total_err < min_err {
+            min_err = total_err;
+            best_t = t;
+        }
+    }
+
+    let mut t_search = best_t;
+    let mut step = 1.0 / steps as f32;
+    for _ in 0..15 {
+        step /= 2.0;
+        let t_l = 0.0_f32.max(t_search - step);
+        let t_r = 1.0_f32.min(t_search + step);
+        let p_l = evaluate_curve(curve, t_l);
+        let p_r = evaluate_curve(curve, t_r);
+        let err_l = (p_l.z - target_z).abs() + (t_l - hint_t).abs() * 0.1;
+        let err_r = (p_r.z - target_z).abs() + (t_r - hint_t).abs() * 0.1;
+
+        if err_l < min_err && err_l <= err_r {
+            min_err = err_l;
+            t_search = t_l;
+        } else if err_r < min_err {
+            min_err = err_r;
+            t_search = t_r;
+        }
+    }
+    crate::bezier::evaluate_composite_pos_and_tangent(curve, t_search)
+}
+
+pub fn evaluate_composite_outline_pos_and_tan_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> (Vec3, Vec3) {
     let outline = match &model.outline {
         Some(o) => o,
-        None => return Vec3::ZERO,
+        None => return (Vec3::ZERO, Vec3::Z),
     };
-    let base_pt = evaluate_bezier_at_z(outline, z_inches, hint_t);
+    let (base_pt, mut final_tan) = evaluate_bezier_pos_and_tan_at_z(outline, z_inches, hint_t);
     let mut final_x = base_pt.x;
 
     if let Some(layers) = &model.outline_layers {
@@ -144,13 +183,18 @@ pub fn evaluate_composite_outline_at_z(model: &BoardModel, z_inches: f32, hint_t
             let z0 = min_z.min(max_z);
             let z1 = min_z.max(max_z);
 
-                        if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
-                let ext_pt = evaluate_bezier_at_z(&layer.otl_ext, z_inches, hint_t);
+            if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
+                let (ext_pt, ext_tan) = evaluate_bezier_pos_and_tan_at_z(&layer.otl_ext, z_inches, hint_t);
                 final_x = ext_pt.x;
+                final_tan = ext_tan;
             }
         }
     }
-    Vec3::new(final_x, base_pt.y, base_pt.z)
+    (Vec3::new(final_x, base_pt.y, base_pt.z), final_tan)
+}
+
+pub fn evaluate_composite_outline_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> Vec3 {
+    evaluate_composite_outline_pos_and_tan_at_z(model, z_inches, hint_t).0
 }
 
 /// Finds the curve parameter `t` (0 to 1) that corresponds to a specific `z` coordinate.
@@ -395,19 +439,15 @@ pub struct BoardProfile {
 }
 
 pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> BoardProfile {
-    let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
+        let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
     let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, hint_t);
     
+    let (outline_pt, mut outline_tangent) = evaluate_composite_outline_pos_and_tan_at_z(model, z_inches, hint_t);
     let base_outline_pt = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), z_inches, hint_t);
-    let outline_pt = evaluate_composite_outline_at_z(model, z_inches, hint_t);
     let outline_delta = outline_pt.x - base_outline_pt.x;
 
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
 
-    let eps = 0.05;
-    let pt_minus = evaluate_composite_outline_at_z(model, z_inches - eps, hint_t);
-    let pt_plus = evaluate_composite_outline_at_z(model, z_inches + eps, hint_t);
-    let mut outline_tangent = (pt_plus - pt_minus).normalize();
     if outline_tangent.is_nan() || outline_tangent.length_squared() < 1e-5 {
         outline_tangent = Vec3::new(0.0, 0.0, 1.0);
     }
