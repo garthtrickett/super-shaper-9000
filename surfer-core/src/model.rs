@@ -94,8 +94,6 @@ pub struct BoardModel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
 pub enum BoardAction {
     #[serde(rename = "UPDATE_NUMBER")]
     UpdateNumber { param: String, value: f32 },
