@@ -471,8 +471,9 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         model.v_concave_nose * ease_t
     };
 
+        let actual_bot_y = bot_pt.y - v_concave_add;
     let mut top_y = top_pt.y;
-    if top_y < bot_pt.y { top_y = bot_pt.y; }
+    if top_y < actual_bot_y { top_y = actual_bot_y; }
 
     let mut apex_x = outline_pt.x.max(0.0);
     let mut apex_y = bot_pt.y + (top_y - bot_pt.y) * 0.3;
@@ -493,11 +494,10 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         let p_apex = b.evaluate(b.t_apex);
         let slice_thick = p_top.y - p_bot.y;
         let world_thick = top_y - bot_pt.y;
-        if slice_thick.abs() > 1e-5 {
+                if slice_thick.abs() > 1e-5 {
             apex_y = bot_pt.y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
         }
     }
-    apex_y += v_concave_add;
     apex_y = apex_y.clamp(bot_pt.y - 2.0, top_y);
 
     let mut tuck_y = bot_pt.y;
@@ -512,7 +512,6 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             tuck_y = bot_pt.y + world_thick * ((p_tuck.y - p_bot.y) / slice_thick);
         }
     }
-    tuck_y += v_concave_add;
     tuck_y = tuck_y.min(top_y);
 
     let mut tuck_x = outline_pt.x.max(0.0);
@@ -537,11 +536,11 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             }
         }
     }
-        let final_apex_x = apex_x.max(0.001);
+            let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
 
         BoardProfile {
-        top_y, bot_y: bot_pt.y,
+        top_y, bot_y: actual_bot_y,
         apex_x: final_apex_x, apex_y,
         tuck_x: final_tuck_x, tuck_y,
         half_width: outline_pt.x.max(0.0),
