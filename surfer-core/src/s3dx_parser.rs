@@ -34,14 +34,11 @@ pub struct S3dxBoard {
     #[serde(rename = "curveDefSide4")]
     pub curve_def_side4: Option<S3dxBezierDefContainer>,
 
-    #[serde(rename = "Couples_0")]
-    pub couples_0: Option<S3dxCouplesContainer>,
-    #[serde(rename = "Couples_1")]
-    pub couples_1: Option<S3dxCouplesContainer>,
-    #[serde(rename = "Couples_2")]
-    pub couples_2: Option<S3dxCouplesContainer>,
-    #[serde(rename = "Couples_3")]
-    pub couples_3: Option<S3dxCouplesContainer>,
+        #[serde(rename = "Number_of_slices")]
+    pub number_of_slices: Option<usize>,
+
+    #[serde(rename = "Couple")]
+    pub couples: Option<Vec<S3dxCouplesContainer>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,7 +155,18 @@ fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>) -> Option<B
 }
 
 pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
-    let sanitized = xml.replace("<Ref. point>", "<Ref_point>").replace("</Ref. point>", "</Ref_point>");
+    let mut sanitized = xml.replace("<Ref. point>", "<Ref_point>").replace("</Ref. point>", "</Ref_point>");
+    
+    // Dynamically replace all <Couples_X> with <Couple> so Serde can parse them into a Vec.
+    // We scan a reasonably high number of potential slices (e.g. 100) which far exceeds realistic CAD limits.
+    for i in 0..100 {
+        let start_tag = format!("<Couples_{}>", i);
+        let end_tag = format!("</Couples_{}>", i);
+        if sanitized.contains(&start_tag) {
+            sanitized = sanitized.replace(&start_tag, "<Couple>").replace(&end_tag, "</Couple>");
+        }
+    }
+
     let design: Shape3dDesign = quick_xml::de::from_str(&sanitized)
         .map_err(|e| format!("XML parsing error: {}", e))?;
     Ok(design.board.into())
@@ -179,11 +187,14 @@ impl From<S3dxBoard> for BoardModel {
         model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2);
         model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2);
         
-        let mut cross_sections = Vec::new();
-        if let Some(c) = convert_s3dx_couples(&s3dx.couples_0) { cross_sections.push(c); }
-        if let Some(c) = convert_s3dx_couples(&s3dx.couples_1) { cross_sections.push(c); }
-        if let Some(c) = convert_s3dx_couples(&s3dx.couples_2) { cross_sections.push(c); }
-        if let Some(c) = convert_s3dx_couples(&s3dx.couples_3) { cross_sections.push(c); }
+                let mut cross_sections = Vec::new();
+        if let Some(couples) = s3dx.couples {
+            for c in couples {
+                if let Some(cs) = convert_s3dx_couples(&Some(c)) {
+                    cross_sections.push(cs);
+                }
+            }
+        }
         
         model.cross_sections = cross_sections;
         
