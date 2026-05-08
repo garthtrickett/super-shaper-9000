@@ -30,12 +30,19 @@ export class GizmoBuilder {
     const handleGeo = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
     const lineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
 
-    const getZHeight = (curveName: string, yInches: number, zInches: number) => {
+        const getZHeight = (curveName: string, yInches: number, zInches: number) => {
         if (['outline', 'apexOutline'].includes(curveName)) {
             return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).apexY;
         }
         if (curveName === 'railOutline') {
             return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY;
+        }
+        if (curveName.startsWith('channel_') && curveName.endsWith('_outline')) {
+            return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY;
+        }
+        if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
+            // Vertically offset the depth curve gizmos slightly (-2.0 inches) so they don't visually overlap with the outline gizmos
+            return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY - 2.0 + yInches;
         }
         return yInches;
     };
@@ -115,13 +122,25 @@ export class GizmoBuilder {
         });
     }
 
-    if (boardState.showOutline !== false && boardState.outlineLayers) {
+        if (boardState.showOutline !== false && boardState.outlineLayers) {
         boardState.outlineLayers.forEach((layer, idx) => {
             if (layer.otlExt?.controlPoints?.length > 0) {
                 drawGizmosForCurve(layer.otlExt, `outlineLayer_${idx}_ext`, 1, true);
             }
             if (layer.otlInt?.controlPoints?.length > 0) {
                 drawGizmosForCurve(layer.otlInt, `outlineLayer_${idx}_int`, 1, true);
+            }
+        });
+    }
+
+    if (boardState.bottomChannels) {
+        boardState.bottomChannels.forEach((channel, idx) => {
+            if (channel.outline?.controlPoints?.length > 0) {
+                drawGizmosForCurve(channel.outline, `channel_${idx}_outline`, 1, true);
+            }
+            if (channel.depth?.controlPoints?.length > 0) {
+                // Layer 2 for profile views
+                drawGizmosForCurve(channel.depth, `channel_${idx}_depth`, 2, true);
             }
         });
     }

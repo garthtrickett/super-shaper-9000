@@ -203,9 +203,9 @@ export class BoardViewport extends LitElement {
       ? this.sampleBezierCurve(this.boardState.rockerBottom, 100)
       : curves.rockerBottom;
 
-    const buildLine = (
+        const buildLine = (
       pts: [number, number, number][],
-      mat: THREE.LineBasicMaterial,
+      mat: THREE.Material,
       layerIndex: number,
       mirrorX = false,
     ) => {
@@ -258,8 +258,36 @@ export class BoardViewport extends LitElement {
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false));
     if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false));
 
-    if (activeApexRocker && this.boardState?.showApexRocker !== false) {
+        if (activeApexRocker && this.boardState?.showApexRocker !== false) {
       this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, false));
+    }
+
+    if (this.boardState?.bottomChannels) {
+      const matChannelOutline = new THREE.LineDashedMaterial({ color: 0x10b981, dashSize: 0.5 * scale, gapSize: 0.25 * scale, transparent: true, opacity: 0.6 });
+      const matChannelDepth = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.4 });
+      
+      this.boardState.bottomChannels.forEach(channel => {
+        if (channel.outline && channel.outline.controlPoints.length > 0) {
+          const sampledOutline = this.sampleBezierCurve(channel.outline, 50).map(p => {
+             const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, p[2]);
+             return [p[0], profile.botY, p[2]] as Point3D;
+          });
+          const lineR = buildLine(sampledOutline, matChannelOutline, 1, false);
+          (lineR as THREE.Line).computeLineDistances();
+          this.wireframeGroup.add(lineR);
+          const lineL = buildLine(sampledOutline, matChannelOutline, 1, true);
+          (lineL as THREE.Line).computeLineDistances();
+          this.wireframeGroup.add(lineL);
+        }
+        if (channel.depth && channel.depth.controlPoints.length > 0) {
+           const sampledDepth = this.sampleBezierCurve(channel.depth, 50).map(p => {
+             const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, p[2]);
+             return [p[0], profile.botY - 2.0 + p[1], p[2]] as Point3D;
+           });
+           this.wireframeGroup.add(buildLine(sampledDepth, matChannelDepth, 2, false));
+           this.wireframeGroup.add(buildLine(sampledDepth, matChannelDepth, 2, true));
+        }
+      });
     }
   }
   
@@ -477,9 +505,13 @@ export class BoardViewport extends LitElement {
     updatePositionsForCurve(this.boardState.railOutline, 'railOutline');
         updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
     this.boardState.crossSections?.forEach((cs, idx) => updatePositionsForCurve(cs, `crossSection_${idx}`));
-    this.boardState.outlineLayers?.forEach((layer, idx) => {
+        this.boardState.outlineLayers?.forEach((layer, idx) => {
         updatePositionsForCurve(layer.otlExt, `outlineLayer_${idx}_ext`);
         updatePositionsForCurve(layer.otlInt, `outlineLayer_${idx}_int`);
+    });
+    this.boardState.bottomChannels?.forEach((channel, idx) => {
+        updatePositionsForCurve(channel.outline, `channel_${idx}_outline`);
+        updatePositionsForCurve(channel.depth, `channel_${idx}_depth`);
     });
   }
 
