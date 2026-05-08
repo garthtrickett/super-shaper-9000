@@ -1,6 +1,8 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
+fn default_one() -> f32 { 1.0 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutlineLayer {
@@ -60,8 +62,13 @@ pub struct BoardModel {
     #[serde(default)] pub cant_angle: f32,
         #[serde(default)] pub core_material: String,
     #[serde(default)] pub glassing_schedule: String,
-    #[serde(default)] pub tail_type: String,
+        #[serde(default)] pub tail_type: String,
     #[serde(default)] pub swallow_depth: f32,
+    #[serde(default)] pub v_concave_tail: f32,
+    #[serde(default)] pub v_concave_nose: f32,
+    #[serde(default = "default_one")] pub rail_coefficient_tail: f32,
+    #[serde(default = "default_one")] pub rail_coefficient_nose: f32,
+    #[serde(default = "default_one")] pub thickness_z_stretch: f32,
     pub show_gizmos: Option<bool>,
     pub show_heatmap: Option<bool>,
     pub show_zebra: Option<bool>,

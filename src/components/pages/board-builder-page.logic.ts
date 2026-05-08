@@ -73,8 +73,13 @@ export const BoardModelSchema = S.Struct({
   rearFinX: S.Number,
   toeAngle: S.Number,
   cantAngle: S.Number,
-  tailType: S.Literal("squash", "pin", "swallow"),
+    tailType: S.Literal("squash", "pin", "swallow"),
   swallowDepth: S.Number,
+  vConcaveTail: S.optional(S.Number),
+  vConcaveNose: S.optional(S.Number),
+  railCoefficientTail: S.optional(S.Number),
+  railCoefficientNose: S.optional(S.Number),
+  thicknessZStretch: S.optional(S.Number),
   coreMaterial: S.Literal("pu", "eps"),
   glassingSchedule: S.Literal("light", "standard", "heavy"),
 });
@@ -152,8 +157,13 @@ export interface BoardModel {
   rearFinX: number;
   toeAngle: number;
   cantAngle: number;
-  tailType: TailType;
+    tailType: TailType;
   swallowDepth: number;
+  vConcaveTail?: number;
+  vConcaveNose?: number;
+  railCoefficientTail?: number;
+  railCoefficientNose?: number;
+  thicknessZStretch?: number;
   coreMaterial: CoreMaterial;
   glassingSchedule: GlassingSchedule;
 }
@@ -217,8 +227,13 @@ export const INITIAL_STATE: BoardModel = {
   rearFinX: 1.5, 
   toeAngle: 3.0, 
   cantAngle: 6.0, 
-  tailType: "squash",
+    tailType: "squash",
   swallowDepth: 4.0,
+  vConcaveTail: 0.0,
+  vConcaveNose: 0.0,
+  railCoefficientTail: 1.0,
+  railCoefficientNose: 1.0,
+  thicknessZStretch: 1.0,
   coreMaterial: "pu", 
   glassingSchedule: "heavy", 
 };

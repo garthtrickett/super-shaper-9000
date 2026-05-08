@@ -12,9 +12,20 @@ pub struct S3dxBoard {
     pub length: f32,
     #[serde(rename = "Width")]
     pub width: f32,
-    #[serde(rename = "Thickness")]
+        #[serde(rename = "Thickness")]
     pub thickness: f32,
     
+    #[serde(rename = "VConcaveTail")]
+    pub v_concave_tail: Option<f32>,
+    #[serde(rename = "VConcaveNose")]
+    pub v_concave_nose: Option<f32>,
+    #[serde(rename = "RailCoefficientTail")]
+    pub rail_coefficient_tail: Option<f32>,
+    #[serde(rename = "RailCoefficientNose")]
+    pub rail_coefficient_nose: Option<f32>,
+    #[serde(rename = "ThicknessZStretch")]
+    pub thickness_z_stretch: Option<f32>,
+
     #[serde(rename = "Otl")]
     pub otl: Option<S3dxCurveContainer>,
     #[serde(rename = "StrBot")]
@@ -182,10 +193,16 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
 impl From<S3dxBoard> for BoardModel {
     fn from(s3dx: S3dxBoard) -> Self {
         let mut model = BoardModel::default();
-        model.length = s3dx.length;
+                model.length = s3dx.length;
         model.width = s3dx.width;
         model.thickness = s3dx.thickness;
         
+        model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0);
+        model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0);
+        model.rail_coefficient_tail = s3dx.rail_coefficient_tail.unwrap_or(1.0);
+        model.rail_coefficient_nose = s3dx.rail_coefficient_nose.unwrap_or(1.0);
+        model.thickness_z_stretch = s3dx.thickness_z_stretch.unwrap_or(1.0);
+
         model.outline = convert_s3dx_curve(&s3dx.otl);
         model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot);
         model.rocker_top = convert_s3dx_curve(&s3dx.str_deck);
