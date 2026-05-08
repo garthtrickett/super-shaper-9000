@@ -35,26 +35,58 @@ pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
     }
 }
 
-pub fn get_board_bounds(model: &BoardModel) -> (f32, f32) {
+pub struct BoardBounds {
+    pub nose_z: f32,
+    pub tip_z: f32,
+    pub notch_z: f32,
+    pub tip_t: f32,
+}
+
+pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
+    let default_bounds = BoardBounds { nose_z: 0.0, tip_z: 0.0, notch_z: 0.0, tip_t: 1.0 };
     let outline = match &model.outline {
         Some(o) => o,
-        None => return (0.0, 0.0),
+        None => return default_bounds,
     };
     if outline.control_points.is_empty() {
-        return (0.0, 0.0);
+        return default_bounds;
     }
     
-    let mut min_z = f32::INFINITY;
-    let mut max_z = f32::NEG_INFINITY;
+    let nose_z = evaluate_curve(outline, 0.0).z;
+    let notch_z = evaluate_curve(outline, 1.0).z;
+    
+    let mut tip_z = f32::NEG_INFINITY;
+    let mut tip_t = 1.0;
     let steps = 50;
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
         let p = evaluate_curve(outline, t);
-        if p.z < min_z { min_z = p.z; }
-        if p.z > max_z { max_z = p.z; }
+        if p.z > tip_z { 
+            tip_z = p.z; 
+            tip_t = t;
+        }
     }
-    
-    (min_z, max_z)
+
+    // Refine tip_t for pinpoint accuracy at the absolute outer tail tip
+    let mut t_search = tip_t;
+    let mut step_size = 1.0 / steps as f32;
+    for _ in 0..15 {
+        step_size /= 2.0;
+        let t_left = 0.0_f32.max(t_search - step_size);
+        let t_right = 1.0_f32.min(t_search + step_size);
+        let p_left = evaluate_curve(outline, t_left);
+        let p_right = evaluate_curve(outline, t_right);
+        if p_left.z > tip_z {
+            tip_z = p_left.z;
+            t_search = t_left;
+        } else if p_right.z > tip_z {
+            tip_z = p_right.z;
+            t_search = t_right;
+        }
+    }
+    tip_t = t_search;
+
+    BoardBounds { nose_z, tip_z, notch_z, tip_t }
 }
 
 pub fn calculate_tip_fade(z: f32, nose_z: f32, tail_z: f32) -> f32 {
@@ -137,14 +169,14 @@ pub fn evaluate_composite_outline_at_z(model: &BoardModel, z_inches: f32, hint_t
 
 /// Finds the curve parameter `t` (0 to 1) that corresponds to a specific `z` coordinate.
 /// Used primarily for matching outline width/rocker height to specific lengthwise slices.
-pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, _min_t: f32, max_t: f32) -> f32 {
-    let mut best_t = 0.0;
+pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, min_t: f32, max_t: f32) -> f32 {
+    let mut best_t = min_t;
     let mut min_err = f32::INFINITY;
     let steps = 50;
     
     // Initial coarse search
     for i in 0..=steps {
-        let t = i as f32 / steps as f32 * max_t;
+        let t = min_t + (i as f32 / steps as f32) * (max_t - min_t);
         let p = evaluate_curve(curve, t);
         let err = (p.z - target_z).abs();
         if err < min_err {
@@ -155,11 +187,11 @@ pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, _min_t: f32, max_t: f
 
     // Fine binary search around the best coarse result
     let mut t_search = best_t;
-    let mut step_size = max_t / steps as f32;
+    let mut step_size = (max_t - min_t) / steps as f32;
     
     for _ in 0..15 {
         step_size /= 2.0;
-        let t_left = 0.0_f32.max(t_search - step_size);
+        let t_left = min_t.max(t_search - step_size);
         let t_right = max_t.min(t_search + step_size);
         
         let p_left = evaluate_curve(curve, t_left);
@@ -178,6 +210,16 @@ pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, _min_t: f32, max_t: f
     }
     
     t_search
+}
+
+/// Evaluates the inner X-coordinate of a swallow tail "V" notch at a given Z.
+/// It searches the parameter space exclusively from `tip_t` (the absolute tail tip) to 1.0 (the stringer notch).
+pub fn evaluate_notch_inner_x(curve: &BezierCurveData, tip_t: f32, target_z: f32) -> f32 {
+    if tip_t >= 0.999 {
+        return 0.0; // Standard block/pintail (Not a swallow tail)
+    }
+    let t = find_v_at_z(curve, target_z, tip_t, 1.0);
+    evaluate_curve(curve, t).x.max(0.0)
 }
 
 pub fn find_apex_t(curve: &BezierCurveData) -> f32 {
@@ -863,9 +905,11 @@ mod tests {
             ..Default::default()
         });
         
-        let (nose_z, tail_z) = get_board_bounds(&model);
-        assert_eq!(nose_z, 0.0);
-        assert_eq!(tail_z, 100.0);
+            let bounds = get_board_bounds(&model);
+    let nose_z = bounds.nose_z;
+    let tail_z = bounds.tip_z;
+    assert_eq!(nose_z, 0.0);
+    assert_eq!(tail_z, 100.0);
 
         // 1. At absolute nose (fade_factor = 0.0)
         let fade_0 = calculate_tip_fade(nose_z, nose_z, tail_z);
@@ -904,7 +948,32 @@ mod tests {
                 println!("✅ test_geometric_tip_fading passed.");
     }
 
-        #[test]
+            #[test]
+    fn test_swallow_tail_notch_detection() {
+        let mut model = BoardModel::default();
+        // Swallow tail: outline goes out to Z=100 (tip), then cuts back to Z=95 at stringer (X=0)
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0), Vec3::new(0.0, 0.0, 95.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 80.0), Vec3::new(5.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 110.0), Vec3::new(0.0, 0.0, 95.0)],
+            ..Default::default()
+        });
+
+        let bounds = get_board_bounds(&model);
+        
+        assert_eq!(bounds.nose_z, 0.0);
+        assert_eq!(bounds.notch_z, 95.0);
+        assert!(bounds.tip_z > 95.0, "Tip Z should be further out than the notch");
+        assert!(bounds.tip_t < 1.0, "Tip parameter should be before the end of the curve");
+
+        // Test inner notch evaluation at z = 98
+        let inner_x = evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, 98.0);
+        assert!(inner_x > 0.0 && inner_x < 10.0, "Inner X should be evaluated correctly between the tip and stringer");
+
+        println!("✅ test_swallow_tail_notch_detection passed.");
+    }
+
+    #[test]
     fn test_normal_slerp() {
         let n1 = Vec3::new(0.0, -1.0, 0.0);
         let n2 = Vec3::new(0.0, 1.0, 0.0);
