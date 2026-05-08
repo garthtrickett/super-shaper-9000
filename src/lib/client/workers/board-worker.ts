@@ -41,7 +41,8 @@ self.onmessage = (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "PROPOSE") {
+        if (msg.type === "PROPOSE") {
+        console.info("[BoardWorker] Action received:", msg.action.type);
         try {
             // 1. Propose action to Rust
             const result = engine.propose(msg.action) as { state: BoardModel, effects: { type: string, message?: string }[] };
@@ -61,7 +62,8 @@ self.onmessage = (e: MessageEvent<any>) => {
             const mesh = engine.get_mesh() as RustMesh;
             const curvatureCombs = engine.get_curvature_combs() as Float32Array;
 
-                        // 4. Send updated State and Mesh back to Main Thread
+                                    // 4. Send updated State and Mesh back to Main Thread
+            console.info("[BoardWorker] Posting updated state. Channels:", state.bottomChannels?.length || 0);
             (self as unknown as Worker).postMessage({
                 type: "STATE_UPDATED",
                 state,

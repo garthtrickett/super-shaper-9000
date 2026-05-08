@@ -23,10 +23,13 @@ test.describe("Bottom Contour Editor E2E", () => {
     await expect(toggleSymBtn).toBeVisible();
     await toggleSymBtn.click();
 
-    // 3. Open 2D Editor
+        // 3. Open 2D Editor
     const edit2DBtn = boardControls.locator('button[title="Open 2D Contour Editor"]');
     await expect(edit2DBtn).toBeVisible();
     await edit2DBtn.click();
+
+    // Give the worker time to respond and UI to re-render nodes
+    await page.waitForTimeout(500);
 
     const contourEditor = page.locator("bottom-contour-editor");
     await expect(contourEditor).toBeVisible();
