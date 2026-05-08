@@ -78,6 +78,38 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     }
     xml.push_str(&format!("<Number_of_slices>{}</Number_of_slices>\n", model.cross_sections.len()));
     
-    xml.push_str("</Board>\n<Scene></Scene>\n</Shape3d_design>");
+        xml.push_str("</Board>\n<Scene></Scene>\n</Shape3d_design>");
     xml
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::BoardModel;
+
+    #[test]
+    fn test_export_s3dx_basic_structure() {
+        let mut model = BoardModel::default();
+        model.length = 72.5;
+        model.width = 20.25;
+        model.thickness = 2.625;
+        model.volume = 34.5;
+
+        let xml = export_s3dx(&model);
+
+        // Verify XML header and root tags
+        assert!(xml.contains("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>"));
+        assert!(xml.contains("<Shape3d_design>"));
+        assert!(xml.contains("<Board>"));
+
+        // Verify numerical formatting (should be to 3 decimal places)
+        assert!(xml.contains("<Length>72.500</Length>"));
+        assert!(xml.contains("<Width>20.250</Width>"));
+        assert!(xml.contains("<Thickness>2.625</Thickness>"));
+        assert!(xml.contains("<Volume>34.500</Volume>"));
+        
+        // Ensure it successfully closes
+        assert!(xml.contains("</Shape3d_design>"));
+    }
+}
+

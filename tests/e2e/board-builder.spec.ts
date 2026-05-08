@@ -488,7 +488,30 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector.locator('h3')).toContainText("Layer 0 (INT)");
   });
 
-    test("S3DX Native Import Pipeline", async ({ page }) => {
+      test("S3DX Native Export Pipeline", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+
+    // 1. Setup the download interceptor BEFORE clicking export
+    const downloadPromise = page.waitForEvent('download');
+
+    // 2. Click Export S3DX
+    const exportBtn = boardControls.getByRole('button', { name: /Export \.s3dx/i });
+    await exportBtn.click();
+
+    // 3. Wait for the download to be triggered by the Rust worker responding
+    const download = await downloadPromise;
+    
+    // 4. Verify the filename is dynamically generated based on the board length
+    expect(download.suggestedFilename()).toMatch(/SuperShaper_\d+\.\d+\.s3dx/);
+
+    // 5. Ensure the canvas didn't crash during the async worker transaction
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+  });
+
+  test("S3DX Native Import Pipeline", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
