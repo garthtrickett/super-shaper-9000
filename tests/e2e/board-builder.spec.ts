@@ -283,10 +283,66 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     expect(hitPosition).toBeTruthy();
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
-    // 3. Verify inspector shows Wing Layer
+        // 3. Verify inspector shows Wing Layer
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible();
     await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
+  });
+
+  test("Wing Creation and Removal UI Flow", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+
+    // 1. Find the 'ADD' button in the Curve Tree section
+    // The Curve Tree accordion is open by default.
+    const addWingBtn = boardControls.getByRole("button", { name: /ADD/i });
+    await expect(addWingBtn).toBeVisible();
+
+    // 2. Click Add Wing
+    await addWingBtn.click();
+
+    // 3. Verify 'Wing 1' appears in the controls list
+    const wingItem = boardControls.locator("span", { hasText: /Wing 1/i });
+    await expect(wingItem).toBeVisible();
+
+    // 4. Verify 3D Gizmo selection for the new wing
+    // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
+    const hitPosition = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
+      // The wing node for Layer 0 EXT should be there.
+      if (!vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
+      const cp = vp.boardState.outlineLayers[0].otlExt.controlPoints[0];
+      
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+      // Project CAD inches to normalized viewport coords
+      const ndcX = (cp[0] / 12) / (5 * aspect);
+      const ndcY = -(cp[2] / 12) / 5;
+      return {
+        x: rect.left + ((ndcX + 1) / 2 * rect.width),
+        y: rect.top + ((1 - ndcY) / 2 * rect.height)
+      };
+    });
+
+    expect(hitPosition).toBeTruthy();
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+
+    // 5. Verify the inspector reveals the layer correctly
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
+
+    // 6. Test Removal
+    const removeBtn = boardControls.locator("button", { hasText: "×" }).first();
+    await removeBtn.click();
+
+    // 7. Verify wing is gone from list
+    await expect(wingItem).toBeHidden();
+    await expect(boardControls.getByText(/No wings defined/i)).toBeVisible();
   });
 
   test("Node Inspector Weight Update", async ({ page }) => {
