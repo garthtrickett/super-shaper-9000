@@ -679,6 +679,58 @@ mod tests {
     use glam::Vec3;
 
     #[test]
+    fn test_no_deck_y_spike_at_pin_tail() {
+        let mut model = BoardModel::default();
+        // Setup a rounded pin tail (ends exactly at X=0)
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0), 
+                Vec3::new(10.0, 0.0, 50.0), 
+                Vec3::new(0.0, 0.0, 100.0) // PIN TAIL
+            ],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 40.0), Vec3::new(2.0, 0.0, 95.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 5.0), Vec3::new(10.0, 0.0, 60.0), Vec3::new(0.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData { 
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.25, 0.0)
+            ],
+            tangents1: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(5.0, -1.25, 0.0), Vec3::new(5.0, 1.25, 0.0)],
+            tangents2: vec![Vec3::new(5.0, -1.25, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+            ..Default::default()
+        }];
+        
+        let blend = super::get_cross_section_blend_at_z(&model.cross_sections, 99.0).unwrap();
+        // Get the U parameter for the shoulder (midway between apex and stringer on the deck)
+        let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
+
+        // Sample just before the tip (where width > 1e-5, normal calculation)
+        let pt_99 = super::get_point_at_uv(&model, t_shoulder, 1.0, 99.0, 0.0, 1.0);
+        
+        // Sample at the exact tip (where width <= 1e-5, fallback triggered)
+        let pt_100 = super::get_point_at_uv(&model, t_shoulder, 1.0, 100.0, 0.0, 1.0);
+        
+        // The shoulder Y should smoothly taper. It should NOT jump drastically to the top stringer height (1.0)
+        let diff_y = (pt_100.y - pt_99.y).abs();
+        assert!(diff_y < 0.2, "Shoulder Y spiked abruptly at the tip! y_99: {}, y_100: {}", pt_99.y, pt_100.y);
+    }
+
+    #[test]
     fn test_cross_section_blend_hermite() {
                 let cs1 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
