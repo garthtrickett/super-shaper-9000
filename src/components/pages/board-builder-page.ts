@@ -242,9 +242,10 @@ export class BoardBuilderPage extends LitElement {
             ${this._renderExportModal()}
       ${this._renderImportModal()}
       ${this.showContourEditor ? html`
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div class="w-[800px] max-w-full h-[600px] flex flex-col">
             <bottom-contour-editor
+              class="flex-1 w-full h-full block"
               .boardState=${state}
               .sliceData=${this.contourSliceData}
               .zPosition=${this.contourZPosition}

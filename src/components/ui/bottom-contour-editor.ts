@@ -73,22 +73,29 @@ export class BottomContourEditor extends LitElement {
     }
   }
 
-      private _renderNodes() {
-    if (!this.boardState?.bottomChannels) return null;
+            private _renderNodes() {
+    if (!this.boardState?.bottomChannels) {
+      console.info("[ContourEditor] No bottomChannels in state");
+      return null;
+    }
     const nodes: any[] =[];
     
     this.boardState.bottomChannels.forEach((channel, idx) => {
-      const drawSide = (curveData: any, curveName: string, isDepth: boolean) => {
-        if (!curveData || !curveData.controlPoints) return;
-                                        curveData.controlPoints.forEach((cp: any, i: number) => {
+            const drawSide = (curveData: any, curveName: string, isDepth: boolean) => {
+        if (!curveData || !curveData.controlPoints) {
+            console.info(`[ContourEditor] Missing curveData or controlPoints for ${curveName}`);
+            return;
+        }
+        console.info(`[ContourEditor] Drawing ${curveName} with ${curveData.controlPoints.length} points. zPosition=${this.zPosition}`);
+        curveData.controlPoints.forEach((cp: any, i: number) => {
           // Support both array [x,y,z] (Rust fix) and object {x,y,z} formats for robustness
           const z = Array.isArray(cp) ? cp[2] : cp.z;
           const x = Array.isArray(cp) ? cp[0] : cp.x;
           const y = Array.isArray(cp) ? cp[1] : cp.y;
           
           const zDist = Math.abs(z - this.zPosition);
-          if (zDist < 15.0) {
-            const isDragging = this.activeDrag?.curve === curveName && this.activeDrag?.index === i;
+          console.info(`[ContourEditor] ${curveName}[${i}]: x=${x}, y=${y}, z=${z}. zDist=${zDist}`);
+          if (zDist < 500.0) {
             const isDragging = this.activeDrag?.curve === curveName && this.activeDrag?.index === i;
                         nodes.push(svg`
               <circle

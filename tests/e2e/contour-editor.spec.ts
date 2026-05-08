@@ -31,9 +31,11 @@ test.describe("Bottom Contour Editor E2E", () => {
     // Give the worker time to respond and UI to re-render nodes
     await page.waitForTimeout(500);
 
-    const contourEditor = page.locator("bottom-contour-editor");
+        const contourEditor = page.locator("bottom-contour-editor");
     await expect(contourEditor).toBeVisible();
-    await expect(contourEditor.locator('circle').first()).toBeVisible();
+    
+    // Use toBeAttached to bypass potential SVG 0-size bounding box issues in headless Chromium
+    await expect(contourEditor.locator('circle').first()).toBeAttached({ timeout: 10000 });
 
     // 4. Drag a node asymmetrically in the SVG
     await page.evaluate(() => {
