@@ -594,22 +594,21 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x;
 
     if u <= b.t_apex {
-        let slice_h = (p_apex.y - p_bot.y).max(1e-4);
+                let slice_h = (p_apex.y - p_bot.y).max(1e-4);
         let world_h = profile.apex_y - profile.bot_y;
         let norm_y = (p.y - p_bot.y) / slice_h;
-        final_pos.y = profile.bot_y + norm_y * world_h * local_rail_coeff;
+        let base_y = profile.bot_y + norm_y * world_h * local_rail_coeff;
+        final_pos.y = base_y;
 
         if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
             chan_x = chan_x.abs();
             if chan_x > inner_x && chan_x < world_apex.x {
-                let chan_y = profile.bot_y + chan_depth;
                 if final_pos.x <= chan_x {
                     let t = if chan_x > inner_x { (final_pos.x - inner_x) / (chan_x - inner_x) } else { 0.0 };
-                    final_pos.y = profile.bot_y + t * (chan_y - profile.bot_y);
+                    final_pos.y = base_y + t * chan_depth;
                 } else {
                     let t = if world_apex.x > chan_x { (final_pos.x - chan_x) / (world_apex.x - chan_x) } else { 0.0 };
-                    let base_y = profile.bot_y + norm_y * world_h * local_rail_coeff;
-                    final_pos.y = chan_y * (1.0 - t) + base_y * t;
+                    final_pos.y = base_y + (1.0 - t) * chan_depth;
                 }
             }
         }
