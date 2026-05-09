@@ -86,20 +86,37 @@ pub fn push_history(model: &mut BoardModel) {
     model.history = Some(history);
 }
 
+fn scale_curve_data_width(c: &mut BezierCurveData, factor: f32) {
+    for p in &mut c.control_points { p.x *= factor; }
+    for p in &mut c.tangents1 { p.x *= factor; }
+    for p in &mut c.tangents2 { p.x *= factor; }
+}
+
 fn scale_curve_width(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if let Some(c) = curve.as_mut() {
-        for p in &mut c.control_points { p.x *= factor; }
-        for p in &mut c.tangents1 { p.x *= factor; }
-        for p in &mut c.tangents2 { p.x *= factor; }
-    }
+    if factor <= 0.0 || factor.is_nan() { return; }
+    if let Some(c) = curve.as_mut() { scale_curve_data_width(c, factor); }
+}
+
+fn scale_curve_data_thickness(c: &mut BezierCurveData, factor: f32) {
+    for p in &mut c.control_points { p.y *= factor; }
+    for p in &mut c.tangents1 { p.y *= factor; }
+    for p in &mut c.tangents2 { p.y *= factor; }
 }
 
 fn scale_curve_thickness(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if let Some(c) = curve.as_mut() {
-        for p in &mut c.control_points { p.y *= factor; }
-        for p in &mut c.tangents1 { p.y *= factor; }
-        for p in &mut c.tangents2 { p.y *= factor; }
-    }
+    if factor <= 0.0 || factor.is_nan() { return; }
+    if let Some(c) = curve.as_mut() { scale_curve_data_thickness(c, factor); }
+}
+
+fn scale_curve_data_length(c: &mut BezierCurveData, factor: f32) {
+    for p in &mut c.control_points { p.z *= factor; }
+    for p in &mut c.tangents1 { p.z *= factor; }
+    for p in &mut c.tangents2 { p.z *= factor; }
+}
+
+fn scale_curve_length(curve: &mut Option<BezierCurveData>, factor: f32) {
+    if factor <= 0.0 || factor.is_nan() { return; }
+    if let Some(c) = curve.as_mut() { scale_curve_data_length(c, factor); }
 }
 
 fn apply_tail_type(model: &mut BoardModel) {
@@ -316,14 +333,76 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();
 
     match action {
-                BoardAction::UpdateNumber { param, value } => match param.as_str() {
-            "length" => model.length = value,
-            "width" => model.width = value,
+                        BoardAction::UpdateNumber { param, value } => match param.as_str() {
+            "length" => {
+                let factor = if model.length > 0.0 { value / model.length } else { 1.0 };
+                model.length = value;
+                scale_curve_length(&mut model.outline, factor);
+                scale_curve_length(&mut model.rail_outline, factor);
+                scale_curve_length(&mut model.apex_outline, factor);
+                scale_curve_length(&mut model.rocker_top, factor);
+                scale_curve_length(&mut model.rocker_bottom, factor);
+                scale_curve_length(&mut model.apex_rocker, factor);
+                if let Some(layers) = &mut model.outline_layers {
+                    for l in layers {
+                        scale_curve_data_length(&mut l.otl_ext, factor);
+                        scale_curve_data_length(&mut l.otl_int, factor);
+                    }
+                }
+                if let Some(channels) = &mut model.bottom_channels {
+                    for ch in channels {
+                        scale_curve_data_length(&mut ch.left_outline, factor);
+                        scale_curve_data_length(&mut ch.right_outline, factor);
+                        scale_curve_data_length(&mut ch.left_depth, factor);
+                        scale_curve_data_length(&mut ch.right_depth, factor);
+                    }
+                }
+                for cs in &mut model.cross_sections {
+                    scale_curve_data_length(cs, factor);
+                }
+            },
+            "width" => {
+                let factor = if model.width > 0.0 { value / model.width } else { 1.0 };
+                model.width = value;
+                scale_curve_width(&mut model.outline, factor);
+                scale_curve_width(&mut model.rail_outline, factor);
+                scale_curve_width(&mut model.apex_outline, factor);
+                if let Some(layers) = &mut model.outline_layers {
+                    for l in layers {
+                        scale_curve_data_width(&mut l.otl_ext, factor);
+                        scale_curve_data_width(&mut l.otl_int, factor);
+                    }
+                }
+                if let Some(channels) = &mut model.bottom_channels {
+                    for ch in channels {
+                        scale_curve_data_width(&mut ch.left_outline, factor);
+                        scale_curve_data_width(&mut ch.right_outline, factor);
+                    }
+                }
+                for cs in &mut model.cross_sections {
+                    scale_curve_data_width(cs, factor);
+                }
+            },
             "swallowDepth" => {
                 model.swallow_depth = value;
                 apply_tail_type(model);
             }
-            "thickness" => model.thickness = value,
+            "thickness" => {
+                let factor = if model.thickness > 0.0 { value / model.thickness } else { 1.0 };
+                model.thickness = value;
+                scale_curve_thickness(&mut model.rocker_top, factor);
+                scale_curve_thickness(&mut model.rocker_bottom, factor);
+                scale_curve_thickness(&mut model.apex_rocker, factor);
+                if let Some(channels) = &mut model.bottom_channels {
+                    for ch in channels {
+                        scale_curve_data_thickness(&mut ch.left_depth, factor);
+                        scale_curve_data_thickness(&mut ch.right_depth, factor);
+                    }
+                }
+                for cs in &mut model.cross_sections {
+                    scale_curve_data_thickness(cs, factor);
+                }
+            },
             "frontFinZ" => model.front_fin_z = value,
             "frontFinX" => model.front_fin_x = value,
             "rearFinZ" => model.rear_fin_z = value,
@@ -493,15 +572,25 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
             }
         }
-        BoardAction::ScaleWidth { factor } => {
+                BoardAction::ScaleWidth { factor } => {
             model.width *= factor;
             scale_curve_width(&mut model.outline, factor);
             scale_curve_width(&mut model.rail_outline, factor);
             scale_curve_width(&mut model.apex_outline, factor);
+            if let Some(layers) = &mut model.outline_layers {
+                for l in layers {
+                    scale_curve_data_width(&mut l.otl_ext, factor);
+                    scale_curve_data_width(&mut l.otl_int, factor);
+                }
+            }
+            if let Some(channels) = &mut model.bottom_channels {
+                for ch in channels {
+                    scale_curve_data_width(&mut ch.left_outline, factor);
+                    scale_curve_data_width(&mut ch.right_outline, factor);
+                }
+            }
             for cs in &mut model.cross_sections {
-                let mut temp = Some(cs.clone());
-                scale_curve_width(&mut temp, factor);
-                *cs = temp.unwrap();
+                scale_curve_data_width(cs, factor);
             }
             push_history(model);
         }
@@ -510,10 +599,14 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             scale_curve_thickness(&mut model.rocker_top, factor);
             scale_curve_thickness(&mut model.rocker_bottom, factor);
             scale_curve_thickness(&mut model.apex_rocker, factor);
+            if let Some(channels) = &mut model.bottom_channels {
+                for ch in channels {
+                    scale_curve_data_thickness(&mut ch.left_depth, factor);
+                    scale_curve_data_thickness(&mut ch.right_depth, factor);
+                }
+            }
             for cs in &mut model.cross_sections {
-                let mut temp = Some(cs.clone());
-                scale_curve_thickness(&mut temp, factor);
-                *cs = temp.unwrap();
+                scale_curve_data_thickness(cs, factor);
             }
             push_history(model);
         }
