@@ -40,9 +40,21 @@ export class GizmoBuilder {
         if (curveName.startsWith('channel_') && curveName.endsWith('_outline')) {
             return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY;
         }
-        if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
+                if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
             // Vertically offset the depth curve gizmos slightly (-2.0 inches) so they don't visually overlap with the outline gizmos
             return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY - 2.0 + yInches;
+        }
+        if (curveName.startsWith('crossSection_')) {
+            const idx = parseInt(curveName.split('_')[1], 10);
+            const cs = boardState.crossSections?.[idx];
+            if (cs && cs.controlPoints.length > 0) {
+                const profile = MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches);
+                const rawBot = cs.controlPoints[0][1];
+                const rawTop = cs.controlPoints[cs.controlPoints.length - 1][1];
+                const rawH = Math.max(rawTop - rawBot, 0.0001);
+                const worldH = Math.max(profile.topY - profile.botY, 0.0001);
+                return profile.botY + ((yInches - rawBot) / rawH) * worldH;
+            }
         }
         return yInches;
     };

@@ -447,9 +447,13 @@ export class BoardViewport extends LitElement {
       this.sliceLinesGroup.remove(child);
     }
     const crossSections = this.boardState!.crossSections ||[];
-    if (this.boardState?.showCrossSections !== false) {
+        if (this.boardState?.showCrossSections !== false) {
       crossSections.forEach((cs, idx) => {
-        const pts: THREE.Vector3[] = this.sampleBezierCurve(cs, 40).map(p => new THREE.Vector3(p[0]*scale, p[1]*scale, p[2]*scale));
+        const curveName = `crossSection_${idx}`;
+        const pts: THREE.Vector3[] = this.sampleBezierCurve(cs, 40).map(p => {
+          const worldY = this.getZHeight(curveName, p[1], p[2], curves);
+          return new THREE.Vector3(p[0]*scale, worldY*scale, p[2]*scale);
+        });
         const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z)).reverse();
         leftPts.pop();
         const fullPts =[...leftPts, ...pts];
@@ -458,12 +462,41 @@ export class BoardViewport extends LitElement {
         const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4, depthWrite: false });
         const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(fullPts), mat);
         line.layers.set(3);
-        line.userData = { isSlice: true, curveName: `crossSection_${idx}`, defaultColor: color.getHex() };
+        line.userData = { isSlice: true, curveName, defaultColor: color.getHex() };
         this.sliceLinesGroup.add(line);
       });
     }
   }
   
+    private getZHeight(curveName: string, yInches: number, zInches: number, curves: BoardCurves): number {
+    if (!this.boardState) return yInches;
+    if (['outline', 'apexOutline'].includes(curveName)) {
+      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).apexY;
+    }
+    if (curveName === 'railOutline') {
+      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).botY;
+    }
+    if (curveName.startsWith('channel_') && curveName.endsWith('_outline')) {
+      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).botY;
+    }
+    if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
+      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).botY - 2.0 + yInches;
+    }
+    if (curveName.startsWith('crossSection_')) {
+      const idx = parseInt(curveName.split('_')[1], 10);
+      const cs = this.boardState.crossSections?.[idx];
+      if (cs && cs.controlPoints.length > 0) {
+        const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches);
+        const rawBot = cs.controlPoints[0][1];
+        const rawTop = cs.controlPoints[cs.controlPoints.length - 1][1];
+        const rawH = Math.max(rawTop - rawBot, 0.0001);
+        const worldH = Math.max(profile.topY - profile.botY, 0.0001);
+        return profile.botY + ((yInches - rawBot) / rawH) * worldH;
+      }
+    }
+    return yInches;
+  }
+
   private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40):[number, number, number][] {
       const pts:[number, number, number][] =[];
       const numSegments = bezier.controlPoints.length - 1;
@@ -494,12 +527,23 @@ export class BoardViewport extends LitElement {
       }
     });
 
-    const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
+        const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
       if (!curveData) return;
       curveData.controlPoints.forEach((cp, i) => {
-        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cp[1] * scale, cp[2] * scale);
-        const t1 = curveData.tangents1[i]; if (t1) gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, t1[1] * scale, t1[2] * scale);
-        const t2 = curveData.tangents2[i]; if (t2) gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, t2[1] * scale, t2[2] * scale);
+        const cpY = this.getZHeight(curveName, cp[1], cp[2], this.latestCurves!);
+        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cpY * scale, cp[2] * scale);
+        
+        const t1 = curveData.tangents1[i]; 
+        if (t1) {
+          const t1Y = this.getZHeight(curveName, t1[1], t1[2], this.latestCurves!);
+          gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, t1Y * scale, t1[2] * scale);
+        }
+        
+        const t2 = curveData.tangents2[i]; 
+        if (t2) {
+          const t2Y = this.getZHeight(curveName, t2[1], t2[2], this.latestCurves!);
+          gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, t2Y * scale, t2[2] * scale);
+        }
       });
     };
     
