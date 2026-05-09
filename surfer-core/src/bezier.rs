@@ -180,11 +180,14 @@ pub fn evaluate_curvature_quill(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, weights:
         return Vec3::ZERO; // Straight line
     }
 
-    let d1_len = d1_len_sq.sqrt();
+        let d1_len = d1_len_sq.sqrt();
     let kappa = cross_len / (d1_len_sq * d1_len);
     let n = cross.cross(d1).normalize();
 
-    n * kappa * scale
+    // Cap the maximum visual length of the quill to prevent screen-spanning spikes on tight corners
+    let length = (kappa * scale).min(15.0);
+
+    n * length
 }
 
 /// Computes the exact position of a target tangent handle to achieve G2 (Curvature) continuity.
