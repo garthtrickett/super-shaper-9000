@@ -1,36 +1,47 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./utils/base-test";
 
 test('Board Builder UI updates correctly on slider changes', async ({ page }) => {
-  // Intercept the API call to return mock data
-  await page.route('**/api/compute/board', async route => {
-    // slight delay to ensure "Shaping..." overlay is visible to the test
-    await new Promise(resolve => setTimeout(resolve, 150));
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ status: "success", data: { mesh: "MOCK_BASE64_MESH_DATA" } })
-    });
-  });
-
   await page.goto('/');
 
-  await expect(page.locator('board-controls')).toBeVisible();
+  const boardControls = page.locator('board-controls');
+  await expect(boardControls).toBeVisible();
 
-  page.on('console', msg => console.log('BROWSER:', msg.type(), msg.text()));
-  page.on('pageerror', err => console.log('BROWSER ERROR:', err.message));
+  // Listen for browser errors to ensure WASM doesn't crash during scaling
+  page.on('console', msg => {
+    if (msg.type() === 'error') console.log('BROWSER ERROR:', msg.text());
+  });
+  page.on('pageerror', err => console.log('BROWSER EXCEPTION:', err.message));
+
+  // Wait for the WASM engine to finish initial processing and render the canvas
+  await expect(page.locator('board-viewport canvas')).toBeVisible();
   
-  // Shaping overlay should appear on initial load (due to TRIGGER_COMPUTE)
-  try {
-    // Depending on Vite's initial compilation time, this overlay might appear and disappear 
-    // before page.goto() fully resolves. We catch the timeout so it doesn't flake.
-    await expect(page.locator('text=Shaping...')).toBeVisible({ timeout: 2000 });
-  } catch (e) {
-    console.log('Initial shaping overlay missed (likely completed during page.goto), proceeding...');
-  }
-  await expect(page.locator('text=Shaping...')).toBeHidden({ timeout: 10000 });
+  // Give the Rust core a moment to build the initial mesh and post the stats back to the UI
+  await page.waitForTimeout(1000);
 
-  // Wait for app to be ready
-  await page.waitForTimeout(500); 
+  // 1. Get the initial vertex count from the HUD
+  // If the adaptive mesh generator works, longer boards require more Z-rings to maintain curvature tolerance.
+  const vertexDisplay = boardControls.locator('div.text-xl.font-black.text-zinc-400.tracking-tighter').first();
+  const initialVertices = await vertexDisplay.textContent();
+  expect(initialVertices).toBeTruthy();
+  
+  console.log(`[Test] Initial Vertices: ${initialVertices}`);
 
-  await expect(page.locator('canvas')).toBeVisible();
+  // 2. Drag the Length slider to change the board size
+  const lengthContainer = boardControls.locator('.mb-4').filter({ hasText: /^Length$/i }).first();
+  const lengthSlider = lengthContainer.locator('input[type="range"]');
+
+  // Change length from 70 to 90 (significantly longer to trigger adaptive subdivision)
+  await lengthSlider.fill('90'); 
+  await lengthSlider.dispatchEvent('input');
+
+  // 3. Wait for debounce (150ms) and WASM worker computation to settle
+  await page.waitForTimeout(600);
+
+  // 4. Verify the vertex count changed in the HUD
+  // This proves that the Parametric UI successfully told Rust to scale the Bezier coordinates, 
+  // Rust successfully generated a denser mesh, and the Worker posted the new state back to the UI.
+  await expect(vertexDisplay).not.toHaveText(initialVertices as string);
+  
+  const newVertices = await vertexDisplay.textContent();
+  console.log(`[Test] New Vertices: ${newVertices}`);
 });

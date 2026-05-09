@@ -680,13 +680,47 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         &mut indices,
     );
 
+        // Dynamically integrate volume using the Shoelace formula on cross sections
+    let mut total_volume_cubic_feet = 0.0;
+
+    for i in 0..segments_v {
+        let z0 = grid[i][0].0.z;
+        let z1 = grid[i + 1][0].0.z;
+        let dz = (z1 - z0).abs();
+
+        let mut area0 = 0.0;
+        let mut area1 = 0.0;
+
+        for j in 0..num_cols {
+            let next_j = (j + 1) % num_cols;
+            let p0_a = grid[i][j].0;
+            let p0_b = grid[i][next_j].0;
+            area0 += p0_a.x * p0_b.y - p0_b.x * p0_a.y;
+
+            let p1_a = grid[i + 1][j].0;
+            let p1_b = grid[i + 1][next_j].0;
+            area1 += p1_a.x * p1_b.y - p1_b.x * p1_a.y;
+        }
+
+        area0 = area0.abs() * 0.5;
+        area1 = area1.abs() * 0.5;
+
+        // Trapezoidal integration across Z
+        total_volume_cubic_feet += (area0 + area1) / 2.0 * dz;
+    }
+
+    // 1 cubic foot = 28.3168 Liters
+    let volume_liters = total_volume_cubic_feet * 28.3168;
+
+    log::info!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
+
     RawGeometryData {
         vertices,
         indices,
         uvs,
         colors,
         normals,
-        volume_liters: 30.5,
+        volume_liters,
     }
 }
 

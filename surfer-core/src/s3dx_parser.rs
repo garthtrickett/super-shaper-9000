@@ -10,10 +10,12 @@ pub struct Shape3dDesign {
 pub struct S3dxBoard {
     #[serde(rename = "Length")]
     pub length: f32,
-    #[serde(rename = "Width")]
+        #[serde(rename = "Width")]
     pub width: f32,
-        #[serde(rename = "Thickness")]
+    #[serde(rename = "Thickness")]
     pub thickness: f32,
+    #[serde(rename = "Volume")]
+    pub volume: Option<f32>,
     
     #[serde(rename = "VConcaveTail")]
     pub v_concave_tail: Option<f32>,
@@ -197,9 +199,12 @@ impl From<S3dxBoard> for BoardModel {
         // Safely infer CM to Inches if the board is unreasonably long (> 130 units)
         let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
         
-        model.length = bl * scale;
+                model.length = bl * scale;
         model.width = s3dx.width * scale;
         model.thickness = s3dx.thickness * scale;
+        if let Some(vol) = s3dx.volume {
+            model.volume = vol;
+        }
         
         model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0) * scale;
         model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0) * scale;
