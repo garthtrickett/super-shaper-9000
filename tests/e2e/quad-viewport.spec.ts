@@ -111,10 +111,9 @@ test.describe('Quad Viewport CAD Interface', () => {
     });
     expect(hitPosition).toBeTruthy();
 
-    // Select the gizmo to open the inspector
+        // Select the gizmo to open the inspector
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
-    await page.waitForTimeout(100);
-    expect(await page.locator('node-inspector').isVisible()).toBe(true);
+    await expect(page.locator('node-inspector')).toBeVisible();
 
     // 1. Get the initial value of the X/Z input in the node inspector
     const xInput = page.locator('node-inspector input').first();

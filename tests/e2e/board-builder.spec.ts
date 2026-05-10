@@ -371,11 +371,14 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
 
     const xInput = inspector.locator('div:has-text("Anchor Position") input').first();
-    const xValue = parseFloat(await xInput.inputValue());
+    
     
     // The default start X for a 18.75" board is approx 8.3". 
-    // Dragging right in the top quadrant (+X world) should increase this significantly.
-    expect(xValue).toBeGreaterThan(12.0);
+        // Dragging right in the top quadrant (+X world) should increase this significantly.
+    await expect(async () => {
+      const xValue = parseFloat(await xInput.inputValue());
+      expect(xValue).toBeGreaterThan(12.0);
+    }).toPass({ timeout: 5000 });
   });
 
   test("Bottom Channel Creation and Manipulation Flow", async ({ page }) => {
@@ -447,6 +450,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 1. Create the wing
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
+
+        await expect(boardControls.locator('span', { hasText: /Wing 1/i })).toBeVisible();
 
     // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
