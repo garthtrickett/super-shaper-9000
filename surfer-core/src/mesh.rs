@@ -186,16 +186,52 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     u_params_half = final_u;
     // --- END NEW ---
 
+        // Compute Arc Length mapping from the primary cross section to prevent UV stretching
+    let cs_arc_table = if !model.cross_sections.is_empty() {
+        let mut primary_cs = &model.cross_sections[0];
+        let mut max_width = 0.0;
+        for cs in &model.cross_sections {
+            let w = cs.control_points.iter().fold(0.0_f32, |m, p| m.max(p.x));
+            if w > max_width {
+                max_width = w;
+                primary_cs = cs;
+            }
+        }
+        crate::bezier::build_arc_length_table(primary_cs, 200)
+    } else {
+        Vec::new()
+    };
+
+    let total_cs_len = cs_arc_table.last().map(|(_, l)| *l).unwrap_or(0.0);
+
+    let get_u_tex = |t_val: f32| -> f32 {
+        if total_cs_len <= 1e-5 || cs_arc_table.is_empty() {
+            return t_val;
+        }
+        let mut len_at_t = 0.0;
+        for i in 0..cs_arc_table.len() - 1 {
+            let (t0, l0) = cs_arc_table[i];
+            let (t1, l1) = cs_arc_table[i + 1];
+            if t_val >= t0 && t_val <= t1 {
+                let frac = if t1 > t0 { (t_val - t0) / (t1 - t0) } else { 0.0 };
+                len_at_t = l0 + frac * (l1 - l0);
+                break;
+            }
+        }
+        if t_val >= 1.0 { len_at_t = total_cs_len; }
+        len_at_t / total_cs_len
+    };
+
     let mut u_columns = Vec::new();
     let half = u_params_half.len() - 1;
     for (idx, &u) in u_params_half.iter().enumerate() {
         let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, 1.0, is_stringer)); // Right side
+        u_columns.push((u, 1.0, is_stringer, get_u_tex(u))); // Right side
     }
     // Add left side, explicitly duplicating the center stringers so the mesh can bifurcate
     for (idx, &u) in u_params_half.iter().rev().enumerate() {
         let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, -1.0, is_stringer)); // Left side
+        u_columns.push((u, -1.0, is_stringer, get_u_tex(u))); // Left side
     }
     let num_cols = u_columns.len();
     let right_half_cols = u_params_half.len();
@@ -247,7 +283,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
         let heat_color = color_heatmap(normalized_foil);
 
-        for &(u_val, side, is_stringer) in u_columns.iter() {
+                for &(u_val, side, is_stringer, u_tex) in u_columns.iter() {
             let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, side);
             if is_stringer {
                 point.x = inner_x;
@@ -261,7 +297,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             ring.push((
                 Vec3::new(point.x * scale, point.y * scale, point.z * scale),
                 heat_color,
-                u_val,
+                u_tex,
                 v_coord,
             ));
         }
@@ -285,8 +321,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             uvs.push(u);
             uvs.push(v);
 
-            let side = u_columns[j].1;
-            let n = crate::geometry::get_surface_normal_at_uvz(model, u, z_inches, side);
+                        let side = u_columns[j].1;
+            let u_val = u_columns[j].0;
+            let n = crate::geometry::get_surface_normal_at_uvz(model, u_val, z_inches, side);
 
             normals.push(n.x);
             normals.push(n.y);
