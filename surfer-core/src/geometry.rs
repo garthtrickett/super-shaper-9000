@@ -869,7 +869,6 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
     let (mut t_u, t_v) = if let Some(b) = &blend {
         let dp_du = b.evaluate_derivative_u(u);
         let p_bot = b.evaluate(0.0);
-        let p_top = b.evaluate(1.0);
         let p_apex = b.evaluate(b.t_apex);
 
         let slice_width = (p_apex.x - p_bot.x).max(1e-4);

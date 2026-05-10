@@ -426,6 +426,76 @@ pub fn adaptive_sample_t(
 
 /// Samples a composite Bezier curve with `steps` resolution.
 /// Replicates the TypeScript `sampleBezierCurve` logic identically.
+/// Builds a table of (t, accumulated_length) for a composite Bezier curve.
+/// Uses multi-segment linear approximation which is highly performant and stable.
+pub fn build_arc_length_table(curve: &BezierCurveData, steps: usize) -> Vec<(f32, f32)> {
+    let mut table = Vec::with_capacity(steps + 1);
+    let mut total_length = 0.0;
+    let mut last_pt = evaluate_composite_pos_and_tangent(curve, 0.0).0;
+
+    table.push((0.0, 0.0));
+
+    let steps_f = steps as f32;
+    for i in 1..=steps {
+        let t = i as f32 / steps_f;
+        let pt = evaluate_composite_pos_and_tangent(curve, t).0;
+        total_length += last_pt.distance(pt);
+        table.push((t, total_length));
+        last_pt = pt;
+    }
+
+    table
+}
+
+/// Finds the parameter `t` (0.0 to 1.0) that corresponds to a target arc-length ratio (0.0 to 1.0).
+/// Uses binary search on the pre-computed arc-length table.
+pub fn get_t_at_arc_length_ratio(table: &[(f32, f32)], target_ratio: f32) -> f32 {
+    if table.is_empty() {
+        return 0.0;
+    }
+
+    let target_ratio = target_ratio.clamp(0.0, 1.0);
+    let total_length = table.last().unwrap().1;
+    let target_length = target_ratio * total_length;
+
+    if target_length <= 0.0 {
+        return 0.0;
+    }
+    if target_length >= total_length {
+        return 1.0;
+    }
+
+    // Binary search to find the segment containing the target length
+    let mut low = 0;
+    let mut high = table.len() - 1;
+
+    while low <= high {
+        let mid = low + (high - low) / 2;
+        if table[mid].1 < target_length {
+            low = mid + 1;
+        } else if table[mid].1 > target_length {
+            if mid == 0 {
+                break;
+            }
+            high = mid - 1;
+        } else {
+            return table[mid].0;
+        }
+    }
+
+    let idx = low.clamp(1, table.len() - 1);
+    let (t0, l0) = table[idx - 1];
+    let (t1, l1) = table[idx];
+
+    let segment_len = l1 - l0;
+    if segment_len <= 1e-6 {
+        return t0;
+    }
+
+    let fraction = (target_length - l0) / segment_len;
+    t0 + fraction * (t1 - t0)
+}
+
 pub fn sample_curve(curve: &BezierCurveData, steps: usize) -> Vec<Vec3> {
     let mut pts = Vec::with_capacity(steps + 1);
     let num_segments = curve.control_points.len().saturating_sub(1);
@@ -719,6 +789,47 @@ mod tests {
             "Bent curve should subdivide heavily compared to a straight curve"
         );
 
-        println!("✅ test_adaptive_sampling passed.");
+                println!("✅ test_adaptive_sampling passed.");
+    }
+
+    #[test]
+    fn test_uv_arc_length_uniformity() {
+        let curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(20.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 0.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 0.0), Vec3::new(20.0, 0.0, 0.0)],
+            ..Default::default()
+        };
+
+        // Create a highly asymmetrical parameterization via weights
+        let mut asym_curve = curve.clone();
+        asym_curve.weights = Some(vec![1.0, 10.0, 1.0]);
+
+        let table = build_arc_length_table(&asym_curve, 1000);
+        
+        let t25 = get_t_at_arc_length_ratio(&table, 0.25);
+        let t50 = get_t_at_arc_length_ratio(&table, 0.50);
+        let t75 = get_t_at_arc_length_ratio(&table, 0.75);
+
+        let p0 = evaluate_composite_pos_and_tangent(&asym_curve, 0.0).0;
+        let p25 = evaluate_composite_pos_and_tangent(&asym_curve, t25).0;
+        let p50 = evaluate_composite_pos_and_tangent(&asym_curve, t50).0;
+        let p75 = evaluate_composite_pos_and_tangent(&asym_curve, t75).0;
+        let p100 = evaluate_composite_pos_and_tangent(&asym_curve, 1.0).0;
+
+        let d1 = p0.distance(p25);
+        let d2 = p25.distance(p50);
+        let d3 = p50.distance(p75);
+        let d4 = p75.distance(p100);
+
+        let avg = (d1 + d2 + d3 + d4) / 4.0;
+        
+        // Assert that physical distance between arc-length mapped points is roughly equal
+        assert!((d1 - avg).abs() < 0.1, "D1 mismatch: {} vs {}", d1, avg);
+        assert!((d2 - avg).abs() < 0.1, "D2 mismatch: {} vs {}", d2, avg);
+        assert!((d3 - avg).abs() < 0.1, "D3 mismatch: {} vs {}", d3, avg);
+        assert!((d4 - avg).abs() < 0.1, "D4 mismatch: {} vs {}", d4, avg);
+        
+        println!("✅ test_uv_arc_length_uniformity passed.");
     }
 }
