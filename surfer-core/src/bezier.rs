@@ -28,6 +28,19 @@ pub fn evaluate_cubic_hermite(p1: Vec3, p2: Vec3, m1: Vec3, m2: Vec3, t: f32) ->
     p1 * h00 + m1 * h10 + p2 * h01 + m2 * h11
 }
 
+/// Evaluates the first derivative of a 3D Cubic Hermite spline at a given `t` (0.0 to 1.0).
+#[inline]
+pub fn evaluate_cubic_hermite_derivative(p1: Vec3, p2: Vec3, m1: Vec3, m2: Vec3, t: f32) -> Vec3 {
+    let t2 = t * t;
+
+    let dh00 = 6.0 * t2 - 6.0 * t;
+    let dh10 = 3.0 * t2 - 4.0 * t + 1.0;
+    let dh01 = -6.0 * t2 + 6.0 * t;
+    let dh11 = 3.0 * t2 - 2.0 * t;
+
+    p1 * dh00 + m1 * dh10 + p2 * dh01 + m2 * dh11
+}
+
 /// Evaluates a Rational 3D Cubic Bezier curve at a given `t` (0.0 to 1.0)
 #[inline]
 #[allow(clippy::too_many_arguments)]

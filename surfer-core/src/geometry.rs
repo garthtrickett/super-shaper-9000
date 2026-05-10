@@ -3,6 +3,42 @@ use glam::Vec3;
 // use crate::bezier::evaluate_bezier_cubic;
 
 #[inline]
+pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
+    let num_segments = curve.control_points.len().saturating_sub(1);
+    if num_segments == 0 {
+        return Vec3::ZERO;
+    }
+    let num_segments_f = num_segments as f32;
+    let scaled_t = t * num_segments_f;
+    let mut segment_idx = scaled_t.floor() as usize;
+    if segment_idx >= num_segments {
+        segment_idx = num_segments - 1;
+    }
+    let local_t = scaled_t - segment_idx as f32;
+
+    let p0 = curve.control_points[segment_idx];
+    let p1 = curve.control_points[segment_idx + 1];
+    let t0 = curve.tangents2[segment_idx];
+    let t1 = curve.tangents1[segment_idx + 1];
+
+    let weights = curve.weights.as_ref().and_then(|w| {
+        if w.len() > segment_idx + 1 {
+            Some((w[segment_idx], 1.0, 1.0, w[segment_idx + 1]))
+        } else {
+            None
+        }
+    });
+
+    let local_d1 = if let Some((w0, w1, w2, w3)) = weights {
+        crate::bezier::evaluate_rational_first_derivative(p0, t0, t1, p1, w0, w1, w2, w3, local_t)
+    } else {
+        crate::bezier::evaluate_bezier_first_derivative(p0, t0, t1, p1, local_t)
+    };
+
+    local_d1 * num_segments_f
+}
+
+#[inline]
 pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
     let num_segments = curve.control_points.len().saturating_sub(1);
     if num_segments == 0 {
@@ -381,6 +417,62 @@ impl<'a> BlendResult<'a> {
         };
 
         crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, self.lerp_factor)
+    }
+
+    pub fn evaluate_derivative_u(&self, t_mid: f32) -> Vec3 {
+        let dp0 = evaluate_curve_derivative(self.s_prev, t_mid);
+        let dp1 = evaluate_curve_derivative(self.s0, t_mid);
+        let dp2 = evaluate_curve_derivative(self.s1, t_mid);
+        let dp3 = evaluate_curve_derivative(self.s_next, t_mid);
+
+        let z0 = self.s_prev.control_points.first().unwrap().z;
+        let z1 = self.s0.control_points.first().unwrap().z;
+        let z2 = self.s1.control_points.first().unwrap().z;
+        let z3 = self.s_next.control_points.first().unwrap().z;
+
+        let dz = z2 - z1;
+
+        let m1 = if (z2 - z0).abs() > 1e-5 {
+            (dp2 - dp0) * (dz / (z2 - z0))
+        } else {
+            dp2 - dp1
+        };
+
+        let m2 = if (z3 - z1).abs() > 1e-5 {
+            (dp3 - dp1) * (dz / (z3 - z1))
+        } else {
+            dp2 - dp1
+        };
+
+        crate::bezier::evaluate_cubic_hermite(dp1, dp2, m1, m2, self.lerp_factor)
+    }
+
+    pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
+        let p0 = evaluate_curve(self.s_prev, t_mid);
+        let p1 = evaluate_curve(self.s0, t_mid);
+        let p2 = evaluate_curve(self.s1, t_mid);
+        let p3 = evaluate_curve(self.s_next, t_mid);
+
+        let z0 = self.s_prev.control_points.first().unwrap().z;
+        let z1 = self.s0.control_points.first().unwrap().z;
+        let z2 = self.s1.control_points.first().unwrap().z;
+        let z3 = self.s_next.control_points.first().unwrap().z;
+
+        let dz = z2 - z1;
+
+        let m1 = if (z2 - z0).abs() > 1e-5 {
+            (p2 - p0) * (dz / (z2 - z0))
+        } else {
+            p2 - p1
+        };
+
+        let m2 = if (z3 - z1).abs() > 1e-5 {
+            (p3 - p1) * (dz / (z3 - z1))
+        } else {
+            p2 - p1
+        };
+
+        crate::bezier::evaluate_cubic_hermite_derivative(p1, p2, m1, m2, self.lerp_factor)
     }
 }
 
@@ -917,6 +1009,56 @@ mod tests {
         );
 
         println!("✅ test_cross_section_blend_hermite passed.");
+    }
+
+        #[test]
+    fn test_blend_derivatives_u_and_z() {
+        let cs1 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(2.5, 0.0, 10.0)],
+            tangents2: vec![Vec3::new(2.5, 0.0, 10.0), Vec3::ZERO],
+            ..Default::default()
+        };
+        let cs2 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 5.0, 20.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(5.0, 2.5, 20.0)],
+            tangents2: vec![Vec3::new(5.0, 2.5, 20.0), Vec3::ZERO],
+            ..Default::default()
+        };
+        let cs3 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(5.0, 0.0, 30.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(2.5, 0.0, 30.0)],
+            tangents2: vec![Vec3::new(2.5, 0.0, 30.0), Vec3::ZERO],
+            ..Default::default()
+        };
+
+        let sections = vec![cs1, cs2, cs3];
+        let blend = super::get_cross_section_blend_at_z(&sections, 15.0).unwrap();
+
+        let t_u = 0.5;
+        let delta = 0.0001;
+
+        // Test U Derivative
+        let pt0 = blend.evaluate(t_u);
+        let pt1 = blend.evaluate(t_u + delta);
+        let numeric_du = (pt1 - pt0) / delta;
+        let analytic_du = blend.evaluate_derivative_u(t_u);
+        
+        assert!((numeric_du.x - analytic_du.x).abs() < 1e-2, "U derivative X mismatch: {} vs {}", numeric_du.x, analytic_du.x);
+        assert!((numeric_du.y - analytic_du.y).abs() < 1e-2, "U derivative Y mismatch: {} vs {}", numeric_du.y, analytic_du.y);
+
+        // Test Z (lerp_factor) Derivative
+        let blend_z1 = super::get_cross_section_blend_at_z(&sections, 15.0 + delta * 10.0).unwrap();
+        let pt_z0 = blend.evaluate(t_u);
+        let pt_z1 = blend_z1.evaluate(t_u);
+        
+        let numeric_dz = (pt_z1 - pt_z0) / delta;
+        let analytic_dz = blend.evaluate_derivative_z(t_u);
+
+        assert!((numeric_dz.x - analytic_dz.x).abs() < 1e-2, "Z derivative X mismatch: {} vs {}", numeric_dz.x, analytic_dz.x);
+        assert!((numeric_dz.y - analytic_dz.y).abs() < 1e-2, "Z derivative Y mismatch: {} vs {}", numeric_dz.y, analytic_dz.y);
+
+        println!("✅ test_blend_derivatives_u_and_z passed.");
     }
 
     #[test]
