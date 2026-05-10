@@ -1131,7 +1131,7 @@ mod tests {
         assert_eq!(weights[2], 1.0); // Default initialized
     }
 
-        #[test]
+    #[test]
     fn test_bottom_channels() {
         // Tested under U-space mapping
         let mut model = create_mock_model();

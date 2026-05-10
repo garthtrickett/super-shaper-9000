@@ -388,9 +388,7 @@ fn compute_centripetal_tangents(
     dt1: f32,
     dt2: f32,
 ) -> (Vec3, Vec3) {
-    let m1 = if dt1 < 1e-5 {
-        v2 - v1
-    } else if dt0 < 1e-5 {
+        let m1 = if dt1 < 1e-5 || dt0 < 1e-5 {
         v2 - v1
     } else {
         let d1 = (v1 - v0) / dt0;
@@ -421,7 +419,7 @@ pub struct BlendResult<'a> {
 }
 
 impl<'a> BlendResult<'a> {
-        pub fn evaluate(&self, t_mid: f32) -> Vec3 {
+    pub fn evaluate(&self, t_mid: f32) -> Vec3 {
         let p0 = evaluate_curve(self.s_prev, t_mid);
         let p1 = evaluate_curve(self.s0, t_mid);
         let p2 = evaluate_curve(self.s1, t_mid);
@@ -444,7 +442,7 @@ impl<'a> BlendResult<'a> {
         crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, self.lerp_factor)
     }
 
-        pub fn evaluate_derivative_u(&self, t_mid: f32) -> Vec3 {
+    pub fn evaluate_derivative_u(&self, t_mid: f32) -> Vec3 {
         let dp0 = evaluate_curve_derivative(self.s_prev, t_mid);
         let dp1 = evaluate_curve_derivative(self.s0, t_mid);
         let dp2 = evaluate_curve_derivative(self.s1, t_mid);
@@ -468,7 +466,7 @@ impl<'a> BlendResult<'a> {
         crate::bezier::evaluate_cubic_hermite(dp1, dp2, m1, m2, self.lerp_factor)
     }
 
-        pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
+    pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
         let p0 = evaluate_curve(self.s_prev, t_mid);
         let p1 = evaluate_curve(self.s0, t_mid);
         let p2 = evaluate_curve(self.s1, t_mid);
@@ -858,10 +856,10 @@ pub fn get_point_at_uv(
             let profile = get_board_profile_at_z(model, z_inches, v);
             let apex_x = profile.apex_x.max(0.001);
             chan_x = chan_x.abs();
-                        if chan_x > inner_x && chan_x < apex_x {
+            if chan_x > inner_x && chan_x < apex_x {
                 let mut best_u = 0.0;
                 let mut min_diff = f32::INFINITY;
-                
+
                 for i in 0..=20 {
                     let test_u = (i as f32 / 20.0) * t_apex;
                     let test_pt = get_point_at_uv_base(model, test_u, v, z_inches, inner_x, 1.0);
@@ -871,7 +869,7 @@ pub fn get_point_at_uv(
                         best_u = test_u;
                     }
                 }
-                
+
                 let mut u_search = best_u;
                 let mut step = t_apex / 20.0;
                 for _ in 0..10 {
@@ -882,7 +880,7 @@ pub fn get_point_at_uv(
                     let p_r = get_point_at_uv_base(model, u_r, v, z_inches, inner_x, 1.0);
                     let d_l = (p_l.x - chan_x).abs();
                     let d_r = (p_r.x - chan_x).abs();
-                    
+
                     if d_l < min_diff && d_l <= d_r {
                         min_diff = d_l;
                         u_search = u_l;
@@ -891,11 +889,11 @@ pub fn get_point_at_uv(
                         u_search = u_r;
                     }
                 }
-                
+
                 let u_chan = u_search;
                 let mut channel_applied = false;
                 let mut t = 0.0;
-                
+
                 if u <= u_chan {
                     if u_chan > 0.0 {
                         t = u / u_chan;
@@ -1244,9 +1242,10 @@ mod tests {
         // dz = 10. m1 for Z=10 to Z=20 is based on (X=10 - X=5)/10 * 10 = 5.
         // m2 for Z=20 is based on (X=5 - X=5)/20 * 10 = 0.
         // As a result of Hermite smoothing, the value at midpoint shouldn't just be 7.5 (linear).
-                assert!(
+        assert!(
             (pt.x - 8.125).abs() < 1e-3,
-            "Centripetal midpoint shifted: {}", pt.x
+            "Centripetal midpoint shifted: {}",
+            pt.x
         );
         assert_eq!(
             pt.z, 15.0,
@@ -1256,18 +1255,34 @@ mod tests {
         println!("✅ test_cross_section_blend_hermite passed.");
     }
 
-        #[test]
+    #[test]
     fn test_centripetal_prevents_overshoot() {
-        let cs0 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,0.), Vec3::new(10.,0.,0.)], ..Default::default() };
-        let cs1 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,100.), Vec3::new(10.,0.,100.)], ..Default::default() };
-        let cs2 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,101.), Vec3::new(2.,0.,101.)], ..Default::default() };
-        let cs3 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,102.), Vec3::new(0.,0.,102.)], ..Default::default() };
+        let cs0 = BezierCurveData {
+            control_points: vec![Vec3::new(0., 0., 0.), Vec3::new(10., 0., 0.)],
+            ..Default::default()
+        };
+        let cs1 = BezierCurveData {
+            control_points: vec![Vec3::new(0., 0., 100.), Vec3::new(10., 0., 100.)],
+            ..Default::default()
+        };
+        let cs2 = BezierCurveData {
+            control_points: vec![Vec3::new(0., 0., 101.), Vec3::new(2., 0., 101.)],
+            ..Default::default()
+        };
+        let cs3 = BezierCurveData {
+            control_points: vec![Vec3::new(0., 0., 102.), Vec3::new(0., 0., 102.)],
+            ..Default::default()
+        };
         let sections = vec![cs0, cs1, cs2, cs3];
 
         let blend = get_cross_section_blend_at_z(&sections, 100.5).unwrap();
         let pt = blend.evaluate(1.0);
 
-        assert!(pt.x <= 10.0 && pt.x >= 2.0, "Overshoot detected! X ballooned to {}", pt.x);
+        assert!(
+            pt.x <= 10.0 && pt.x >= 2.0,
+            "Overshoot detected! X ballooned to {}",
+            pt.x
+        );
     }
 
     #[test]
@@ -1303,7 +1318,7 @@ mod tests {
         let numeric_du = (pt1 - pt0) / delta;
         let analytic_du = blend.evaluate_derivative_u(t_u);
 
-                assert!(
+        assert!(
             (numeric_du.x - analytic_du.x).abs() < 1e-1,
             "U derivative X mismatch: {} vs {}",
             numeric_du.x,
@@ -1324,7 +1339,7 @@ mod tests {
         let numeric_dz = (pt_z1 - pt_z0) / delta;
         let analytic_dz = blend.evaluate_derivative_z(t_u);
 
-                assert!(
+        assert!(
             (numeric_dz.x - analytic_dz.x).abs() < 1e-1,
             "Z derivative X mismatch: {} vs {}",
             numeric_dz.x,
@@ -1903,7 +1918,7 @@ mod tests {
         println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
     }
 
-        #[test]
+    #[test]
     fn test_asymmetric_channel_evaluation() {
         // Tested under U-space mapping
         let mut model = BoardModel::default();
@@ -2069,7 +2084,7 @@ mod tests {
         println!("blend at u=0.8: t_apex={}, p={:?}", blend.t_apex, p);
         println!("-------------------------------------------\n");
 
-                assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
+        assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
     }
 
     #[test]
@@ -2085,19 +2100,18 @@ mod tests {
         });
         model.rocker_top = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
             ..Default::default()
         });
         model.rocker_bottom = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
             ..Default::default()
         });
         model.cross_sections = vec![BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, -1.0, 0.0),
-                Vec3::new(10.0, 0.0, 0.0),
-            ],
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(5.0, -0.5, 0.0)],
             tangents2: vec![Vec3::new(5.0, -0.5, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             ..Default::default()
@@ -2126,7 +2140,7 @@ mod tests {
         let z = 75.0;
         let u_chan = 0.25;
         let v = 0.75;
-        
+
         let pt_base = super::get_point_at_uv_base(&model, u_chan, v, z, 0.0, 1.0);
         let pt_chan = super::get_point_at_uv(&model, u_chan, v, z, 0.0, 1.0);
 
