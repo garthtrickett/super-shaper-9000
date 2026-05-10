@@ -18,7 +18,8 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) cantAngle = 6.0;
   @property({ type: String }) coreMaterial = "pu";
   @property({ type: String }) glassingSchedule = "heavy";
-  @property({ type: Boolean }) showGizmos = true;
+    @property({ type: Boolean }) showGizmos = true;
+  @property({ type: Boolean }) showSolidMesh = true;
   @property({ type: Boolean }) showHeatmap = false;
   @property({ type: Boolean }) showZebra = false;
   @property({ type: Boolean }) showApexLine = false;
@@ -280,7 +281,8 @@ export class BoardControls extends LitElement {
             <input type="checkbox" .checked=${this.showGizmos} @change=${(e: Event) => this._dispatchBoolean('showGizmos', (e.target as HTMLInputElement).checked)} class="w-4 h-4 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
           </label>
           <div class="h-px bg-zinc-800 my-2"></div>
-          ${[
+                    ${[
+            { label: "Solid Mesh", key: "showSolidMesh" },
             { label: "Outline", key: "showOutline" },
             { label: "Rocker Top", key: "showRockerTop" },
             { label: "Rocker Bottom", key: "showRockerBottom" },

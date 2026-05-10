@@ -95,7 +95,7 @@ export class BoardViewport extends LitElement {
           if (this.boardState[k] !== oldState[k]) {
             if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker'].includes(k)) {
               isManualDragUpdate = true;
-                                                } else if (!['volume', 'selectedNode', 'showGizmos', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition'].includes(k)) {
+                                                                                                } else if (!['volume', 'selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition'].includes(k)) {
               needsFullGeometryUpdate = true;
               isManualDragUpdate = false;
               break;
@@ -114,8 +114,9 @@ export class BoardViewport extends LitElement {
         clearTimeout(this.geometryUpdateDebounceId);
         // Debounce high resolution mesh generation so gizmos drag fluidly!
         this.geometryUpdateDebounceId = window.setTimeout(() => void this._updateGeometry(), 150);
-      } else {
+            } else {
                 if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
+                if (oldState?.showSolidMesh !== this.boardState.showSolidMesh) this.solidGroup.visible = this.boardState.showSolidMesh !== false;
         if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
         if (oldState?.showApexLine !== this.boardState.showApexLine) this.apexLineGroup.visible = !!this.boardState.showApexLine;
                 if (oldState?.showCurvature !== this.boardState.showCurvature) {
@@ -167,10 +168,11 @@ export class BoardViewport extends LitElement {
     }
     FinBuilder.build(this.finGroup, this.boardState, curves, scale);
     GizmoBuilder.build(this.gizmoGroup, this.boardState, curves, scale, this.matAnchor, this.matHandle);
-        this.buildSliceLines(curves, scale);
+            this.buildSliceLines(curves, scale);
     this.buildApexLine(curves, scale);
     CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, scale);
     AnnotationBuilder.build(this.annotationGroup, this.boardState, scale);
+    this.solidGroup.visible = this.boardState?.showSolidMesh !== false;
     this.updateGizmoVisibility();
     this.updateGizmoHighlights();
   }

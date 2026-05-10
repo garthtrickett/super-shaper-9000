@@ -423,8 +423,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             _ => {}
         },
-        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
+                BoardAction::UpdateBoolean { param, value } => match param.as_str() {
             "showGizmos" => model.show_gizmos = Some(value),
+            "showSolidMesh" => model.show_solid_mesh = Some(value),
             "showHeatmap" => {
                 model.show_heatmap = Some(value);
                 if value { model.show_zebra = Some(false); }
@@ -613,8 +614,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                         BoardAction::ImportS3dx { xml } => {
             match crate::s3dx_parser::parse_s3dx(&xml) {
                 Ok(mut parsed_model) => {
-                    // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
+                                        // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
                     parsed_model.show_gizmos = model.show_gizmos;
+                    parsed_model.show_solid_mesh = model.show_solid_mesh;
                     parsed_model.show_heatmap = model.show_heatmap;
                     parsed_model.show_zebra = model.show_zebra;
                     parsed_model.show_apex_line = model.show_apex_line;

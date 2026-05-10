@@ -305,9 +305,10 @@ export class BoardBuilderPage extends LitElement {
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
             this.wasmCtrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
           }}
-          @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
+                    @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
             this.wasmCtrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
+          .showSolidMesh=${state.showSolidMesh ?? true}
           .showHeatmap=${state.showHeatmap ?? false}
           .showZebra=${state.showZebra ?? false}
           .showApexLine=${state.showApexLine ?? false}
