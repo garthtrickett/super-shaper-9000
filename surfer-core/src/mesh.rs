@@ -238,10 +238,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             0.0
         };
 
-        let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, v_outer);
-        let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, v_outer);
-        let local_thickness = 0.0_f32.max(top_pt.y - bot_pt.y);
-        let heat_color = color_heatmap(0.0_f32.max(1.0_f32.min(local_thickness / model.thickness)));
+                let profile = crate::geometry::get_board_profile_at_z(model, z_inches, v_outer);
+        let center_thick = (profile.top_y - profile.bot_y).max(0.001);
+        let rail_thick = (profile.apex_y - profile.bot_y).max(0.0);
+        let foil_ratio = rail_thick / center_thick;
+        
+        // Map foil_ratio: ~0.25 (pinched/blue) to ~0.75 (boxy/red)
+        let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
+        let heat_color = color_heatmap(normalized_foil);
 
         for j in 0..num_cols {
             let (u_val, side, is_stringer) = u_columns[j];

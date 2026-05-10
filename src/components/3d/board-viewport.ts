@@ -177,9 +177,9 @@ export class BoardViewport extends LitElement {
     this.updateGizmoHighlights();
   }
   
-  private buildWireframe(curves: BoardCurves, scale: number) {
-    const matOutline = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.85 });
-    const matRocker = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.85 });
+    private buildWireframe(curves: BoardCurves, scale: number) {
+    const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
+    const matRocker = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
 
     const projectY = (curveName: string, p: Point3D): Point3D => {
       if (!this.boardState || !curves) return p;
@@ -224,9 +224,9 @@ export class BoardViewport extends LitElement {
         return line;
     };
     
-    const matApexOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
-    const matRailOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
-    const matApexRocker = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
+        const matApexOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
+    const matRailOutline = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
+    const matApexRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
 
     const activeApexOutline = this.boardState?.apexOutline
       ? this.sampleBezierCurve(this.boardState.apexOutline, 100).map((p) =>
