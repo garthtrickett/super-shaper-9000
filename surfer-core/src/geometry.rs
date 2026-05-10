@@ -3,6 +3,7 @@ use glam::Vec3;
 // use crate::bezier::evaluate_bezier_cubic;
 
 #[inline]
+#[inline]
 pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
     let num_segments = curve.control_points.len().saturating_sub(1);
     if num_segments == 0 {
@@ -18,8 +19,8 @@ pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
 
     let p0 = curve.control_points[segment_idx];
     let p1 = curve.control_points[segment_idx + 1];
-    let t0 = curve.tangents2[segment_idx];
-    let t1 = curve.tangents1[segment_idx + 1];
+    let t0 = curve.tangents2.get(segment_idx).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+    let t1 = curve.tangents1.get(segment_idx + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
 
     let weights = curve.weights.as_ref().and_then(|w| {
         if w.len() > segment_idx + 1 {
@@ -39,6 +40,7 @@ pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
 }
 
 #[inline]
+#[inline]
 pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
     let num_segments = curve.control_points.len().saturating_sub(1);
     if num_segments == 0 {
@@ -53,8 +55,8 @@ pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
 
     let p0 = curve.control_points[segment_idx];
     let p1 = curve.control_points[segment_idx + 1];
-    let t0 = curve.tangents2[segment_idx];
-    let t1 = curve.tangents1[segment_idx + 1];
+    let t0 = curve.tangents2.get(segment_idx).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+    let t1 = curve.tangents1.get(segment_idx + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
 
     let weights = curve.weights.as_ref().and_then(|w| {
         if w.len() > segment_idx + 1 {
@@ -388,7 +390,7 @@ fn compute_centripetal_tangents(
     dt1: f32,
     dt2: f32,
 ) -> (Vec3, Vec3) {
-        let m1 = if dt1 < 1e-5 || dt0 < 1e-5 {
+    let m1 = if dt1 < 1e-5 || dt0 < 1e-5 {
         v2 - v1
     } else {
         let d1 = (v1 - v0) / dt0;
