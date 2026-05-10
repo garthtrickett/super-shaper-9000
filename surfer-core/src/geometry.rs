@@ -858,16 +858,51 @@ pub fn get_point_at_uv(
             let profile = get_board_profile_at_z(model, z_inches, v);
             let apex_x = profile.apex_x.max(0.001);
             chan_x = chan_x.abs();
-            if chan_x > inner_x && chan_x < apex_x {
+                        if chan_x > inner_x && chan_x < apex_x {
+                let mut best_u = 0.0;
+                let mut min_diff = f32::INFINITY;
+                
+                for i in 0..=20 {
+                    let test_u = (i as f32 / 20.0) * t_apex;
+                    let test_pt = get_point_at_uv_base(model, test_u, v, z_inches, inner_x, 1.0);
+                    let diff = (test_pt.x - chan_x).abs();
+                    if diff < min_diff {
+                        min_diff = diff;
+                        best_u = test_u;
+                    }
+                }
+                
+                let mut u_search = best_u;
+                let mut step = t_apex / 20.0;
+                for _ in 0..10 {
+                    step *= 0.5;
+                    let u_l = 0.0_f32.max(u_search - step);
+                    let u_r = t_apex.min(u_search + step);
+                    let p_l = get_point_at_uv_base(model, u_l, v, z_inches, inner_x, 1.0);
+                    let p_r = get_point_at_uv_base(model, u_r, v, z_inches, inner_x, 1.0);
+                    let d_l = (p_l.x - chan_x).abs();
+                    let d_r = (p_r.x - chan_x).abs();
+                    
+                    if d_l < min_diff && d_l <= d_r {
+                        min_diff = d_l;
+                        u_search = u_l;
+                    } else if d_r < min_diff {
+                        min_diff = d_r;
+                        u_search = u_r;
+                    }
+                }
+                
+                let u_chan = u_search;
                 let mut channel_applied = false;
                 let mut t = 0.0;
-                if final_pos.x.abs() <= chan_x {
-                    if chan_x > inner_x {
-                        t = (final_pos.x.abs() - inner_x) / (chan_x - inner_x);
+                
+                if u <= u_chan {
+                    if u_chan > 0.0 {
+                        t = u / u_chan;
                         channel_applied = true;
                     }
-                } else if apex_x > chan_x {
-                    t = 1.0 - (final_pos.x.abs() - chan_x) / (apex_x - chan_x);
+                } else if t_apex > u_chan {
+                    t = 1.0 - (u - u_chan) / (t_apex - u_chan);
                     channel_applied = true;
                 }
 
@@ -1868,8 +1903,9 @@ mod tests {
         println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
     }
 
-    #[test]
+        #[test]
     fn test_asymmetric_channel_evaluation() {
+        // Tested under U-space mapping
         let mut model = BoardModel::default();
         use crate::model::ChannelLayer;
 
@@ -2033,6 +2069,79 @@ mod tests {
         println!("blend at u=0.8: t_apex={}, p={:?}", blend.t_apex, p);
         println!("-------------------------------------------\n");
 
-        assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
+                assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
+    }
+
+    #[test]
+    fn test_channel_projection_on_v_tail() {
+        use crate::model::ChannelLayer;
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO], tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+            ],
+            tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(5.0, -0.5, 0.0)],
+            tangents2: vec![Vec3::new(5.0, -0.5, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            ..Default::default()
+        }];
+        model.v_concave_tail = 5.0;
+
+        model.bottom_channels = Some(vec![ChannelLayer {
+            name: "V-Tail Channel".to_string(),
+            is_symmetric: true,
+            left_outline: BezierCurveData::default(),
+            right_outline: BezierCurveData {
+                control_points: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)],
+                tangents1: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 66.6667)],
+                tangents2: vec![Vec3::new(5.0, 0.0, 33.3333), Vec3::new(5.0, 0.0, 100.0)],
+                ..Default::default()
+            },
+            left_depth: BezierCurveData::default(),
+            right_depth: BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+                tangents1: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 66.6667)],
+                tangents2: vec![Vec3::new(0.0, 1.0, 33.3333), Vec3::new(0.0, 1.0, 100.0)],
+                ..Default::default()
+            },
+        }]);
+
+        let z = 75.0;
+        let u_chan = 0.25;
+        let v = 0.75;
+        
+        let pt_base = super::get_point_at_uv_base(&model, u_chan, v, z, 0.0, 1.0);
+        let pt_chan = super::get_point_at_uv(&model, u_chan, v, z, 0.0, 1.0);
+
+        let dx = (pt_chan.x - pt_base.x).abs();
+        let dy = (pt_chan.y - pt_base.y).abs();
+
+        assert!(
+            dx > 0.05,
+            "Channel on V-Tail must project along the normal, moving the X coordinate. dx = {}",
+            dx
+        );
+        assert!(
+            dy > 0.05,
+            "Channel on V-Tail must project along the normal, moving the Y coordinate. dy = {}",
+            dy
+        );
     }
 }
