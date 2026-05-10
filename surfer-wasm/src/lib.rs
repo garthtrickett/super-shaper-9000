@@ -15,6 +15,12 @@ pub struct WasmEngine {
     engine: SurferEngine,
 }
 
+impl Default for WasmEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl WasmEngine {
     #[wasm_bindgen(constructor)]
@@ -123,10 +129,10 @@ impl WasmEngine {
         Ok(Float32Array::from(stats.as_slice()).into())
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn export_s3dx(&self) -> Result<String, JsValue> {
         Ok(surfer_core::s3dx_exporter::export_s3dx(
-            &self.engine.get_model(),
+            self.engine.get_model(),
         ))
     }
 }
