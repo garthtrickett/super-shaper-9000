@@ -110,7 +110,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let segments_v = z_rings.len() - 1;
 
-    // Adaptive Crosswise (U) Columns
+        // Adaptive Crosswise (U) Columns
     let mut base_u = Vec::new();
     let tolerance_degrees_u = 3.0;
     let min_dist_u = 0.05;
@@ -118,6 +118,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         for t in crate::bezier::adaptive_sample_t(cs, tolerance_degrees_u, min_dist_u) {
             base_u.push(t);
         }
+        let t_apex = crate::geometry::find_apex_t(cs);
+        base_u.push(t_apex);
+        base_u.push(0.01_f32.max(t_apex * 0.5)); // t_tuck
     }
     base_u.push(0.0);
     base_u.push(1.0);
@@ -1222,7 +1225,7 @@ mod tests {
         u_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
         u_vals.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
 
-        let mut found_cliff = false;
+                let mut found_cliff = false;
         for i in 0..u_vals.len() - 1 {
             let diff = (u_vals[i + 1] - u_vals[i]).abs();
             // Confirm there are U-rings extremely close together (cliff) but not overlapping
@@ -1235,6 +1238,28 @@ mod tests {
             found_cliff,
             "Topology should duplicate U-columns around the channel wall cliff"
         );
+        
+        // Assert channel depths are normal-projected, preventing X footprint widening
+        let mut max_x = 0.0_f32;
+        let scale = 1.0 / 12.0;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
+            // Check within the channel region
+            if z > 25.0 * scale && z < 75.0 * scale {
+                if x > max_x {
+                    max_x = x;
+                }
+            }
+        }
+        
+        let outline_x_at_50 = crate::geometry::evaluate_composite_outline_at_z(&model, 50.0, 0.5).x * scale;
+        assert!(
+            max_x <= outline_x_at_50 + 1e-3,
+            "Channel projection must not widen the board's X footprint. Max X: {}, Outline X: {}",
+            max_x, outline_x_at_50
+        );
+
         println!("✅ test_channel_u_column_clustering passed.");
     }
 
