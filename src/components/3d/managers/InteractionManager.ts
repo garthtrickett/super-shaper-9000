@@ -40,6 +40,10 @@ export class InteractionManager {
     this.canvas.addEventListener("pointerleave", this.onPointerUp);
   }
 
+    public isDragging(): boolean {
+    return this.draggedGizmo !== null;
+  }
+
   public dispose() {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.removeEventListener("pointermove", this.onPointerMove);

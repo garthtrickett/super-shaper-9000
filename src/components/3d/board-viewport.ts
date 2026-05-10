@@ -74,16 +74,12 @@ export class BoardViewport extends LitElement {
     });
   }
 
-    override updated(changedProperties: PropertyValues) {
-        let shouldUpdateGeom = false;
-    if (changedProperties.has("meshData") && this.meshData) {
-      shouldUpdateGeom = true;
-    }
+        override updated(changedProperties: PropertyValues) {
     if (changedProperties.has("curvatureCombs") && this.curvatureCombs) {
       CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
     }
     
-    if (changedProperties.has("boardState") && this.boardState) {
+        if (changedProperties.has("boardState") && this.boardState) {
       this.interactionManager?.setBoardState(this.boardState);
       const oldState = changedProperties.get("boardState") as BoardModel | undefined;
       let needsFullGeometryUpdate = false;
@@ -92,10 +88,20 @@ export class BoardViewport extends LitElement {
       if (oldState) {
         for (const key in this.boardState) {
           const k = key as keyof BoardModel;
-          if (this.boardState[k] !== oldState[k]) {
-                        if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker', 'deckShoulder'].includes(k)) {
+          if (k === 'history' || k === 'historyIndex') continue;
+
+          const isComplex = typeof this.boardState[k] === 'object' && this.boardState[k] !== null;
+          let changed = false;
+          if (isComplex) {
+            changed = JSON.stringify(this.boardState[k]) !== JSON.stringify(oldState[k]);
+          } else {
+            changed = this.boardState[k] !== oldState[k];
+          }
+
+          if (changed) {
+            if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker', 'deckShoulder', 'outlineLayers', 'bottomChannels'].includes(k)) {
               isManualDragUpdate = true;
-                                                                                                } else if (!['volume', 'selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition'].includes(k)) {
+            } else if (!['volume', 'selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition'].includes(k)) {
               needsFullGeometryUpdate = true;
               isManualDragUpdate = false;
               break;
@@ -106,20 +112,30 @@ export class BoardViewport extends LitElement {
         needsFullGeometryUpdate = true;
       }
 
-            if (needsFullGeometryUpdate || shouldUpdateGeom) {
+      let shouldUpdateSolidMesh = false;
+      if (changedProperties.has("meshData") && this.meshData) {
+        shouldUpdateSolidMesh = true;
+      }
+
+      if (needsFullGeometryUpdate) {
         clearTimeout(this.geometryUpdateDebounceId);
         void this._updateGeometry();
       } else if (isManualDragUpdate) {
         this._updateGizmoPositionsFromState();
+        if (shouldUpdateSolidMesh) {
+          this._updateSolidMeshOnly();
+        }
         clearTimeout(this.geometryUpdateDebounceId);
-        // Debounce high resolution mesh generation so gizmos drag fluidly!
         this.geometryUpdateDebounceId = window.setTimeout(() => void this._updateGeometry(), 150);
-            } else {
-                if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
-                if (oldState?.showSolidMesh !== this.boardState.showSolidMesh) this.solidGroup.visible = this.boardState.showSolidMesh !== false;
-        if (oldState?.selectedNode !== this.boardState.selectedNode) this.updateGizmoHighlights();
+      } else {
+        if (shouldUpdateSolidMesh) {
+          this._updateSolidMeshOnly();
+        }
+        if (oldState?.showGizmos !== this.boardState.showGizmos) this.updateGizmoVisibility();
+        if (oldState?.showSolidMesh !== this.boardState.showSolidMesh) this.solidGroup.visible = this.boardState.showSolidMesh !== false;
+        if (JSON.stringify(oldState?.selectedNode) !== JSON.stringify(this.boardState.selectedNode)) this.updateGizmoHighlights();
         if (oldState?.showApexLine !== this.boardState.showApexLine) this.apexLineGroup.visible = !!this.boardState.showApexLine;
-                if (oldState?.showCurvature !== this.boardState.showCurvature) {
+        if (oldState?.showCurvature !== this.boardState.showCurvature) {
           CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
         }
       }
@@ -136,6 +152,18 @@ export class BoardViewport extends LitElement {
         this.mriClippingPlane.constant = 1000; // Disable clipping by moving plane far away
       }
     }
+  }
+
+    private _updateSolidMeshOnly() {
+    if (!this.meshData) return;
+    const scale = 1 / 12;
+    while (this.solidGroup.children.length > 0) {
+        const child = this.solidGroup.children[0] as THREE.Mesh;
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+        this.solidGroup.remove(child);
+    }
+    this.buildSolidMeshFromRust(this.meshData, scale);
   }
 
   private async _updateGeometry() {
@@ -166,9 +194,11 @@ export class BoardViewport extends LitElement {
     } else {
       this.buildSolidMesh(curves, scale);
     }
-    FinBuilder.build(this.finGroup, this.boardState, curves, scale);
-    GizmoBuilder.build(this.gizmoGroup, this.boardState, curves, scale, this.matAnchor, this.matHandle);
-            this.buildSliceLines(curves, scale);
+        FinBuilder.build(this.finGroup, this.boardState, curves, scale);
+    if (!this.interactionManager?.isDragging()) {
+      GizmoBuilder.build(this.gizmoGroup, this.boardState, curves, scale, this.matAnchor, this.matHandle);
+    }
+    this.buildSliceLines(curves, scale);
     this.buildApexLine(curves, scale);
     CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, scale);
     AnnotationBuilder.build(this.annotationGroup, this.boardState, scale);
