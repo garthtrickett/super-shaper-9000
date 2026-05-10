@@ -268,7 +268,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         grid.push(ring);
     }
 
-        let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
+    let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
     let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
 
     let mut normals = Vec::new();
@@ -830,7 +830,7 @@ mod tests {
         }
 
         let n_bot_idx = nose_bot_idx.expect("Should find bottom nose vertex");
-                let retrieved_n_bot = Vec3::new(
+        let retrieved_n_bot = Vec3::new(
             mesh.normals[n_bot_idx * 3],
             mesh.normals[n_bot_idx * 3 + 1],
             mesh.normals[n_bot_idx * 3 + 2],
@@ -1262,7 +1262,7 @@ mod tests {
 
         let mesh = super::generate_mesh(&model);
 
-                let scale = 1.0 / 12.0;
+        let scale = 1.0 / 12.0;
         let mut split_normals_found = false;
 
         for i in 0..(mesh.vertices.len() / 3) {
@@ -1405,7 +1405,7 @@ mod tests {
 
         let mesh = super::generate_mesh(&model);
 
-                let scale = 1.0 / 12.0;
+        let scale = 1.0 / 12.0;
         let target_z = 70.0 * scale;
 
         let mut normals_at_cliff = Vec::new();
@@ -1425,16 +1425,18 @@ mod tests {
             !normals_at_cliff.is_empty(),
             "Should have detected normals at the vertical cliff"
         );
-        
+
         let mut min_dot = 1.0_f32;
         if normals_at_cliff.len() >= 2 {
             let n0 = normals_at_cliff[0];
             for n in &normals_at_cliff[1..] {
                 let d = n0.dot(*n);
-                if d < min_dot { min_dot = d; }
+                if d < min_dot {
+                    min_dot = d;
+                }
             }
         }
-        
+
         // At the wing discontinuity, normals should abruptly change direction.
         assert!(
             min_dot < 0.99,
