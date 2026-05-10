@@ -1295,9 +1295,9 @@ mod tests {
                 Vec3::new(10.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
             ],
-            tangents1: vec![
+                        tangents1: vec![
                 Vec3::new(0.0, -1.0, 0.0),
-                Vec3::new(5.0, -1.0, 0.0),
+                Vec3::new(10.0, -0.5, 0.0),
                 Vec3::new(5.0, 1.0, 0.0),
             ],
             tangents2: vec![

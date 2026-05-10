@@ -148,8 +148,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
                         let chan_x =
                             crate::geometry::evaluate_bezier_at_z(outline_curve, *z, 0.5).x;
-                        let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5);
-                                                let blend = crate::geometry::get_cross_section_blend_at_z(
+                        // let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5);
+                        let blend = crate::geometry::get_cross_section_blend_at_z(
                             &model.cross_sections,
                             *z,
                         );

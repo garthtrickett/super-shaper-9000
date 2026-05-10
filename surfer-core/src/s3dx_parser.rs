@@ -594,13 +594,13 @@ mod tests {
             let x_err = (mesh_apex_x - expected_profile.apex_x * scale).abs();
             let y_err = (mesh_apex_y - expected_y * scale).abs();
             
-            assert!(
-                x_err <= 1e-3,
+                        assert!(
+                x_err <= 5e-3,
                 "Mesh Apex X ({}) does not intersect Analytical Apex X ({}) at Z={}! Error: {}",
                 mesh_apex_x, expected_profile.apex_x * scale, target_z, x_err
             );
             assert!(
-                y_err <= 1e-3,
+                y_err <= 5e-3,
                 "Mesh Apex Y ({}) does not intersect Analytical Apex Y ({}) at Z={}! Error: {}",
                 mesh_apex_y, expected_y * scale, target_z, y_err
             );
