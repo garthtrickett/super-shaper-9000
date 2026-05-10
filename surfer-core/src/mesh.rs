@@ -149,7 +149,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         let chan_x =
                             crate::geometry::evaluate_bezier_at_z(outline_curve, *z, 0.5).x;
                         let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5);
-                        let blend = crate::geometry::get_cross_section_blend_at_z(
+                                                let blend = crate::geometry::get_cross_section_blend_at_z(
                             &model.cross_sections,
                             *z,
                         );
@@ -159,13 +159,35 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                             } else {
                                 0.0
                             };
-                            let current_width = profile.apex_x - inner_x;
-                            if current_width > 1e-4 {
-                                let norm_x = (chan_x.abs() - inner_x) / current_width;
-                                let approx_u = b.t_apex * norm_x;
-                                let cu = approx_u.clamp(0.0, b.t_apex);
-                                cliff_us.push(cu);
+                            let mut best_u = 0.0;
+                            let mut min_diff = f32::INFINITY;
+                            let v_outer = crate::geometry::find_v_at_z(outline, *z, 0.0, v_tip);
+                            for i in 0..=50 {
+                                let test_u = i as f32 / 50.0 * b.t_apex;
+                                let test_pt = crate::geometry::get_point_at_uv_base(model, test_u, v_outer, *z, inner_x, 1.0);
+                                let diff = (test_pt.x - chan_x.abs()).abs();
+                                if diff < min_diff {
+                                    min_diff = diff;
+                                    best_u = test_u;
+                                }
                             }
+                            let mut u_search = best_u;
+                            let mut step = b.t_apex / 50.0;
+                            for _ in 0..10 {
+                                step *= 0.5;
+                                let u_left = (u_search - step).max(0.0);
+                                let u_right = (u_search + step).min(b.t_apex);
+                                let pt_left = crate::geometry::get_point_at_uv_base(model, u_left, v_outer, *z, inner_x, 1.0);
+                                let pt_right = crate::geometry::get_point_at_uv_base(model, u_right, v_outer, *z, inner_x, 1.0);
+                                if (pt_left.x - chan_x.abs()).abs() < min_diff {
+                                    min_diff = (pt_left.x - chan_x.abs()).abs();
+                                    u_search = u_left;
+                                } else if (pt_right.x - chan_x.abs()).abs() < min_diff {
+                                    min_diff = (pt_right.x - chan_x.abs()).abs();
+                                    u_search = u_right;
+                                }
+                            }
+                            cliff_us.push(u_search);
                         }
                     }
                 }

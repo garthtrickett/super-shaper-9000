@@ -668,10 +668,24 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         }
     }
 
-    let mut tuck_x = outline_pt.x.max(0.0);
+        let mut tuck_x = outline_pt.x.max(0.0);
+    let mut has_rail_outline = false;
     if let Some(ro) = &model.rail_outline {
         if !ro.control_points.is_empty() {
             tuck_x = (evaluate_bezier_at_z(ro, z_inches, hint_t).x + outline_delta).max(0.0);
+            has_rail_outline = true;
+        }
+    }
+    if !has_rail_outline {
+        if let Some(b) = &blend {
+            let p_bot = b.evaluate(0.0);
+            let p_apex = b.evaluate(b.t_apex);
+            let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+            let p_tuck = b.evaluate(t_tuck);
+            let slice_width = p_apex.x - p_bot.x;
+            if slice_width.abs() > 1e-5 {
+                tuck_x = outline_pt.x.max(0.0) * ((p_tuck.x - p_bot.x) / slice_width);
+            }
         }
     }
 

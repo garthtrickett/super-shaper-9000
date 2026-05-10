@@ -575,10 +575,24 @@ mod tests {
             let bounds = crate::geometry::get_board_bounds(&model);
             let v_outer = crate::geometry::find_v_at_z(outline, eval_z, 0.0, bounds.tip_t);
             
-            let expected_profile = crate::geometry::get_board_profile_at_z(&model, eval_z, v_outer);
+                        let expected_profile = crate::geometry::get_board_profile_at_z(&model, eval_z, v_outer);
+            
+            let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+            let dist = eval_z - mid_z;
+            let rail_coeff = if dist > 0.0 {
+                let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
+                let ease_t = t * t * (3.0 - 2.0 * t);
+                1.0 + (model.rail_coefficient_tail - 1.0) * ease_t
+            } else {
+                let t = ((-dist) / (mid_z - bounds.nose_z)).clamp(0.0, 1.0);
+                let ease_t = t * t * (3.0 - 2.0 * t);
+                1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
+            };
+            
+            let expected_y = expected_profile.bot_y + (expected_profile.apex_y - expected_profile.bot_y) * rail_coeff;
             
             let x_err = (mesh_apex_x - expected_profile.apex_x * scale).abs();
-            let y_err = (mesh_apex_y - expected_profile.apex_y * scale).abs();
+            let y_err = (mesh_apex_y - expected_y * scale).abs();
             
             assert!(
                 x_err <= 1e-3,
@@ -588,7 +602,7 @@ mod tests {
             assert!(
                 y_err <= 1e-3,
                 "Mesh Apex Y ({}) does not intersect Analytical Apex Y ({}) at Z={}! Error: {}",
-                mesh_apex_y, expected_profile.apex_y * scale, target_z, y_err
+                mesh_apex_y, expected_y * scale, target_z, y_err
             );
         }
     }
