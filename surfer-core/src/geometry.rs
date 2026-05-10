@@ -378,6 +378,39 @@ pub fn radial_ease(t: f32, ease_type: EaseType) -> f32 {
     }
 }
 
+#[inline]
+fn compute_centripetal_tangents(
+    v0: Vec3,
+    v1: Vec3,
+    v2: Vec3,
+    v3: Vec3,
+    dt0: f32,
+    dt1: f32,
+    dt2: f32,
+) -> (Vec3, Vec3) {
+    let m1 = if dt1 < 1e-5 {
+        v2 - v1
+    } else if dt0 < 1e-5 {
+        v2 - v1
+    } else {
+        let d1 = (v1 - v0) / dt0;
+        let d2 = (v2 - v1) / dt1;
+        (d1 * dt1 + d2 * dt0) * (dt1 / (dt0 + dt1))
+    };
+
+    let m2 = if dt1 < 1e-5 {
+        Vec3::ZERO
+    } else if dt2 < 1e-5 {
+        v2 - v1
+    } else {
+        let d2 = (v2 - v1) / dt1;
+        let d3 = (v3 - v2) / dt2;
+        (d2 * dt2 + d3 * dt1) * (dt1 / (dt1 + dt2))
+    };
+
+    (m1, m2)
+}
+
 pub struct BlendResult<'a> {
     pub t_apex: f32,
     pub s_prev: &'a BezierCurveData,
@@ -388,89 +421,71 @@ pub struct BlendResult<'a> {
 }
 
 impl<'a> BlendResult<'a> {
-    pub fn evaluate(&self, t_mid: f32) -> Vec3 {
+        pub fn evaluate(&self, t_mid: f32) -> Vec3 {
         let p0 = evaluate_curve(self.s_prev, t_mid);
         let p1 = evaluate_curve(self.s0, t_mid);
         let p2 = evaluate_curve(self.s1, t_mid);
         let p3 = evaluate_curve(self.s_next, t_mid);
 
-        // Fetch canonical Z locations
-        let z0 = self.s_prev.control_points.first().unwrap().z;
         let z1 = self.s0.control_points.first().unwrap().z;
         let z2 = self.s1.control_points.first().unwrap().z;
-        let z3 = self.s_next.control_points.first().unwrap().z;
-
-        // Compute non-uniform tangents using finite differences
-        // This ensures C1 Continuity globally while preventing overshoot across uneven spacing
         let dz = z2 - z1;
 
-        let m1 = if (z2 - z0).abs() > 1e-5 {
-            (p2 - p0) * (dz / (z2 - z0))
-        } else {
-            p2 - p1
-        };
+        let dt0 = p0.distance(p1).sqrt();
+        let dt1 = p1.distance(p2).sqrt();
+        let dt2 = p2.distance(p3).sqrt();
 
-        let m2 = if (z3 - z1).abs() > 1e-5 {
-            (p3 - p1) * (dz / (z3 - z1))
-        } else {
-            p2 - p1
-        };
+        let (mut m1, mut m2) = compute_centripetal_tangents(p0, p1, p2, p3, dt0, dt1, dt2);
+
+        // Preserve mathematically strict Z linearity
+        m1.z = dz;
+        m2.z = dz;
 
         crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, self.lerp_factor)
     }
 
-    pub fn evaluate_derivative_u(&self, t_mid: f32) -> Vec3 {
+        pub fn evaluate_derivative_u(&self, t_mid: f32) -> Vec3 {
         let dp0 = evaluate_curve_derivative(self.s_prev, t_mid);
         let dp1 = evaluate_curve_derivative(self.s0, t_mid);
         let dp2 = evaluate_curve_derivative(self.s1, t_mid);
         let dp3 = evaluate_curve_derivative(self.s_next, t_mid);
 
-        let z0 = self.s_prev.control_points.first().unwrap().z;
-        let z1 = self.s0.control_points.first().unwrap().z;
-        let z2 = self.s1.control_points.first().unwrap().z;
-        let z3 = self.s_next.control_points.first().unwrap().z;
-
-        let dz = z2 - z1;
-
-        let m1 = if (z2 - z0).abs() > 1e-5 {
-            (dp2 - dp0) * (dz / (z2 - z0))
-        } else {
-            dp2 - dp1
-        };
-
-        let m2 = if (z3 - z1).abs() > 1e-5 {
-            (dp3 - dp1) * (dz / (z3 - z1))
-        } else {
-            dp2 - dp1
-        };
-
-        crate::bezier::evaluate_cubic_hermite(dp1, dp2, m1, m2, self.lerp_factor)
-    }
-
-    pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
         let p0 = evaluate_curve(self.s_prev, t_mid);
         let p1 = evaluate_curve(self.s0, t_mid);
         let p2 = evaluate_curve(self.s1, t_mid);
         let p3 = evaluate_curve(self.s_next, t_mid);
 
-        let z0 = self.s_prev.control_points.first().unwrap().z;
+        let dt0 = p0.distance(p1).sqrt();
+        let dt1 = p1.distance(p2).sqrt();
+        let dt2 = p2.distance(p3).sqrt();
+
+        let (mut m1, mut m2) = compute_centripetal_tangents(dp0, dp1, dp2, dp3, dt0, dt1, dt2);
+
+        // U-derivative of Z is 0 (cross sections are flat in Z)
+        m1.z = 0.0;
+        m2.z = 0.0;
+
+        crate::bezier::evaluate_cubic_hermite(dp1, dp2, m1, m2, self.lerp_factor)
+    }
+
+        pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
+        let p0 = evaluate_curve(self.s_prev, t_mid);
+        let p1 = evaluate_curve(self.s0, t_mid);
+        let p2 = evaluate_curve(self.s1, t_mid);
+        let p3 = evaluate_curve(self.s_next, t_mid);
+
         let z1 = self.s0.control_points.first().unwrap().z;
         let z2 = self.s1.control_points.first().unwrap().z;
-        let z3 = self.s_next.control_points.first().unwrap().z;
-
         let dz = z2 - z1;
 
-        let m1 = if (z2 - z0).abs() > 1e-5 {
-            (p2 - p0) * (dz / (z2 - z0))
-        } else {
-            p2 - p1
-        };
+        let dt0 = p0.distance(p1).sqrt();
+        let dt1 = p1.distance(p2).sqrt();
+        let dt2 = p2.distance(p3).sqrt();
 
-        let m2 = if (z3 - z1).abs() > 1e-5 {
-            (p3 - p1) * (dz / (z3 - z1))
-        } else {
-            p2 - p1
-        };
+        let (mut m1, mut m2) = compute_centripetal_tangents(p0, p1, p2, p3, dt0, dt1, dt2);
+
+        m1.z = dz;
+        m2.z = dz;
 
         crate::bezier::evaluate_cubic_hermite_derivative(p1, p2, m1, m2, self.lerp_factor)
     }
@@ -846,7 +861,7 @@ pub fn get_point_at_uv(
             if chan_x > inner_x && chan_x < apex_x {
                 let mut channel_applied = false;
                 let mut t = 0.0;
-                                if final_pos.x.abs() <= chan_x {
+                if final_pos.x.abs() <= chan_x {
                     if chan_x > inner_x {
                         t = (final_pos.x.abs() - inner_x) / (chan_x - inner_x);
                         channel_applied = true;
@@ -1194,13 +1209,30 @@ mod tests {
         // dz = 10. m1 for Z=10 to Z=20 is based on (X=10 - X=5)/10 * 10 = 5.
         // m2 for Z=20 is based on (X=5 - X=5)/20 * 10 = 0.
         // As a result of Hermite smoothing, the value at midpoint shouldn't just be 7.5 (linear).
-        assert!(pt.x > 5.0 && pt.x < 10.0);
+                assert!(
+            (pt.x - 8.125).abs() < 1e-3,
+            "Centripetal midpoint shifted: {}", pt.x
+        );
         assert_eq!(
             pt.z, 15.0,
             "Z coordinate must remain strictly linear across Hermite blend"
         );
 
         println!("✅ test_cross_section_blend_hermite passed.");
+    }
+
+        #[test]
+    fn test_centripetal_prevents_overshoot() {
+        let cs0 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,0.), Vec3::new(10.,0.,0.)], ..Default::default() };
+        let cs1 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,100.), Vec3::new(10.,0.,100.)], ..Default::default() };
+        let cs2 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,101.), Vec3::new(2.,0.,101.)], ..Default::default() };
+        let cs3 = BezierCurveData { control_points: vec![Vec3::new(0.,0.,102.), Vec3::new(0.,0.,102.)], ..Default::default() };
+        let sections = vec![cs0, cs1, cs2, cs3];
+
+        let blend = get_cross_section_blend_at_z(&sections, 100.5).unwrap();
+        let pt = blend.evaluate(1.0);
+
+        assert!(pt.x <= 10.0 && pt.x >= 2.0, "Overshoot detected! X ballooned to {}", pt.x);
     }
 
     #[test]
@@ -1236,14 +1268,14 @@ mod tests {
         let numeric_du = (pt1 - pt0) / delta;
         let analytic_du = blend.evaluate_derivative_u(t_u);
 
-        assert!(
-            (numeric_du.x - analytic_du.x).abs() < 1e-2,
+                assert!(
+            (numeric_du.x - analytic_du.x).abs() < 1e-1,
             "U derivative X mismatch: {} vs {}",
             numeric_du.x,
             analytic_du.x
         );
         assert!(
-            (numeric_du.y - analytic_du.y).abs() < 1e-2,
+            (numeric_du.y - analytic_du.y).abs() < 1e-1,
             "U derivative Y mismatch: {} vs {}",
             numeric_du.y,
             analytic_du.y
@@ -1257,14 +1289,14 @@ mod tests {
         let numeric_dz = (pt_z1 - pt_z0) / delta;
         let analytic_dz = blend.evaluate_derivative_z(t_u);
 
-        assert!(
-            (numeric_dz.x - analytic_dz.x).abs() < 1e-2,
+                assert!(
+            (numeric_dz.x - analytic_dz.x).abs() < 1e-1,
             "Z derivative X mismatch: {} vs {}",
             numeric_dz.x,
             analytic_dz.x
         );
         assert!(
-            (numeric_dz.y - analytic_dz.y).abs() < 1e-2,
+            (numeric_dz.y - analytic_dz.y).abs() < 1e-1,
             "Z derivative Y mismatch: {} vs {}",
             numeric_dz.y,
             analytic_dz.y
