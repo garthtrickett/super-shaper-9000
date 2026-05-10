@@ -110,28 +110,42 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let segments_v = z_rings.len() - 1;
 
-    // Adaptive Crosswise (U) Columns
-    let mut base_u = Vec::new();
+        // Adaptive Crosswise (U) Columns
+    let mut critical_us = vec![0.0, 1.0];
+    let mut adaptive_us = Vec::new();
     let tolerance_degrees_u = 3.0;
     let min_dist_u = 0.05;
     for cs in &model.cross_sections {
-        for t in crate::bezier::adaptive_sample_t(cs, tolerance_degrees_u, min_dist_u) {
-            base_u.push(t);
-        }
+        adaptive_us.extend(crate::bezier::adaptive_sample_t(cs, tolerance_degrees_u, min_dist_u));
         let t_apex = crate::geometry::find_apex_t(cs);
-        base_u.push(t_apex);
-        base_u.push(0.01_f32.max(t_apex * 0.5)); // t_tuck
+        critical_us.push(t_apex);
+        critical_us.push(0.01_f32.max(t_apex * 0.5)); // t_tuck
     }
-    base_u.push(0.0);
-    base_u.push(1.0);
-    base_u.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    critical_us.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    critical_us.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
 
-    let mut u_params_half = Vec::new();
-    for u in base_u {
-        if u_params_half.is_empty() || u - u_params_half.last().unwrap() > 0.01 {
+    let mut u_params_half = critical_us.clone();
+    for u in adaptive_us {
+        // Only add adaptive sample if it's safely distant from ALL critical points
+        if !critical_us.iter().any(|&cu| (u - cu).abs() < 0.01) {
             u_params_half.push(u);
         }
     }
+    u_params_half.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let mut final_base_u = Vec::new();
+    for u in u_params_half {
+        if final_base_u.is_empty() {
+            final_base_u.push(u);
+        } else {
+            let last = *final_base_u.last().unwrap();
+            let is_critical = critical_us.iter().any(|&cu| (u - cu).abs() < 1e-5);
+            if is_critical || u - last > 0.01 {
+                final_base_u.push(u);
+            }
+        }
+    }
+    let mut u_params_half = final_base_u;
 
     // --- NEW: Channel U-parameter injection ---
     let mut cliff_us = Vec::new();
