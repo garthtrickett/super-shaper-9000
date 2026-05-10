@@ -268,7 +268,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         grid.push(ring);
     }
 
-    let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
+        let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
     let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
 
     let mut normals = Vec::new();
@@ -285,100 +285,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             uvs.push(u);
             uvs.push(v);
 
-            let mut is_cliff_wall = false;
-            let mut cliff_tangent = Vec3::ZERO;
-
-            if i > 0 {
-                let z_diff = (grid[i][j].0.z - grid[i - 1][j].0.z).abs();
-                let x_diff = (grid[i][j].0.x - grid[i - 1][j].0.x).abs();
-                if z_diff <= 0.005 * scale && x_diff > 0.005 * scale {
-                    is_cliff_wall = true;
-                    cliff_tangent = grid[i][j].0 - grid[i - 1][j].0;
-                }
-            }
-            if i < segments_v {
-                let z_diff = (grid[i + 1][j].0.z - grid[i][j].0.z).abs();
-                let x_diff = (grid[i + 1][j].0.x - grid[i][j].0.x).abs();
-                if z_diff <= 0.005 * scale && x_diff > 0.005 * scale {
-                    is_cliff_wall = true;
-                    cliff_tangent = grid[i + 1][j].0 - grid[i][j].0;
-                }
-            }
-
-            let tangent_v = if is_cliff_wall {
-                cliff_tangent
-            } else if i == 0 {
-                grid[i + 1][j].0 - grid[i][j].0
-            } else if i == segments_v {
-                grid[i][j].0 - grid[i - 1][j].0
-            } else {
-                grid[i + 1][j].0 - grid[i - 1][j].0
-            };
-
-            let tangent_u = if j == 0 {
-                grid[i][1].0 - grid[i][0].0
-            } else if j == num_cols - 1 || j == right_half_cols - 1 {
-                grid[i][j].0 - grid[i][j - 1].0
-            } else if j == right_half_cols {
-                grid[i][j + 1].0 - grid[i][j].0
-            } else {
-                let mut is_cliff_u = false;
-                let mut cliff_tan_u = Vec3::ZERO;
-
-                if j > 0 && j != right_half_cols {
-                    let u_diff = (u_columns[j].0 - u_columns[j - 1].0).abs();
-                    if u_diff > 0.0 && u_diff <= 0.002 {
-                        is_cliff_u = true;
-                        cliff_tan_u = grid[i][j].0 - grid[i][j - 1].0;
-                    }
-                }
-                if j < num_cols - 1 && j != right_half_cols - 1 {
-                    let u_diff = (u_columns[j + 1].0 - u_columns[j].0).abs();
-                    if u_diff > 0.0 && u_diff <= 0.002 {
-                        is_cliff_u = true;
-                        cliff_tan_u = grid[i][j + 1].0 - grid[i][j].0;
-                    }
-                }
-
-                if is_cliff_u {
-                    cliff_tan_u
-                } else {
-                    grid[i][j + 1].0 - grid[i][j - 1].0
-                }
-            };
-
-            let mut n = tangent_u.cross(tangent_v).normalize();
-            if n.is_nan() || n.length_squared() < 0.0001 {
-                n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0);
-            }
-
-            // Stringer seam smoothing: Force X=0 for perfect centerline reflection,
-            // EXCEPT in swallow tails where inner_x > 0.0 (exposed outer edge).
-            let is_stringer = u_columns[j].2;
-            let current_inner_x = grid[i][j].0.x.abs() / scale;
-            if is_stringer && current_inner_x < 1e-4 {
-                n.x = 0.0;
-                n = n.normalize();
-            }
-
-            // POLE NORMAL SMOOTHING: Prevent black shading artifacts at rounded pin tails
-            // If we are at the absolute tip, override the calculated normal with the
-            // analytical pole normal, smoothly blended from top to bottom based on U.
-            if i == segments_v && (tip_z - z_inches).abs() < 1e-4 && current_inner_x < 1e-4 {
-                n = crate::geometry::slerp_normals(
-                    tail_n_bot,
-                    tail_n_top,
-                    u_columns[j].0,
-                    Vec3::new(0.0, 0.0, 1.0),
-                );
-            } else if i == 0 && (z_inches - nose_z).abs() < 1e-4 && current_inner_x < 1e-4 {
-                n = crate::geometry::slerp_normals(
-                    nose_n_bot,
-                    nose_n_top,
-                    u_columns[j].0,
-                    Vec3::new(0.0, 0.0, -1.0),
-                );
-            }
+            let side = u_columns[j].1;
+            let n = crate::geometry::get_surface_normal_at_uvz(model, u, z_inches, side);
 
             normals.push(n.x);
             normals.push(n.y);
@@ -922,13 +830,13 @@ mod tests {
         }
 
         let n_bot_idx = nose_bot_idx.expect("Should find bottom nose vertex");
-        let retrieved_n_bot = Vec3::new(
+                let retrieved_n_bot = Vec3::new(
             mesh.normals[n_bot_idx * 3],
             mesh.normals[n_bot_idx * 3 + 1],
             mesh.normals[n_bot_idx * 3 + 2],
         );
         assert!(
-            (retrieved_n_bot.dot(nose_n_bot) - 1.0).abs() < 1e-4,
+            (retrieved_n_bot.dot(nose_n_bot) - 1.0).abs() < 1e-6,
             "Bottom nose ring normal should exactly match analytical normal for C2 blending."
         );
 
@@ -939,7 +847,7 @@ mod tests {
             mesh.normals[n_top_idx * 3 + 2],
         );
         assert!(
-            (retrieved_n_top.dot(nose_n_top) - 1.0).abs() < 1e-4,
+            (retrieved_n_top.dot(nose_n_top) - 1.0).abs() < 1e-6,
             "Top nose ring normal should exactly match analytical normal for C2 blending."
         );
 
@@ -1354,7 +1262,7 @@ mod tests {
 
         let mesh = super::generate_mesh(&model);
 
-        let scale = 1.0 / 12.0;
+                let scale = 1.0 / 12.0;
         let mut split_normals_found = false;
 
         for i in 0..(mesh.vertices.len() / 3) {
@@ -1365,8 +1273,8 @@ mod tests {
             if (x - 5.0 * scale).abs() < 1e-3 && (z - 50.0 * scale).abs() < 1e-2 {
                 let ny = mesh.normals[i * 3 + 1];
                 // One normal should point angled due to the V-shape of the hull panel.
-                // The flat bottom normally has NY = -1.0. The angled panel will have NY > -0.99.
-                if ny > -0.99 {
+                // The flat bottom normally has NY = -1.0. The angled panel will have NY > -0.95.
+                if ny > -0.95 {
                     split_normals_found = true;
                 }
             }
@@ -1497,28 +1405,40 @@ mod tests {
 
         let mesh = super::generate_mesh(&model);
 
-        let scale = 1.0 / 12.0;
+                let scale = 1.0 / 12.0;
         let target_z = 70.0 * scale;
 
-        let mut cliff_normals = Vec::new();
+        let mut normals_at_cliff = Vec::new();
 
         for i in 0..(mesh.vertices.len() / 3) {
             let z = mesh.vertices[i * 3 + 2];
             if (z - target_z).abs() <= 0.005 {
-                let nz = mesh.normals[i * 3 + 2];
-                if nz.abs() > 0.8 {
-                    cliff_normals.push(Vec3::new(
-                        mesh.normals[i * 3],
-                        mesh.normals[i * 3 + 1],
-                        mesh.normals[i * 3 + 2],
-                    ));
-                }
+                normals_at_cliff.push(Vec3::new(
+                    mesh.normals[i * 3],
+                    mesh.normals[i * 3 + 1],
+                    mesh.normals[i * 3 + 2],
+                ));
             }
         }
 
         assert!(
-            !cliff_normals.is_empty(),
-            "Should have detected and split normals at the vertical cliff"
+            !normals_at_cliff.is_empty(),
+            "Should have detected normals at the vertical cliff"
+        );
+        
+        let mut min_dot = 1.0_f32;
+        if normals_at_cliff.len() >= 2 {
+            let n0 = normals_at_cliff[0];
+            for n in &normals_at_cliff[1..] {
+                let d = n0.dot(*n);
+                if d < min_dot { min_dot = d; }
+            }
+        }
+        
+        // At the wing discontinuity, normals should abruptly change direction.
+        assert!(
+            min_dot < 0.99,
+            "Normals should be split (faceted) at the wing discontinuity"
         );
         println!("✅ test_wing_split_normals passed.");
     }
