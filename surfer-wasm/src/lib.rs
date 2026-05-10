@@ -86,6 +86,12 @@ impl WasmEngine {
         Ok(Float32Array::from(profile.as_slice()).into())
     }
 
+        #[wasm_bindgen]
+    pub fn get_foil_stats(&self) -> Result<JsValue, JsValue> {
+        let stats = self.engine.compute_foil_stats();
+        Ok(Float32Array::from(stats.as_slice()).into())
+    }
+
     #[wasm_bindgen]
     pub fn export_s3dx(&self) -> Result<String, JsValue> {
         Ok(surfer_core::s3dx_exporter::export_s3dx(&self.engine.get_model()))

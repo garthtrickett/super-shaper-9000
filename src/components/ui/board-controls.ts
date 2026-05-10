@@ -35,8 +35,9 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) mriSlicePosition = 50.0;
   @property({ type: Number }) vertexCount = 0;
   @property({ type: Number }) triangleCount = 0;
-    @property({ type: Array }) outlineLayers: { name: string }[] = [];
+      @property({ type: Array }) outlineLayers: { name: string }[] =[];
     @property({ type: Array }) bottomChannels: { name: string, isSymmetric?: boolean }[] =[];
+  @property({ type: Object }) foilData?: Float32Array;
 
   // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -255,6 +256,14 @@ export class BoardControls extends LitElement {
             ${this._renderSlider("Slice Position", "mriSlicePosition", 0, 100, 0.1, this.mriSlicePosition, "%")}
           </div>
         ` : ''}
+
+                <!-- Foil Graph -->
+        <div class="mb-6">
+          <label class="flex justify-between items-center text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2">
+            <span>Foil Distribution</span>
+          </label>
+          <foil-graph .data=${this.foilData}></foil-graph>
+        </div>
 
         <!-- Top HUD Panel -->
         <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 grid grid-cols-2 gap-y-4 gap-x-2 shadow-inner">

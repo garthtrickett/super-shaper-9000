@@ -14,15 +14,17 @@ init().then(() => {
     
     // Post initial state back
     const initialState = engine.get_state() as BoardModel;
-    const mesh = engine.get_mesh() as RustMesh;
+        const mesh = engine.get_mesh() as RustMesh;
     const curvatureCombs = engine.get_curvature_combs() as Float32Array;
+    const foilData = engine.get_foil_stats() as Float32Array;
     
         (self as unknown as Worker).postMessage({
         type: "STATE_UPDATED",
         state: initialState,
         mesh: mesh,
-        curvatureCombs: curvatureCombs
-    },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer]);
+        curvatureCombs: curvatureCombs,
+        foilData: foilData
+    },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer, foilData.buffer]);
 }).catch((err: unknown) => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
@@ -68,8 +70,9 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
             }
 
             // 3. Extract Mesh Buffer (Zero-Copy)
-            const mesh = engine.get_mesh() as RustMesh;
+                        const mesh = engine.get_mesh() as RustMesh;
             const curvatureCombs = engine.get_curvature_combs() as Float32Array;
+            const foilData = engine.get_foil_stats() as Float32Array;
 
                                     // 4. Send updated State and Mesh back to Main Thread
             console.info("[BoardWorker] Posting updated state. Channels:", state.bottomChannels?.length || 0);
@@ -77,8 +80,9 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
                 type: "STATE_UPDATED",
                 state,
                 mesh,
-                curvatureCombs
-            },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer]); // Transfer ownership of the buffers
+                curvatureCombs,
+                foilData
+            },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer, foilData.buffer]); // Transfer ownership of the buffers
 
         } catch (err) {
             console.error("[BoardWorker] Error during proposal:", err);

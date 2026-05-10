@@ -8,6 +8,7 @@ import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
 import "../ui/bottom-contour-editor";
+import "../ui/foil-graph";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
@@ -18,9 +19,10 @@ export class BoardBuilderPage extends LitElement {
     @state() private importError = "";
   @state() private importJson = "";
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
-    @state() private showContourEditor = false;
+      @state() private showContourEditor = false;
   @state() private contourZPosition = 20.0;
   @state() private contourSliceData?: Float32Array;
+  @state() private foilData?: Float32Array;
 
   private requestSliceProfile() {
     if (!this.showContourEditor) return;
@@ -30,13 +32,18 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    private _handleWorkerMessage = (e: MessageEvent) => {
-    const data = e.data as { type: string, id?: string, profile?: Float32Array };
+      private _handleWorkerMessage = (e: MessageEvent) => {
+    const data = e.data as { type: string, id?: string, profile?: Float32Array, foilData?: Float32Array };
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
     }
-    if (data.type === "STATE_UPDATED" && this.showContourEditor) {
-      this.requestSliceProfile();
+    if (data.type === "STATE_UPDATED") {
+      if (data.foilData) {
+        this.foilData = data.foilData;
+      }
+      if (this.showContourEditor) {
+        this.requestSliceProfile();
+      }
     }
   };
 
@@ -319,11 +326,12 @@ export class BoardBuilderPage extends LitElement {
           .showRailOutline=${state.showRailOutline ?? true}
           .showApexRocker=${state.showApexRocker ?? true}
                               .showCrossSections=${state.showCrossSections ?? true}
-          .showCurvature=${state.showCurvature ?? false}
+                    .showCurvature=${state.showCurvature ?? false}
           .showMriView=${state.showMriView ?? false}
                     .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
-          .outlineLayers=${state.outlineLayers || []}
+          .outlineLayers=${state.outlineLayers ||[]}
           .bottomChannels=${state.bottomChannels ||[]}
+          .foilData=${this.foilData}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}

@@ -113,6 +113,29 @@ impl SurferEngine {
     }
 
     /// Generates a flat Float32Array-compatible buffer of[x1, y1, z1, x2, y2, z2] segments for curvature combs.
+        /// Returns a flat buffer of[z, center_thickness, rail_thickness] triplets for 2D graphing.
+    pub fn compute_foil_stats(&self) -> Vec<f32> {
+        let mut stats = Vec::new();
+        let bounds = crate::geometry::get_board_bounds(&self.model);
+        let outline = match &self.model.outline {
+            Some(o) => o,
+            None => return stats,
+        };
+        let steps = 50;
+
+        for i in 0..=steps {
+            let f = i as f32 / steps as f32;
+            let z = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * f;
+            let v_outer = crate::geometry::find_v_at_z(outline, z, 0.0, bounds.tip_t);
+            let profile = crate::geometry::get_board_profile_at_z(&self.model, z, v_outer);
+
+            stats.push(z);
+            stats.push((profile.top_y - profile.bot_y).max(0.0)); // Center Thickness
+            stats.push((profile.apex_y - profile.bot_y).max(0.0)); // Rail Thickness
+        }
+        stats
+    }
+
     pub fn compute_curvature_combs(&self) -> Vec<f32> {
         let mut combs = Vec::new();
         if !self.model.show_curvature.unwrap_or(false) {
