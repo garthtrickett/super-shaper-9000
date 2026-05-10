@@ -522,7 +522,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let bounds = get_board_bounds(model);
     let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
     let dist = z_inches - mid_z;
-        let v_concave_add = if dist > 0.0 {
+    let v_concave_add = if dist > 0.0 {
         let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
         model.v_concave_tail * ease_t
@@ -655,7 +655,7 @@ pub fn get_point_at_uv(
     let bounds = get_board_bounds(model);
     let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
     let dist = z_inches - mid_z;
-        let rail_coeff = if dist > 0.0 {
+    let rail_coeff = if dist > 0.0 {
         let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
         1.0 + (model.rail_coefficient_tail - 1.0) * ease_t

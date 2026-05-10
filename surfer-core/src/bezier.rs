@@ -327,7 +327,7 @@ pub fn adaptive_sample_t(
 
     t_values.push(0.0);
 
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn subdivide(
         curve: &BezierCurveData,
         t_start: f32,

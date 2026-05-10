@@ -178,6 +178,7 @@ impl Default for BoardModel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum BoardAction {
     #[serde(rename = "UPDATE_NUMBER")]
     UpdateNumber { param: String, value: f32 },
@@ -187,7 +188,7 @@ pub enum BoardAction {
     UpdateBoolean { param: String, value: bool },
     #[serde(rename = "UPDATE_VOLUME")]
     UpdateVolume { volume: f32 },
-        #[serde(rename = "LOAD_DESIGN")]
+    #[serde(rename = "LOAD_DESIGN")]
     LoadDesign { state: Box<BoardModel> },
     #[serde(rename = "SET_CURVES")]
     #[serde(rename_all = "camelCase")]
@@ -289,7 +290,7 @@ mod serde_vec3_as_array {
     use glam::Vec3;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-        #[allow(clippy::ptr_arg)]
+    #[allow(clippy::ptr_arg)]
     pub fn serialize<S>(vecs: &Vec<Vec3>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,

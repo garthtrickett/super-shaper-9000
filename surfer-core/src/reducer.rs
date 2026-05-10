@@ -228,7 +228,82 @@ fn apply_node_position(
             let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
             let is_layer = curve_name.starts_with("outlineLayer_");
             let is_channel = curve_name.starts_with("channel_");
-                        if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+                pos.x = 0.0;
+            }
+            if is_cross_section || is_outline_type {
+                if is_channel && curve_name.contains("_left_") {
+                    pos.x = pos.x.min(0.0);
+                } else if !is_channel || curve_name.contains("_right_") {
+                    pos.x = pos.x.max(0.0);
+                }
+            }
+        }
+
+        let old_anchor = target.control_points.get(index).cloned();
+        let old_t1 = target.tangents1.get(index).cloned();
+        let old_t2 = target.tangents2.get(index).cloned();
+
+        if node_type == "anchor" {
+            if let Some(old_a) = old_anchor {
+                let delta = pos - old_a;
+                target.control_points[index] = pos;
+                if old_t1.is_some() {
+                    target.tangents1[index] += delta;
+                }
+                if old_t2.is_some() {
+                    target.tangents2[index] += delta;
+                }
+            }
+        } else if node_type == "tangent1" {
+            if let (Some(old_a), Some(_)) = (old_anchor, old_t1) {
+                target.tangents1[index] = pos;
+                if let Some(old_t2_val) = old_t2 {
+                    let dir1 = pos - old_a;
+                    let len1 = dir1.length();
+                    if len1 > 0.001 {
+                        let norm1 = dir1 / len1;
+                        let orig_dist2 = (old_t2_val - old_a).length();
+                        target.tangents2[index] = old_a - (norm1 * orig_dist2);
+                    }
+                }
+            }
+        } else if node_type == "tangent2" {
+            if let (Some(old_a), Some(_)) = (old_anchor, old_t2) {
+                target.tangents2[index] = pos;
+                if let Some(old_t1_val) = old_t1 {
+                    let dir2 = pos - old_a;
+                    let len2 = dir2.length();
+                    if len2 > 0.001 {
+                        let norm2 = dir2 / len2;
+                        let orig_dist1 = (old_t1_val - old_a).length();
+                        target.tangents1[index] = old_a - (norm2 * orig_dist1);
+                    }
+                }
+            }
+        }
+    }
+}
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    node_type: &str,
+    mut pos: Vec3,
+) {
+    let is_cross_section = curve_name.starts_with("crossSection_");
+    let is_outline_type = curve_name == "outline"
+        || curve_name == "apexOutline"
+        || curve_name == "railOutline"
+        || curve_name == "deckShoulder"
+        || curve_name.starts_with("outlineLayer_")
+        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+
+    if let Some(target) = get_curve_mut(model, curve_name) {
+        if node_type == "anchor" {
+            let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
+            let is_layer = curve_name.starts_with("outlineLayer_");
+            let is_channel = curve_name.starts_with("channel_");
+            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
                 pos.x = 0.0;
             }
             if is_cross_section || is_outline_type {
@@ -308,7 +383,62 @@ fn apply_node_exact(
             let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
             let is_layer = curve_name.starts_with("outlineLayer_");
             let is_channel = curve_name.starts_with("channel_");
-                        if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+                pos.x = 0.0;
+            }
+            if is_cross_section || is_outline_type {
+                if is_channel && curve_name.contains("_left_") {
+                    pos.x = pos.x.min(0.0);
+                } else if !is_channel || curve_name.contains("_right_") {
+                    pos.x = pos.x.max(0.0);
+                }
+            }
+            target.control_points[index] = pos;
+        }
+        if let Some(t1) = tangent1 {
+            target.tangents1[index] = t1;
+        }
+        if let Some(t2) = tangent2 {
+            target.tangents2[index] = t2;
+        }
+        if let Some(w) = weight {
+            if target.weights.is_none() {
+                target.weights = Some(vec![1.0; target.control_points.len()]);
+            }
+            if let Some(weights) = &mut target.weights {
+                if index < weights.len() {
+                    weights[index] = w;
+                } else {
+                    weights.resize(target.control_points.len(), 1.0);
+                    weights[index] = w;
+                }
+            }
+        }
+    }
+}
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    anchor: Option<Vec3>,
+    tangent1: Option<Vec3>,
+    tangent2: Option<Vec3>,
+    weight: Option<f32>,
+) {
+    let is_cross_section = curve_name.starts_with("crossSection_");
+    let is_outline_type = curve_name == "outline"
+        || curve_name == "apexOutline"
+        || curve_name == "railOutline"
+        || curve_name == "deckShoulder"
+        || curve_name.starts_with("outlineLayer_")
+        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+
+    if let Some(target) = get_curve_mut(model, curve_name) {
+        if let Some(a) = anchor {
+            let mut pos = a;
+            let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
+            let is_layer = curve_name.starts_with("outlineLayer_");
+            let is_channel = curve_name.starts_with("channel_");
+            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
                 pos.x = 0.0;
             }
             if is_cross_section || is_outline_type {
@@ -373,7 +503,7 @@ fn apply_continuity(
             let dir = anchor - t_src;
             let dist_tgt = (t_tgt - anchor).length();
 
-                        if (level == "G1" || level == "G2") && dir.length_squared() > 1e-6 {
+            if (level == "G1" || level == "G2") && dir.length_squared() > 1e-6 {
                 t_tgt = anchor + dir.normalize() * dist_tgt;
             }
 
@@ -537,7 +667,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         BoardAction::UpdateVolume { volume } => {
             model.volume = volume;
         }
-                BoardAction::LoadDesign { state } => {
+        BoardAction::LoadDesign { state } => {
             *model = *state;
             effects.push(Effect::LogInfo {
                 message: "Rust Engine: LOAD_DESIGN applied.".to_string(),
@@ -594,7 +724,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                                        let is_sym = model
+                    let is_sym = model
                         .bottom_channels
                         .as_ref()
                         .and_then(|c| c.get(idx))
@@ -635,7 +765,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                                        let is_sym = model
+                    let is_sym = model
                         .bottom_channels
                         .as_ref()
                         .and_then(|c| c.get(idx))
@@ -674,7 +804,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                                        let is_sym = model
+                    let is_sym = model
                         .bottom_channels
                         .as_ref()
                         .and_then(|c| c.get(idx))
