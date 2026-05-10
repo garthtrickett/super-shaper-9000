@@ -64,8 +64,10 @@
           curl
 
                     # --- RUST / WASM ---
-          rustc
+                    rustc
           cargo
+          clippy
+          rustfmt
           rust-analyzer
           wasm-pack
           wasm-bindgen-cli
@@ -123,8 +125,12 @@
 
                     echo "✅ QEMU_LD_PREFIX set to allow unpatched x86_64 AAPT2 execution."
 
-          # --- RUST WASM TARGET ---
-          rustup target add wasm32-unknown-unknown 2>/dev/null || echo "⚠️ Please run 'rustup toolchain install stable' first if rustup is not configured."
+                    # --- RUST TOOLCHAIN SETUP ---
+          # Ensure components are available if using rustup, otherwise Nix packages handle it
+          if command -v rustup > /dev/null; then
+            rustup target add wasm32-unknown-unknown 2>/dev/null || true
+            rustup component add clippy rustfmt 2>/dev/null || true
+          fi
           
           # Clean up any stale gradle daemons to ensure they pick up the new env vars
           ${pkgs.gradle}/bin/gradle --stop >/dev/null 2>&1 || true
