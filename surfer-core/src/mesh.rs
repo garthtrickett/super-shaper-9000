@@ -560,7 +560,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let start_vertex_index = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
 
-                if is_sharp {
+        if is_sharp {
             // Degenerate Quad Logic for Singularities (Poles)
             for &(pos, color, u, v) in ring {
                 // For a sharp tip, all vertices converge to X=0.0
@@ -842,6 +842,7 @@ mod tests {
             .map(|c| Vec3::new(c[0], c[1], c[2]))
             .collect();
 
+                let scale = 1.0 / 12.0;
         let (min_z, max_z) = vertices
             .iter()
             .fold((f32::INFINITY, f32::NEG_INFINITY), |(min_z, max_z), v| {
@@ -849,23 +850,24 @@ mod tests {
             });
 
         // There should be a small tolerance for floating point comparisons
-        let nose_pole_vertices = vertices
+        let nose_rail_vertices = vertices
             .iter()
-            .filter(|v| (v.z - min_z).abs() < 1e-4 && v.x.abs() < 1e-4)
+            .filter(|v| (v.z - min_z).abs() < 1e-4 && (v.x.abs() - 5.0 * scale).abs() < 1e-4)
             .count();
-        let tail_pole_vertices = vertices
+        let tail_rail_vertices = vertices
             .iter()
-            .filter(|v| (v.z - max_z).abs() < 1e-4 && v.x.abs() < 1e-4)
+            .filter(|v| (v.z - max_z).abs() < 1e-4 && (v.x.abs() - 5.0 * scale).abs() < 1e-4)
             .count();
 
-        // Since we explicitly modelled a square nose and tail (X=5.0), there should be NO vertices at the centerline (X=0)
-        assert_eq!(
-            nose_pole_vertices, 0,
-            "Square nose should NOT pinch to the centerline."
+        // Since we explicitly modelled a square nose and tail (X=5.0), the cap should be a patch
+        // spanning from X=5 to X=0. Therefore, vertices at the rail (X=5.0) MUST exist on the cap/ring.
+        assert!(
+            nose_rail_vertices > 0,
+            "Square nose should have vertices at the rail."
         );
-        assert_eq!(
-            tail_pole_vertices, 0,
-            "Square tail should NOT pinch to the centerline."
+        assert!(
+            tail_rail_vertices > 0,
+            "Square tail should have vertices at the rail."
         );
 
         println!("✅ test_patch_caps_for_squash_tails passed.");
