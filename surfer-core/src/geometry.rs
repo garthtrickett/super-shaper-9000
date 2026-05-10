@@ -708,7 +708,150 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     }
 }
 
+pub fn get_point_at_uv_base(
+    model: &BoardModel,
+    u: f32,
+    v: f32,
+    z_inches: f32,
+    inner_x: f32,
+    side: f32,
+) -> Vec3 {
+    let profile = get_board_profile_at_z(model, z_inches, v);
+    let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+
+    if blend.is_none() {
+        let py = profile.bot_y + (profile.top_y - profile.bot_y) * u;
+        return Vec3::new(profile.half_width, py, z_inches);
+    }
+    let b = blend.unwrap();
+    let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+
+    let p = b.evaluate(u);
+    let p_bot = b.evaluate(0.0);
+    let p_tuck = b.evaluate(t_tuck);
+    let p_apex = b.evaluate(b.t_apex);
+    let p_top = b.evaluate(1.0);
+
+    let mut final_pos = Vec3::ZERO;
+    final_pos.z = z_inches;
+
+    if u <= t_tuck {
+        let w_x = if (p_tuck.x - p_bot.x).abs() > 1e-5 {
+            (p.x - p_bot.x) / (p_tuck.x - p_bot.x)
+        } else {
+            u / t_tuck
+        };
+        let w_y = if (p_tuck.y - p_bot.y).abs() > 1e-5 {
+            (p.y - p_bot.y) / (p_tuck.y - p_bot.y)
+        } else {
+            u / t_tuck
+        };
+
+        final_pos.x = inner_x + w_x * (profile.tuck_x - inner_x);
+        final_pos.y = profile.bot_y + w_y * (profile.tuck_y - profile.bot_y);
+    } else if u <= b.t_apex {
+        let w_x = if (p_apex.x - p_tuck.x).abs() > 1e-5 {
+            (p.x - p_tuck.x) / (p_apex.x - p_tuck.x)
+        } else {
+            (u - t_tuck) / (b.t_apex - t_tuck)
+        };
+        let w_y = if (p_apex.y - p_tuck.y).abs() > 1e-5 {
+            (p.y - p_tuck.y) / (p_apex.y - p_tuck.y)
+        } else {
+            (u - t_tuck) / (b.t_apex - t_tuck)
+        };
+
+        final_pos.x = profile.tuck_x + w_x * (profile.apex_x - profile.tuck_x);
+        final_pos.y = profile.tuck_y + w_y * (profile.apex_y - profile.tuck_y);
+    } else {
+        let w_x = if (p_top.x - p_apex.x).abs() > 1e-5 {
+            (p.x - p_apex.x) / (p_top.x - p_apex.x)
+        } else {
+            (u - b.t_apex) / (1.0 - b.t_apex)
+        };
+        let w_y = if (p_top.y - p_apex.y).abs() > 1e-5 {
+            (p.y - p_apex.y) / (p_top.y - p_apex.y)
+        } else {
+            (u - b.t_apex) / (1.0 - b.t_apex)
+        };
+
+        final_pos.x = profile.apex_x + w_x * (inner_x - profile.apex_x);
+        final_pos.y = profile.apex_y + w_y * (profile.top_y - profile.apex_y);
+    }
+
+    let bounds = get_board_bounds(model);
+    let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+    let dist = z_inches - mid_z;
+    let rail_coeff = if dist > 0.0 {
+        let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        1.0 + (model.rail_coefficient_tail - 1.0) * ease_t
+    } else {
+        let t = ((-dist) / (mid_z - bounds.nose_z)).clamp(0.0, 1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
+    };
+
+    let norm_x_for_rail = if profile.apex_x > inner_x {
+        ((final_pos.x - inner_x) / (profile.apex_x - inner_x)).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x_for_rail;
+    final_pos.y = profile.bot_y + (final_pos.y - profile.bot_y) * local_rail_coeff;
+
+    if final_pos.x < inner_x {
+        final_pos.x = inner_x;
+    }
+    final_pos.y = final_pos.y.max(profile.bot_y - 2.0);
+
+    final_pos
+}
+
 pub fn get_point_at_uv(
+    model: &BoardModel,
+    u: f32,
+    v: f32,
+    z_inches: f32,
+    inner_x: f32,
+    side: f32,
+) -> Vec3 {
+    let mut final_pos = get_point_at_uv_base(model, u, v, z_inches, inner_x, side);
+
+    let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+    let t_apex = if let Some(b) = &blend { b.t_apex } else { 0.5 };
+
+    if u <= t_apex {
+        if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
+            let profile = get_board_profile_at_z(model, z_inches, v);
+            let apex_x = profile.apex_x.max(0.001);
+            chan_x = chan_x.abs();
+            if chan_x > inner_x && chan_x < apex_x {
+                let mut channel_applied = false;
+                let mut t = 0.0;
+                if final_pos.x.abs() <= chan_x {
+                    if chan_x > inner_x {
+                        t = (final_pos.x.abs() - inner_x) / (chan_x - inner_x);
+                        channel_applied = true;
+                    }
+                } else {
+                    if apex_x > chan_x {
+                        t = 1.0 - (final_pos.x.abs() - chan_x) / (apex_x - chan_x);
+                        channel_applied = true;
+                    }
+                }
+                
+                if channel_applied {
+                    let normal = get_surface_normal_base_at_uvz(model, u, z_inches, side);
+                    final_pos -= normal * (t * chan_depth);
+                }
+            }
+        }
+    }
+
+    final_pos
+}
     model: &BoardModel,
     u: f32,
     v: f32,
@@ -835,10 +978,9 @@ pub fn slerp_normals(n1: Vec3, n2: Vec3, t: f32, fallback_mid: Vec3) -> Vec3 {
 
 /// Evaluates the analytical surface normals at the absolute Z-poles (nose or tail) of the board.
 /// Returns (top_normal, bottom_normal).
-pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side: f32) -> Vec3 {
+pub fn get_surface_normal_base_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side: f32) -> Vec3 {
     let bounds = get_board_bounds(model);
 
-    // Fallback for absolute poles
     if (z_inches - bounds.nose_z).abs() < 1e-4 {
         let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
         let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
@@ -856,80 +998,99 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
         return n;
     }
 
-    let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
     let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
-    let profile = get_board_profile_at_z(model, z_inches, v_outer);
-
     let inner_x = if z_inches > bounds.notch_z {
         evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z_inches)
     } else {
         0.0
     };
 
-    let (mut t_u, t_v) = if let Some(b) = &blend {
-        let dp_du = b.evaluate_derivative_u(u);
-        let p_bot = b.evaluate(0.0);
-        let p_apex = b.evaluate(b.t_apex);
-
-        let slice_width = (p_apex.x - p_bot.x).max(1e-4);
-        let world_width = (profile.apex_x - inner_x).max(0.0);
-
-        let dnorm_x_du = dp_du.x / slice_width;
-        let dx_du = dnorm_x_du * world_width * side;
-
-                let du = 1e-4;
-        let u_plus = (u + du).min(1.0);
-        let u_minus = (u - du).max(0.0);
-        let pt_plus_u = get_point_at_uv(model, u_plus, v_outer, z_inches, inner_x, side);
-        let pt_minus_u = get_point_at_uv(model, u_minus, v_outer, z_inches, inner_x, side);
-        let t_u_exact = (pt_plus_u - pt_minus_u) / (u_plus - u_minus);
-
-        let t_u = Vec3::new(dx_du, t_u_exact.y, 0.0);
-
-        let dz_slice =
-            b.s1.control_points.first().unwrap().z - b.s0.control_points.first().unwrap().z;
-        let d_lerp_dz = if dz_slice.abs() > 1e-5 {
-            1.0 / dz_slice
-        } else {
-            0.0
-        };
-        let dp_dz = b.evaluate_derivative_z(u) * d_lerp_dz;
-        let dnorm_x_dz = dp_dz.x / slice_width;
-
-        let outline_tan = profile.outline_tangent;
-        let dx_dz_outline = if outline_tan.z.abs() > 1e-5 {
-            outline_tan.x / outline_tan.z
-        } else {
-            0.0
-        };
-
-        let p_u = b.evaluate(u);
-        let norm_x = ((p_u.x - p_bot.x) / slice_width).clamp(0.0, 1.0);
-
-        let dx_dz = (dx_dz_outline * norm_x + dnorm_x_dz * world_width) * side;
-
-        let dz = 1e-3;
-        let pt_plus = get_point_at_uv(model, u, v_outer, z_inches + dz, inner_x, side);
-        let pt_minus = get_point_at_uv(model, u, v_outer, z_inches - dz, inner_x, side);
-        let t_v_exact = (pt_plus - pt_minus) / (2.0 * dz);
-
-        let t_v = Vec3::new(dx_dz, t_v_exact.y, 1.0).normalize();
-        (t_u, t_v)
-    } else {
-        (
-            Vec3::new(side, profile.top_y - profile.bot_y, 0.0),
-            Vec3::new(0.0, 0.0, 1.0),
-        )
-    };
-
-    if t_u.length_squared() > 1e-6 {
-        t_u = t_u.normalize();
-    } else {
+    let du = 1e-4;
+    let u_plus = (u + du).min(1.0);
+    let u_minus = (u - du).max(0.0);
+    let mut pt_plus_u = get_point_at_uv_base(model, u_plus, v_outer, z_inches, inner_x, side);
+    pt_plus_u.x *= side;
+    let mut pt_minus_u = get_point_at_uv_base(model, u_minus, v_outer, z_inches, inner_x, side);
+    pt_minus_u.x *= side;
+    let mut t_u = (pt_plus_u - pt_minus_u).normalize();
+    if t_u.is_nan() || t_u.length_squared() < 1e-6 {
         t_u = Vec3::new(side, 0.0, 0.0);
     }
 
-    let mut n = t_u.cross(t_v).normalize();
+    let dz = 1e-3;
+    let mut pt_plus_v = get_point_at_uv_base(model, u, v_outer, z_inches + dz, inner_x, side);
+    pt_plus_v.x *= side;
+    let mut pt_minus_v = get_point_at_uv_base(model, u, v_outer, z_inches - dz, inner_x, side);
+    pt_minus_v.x *= side;
+    let mut t_v = (pt_plus_v - pt_minus_v).normalize();
+    if t_v.is_nan() || t_v.length_squared() < 1e-6 {
+        t_v = Vec3::new(0.0, 0.0, 1.0);
+    }
 
+    let mut n = t_u.cross(t_v).normalize();
+    if side < 0.0 {
+        n = -n;
+    }
+
+    let pt = get_point_at_uv_base(model, u, v_outer, z_inches, inner_x, side);
+    if pt.x.abs() < 1e-4 && inner_x < 1e-4 {
+        n.x = 0.0;
+        n = n.normalize();
+    }
+
+    n
+}
+
+pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side: f32) -> Vec3 {
+    let bounds = get_board_bounds(model);
+
+    if (z_inches - bounds.nose_z).abs() < 1e-4 {
+        let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
+        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
+        if side < 0.0 {
+            n.x = -n.x;
+        }
+        return n;
+    }
+    if (z_inches - bounds.tip_z).abs() < 1e-4 {
+        let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
+        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
+        if side < 0.0 {
+            n.x = -n.x;
+        }
+        return n;
+    }
+
+    let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
+    let inner_x = if z_inches > bounds.notch_z {
+        evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z_inches)
+    } else {
+        0.0
+    };
+
+    let du = 1e-4;
+    let u_plus = (u + du).min(1.0);
+    let u_minus = (u - du).max(0.0);
+    let mut pt_plus_u = get_point_at_uv(model, u_plus, v_outer, z_inches, inner_x, side);
+    pt_plus_u.x *= side;
+    let mut pt_minus_u = get_point_at_uv(model, u_minus, v_outer, z_inches, inner_x, side);
+    pt_minus_u.x *= side;
+    let mut t_u = (pt_plus_u - pt_minus_u).normalize();
+    if t_u.is_nan() || t_u.length_squared() < 1e-6 {
+        t_u = Vec3::new(side, 0.0, 0.0);
+    }
+
+    let dz = 1e-3;
+    let mut pt_plus_v = get_point_at_uv(model, u, v_outer, z_inches + dz, inner_x, side);
+    pt_plus_v.x *= side;
+    let mut pt_minus_v = get_point_at_uv(model, u, v_outer, z_inches - dz, inner_x, side);
+    pt_minus_v.x *= side;
+    let mut t_v = (pt_plus_v - pt_minus_v).normalize();
+    if t_v.is_nan() || t_v.length_squared() < 1e-6 {
+        t_v = Vec3::new(0.0, 0.0, 1.0);
+    }
+
+    let mut n = t_u.cross(t_v).normalize();
     if side < 0.0 {
         n = -n;
     }

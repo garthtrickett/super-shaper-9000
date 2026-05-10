@@ -521,6 +521,89 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_mesh_intersects_spatial_splines() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let content = fs::read_to_string(&path).unwrap();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = crate::mesh::generate_mesh(&model);
+        
+        let target_z = 30.0;
+        let scale = 1.0 / 12.0;
+        let target_z_scaled = target_z * scale;
+        
+        let mut best_z_diff = f32::INFINITY;
+        let mut best_z = 0.0;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            let diff = (z - target_z_scaled).abs();
+            if diff < best_z_diff {
+                best_z_diff = diff;
+                best_z = z;
+            }
+        }
+        
+        assert!(best_z_diff < 0.5 * scale, "Mesh should have enough Z rings");
+
+        let mut mesh_apex_x = 0.0;
+        let mut mesh_apex_y = 0.0;
+        let mut found_apex = false;
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+            
+            if (z - best_z).abs() < 1e-4 {
+                if x > mesh_apex_x {
+                    mesh_apex_x = x;
+                    mesh_apex_y = y;
+                    found_apex = true;
+                }
+            }
+        }
+        
+        assert!(found_apex, "Should have found an apex point in the mesh ring");
+        
+        let eval_z = best_z / scale;
+        let outline = model.outline.as_ref().unwrap();
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let v_outer = crate::geometry::find_v_at_z(outline, eval_z, 0.0, bounds.tip_t);
+        
+        let mut expected_apex_x = crate::geometry::evaluate_composite_outline_at_z(&model, eval_z, v_outer).x;
+        let mut expected_apex_y = 0.0;
+        
+        if let Some(ao) = &model.apex_outline {
+            if !ao.control_points.is_empty() {
+                let base_x = crate::geometry::evaluate_bezier_at_z(outline, eval_z, v_outer).x;
+                let ao_x = crate::geometry::evaluate_bezier_at_z(ao, eval_z, v_outer).x;
+                expected_apex_x = (ao_x + (expected_apex_x - base_x)).max(0.0);
+            }
+        }
+        
+        if let Some(ar) = &model.apex_rocker {
+            if !ar.control_points.is_empty() {
+                expected_apex_y = crate::geometry::evaluate_bezier_at_z(ar, eval_z, v_outer).y;
+            }
+        }
+        
+        let x_err = (mesh_apex_x - expected_apex_x * scale).abs();
+        let y_err = (mesh_apex_y - expected_apex_y * scale).abs();
+        
+        assert!(
+            x_err < 1e-2,
+            "Mesh Apex X ({}) does not intersect Analytical Apex X ({})! Error: {}",
+            mesh_apex_x, expected_apex_x * scale, x_err
+        );
+        assert!(
+            y_err < 1e-2,
+            "Mesh Apex Y ({}) does not intersect Analytical Apex Y ({})! Error: {}",
+            mesh_apex_y, expected_apex_y * scale, y_err
+        );
+    }
+
     #[test]
     fn test_golden_file_rounded_pin_mesh_generation() {
         let _ = env_logger::builder().is_test(true).try_init();
