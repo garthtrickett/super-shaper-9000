@@ -49,11 +49,14 @@ pub struct S3dxBoard {
     #[serde(rename = "curveDefSide4")]
     pub curve_def_side4: Option<S3dxBezierDefContainer>,
 
-        #[serde(rename = "Number_of_slices")]
+            #[serde(rename = "Number_of_slices")]
     pub number_of_slices: Option<usize>,
 
     #[serde(rename = "Couple")]
     pub couples: Option<Vec<S3dxCouplesContainer>>,
+
+    #[serde(rename = "Calque")]
+    pub calques: Option<Vec<S3dxCalqueContainer>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -72,6 +75,28 @@ pub struct S3dxBezierDefContainer {
 pub struct S3dxCouplesContainer {
     #[serde(rename = "Bezier3d")]
     pub bezier3d: Option<S3dxBezier3d>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxCalqueContainer {
+    #[serde(rename = "Calque3D")]
+    pub calque3d: Option<S3dxCalque3d>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxCalque3d {
+    #[serde(rename = "Nom")]
+    pub nom: Option<String>,
+    #[serde(rename = "OtlExt")]
+    pub otl_ext: Option<S3dxCurveContainer>,
+    #[serde(rename = "OtlInt")]
+    pub otl_int: Option<S3dxCurveContainer>,
+    #[serde(rename = "Depth")]
+    pub depth: Option<f32>,
+    #[serde(rename = "DeckBot")]
+    pub deck_bot: Option<u32>,
+    #[serde(rename = "Couple")]
+    pub couples: Option<Vec<S3dxCouplesContainer>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,10 +207,16 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
     // Dynamically replace all <Couples_X> with <Couple> so Serde can parse them into a Vec.
     // We scan a reasonably high number of potential slices (e.g. 100) which far exceeds realistic CAD limits.
     for i in 0..100 {
-        let start_tag = format!("<Couples_{}>", i);
+                let start_tag = format!("<Couples_{}>", i);
         let end_tag = format!("</Couples_{}>", i);
         if sanitized.contains(&start_tag) {
             sanitized = sanitized.replace(&start_tag, "<Couple>").replace(&end_tag, "</Couple>");
+        }
+
+        let start_tag_calque = format!("<Calque_{}>", i);
+        let end_tag_calque = format!("</Calque_{}>", i);
+        if sanitized.contains(&start_tag_calque) {
+            sanitized = sanitized.replace(&start_tag_calque, "<Calque>").replace(&end_tag_calque, "</Calque>");
         }
     }
 
@@ -232,13 +263,80 @@ impl From<S3dxBoard> for BoardModel {
             }
         }
         
-        cross_sections.sort_by(|a, b| {
+                cross_sections.sort_by(|a, b| {
             let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
             let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
             za.partial_cmp(&zb).unwrap()
         });
         
         model.cross_sections = cross_sections;
+
+        let mut outline_layers = Vec::new();
+        let mut bottom_channels = Vec::new();
+        
+        if let Some(calques) = s3dx.calques {
+            for c in calques {
+                if let Some(calque) = c.calque3d {
+                    let name = calque.nom.unwrap_or_else(|| "Layer".to_string());
+                    let otl_ext = convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
+                    let otl_int = convert_s3dx_curve(&calque.otl_int, bl, scale).unwrap_or_default();
+                    
+                    let deck_bot = calque.deck_bot.unwrap_or(512);
+                    let depth_val = calque.depth.unwrap_or(0.0) * scale;
+                    
+                    if deck_bot == 256 || name.to_lowercase().contains("channel") {
+                        let mut depth_curve = BezierCurveData::default();
+                        if depth_curve.control_points.is_empty() && !otl_ext.control_points.is_empty() {
+                            let z_start = otl_ext.control_points.first().map(|p| p.z).unwrap_or(-bl / 2.0);
+                            let z_end = otl_ext.control_points.last().map(|p| p.z).unwrap_or(bl / 2.0);
+                            
+                            depth_curve = BezierCurveData {
+                                control_points: vec![
+                                    Vec3::new(0.0, depth_val, z_start),
+                                    Vec3::new(0.0, depth_val, z_end),
+                                ],
+                                tangents1: vec![
+                                    Vec3::new(0.0, depth_val, z_start),
+                                    Vec3::new(0.0, depth_val, z_end),
+                                ],
+                                tangents2: vec![
+                                    Vec3::new(0.0, depth_val, z_start),
+                                    Vec3::new(0.0, depth_val, z_end),
+                                ],
+                                weights: None,
+                            };
+                        }
+
+                        let mut left_outline = otl_ext.clone();
+                        for p in &mut left_outline.control_points { p.x = -p.x; }
+                        for p in &mut left_outline.tangents1 { p.x = -p.x; }
+                        for p in &mut left_outline.tangents2 { p.x = -p.x; }
+                        
+                        bottom_channels.push(crate::model::ChannelLayer {
+                            name: name.clone(),
+                            is_symmetric: true,
+                            left_outline,
+                            right_outline: otl_ext.clone(),
+                            left_depth: depth_curve.clone(),
+                            right_depth: depth_curve.clone(),
+                        });
+                    } else {
+                        outline_layers.push(crate::model::OutlineLayer {
+                            name,
+                            otl_ext,
+                            otl_int,
+                        });
+                    }
+                }
+            }
+        }
+        
+        if !outline_layers.is_empty() {
+            model.outline_layers = Some(outline_layers);
+        }
+        if !bottom_channels.is_empty() {
+            model.bottom_channels = Some(bottom_channels);
+        }
         
         model
     }
@@ -283,7 +381,26 @@ mod tests {
         assert!((outline.control_points[0].x - 0.0).abs() < 1e-4); // Nose Width should be 0
     }
 
-        #[test]
+            #[test]
+    fn test_s3dx_extracts_3d_layers() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
+        if !path.exists() {
+            println!("FISH.s3dx not found, skipping layer test");
+            return;
+        }
+        let content = fs::read_to_string(&path).unwrap();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        
+        assert!(model.outline_layers.is_some(), "Should dynamically parse 3D layers into outline_layers");
+        let layers = model.outline_layers.unwrap();
+        assert!(layers.len() >= 1, "Should have at least 1 outline layer");
+        let tail_layer = layers.iter().find(|l| l.name == "SWALLOW TAIL").expect("Should find SWALLOW TAIL layer");
+        assert!(!tail_layer.otl_ext.control_points.is_empty(), "otl_ext should be populated");
+        assert!(!tail_layer.otl_int.control_points.is_empty(), "otl_int should be populated");
+    }
+
+    #[test]
     fn test_s3dx_extracts_all_couples_and_weights() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");

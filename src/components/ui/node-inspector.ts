@@ -13,13 +13,13 @@ export class NodeInspector extends LitElement {
 
   // Maps the 3D point to a 2D plane (U, V) based on the curve type for angle calculation
   private _getUV(curve: string, pt: Point3D): { u: number, v: number } {
-    if (curve === 'outline') return { u: pt[2], v: pt[0] }; // Z (Length) and X (Width)
+    if (curve === 'outline' || curve === 'deckShoulder') return { u: pt[2], v: pt[0] }; // Z (Length) and X (Width)
     if (curve.startsWith('rocker')) return { u: pt[2], v: pt[1] }; // Z (Length) and Y (Height)
     return { u: pt[0], v: pt[1] }; // Cross Section: X (Width) and Y (Height)
   }
 
   private _setUV(curve: string, anchor: Point3D, u: number, v: number): Point3D {
-    if (curve === 'outline') return [v, anchor[1], u];
+    if (curve === 'outline' || curve === 'deckShoulder') return [v, anchor[1], u];
     if (curve.startsWith('rocker')) return [anchor[0], v, u];
     return [u, v, anchor[2]];
   }
@@ -51,13 +51,13 @@ export class NodeInspector extends LitElement {
     if (sel.curve === "rockerBottom") return this.boardState.rockerBottom;
     if (sel.curve === "apexOutline") return this.boardState.apexOutline;
     if (sel.curve === "railOutline") return this.boardState.railOutline;
-        if (sel.curve === "apexRocker") return this.boardState.apexRocker;
+    if (sel.curve === "apexRocker") return this.boardState.apexRocker;
     if (sel.curve === "deckShoulder") return this.boardState.deckShoulder;
-        if (sel.curve.startsWith("crossSection_")) {
+    if (sel.curve.startsWith("crossSection_")) {
       const idx = parseInt(sel.curve.split("_")[1]!, 10);
       return this.boardState.crossSections?.[idx];
     }
-        if (sel.curve.startsWith("outlineLayer_")) {
+    if (sel.curve.startsWith("outlineLayer_")) {
       const parts = sel.curve.split("_");
       const idx = parseInt(parts[1]!, 10);
       const layer = this.boardState.outlineLayers?.[idx];
@@ -65,7 +65,7 @@ export class NodeInspector extends LitElement {
         return parts[2] === "ext" ? layer.otlExt : layer.otlInt;
       }
     }
-        if (sel.curve.startsWith("channel_")) {
+    if (sel.curve.startsWith("channel_")) {
       const parts = sel.curve.split("_");
       const idx = parseInt(parts[1]!, 10);
       const channel = this.boardState.bottomChannels?.[idx];
@@ -77,7 +77,7 @@ export class NodeInspector extends LitElement {
     return undefined;
   }
 
-    private _handleWeightChange(val: number) {
+  private _handleWeightChange(val: number) {
     const sel = this.boardState.selectedNode!;
     this.dispatchEvent(new CustomEvent('update-node', {
       detail: { curve: sel.curve, index: sel.index, weight: val },
@@ -108,7 +108,7 @@ export class NodeInspector extends LitElement {
     }));
   }
 
-    private _handleTangentChange(isT1: boolean, prop: 'len' | 'ang', val: number) {
+  private _handleTangentChange(isT1: boolean, prop: 'len' | 'ang', val: number) {
     const sel = this.boardState.selectedNode!;
     const curveData = this._getTargetCurve()!;
     const anc = curveData.controlPoints[sel.index]!;
@@ -146,7 +146,7 @@ export class NodeInspector extends LitElement {
     }
   }
 
-    private _handleContinuityChange(level: 'G0' | 'G1' | 'G2') {
+  private _handleContinuityChange(level: 'G0' | 'G1' | 'G2') {
     const sel = this.boardState.selectedNode!;
     if (!sel) return;
 
@@ -171,7 +171,7 @@ export class NodeInspector extends LitElement {
     }
   }
 
-    override render() {
+  override render() {
     const sel = this.boardState?.selectedNode;
     const curveData = this._getTargetCurve();
     if (!sel || !curveData) return html``;
@@ -183,7 +183,7 @@ export class NodeInspector extends LitElement {
     const t1Polar = this._getPolar(sel.curve, t1, anc);
     const t2Polar = this._getPolar(sel.curve, t2, anc);
 
-    const isOutline = sel.curve === 'outline';
+    const isOutline = sel.curve === 'outline' || sel.curve === 'deckShoulder';
     const isRocker = sel.curve.startsWith('rocker');
     const isSlice = sel.curve.startsWith('crossSection');
     const isEndNode = sel.index === 0 || sel.index === curveData.controlPoints.length - 1;
@@ -194,18 +194,18 @@ export class NodeInspector extends LitElement {
       rockerTop: "Rocker (Top)",
       rockerBottom: "Rocker (Bottom)",
       apexOutline: "Rail Apex (Plan)",
-            railOutline: "Rail Tuck (Plan)",
+      railOutline: "Rail Tuck (Plan)",
       apexRocker: "Rail Apex (Profile)",
       deckShoulder: "Deck Shoulder"
     };
 
-        let title = friendlyNames[sel.curve] || sel.curve;
-        if (sel.curve.startsWith('crossSection_')) {
+    let title = friendlyNames[sel.curve] || sel.curve;
+    if (sel.curve.startsWith('crossSection_')) {
       title = `Slice ${sel.curve.split('_')[1]}`;
     } else if (sel.curve.startsWith('outlineLayer_')) {
       const parts = sel.curve.split('_');
       title = `Layer ${parts[1]} (${parts[2]!.toUpperCase()})`;
-        } else if (sel.curve.startsWith('channel_')) {
+    } else if (sel.curve.startsWith('channel_')) {
       const parts = sel.curve.split('_');
       title = `Channel ${parts[1]} (${parts[2]!.toUpperCase()} ${parts[3]!.toUpperCase()})`;
     }
@@ -299,7 +299,7 @@ export class NodeInspector extends LitElement {
               ${renderInput('Angle', t2Polar.ang, false, (v) => this._handleTangentChange(false, 'ang', v))}
               ${renderInput('Length', t2Polar.len, false, (v) => this._handleTangentChange(false, 'len', v))}
             </div>
-                    </div>
+          </div>
         </div>
       </div>
     `;
