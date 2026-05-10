@@ -271,7 +271,6 @@ pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: 
 
 /// Evaluates the position and tangent (normalized first derivative) of a composite Bezier curve at global `t` (0.0 to 1.0)
 #[inline]
-#[inline]
 pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (Vec3, Vec3) {
     let num_segments = curve.control_points.len().saturating_sub(1);
     if num_segments == 0 {

@@ -3,7 +3,6 @@ use glam::Vec3;
 // use crate::bezier::evaluate_bezier_cubic;
 
 #[inline]
-#[inline]
 pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
     let num_segments = curve.control_points.len().saturating_sub(1);
     if num_segments == 0 {
@@ -39,7 +38,6 @@ pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
     local_d1 * num_segments_f
 }
 
-#[inline]
 #[inline]
 pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
     let num_segments = curve.control_points.len().saturating_sub(1);

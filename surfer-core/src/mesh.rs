@@ -539,7 +539,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         };
 
-    let generate_cap = |ring_index: usize,
+        let generate_cap = |ring_index: usize,
                         z_inches: f32,
                         n_top: Vec3,
                         n_bot: Vec3,
@@ -556,30 +556,17 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             if is_nose { 0.0 } else { 1.0 },
         )
         .x;
-        let num_x_steps = (width / 0.5).ceil().max(1.0) as u32;
+        let is_sharp = width < 1e-3;
         let start_vertex_index = (vertices.len() / 3) as u32;
-
         let ring = &grid[ring_index];
-        let right_target_x = ring[0].0.x;
-        let left_target_x = ring[num_cols - 1].0.x;
 
-        for step in 0..=num_x_steps {
-            let fraction = 1.0 - (step as f32 / num_x_steps as f32);
+        if is_sharp {
+            // Degenerate Quad Logic for Singularities (Poles)
             for j in 0..num_cols {
                 let (pos, color, u, v) = ring[j];
-                let side = u_columns[j].1;
-
-                let target_x = if is_nose {
-                    0.0
-                } else if side > 0.0 {
-                    right_target_x
-                } else {
-                    left_target_x
-                };
-
-                let new_x = target_x + (pos.x - target_x) * fraction;
-
-                vertices.push(new_x);
+                
+                // For a sharp tip, all vertices converge to X=0.0
+                vertices.push(0.0);
                 vertices.push(pos.y);
                 vertices.push(pos.z);
 
@@ -595,20 +582,18 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 normals.push(blended_normal.y);
                 normals.push(blended_normal.z);
             }
-        }
 
-        for step in 0..num_x_steps {
-            let ring_a_start = start_vertex_index + step * (num_cols as u32);
-            let ring_b_start = start_vertex_index + (step + 1) * (num_cols as u32);
+            let hull_ring_start = (ring_index * num_cols) as u32;
+            let cap_ring_start = start_vertex_index;
 
             for j in 0..num_cols - 1 {
                 if j == right_half_cols - 1 {
                     continue; // Do not bridge the right and left halves on the caps!
                 }
 
-                let a = ring_a_start + j as u32;
+                let a = hull_ring_start + j as u32;
                 let b = a + 1;
-                let c = ring_b_start + j as u32;
+                let c = cap_ring_start + j as u32;
                 let d = c + 1;
 
                 if is_nose {
@@ -625,6 +610,75 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     indices.push(a);
                     indices.push(d);
                     indices.push(c);
+                }
+            }
+        } else {
+            // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
+            let num_x_steps = (width / 0.5).ceil().max(1.0) as u32;
+            let right_target_x = ring[0].0.x;
+            let left_target_x = ring[num_cols - 1].0.x;
+
+            for step in 0..=num_x_steps {
+                let fraction = 1.0 - (step as f32 / num_x_steps as f32);
+                for j in 0..num_cols {
+                    let (pos, color, u, v) = ring[j];
+                    let side = u_columns[j].1;
+
+                    let target_x = if side > 0.0 {
+                        right_target_x
+                    } else {
+                        left_target_x
+                    };
+
+                    let new_x = target_x + (pos.x - target_x) * fraction;
+
+                    vertices.push(new_x);
+                    vertices.push(pos.y);
+                    vertices.push(pos.z);
+
+                    uvs.push(u);
+                    uvs.push(v);
+
+                    colors.push(color.x);
+                    colors.push(color.y);
+                    colors.push(color.z);
+
+                    let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
+                    normals.push(blended_normal.x);
+                    normals.push(blended_normal.y);
+                    normals.push(blended_normal.z);
+                }
+            }
+
+            for step in 0..num_x_steps {
+                let ring_a_start = start_vertex_index + step * (num_cols as u32);
+                let ring_b_start = start_vertex_index + (step + 1) * (num_cols as u32);
+
+                for j in 0..num_cols - 1 {
+                    if j == right_half_cols - 1 {
+                        continue; // Do not bridge the right and left halves on the caps!
+                    }
+
+                    let a = ring_a_start + j as u32;
+                    let b = a + 1;
+                    let c = ring_b_start + j as u32;
+                    let d = c + 1;
+
+                    if is_nose {
+                        indices.push(a);
+                        indices.push(d);
+                        indices.push(b);
+                        indices.push(a);
+                        indices.push(c);
+                        indices.push(d);
+                    } else {
+                        indices.push(a);
+                        indices.push(b);
+                        indices.push(d);
+                        indices.push(a);
+                        indices.push(d);
+                        indices.push(c);
+                    }
                 }
             }
         }
@@ -723,20 +777,112 @@ mod tests {
     use crate::model::BezierCurveData;
     use glam::Vec3;
 
-    #[test]
-    fn test_patch_caps_avoid_poles() {
-        // This test verifies that the nose and tail caps are generated
-        // as a "patch" (a vertical line of vertices) instead of a "pole"
-        // (a single vertex), which prevents shading artifacts.
+        #[test]
+    fn test_patch_caps_for_squash_tails() {
+        // This test verifies that blunt tails (like a square/squash tail) are generated
+        // as a "patch" (a grid of vertices) instead of a "pole".
         let model = BoardModel {
             length: 70.0,
             width: 20.0,
             thickness: 2.5,
             outline: Some(BezierCurveData {
                 control_points: vec![
-                    Vec3::new(0.0, 0.0, -35.0),
+                    Vec3::new(5.0, 0.0, -35.0), // Square nose
                     Vec3::new(10.0, 0.0, 0.0),
-                    Vec3::new(0.0, 0.0, 35.0),
+                    Vec3::new(5.0, 0.0, 35.0),  // Square tail
+                ],
+                tangents1: vec![
+                    Vec3::new(5.0, 0.0, -35.0),
+                    Vec3::new(10.0, 0.0, -10.0),
+                    Vec3::new(5.0, 0.0, 25.0),
+                ],
+                tangents2: vec![
+                    Vec3::new(5.0, 0.0, -25.0),
+                    Vec3::new(10.0, 0.0, 10.0),
+                    Vec3::new(5.0, 0.0, 35.0),
+                ],
+                ..Default::default()
+            }),
+            rocker_top: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 35.0)],
+                tangents1: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 0.0)],
+                tangents2: vec![Vec3::new(0.0, 1.25, 0.0), Vec3::new(0.0, 1.25, 35.0)],
+                ..Default::default()
+            }),
+            rocker_bottom: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 35.0)],
+                tangents1: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 0.0)],
+                tangents2: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(0.0, -1.25, 35.0)],
+                ..Default::default()
+            }),
+            cross_sections: vec![BezierCurveData {
+                control_points: vec![
+                    Vec3::new(0.0, -1.25, 0.0),
+                    Vec3::new(10.0, 0.0, 0.0),
+                    Vec3::new(0.0, 1.25, 0.0),
+                ],
+                tangents1: vec![
+                    Vec3::new(0.0, -1.25, 0.0),
+                    Vec3::new(5.0, -1.25, 0.0),
+                    Vec3::new(5.0, 1.25, 0.0),
+                ],
+                tangents2: vec![
+                    Vec3::new(5.0, -1.25, 0.0),
+                    Vec3::new(10.0, 0.5, 0.0),
+                    Vec3::new(0.0, 1.25, 0.0),
+                ],
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let mesh = generate_mesh(&model);
+        let vertices: Vec<Vec3> = mesh
+            .vertices
+            .chunks_exact(3)
+            .map(|c| Vec3::new(c[0], c[1], c[2]))
+            .collect();
+
+        let (min_z, max_z) = vertices
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min_z, max_z), v| {
+                (min_z.min(v.z), max_z.max(v.z))
+            });
+
+        // There should be a small tolerance for floating point comparisons
+        let nose_pole_vertices = vertices
+            .iter()
+            .filter(|v| (v.z - min_z).abs() < 1e-4 && v.x.abs() < 1e-4)
+            .count();
+        let tail_pole_vertices = vertices
+            .iter()
+            .filter(|v| (v.z - max_z).abs() < 1e-4 && v.x.abs() < 1e-4)
+            .count();
+
+                // Since we explicitly modelled a square nose and tail (X=5.0), there should be NO vertices at the centerline (X=0)
+        assert_eq!(
+            nose_pole_vertices, 0,
+            "Square nose should NOT pinch to the centerline."
+        );
+        assert_eq!(
+            tail_pole_vertices, 0,
+            "Square tail should NOT pinch to the centerline."
+        );
+
+        println!("✅ test_patch_caps_for_squash_tails passed.");
+    }
+
+    #[test]
+    fn test_pin_tail_degenerate_pole() {
+        let model = BoardModel {
+            length: 70.0,
+            width: 20.0,
+            thickness: 2.5,
+            outline: Some(BezierCurveData {
+                control_points: vec![
+                    Vec3::new(0.0, 0.0, -35.0), // Pin nose
+                    Vec3::new(10.0, 0.0, 0.0),
+                    Vec3::new(0.0, 0.0, 35.0),  // Pin tail
                 ],
                 tangents1: vec![
                     Vec3::new(0.0, 0.0, -35.0),
@@ -806,18 +952,17 @@ mod tests {
             .filter(|v| (v.z - max_z).abs() < 1e-4 && v.x.abs() < 1e-4)
             .count();
 
-        // With a patch, there should be a vertical line of vertices at the centerline (x=0) for the nose and tail.
-        // A single vertex would indicate a triangle fan "pole". We expect at least 2 for a line.
+        // With degenerate quad logic, we expect multiple vertices at X=0 (one for each U value forming a vertical line)
         assert!(
             nose_pole_vertices > 1,
-            "Nose cap should be a patch (multiple vertices at x=0), not a single pole vertex."
+            "Nose cap should use degenerate quads forming a line at X=0"
         );
         assert!(
             tail_pole_vertices > 1,
-            "Tail cap should be a patch (multiple vertices at x=0), not a single pole vertex."
+            "Tail cap should use degenerate quads forming a line at X=0"
         );
 
-        println!("✅ test_patch_caps_avoid_poles passed.");
+        println!("✅ test_pin_tail_degenerate_pole passed.");
     }
 
     #[test]
@@ -1113,11 +1258,11 @@ mod tests {
             }
         }
 
-        let tail_thickness = tail_max_y - tail_min_y;
+                let tail_thickness = tail_max_y - tail_min_y;
         let nose_thickness = nose_max_y - nose_min_y;
 
-        // The test SHOULD fail because the geometric fade_factor forces thickness to exactly 0.0 at poles,
-        // leaving a razor thin tip. A true CAD loft should retain the actual rocker profile thickness.
+        // A true CAD loft must retain the actual rocker profile thickness at the poles,
+        // even when using degenerate quad logic to seal a pin tail.
         assert!(
             tail_thickness > 0.01 * scale,
             "Rounded pin tail should not be infinitely thin, actual thickness: {}",
