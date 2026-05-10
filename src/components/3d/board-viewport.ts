@@ -470,8 +470,8 @@ export class BoardViewport extends LitElement {
         leftPts.pop();
         const fullPts =[...leftPts, ...pts];
         if (fullPts[0]) fullPts.push(fullPts[0].clone());
-        const color = new THREE.Color(0x94a3b8);
-        const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4, depthWrite: false });
+                const color = new THREE.Color(0x334155); // Darker Slate-700
+        const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6, depthWrite: false });
         const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(fullPts), mat);
         line.layers.set(3);
         line.userData = { isSlice: true, curveName, defaultColor: color.getHex() };
@@ -593,8 +593,8 @@ export class BoardViewport extends LitElement {
       if (ud.isSlice) {
         const mat = (child as THREE.Line).material as THREE.LineBasicMaterial;
         const isSelected = selected && selected.curve === ud.curveName;
-        mat.color.setHex(isSelected ? 0xffffff : (ud.defaultColor as number));
-        mat.opacity = isSelected ? 1.0 : 0.15;
+                mat.color.setHex(isSelected ? 0xffffff : (ud.defaultColor as number));
+        mat.opacity = isSelected ? 1.0 : 0.5; // Increased from 0.15
         child.renderOrder = isSelected ? 999 : 0;
       }
     });

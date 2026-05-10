@@ -129,7 +129,7 @@ impl WasmEngine {
         Ok(Float32Array::from(stats.as_slice()).into())
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn export_s3dx(&self) -> Result<String, JsValue> {
         Ok(surfer_core::s3dx_exporter::export_s3dx(
             self.engine.get_model(),
