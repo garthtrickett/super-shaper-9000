@@ -866,7 +866,7 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
         0.0
     };
 
-        let (mut t_u, t_v) = if let Some(b) = &blend {
+    let (mut t_u, t_v) = if let Some(b) = &blend {
         let dp_du = b.evaluate_derivative_u(u);
         let p_bot = b.evaluate(0.0);
         let p_top = b.evaluate(1.0);
@@ -878,20 +878,14 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
         let dnorm_x_du = dp_du.x / slice_width;
         let dx_du = dnorm_x_du * world_width * side;
 
-        let slice_h = if u <= b.t_apex {
-            (p_apex.y - p_bot.y).max(1e-4)
-        } else {
-            (p_top.y - p_apex.y).max(1e-4)
-        };
-        let world_h = if u <= b.t_apex {
-            profile.apex_y - profile.bot_y
-        } else {
-            profile.top_y - profile.apex_y
-        };
-        let dnorm_y_du = dp_du.y / slice_h;
-                let dy_du = dnorm_y_du * world_h;
+                let du = 1e-4;
+        let u_plus = (u + du).min(1.0);
+        let u_minus = (u - du).max(0.0);
+        let pt_plus_u = get_point_at_uv(model, u_plus, v_outer, z_inches, inner_x, side);
+        let pt_minus_u = get_point_at_uv(model, u_minus, v_outer, z_inches, inner_x, side);
+        let t_u_exact = (pt_plus_u - pt_minus_u) / (u_plus - u_minus);
 
-        let t_u = Vec3::new(dx_du, dy_du, 0.0);
+        let t_u = Vec3::new(dx_du, t_u_exact.y, 0.0);
 
         let dz_slice =
             b.s1.control_points.first().unwrap().z - b.s0.control_points.first().unwrap().z;
@@ -918,7 +912,7 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
         let dz = 1e-3;
         let pt_plus = get_point_at_uv(model, u, v_outer, z_inches + dz, inner_x, side);
         let pt_minus = get_point_at_uv(model, u, v_outer, z_inches - dz, inner_x, side);
-                let t_v_exact = (pt_plus - pt_minus) / (2.0 * dz);
+        let t_v_exact = (pt_plus - pt_minus) / (2.0 * dz);
 
         let t_v = Vec3::new(dx_dz, t_v_exact.y, 1.0).normalize();
         (t_u, t_v)
