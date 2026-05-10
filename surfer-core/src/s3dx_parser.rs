@@ -548,6 +548,10 @@ mod tests {
                 }
             }
             
+                        println!("\n🔍 [DEBUG] Target Z: {:.3} inches", target_z);
+            println!("🔍 [DEBUG] Closest Mesh Z: {:.3} inches", best_z / scale);
+            println!("🔍 [DEBUG] Difference: {:.3} inches", best_z_diff / scale);
+            
             assert!(best_z_diff < 0.5 * scale, "Mesh should have enough Z rings near {}", target_z);
 
             let mut mesh_apex_x = 0.0;
