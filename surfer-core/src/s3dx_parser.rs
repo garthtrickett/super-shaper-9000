@@ -37,8 +37,10 @@ pub struct S3dxBoard {
     
     #[serde(rename = "curveDefTop1")]
     pub curve_def_top1: Option<S3dxBezierDefContainer>,
-    #[serde(rename = "curveDefTop2")]
+        #[serde(rename = "curveDefTop2")]
     pub curve_def_top2: Option<S3dxBezierDefContainer>,
+    #[serde(rename = "curveDefTop3")]
+    pub curve_def_top3: Option<S3dxBezierDefContainer>,
     
     #[serde(rename = "curveDefSide0")]
     pub curve_def_side0: Option<S3dxBezierDefContainer>,
@@ -217,7 +219,8 @@ impl From<S3dxBoard> for BoardModel {
         model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, scale);
         
         model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, scale);
-        model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
+                model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
+        model.deck_shoulder = convert_s3dx_bezier_def(&s3dx.curve_def_top3, bl, scale);
         model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, scale);
         
         let mut cross_sections = Vec::new();

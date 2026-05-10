@@ -42,7 +42,8 @@ export const BoardModelSchema = S.Struct({
   showRockerBottom: S.optional(S.Boolean),
   showApexOutline: S.optional(S.Boolean),
   showRailOutline: S.optional(S.Boolean),
-  showApexRocker: S.optional(S.Boolean),
+    showApexRocker: S.optional(S.Boolean),
+  showDeckShoulder: S.optional(S.Boolean),
   showCrossSections: S.optional(S.Boolean),
   showCurvature: S.optional(S.Boolean),
   showMriView: S.optional(S.Boolean),
@@ -61,7 +62,8 @@ export const BoardModelSchema = S.Struct({
   apexOutline: S.optional(BezierCurveSchema),
   rockerTop: BezierCurveSchema,
   rockerBottom: BezierCurveSchema,
-  apexRocker: S.optional(BezierCurveSchema),
+    apexRocker: S.optional(BezierCurveSchema),
+  deckShoulder: S.optional(BezierCurveSchema),
   crossSections: S.Array(BezierCurveSchema),
   length: S.Number,
   width: S.Number,
@@ -116,7 +118,8 @@ export interface ManualSnapshot {
   apexOutline?: BezierCurveData;
   rockerTop: BezierCurveData;
   rockerBottom: BezierCurveData;
-  apexRocker?: BezierCurveData;
+    apexRocker?: BezierCurveData;
+  deckShoulder?: BezierCurveData;
   crossSections: BezierCurveData[];
 }
 
@@ -131,7 +134,8 @@ export interface BoardModel {
   showRockerBottom?: boolean;
   showApexOutline?: boolean;
   showRailOutline?: boolean;
-  showApexRocker?: boolean;
+    showApexRocker?: boolean;
+  showDeckShoulder?: boolean;
   showCrossSections?: boolean;
   showCurvature?: boolean;
   showMriView?: boolean;
@@ -146,7 +150,8 @@ export interface BoardModel {
   apexOutline?: BezierCurveData;
   rockerTop: BezierCurveData;
   rockerBottom: BezierCurveData;
-  apexRocker?: BezierCurveData;
+    apexRocker?: BezierCurveData;
+  deckShoulder?: BezierCurveData;
   crossSections: BezierCurveData[];
   length: number;
   width: number;
@@ -209,7 +214,8 @@ export const INITIAL_STATE: BoardModel = {
   showRockerBottom: true,
   showApexOutline: true,
   showRailOutline: true,
-  showApexRocker: true,
+    showApexRocker: true,
+  showDeckShoulder: true,
   showCrossSections: true,
   showCurvature: false,
   showMriView: false,
@@ -247,7 +253,7 @@ export type BoardAction =
   | { type: "UPDATE_BOOLEAN"; param: keyof BoardModel; value: boolean }
   | { type: "UPDATE_VOLUME"; volume: number }
   | { type: "LOAD_DESIGN"; state: BoardModel }
-  | { type: "SET_CURVES"; outline?: BezierCurveData; railOutline?: BezierCurveData; apexOutline?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
+    | { type: "SET_CURVES"; outline?: BezierCurveData; railOutline?: BezierCurveData; apexOutline?: BezierCurveData; deckShoulder?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
   | { type: "UPDATE_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
   | { type: "SELECT_NODE"; node: SelectedNode | null }
   | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D; weight?: number }

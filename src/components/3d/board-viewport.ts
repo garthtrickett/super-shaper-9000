@@ -93,7 +93,7 @@ export class BoardViewport extends LitElement {
         for (const key in this.boardState) {
           const k = key as keyof BoardModel;
           if (this.boardState[k] !== oldState[k]) {
-            if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker'].includes(k)) {
+                        if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker', 'deckShoulder'].includes(k)) {
               isManualDragUpdate = true;
                                                                                                 } else if (!['volume', 'selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition'].includes(k)) {
               needsFullGeometryUpdate = true;
@@ -226,7 +226,8 @@ export class BoardViewport extends LitElement {
     
         const matApexOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
     const matRailOutline = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
-    const matApexRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
+        const matApexRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
+    const matDeckShoulder = new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.85 });
 
     const activeApexOutline = this.boardState?.apexOutline
       ? this.sampleBezierCurve(this.boardState.apexOutline, 100).map((p) =>
@@ -239,7 +240,10 @@ export class BoardViewport extends LitElement {
         )
       : null;
     const activeApexRocker = this.boardState?.apexRocker
-      ? this.sampleBezierCurve(this.boardState.apexRocker, 100)
+            ? this.sampleBezierCurve(this.boardState.apexRocker, 100)
+      : null;
+    const activeDeckShoulder = this.boardState?.deckShoulder
+      ? this.sampleBezierCurve(this.boardState.deckShoulder, 100)
       : null;
 
     if (this.boardState?.showOutline !== false) {
@@ -260,8 +264,14 @@ export class BoardViewport extends LitElement {
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false));
     if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false));
 
-        if (activeApexRocker && this.boardState?.showApexRocker !== false) {
+                if (activeApexRocker && this.boardState?.showApexRocker !== false) {
       this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, false));
+    }
+
+    if (activeDeckShoulder && this.boardState?.showDeckShoulder !== false) {
+      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 1, false));
+      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 1, true));
+      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 2, false));
     }
 
         if (this.boardState?.bottomChannels) {
@@ -554,7 +564,8 @@ export class BoardViewport extends LitElement {
     updatePositionsForCurve(this.boardState.rockerBottom, 'rockerBottom');
     updatePositionsForCurve(this.boardState.apexOutline, 'apexOutline');
     updatePositionsForCurve(this.boardState.railOutline, 'railOutline');
-        updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
+                updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
+        updatePositionsForCurve(this.boardState.deckShoulder, 'deckShoulder');
     this.boardState.crossSections?.forEach((cs, idx) => updatePositionsForCurve(cs, `crossSection_${idx}`));
         this.boardState.outlineLayers?.forEach((layer, idx) => {
         updatePositionsForCurve(layer.otlExt, `outlineLayer_${idx}_ext`);

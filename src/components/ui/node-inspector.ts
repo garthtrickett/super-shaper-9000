@@ -51,7 +51,8 @@ export class NodeInspector extends LitElement {
     if (sel.curve === "rockerBottom") return this.boardState.rockerBottom;
     if (sel.curve === "apexOutline") return this.boardState.apexOutline;
     if (sel.curve === "railOutline") return this.boardState.railOutline;
-    if (sel.curve === "apexRocker") return this.boardState.apexRocker;
+        if (sel.curve === "apexRocker") return this.boardState.apexRocker;
+    if (sel.curve === "deckShoulder") return this.boardState.deckShoulder;
         if (sel.curve.startsWith("crossSection_")) {
       const idx = parseInt(sel.curve.split("_")[1]!, 10);
       return this.boardState.crossSections?.[idx];
@@ -193,8 +194,9 @@ export class NodeInspector extends LitElement {
       rockerTop: "Rocker (Top)",
       rockerBottom: "Rocker (Bottom)",
       apexOutline: "Rail Apex (Plan)",
-      railOutline: "Rail Tuck (Plan)",
-      apexRocker: "Rail Apex (Profile)"
+            railOutline: "Rail Tuck (Plan)",
+      apexRocker: "Rail Apex (Profile)",
+      deckShoulder: "Deck Shoulder"
     };
 
         let title = friendlyNames[sel.curve] || sel.curve;

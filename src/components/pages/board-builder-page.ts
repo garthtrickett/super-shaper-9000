@@ -324,7 +324,8 @@ export class BoardBuilderPage extends LitElement {
           .showRockerBottom=${state.showRockerBottom ?? true}
           .showApexOutline=${state.showApexOutline ?? true}
           .showRailOutline=${state.showRailOutline ?? true}
-          .showApexRocker=${state.showApexRocker ?? true}
+                    .showApexRocker=${state.showApexRocker ?? true}
+          .showDeckShoulder=${state.showDeckShoulder ?? true}
                               .showCrossSections=${state.showCrossSections ?? true}
                     .showCurvature=${state.showCurvature ?? false}
           .showMriView=${state.showMriView ?? false}

@@ -191,7 +191,8 @@ impl SurferEngine {
         if self.model.show_rocker_bottom.unwrap_or(true) { add_curve(&self.model.rocker_bottom); }
         if self.model.show_apex_outline.unwrap_or(true) { add_curve(&self.model.apex_outline); }
         if self.model.show_rail_outline.unwrap_or(true) { add_curve(&self.model.rail_outline); }
-        if self.model.show_apex_rocker.unwrap_or(true) { add_curve(&self.model.apex_rocker); }
+                if self.model.show_apex_rocker.unwrap_or(true) { add_curve(&self.model.apex_rocker); }
+        if self.model.show_deck_shoulder.unwrap_or(true) { add_curve(&self.model.deck_shoulder); }
 
         if self.model.show_cross_sections.unwrap_or(true) {
             for cs in &self.model.cross_sections {

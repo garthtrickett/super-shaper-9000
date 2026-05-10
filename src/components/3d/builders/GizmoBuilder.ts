@@ -126,7 +126,8 @@ export class GizmoBuilder {
     if (boardState.showRockerBottom !== false) drawGizmosForCurve(boardState.rockerBottom, 'rockerBottom', 2);
     if (boardState.showApexOutline !== false) drawGizmosForCurve(boardState.apexOutline, 'apexOutline', 1);
     if (boardState.showRailOutline !== false) drawGizmosForCurve(boardState.railOutline, 'railOutline', 1);
-    if (boardState.showApexRocker !== false) drawGizmosForCurve(boardState.apexRocker, 'apexRocker', 2);
+        if (boardState.showApexRocker !== false) drawGizmosForCurve(boardState.apexRocker, 'apexRocker', 2);
+    if (boardState.showDeckShoulder !== false) drawGizmosForCurve(boardState.deckShoulder, 'deckShoulder', 1);
     
         if (boardState.showCrossSections !== false && boardState.crossSections) {
         boardState.crossSections.forEach((cs, idx) => {

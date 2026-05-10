@@ -9,7 +9,8 @@ fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a 
         "rockerBottom" => model.rocker_bottom.as_mut(),
         "apexOutline" => model.apex_outline.as_mut(),
         "railOutline" => model.rail_outline.as_mut(),
-        "apexRocker" => model.apex_rocker.as_mut(),
+                "apexRocker" => model.apex_rocker.as_mut(),
+        "deckShoulder" => model.deck_shoulder.as_mut(),
                 name if name.starts_with("crossSection_") => {
             let idx_str = name.strip_prefix("crossSection_")?;
             let idx: usize = idx_str.parse().ok()?;
@@ -66,7 +67,8 @@ pub fn push_history(model: &mut BoardModel) {
         apex_outline: model.apex_outline.clone(),
         rocker_top: model.rocker_top.clone(),
         rocker_bottom: model.rocker_bottom.clone(),
-        apex_rocker: model.apex_rocker.clone(),
+                apex_rocker: model.apex_rocker.clone(),
+        deck_shoulder: model.deck_shoulder.clone(),
         cross_sections: model.cross_sections.clone(),
     };
 
@@ -173,7 +175,7 @@ fn apply_tail_type(model: &mut BoardModel) {
 
 fn apply_node_position(model: &mut BoardModel, curve_name: &str, index: usize, node_type: &str, mut pos: Vec3) {
     let is_cross_section = curve_name.starts_with("crossSection_");
-    let is_outline_type = curve_name == "outline" || curve_name == "apexOutline" || curve_name == "railOutline" || curve_name.starts_with("outlineLayer_") || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+    let is_outline_type = curve_name == "outline" || curve_name == "apexOutline" || curve_name == "railOutline" || curve_name == "deckShoulder" || curve_name.starts_with("outlineLayer_") || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
 
     if let Some(target) = get_curve_mut(model, curve_name) {
         if node_type == "anchor" {
@@ -241,7 +243,7 @@ fn apply_node_position(model: &mut BoardModel, curve_name: &str, index: usize, n
 
 fn apply_node_exact(model: &mut BoardModel, curve_name: &str, index: usize, anchor: Option<Vec3>, tangent1: Option<Vec3>, tangent2: Option<Vec3>, weight: Option<f32>) {
     let is_cross_section = curve_name.starts_with("crossSection_");
-    let is_outline_type = curve_name == "outline" || curve_name == "apexOutline" || curve_name == "railOutline" || curve_name.starts_with("outlineLayer_") || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+    let is_outline_type = curve_name == "outline" || curve_name == "apexOutline" || curve_name == "railOutline" || curve_name == "deckShoulder" || curve_name.starts_with("outlineLayer_") || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
 
     if let Some(target) = get_curve_mut(model, curve_name) {
         if let Some(a) = anchor {
@@ -342,7 +344,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 scale_curve_length(&mut model.apex_outline, factor);
                 scale_curve_length(&mut model.rocker_top, factor);
                 scale_curve_length(&mut model.rocker_bottom, factor);
-                scale_curve_length(&mut model.apex_rocker, factor);
+                                scale_curve_length(&mut model.apex_rocker, factor);
+                scale_curve_length(&mut model.deck_shoulder, factor);
                 if let Some(layers) = &mut model.outline_layers {
                     for l in layers {
                         scale_curve_data_length(&mut l.otl_ext, factor);
@@ -366,7 +369,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 model.width = value;
                 scale_curve_width(&mut model.outline, factor);
                 scale_curve_width(&mut model.rail_outline, factor);
-                scale_curve_width(&mut model.apex_outline, factor);
+                                            scale_curve_width(&mut model.apex_outline, factor);
+            scale_curve_width(&mut model.deck_shoulder, factor);
+                scale_curve_width(&mut model.deck_shoulder, factor);
                 if let Some(layers) = &mut model.outline_layers {
                     for l in layers {
                         scale_curve_data_width(&mut l.otl_ext, factor);
@@ -392,7 +397,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 model.thickness = value;
                 scale_curve_thickness(&mut model.rocker_top, factor);
                 scale_curve_thickness(&mut model.rocker_bottom, factor);
-                scale_curve_thickness(&mut model.apex_rocker, factor);
+                                            scale_curve_thickness(&mut model.apex_rocker, factor);
+            scale_curve_thickness(&mut model.deck_shoulder, factor);
+                scale_curve_thickness(&mut model.deck_shoulder, factor);
                 if let Some(channels) = &mut model.bottom_channels {
                     for ch in channels {
                         scale_curve_data_thickness(&mut ch.left_depth, factor);
@@ -440,7 +447,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "showRockerBottom" => model.show_rocker_bottom = Some(value),
             "showApexOutline" => model.show_apex_outline = Some(value),
             "showRailOutline" => model.show_rail_outline = Some(value),
-            "showApexRocker" => model.show_apex_rocker = Some(value),
+                        "showApexRocker" => model.show_apex_rocker = Some(value),
+            "showDeckShoulder" => model.show_deck_shoulder = Some(value),
                         "showCrossSections" => model.show_cross_sections = Some(value),
             "showCurvature" => model.show_curvature = Some(value),
             "showMriView" => {
@@ -456,8 +464,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             *model = state;
             effects.push(Effect::LogInfo { message: "Rust Engine: LOAD_DESIGN applied.".to_string() });
         }
-        BoardAction::SetCurves { outline, rail_outline, apex_outline, rocker_top, rocker_bottom, apex_rocker, cross_sections } => {
+                BoardAction::SetCurves { outline, rail_outline, apex_outline, deck_shoulder, rocker_top, rocker_bottom, apex_rocker, cross_sections } => {
             if let Some(c) = outline { model.outline = Some(c); }
+            if let Some(c) = deck_shoulder { model.deck_shoulder = Some(c); }
             if let Some(c) = rail_outline { model.rail_outline = Some(c); }
             if let Some(c) = apex_outline { model.apex_outline = Some(c); }
             if let Some(c) = rocker_top { model.rocker_top = Some(c); }
@@ -550,7 +559,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     model.apex_outline = snap.apex_outline.clone();
                     model.rocker_top = snap.rocker_top.clone();
                     model.rocker_bottom = snap.rocker_bottom.clone();
-                    model.apex_rocker = snap.apex_rocker.clone();
+                                        model.apex_rocker = snap.apex_rocker.clone();
+                    model.deck_shoulder = snap.deck_shoulder.clone();
                     model.cross_sections = snap.cross_sections.clone();
                 }
             }
@@ -569,6 +579,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     model.rocker_top = snap.rocker_top.clone();
                     model.rocker_bottom = snap.rocker_bottom.clone();
                     model.apex_rocker = snap.apex_rocker.clone();
+                    model.deck_shoulder = snap.deck_shoulder.clone();
                     model.cross_sections = snap.cross_sections.clone();
                 }
             }
@@ -625,7 +636,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     parsed_model.show_rocker_bottom = model.show_rocker_bottom;
                     parsed_model.show_apex_outline = model.show_apex_outline;
                     parsed_model.show_rail_outline = model.show_rail_outline;
-                    parsed_model.show_apex_rocker = model.show_apex_rocker;
+                                        parsed_model.show_apex_rocker = model.show_apex_rocker;
+                    parsed_model.show_deck_shoulder = model.show_deck_shoulder;
                     parsed_model.show_cross_sections = model.show_cross_sections;
                     parsed_model.show_curvature = model.show_curvature;
                     parsed_model.show_mri_view = model.show_mri_view;

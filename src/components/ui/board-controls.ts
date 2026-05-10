@@ -28,7 +28,8 @@ export class BoardControls extends LitElement {
   @property({ type: Boolean }) showRockerBottom = true;
   @property({ type: Boolean }) showApexOutline = true;
   @property({ type: Boolean }) showRailOutline = true;
-    @property({ type: Boolean }) showApexRocker = true;
+        @property({ type: Boolean }) showApexRocker = true;
+    @property({ type: Boolean }) showDeckShoulder = true;
     @property({ type: Boolean }) showCrossSections = true;
   @property({ type: Boolean }) showCurvature = false;
   @property({ type: Boolean }) showMriView = false;
@@ -301,7 +302,8 @@ export class BoardControls extends LitElement {
             { label: "Rocker Bottom", key: "showRockerBottom" },
             { label: "Apex Outline", key: "showApexOutline" },
             { label: "Rail Outline (Tuck)", key: "showRailOutline" },
-            { label: "Apex Rocker", key: "showApexRocker" },
+                        { label: "Apex Rocker", key: "showApexRocker" },
+            { label: "Deck Shoulder", key: "showDeckShoulder" },
             { label: "Cross Sections", key: "showCrossSections" }
           ].map(c => html`
             <label class="flex items-center justify-between mb-1 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">

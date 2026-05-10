@@ -42,7 +42,8 @@ pub struct ManualSnapshot {
     pub apex_outline: Option<BezierCurveData>,
     pub rocker_top: Option<BezierCurveData>,
     pub rocker_bottom: Option<BezierCurveData>,
-    pub apex_rocker: Option<BezierCurveData>,
+        pub apex_rocker: Option<BezierCurveData>,
+    pub deck_shoulder: Option<BezierCurveData>,
     pub cross_sections: Vec<BezierCurveData>,
 }
 
@@ -80,7 +81,8 @@ pub struct BoardModel {
     pub show_apex_outline: Option<bool>,
     pub show_rail_outline: Option<bool>,
     pub show_apex_rocker: Option<bool>,
-        pub show_cross_sections: Option<bool>,
+            pub show_deck_shoulder: Option<bool>,
+    pub show_cross_sections: Option<bool>,
     pub show_curvature: Option<bool>,
     pub show_mri_view: Option<bool>,
     pub mri_slice_position: Option<f32>,
@@ -95,7 +97,8 @@ pub struct BoardModel {
     pub apex_outline: Option<BezierCurveData>,
     pub rocker_top: Option<BezierCurveData>,
     pub rocker_bottom: Option<BezierCurveData>,
-    pub apex_rocker: Option<BezierCurveData>,
+        pub apex_rocker: Option<BezierCurveData>,
+    pub deck_shoulder: Option<BezierCurveData>,
         #[serde(default)]
     pub cross_sections: Vec<BezierCurveData>,
 }
@@ -134,6 +137,7 @@ impl Default for BoardModel {
             show_apex_outline: None,
             show_rail_outline: None,
             show_apex_rocker: None,
+                        show_deck_shoulder: None,
             show_cross_sections: None,
             show_curvature: None,
             show_mri_view: None,
@@ -148,7 +152,8 @@ impl Default for BoardModel {
             apex_outline: None,
             rocker_top: None,
             rocker_bottom: None,
-            apex_rocker: None,
+                        apex_rocker: None,
+            deck_shoulder: None,
             cross_sections: Vec::new(),
         }
     }
@@ -175,7 +180,8 @@ pub enum BoardAction {
         apex_outline: Option<BezierCurveData>,
         rocker_top: Option<BezierCurveData>,
         rocker_bottom: Option<BezierCurveData>,
-        apex_rocker: Option<BezierCurveData>,
+                apex_rocker: Option<BezierCurveData>,
+        deck_shoulder: Option<BezierCurveData>,
         cross_sections: Option<Vec<BezierCurveData>>
     },
     #[serde(rename = "UPDATE_NODE_POSITION")]

@@ -69,7 +69,8 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     xml.push_str(&format_bezier("Stringer Top", "StrDeck", &model.rocker_top, 0, 2));
     
     xml.push_str(&format_bezier_def("curveDefTop1", 1, "Rail", &model.rail_outline, 6, 1));
-    xml.push_str(&format_bezier_def("curveDefTop2", 1, "Apex", &model.apex_outline, 6, 1));
+        xml.push_str(&format_bezier_def("curveDefTop2", 1, "Apex", &model.apex_outline, 6, 1));
+    xml.push_str(&format_bezier_def("curveDefTop3", 1, "Deck 1", &model.deck_shoulder, 6, 1));
     xml.push_str(&format_bezier_def("curveDefSide0", 0, "Stringer Bot", &model.rocker_bottom, 0, 2));
     xml.push_str(&format_bezier_def("curveDefSide2", 0, "Apex", &model.apex_rocker, 0, 2));
     xml.push_str(&format_bezier_def("curveDefSide4", 0, "Stringer Top", &model.rocker_top, 0, 2));
