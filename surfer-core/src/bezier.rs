@@ -291,8 +291,16 @@ pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (V
 
     let p0 = curve.control_points[segment_idx];
     let p1 = curve.control_points[segment_idx + 1];
-    let t0 = curve.tangents2.get(segment_idx).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
-    let t1 = curve.tangents1.get(segment_idx + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
+    let t0 = curve
+        .tangents2
+        .get(segment_idx)
+        .copied()
+        .unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+    let t1 = curve
+        .tangents1
+        .get(segment_idx + 1)
+        .copied()
+        .unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
 
     let weights = curve.weights.as_ref().and_then(|w| {
         if w.len() > segment_idx + 1 {
@@ -519,9 +527,17 @@ pub fn sample_curve(curve: &BezierCurveData, steps: usize) -> Vec<Vec3> {
         let p0 = curve.control_points[segment_idx];
         let p1 = curve.control_points[segment_idx + 1];
         // t0 is the OUTGOING tangent of P0 (tangents2)
-        let t0 = curve.tangents2.get(segment_idx).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+        let t0 = curve
+            .tangents2
+            .get(segment_idx)
+            .copied()
+            .unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
         // t1 is the INCOMING tangent of P1 (tangents1)
-        let t1 = curve.tangents1.get(segment_idx + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
+        let t1 = curve
+            .tangents1
+            .get(segment_idx + 1)
+            .copied()
+            .unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
 
         let weights = curve.weights.as_ref().and_then(|w| {
             if w.len() > segment_idx + 1 {

@@ -18,8 +18,16 @@ pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
 
     let p0 = curve.control_points[segment_idx];
     let p1 = curve.control_points[segment_idx + 1];
-    let t0 = curve.tangents2.get(segment_idx).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
-    let t1 = curve.tangents1.get(segment_idx + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
+    let t0 = curve
+        .tangents2
+        .get(segment_idx)
+        .copied()
+        .unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+    let t1 = curve
+        .tangents1
+        .get(segment_idx + 1)
+        .copied()
+        .unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
 
     let weights = curve.weights.as_ref().and_then(|w| {
         if w.len() > segment_idx + 1 {
@@ -53,8 +61,16 @@ pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
 
     let p0 = curve.control_points[segment_idx];
     let p1 = curve.control_points[segment_idx + 1];
-    let t0 = curve.tangents2.get(segment_idx).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
-    let t1 = curve.tangents1.get(segment_idx + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
+    let t0 = curve
+        .tangents2
+        .get(segment_idx)
+        .copied()
+        .unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+    let t1 = curve
+        .tangents1
+        .get(segment_idx + 1)
+        .copied()
+        .unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
 
     let weights = curve.weights.as_ref().and_then(|w| {
         if w.len() > segment_idx + 1 {

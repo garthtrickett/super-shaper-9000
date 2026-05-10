@@ -164,10 +164,18 @@ impl SurferEngine {
             if let Some(c) = curve {
                 let num_segments = c.control_points.len().saturating_sub(1);
                 for seg in 0..num_segments {
-                                        let p0 = c.control_points[seg];
+                    let p0 = c.control_points[seg];
                     let p1 = c.control_points[seg + 1];
-                    let t0 = c.tangents2.get(seg).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
-                    let t1 = c.tangents1.get(seg + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
+                    let t0 = c
+                        .tangents2
+                        .get(seg)
+                        .copied()
+                        .unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+                    let t1 = c
+                        .tangents1
+                        .get(seg + 1)
+                        .copied()
+                        .unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
 
                     let weights = c.weights.as_ref().and_then(|w| {
                         if w.len() > seg + 1 {

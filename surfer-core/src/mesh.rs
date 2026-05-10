@@ -539,7 +539,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         };
 
-        let generate_cap = |ring_index: usize,
+    let generate_cap = |ring_index: usize,
                         z_inches: f32,
                         n_top: Vec3,
                         n_bot: Vec3,
@@ -560,11 +560,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let start_vertex_index = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
 
-        if is_sharp {
+                if is_sharp {
             // Degenerate Quad Logic for Singularities (Poles)
-            for j in 0..num_cols {
-                let (pos, color, u, v) = ring[j];
-                
+            for &(pos, color, u, v) in ring {
                 // For a sharp tip, all vertices converge to X=0.0
                 vertices.push(0.0);
                 vertices.push(pos.y);
@@ -643,7 +641,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     colors.push(color.y);
                     colors.push(color.z);
 
-                    let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
+                    let blended_normal =
+                        crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
                     normals.push(blended_normal.x);
                     normals.push(blended_normal.y);
                     normals.push(blended_normal.z);
@@ -777,7 +776,7 @@ mod tests {
     use crate::model::BezierCurveData;
     use glam::Vec3;
 
-        #[test]
+    #[test]
     fn test_patch_caps_for_squash_tails() {
         // This test verifies that blunt tails (like a square/squash tail) are generated
         // as a "patch" (a grid of vertices) instead of a "pole".
@@ -789,7 +788,7 @@ mod tests {
                 control_points: vec![
                     Vec3::new(5.0, 0.0, -35.0), // Square nose
                     Vec3::new(10.0, 0.0, 0.0),
-                    Vec3::new(5.0, 0.0, 35.0),  // Square tail
+                    Vec3::new(5.0, 0.0, 35.0), // Square tail
                 ],
                 tangents1: vec![
                     Vec3::new(5.0, 0.0, -35.0),
@@ -859,7 +858,7 @@ mod tests {
             .filter(|v| (v.z - max_z).abs() < 1e-4 && v.x.abs() < 1e-4)
             .count();
 
-                // Since we explicitly modelled a square nose and tail (X=5.0), there should be NO vertices at the centerline (X=0)
+        // Since we explicitly modelled a square nose and tail (X=5.0), there should be NO vertices at the centerline (X=0)
         assert_eq!(
             nose_pole_vertices, 0,
             "Square nose should NOT pinch to the centerline."
@@ -882,7 +881,7 @@ mod tests {
                 control_points: vec![
                     Vec3::new(0.0, 0.0, -35.0), // Pin nose
                     Vec3::new(10.0, 0.0, 0.0),
-                    Vec3::new(0.0, 0.0, 35.0),  // Pin tail
+                    Vec3::new(0.0, 0.0, 35.0), // Pin tail
                 ],
                 tangents1: vec![
                     Vec3::new(0.0, 0.0, -35.0),
@@ -1258,7 +1257,7 @@ mod tests {
             }
         }
 
-                let tail_thickness = tail_max_y - tail_min_y;
+        let tail_thickness = tail_max_y - tail_min_y;
         let nose_thickness = nose_max_y - nose_min_y;
 
         // A true CAD loft must retain the actual rocker profile thickness at the poles,
