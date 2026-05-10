@@ -521,7 +521,7 @@ mod tests {
         );
     }
 
-            #[test]
+    #[test]
     fn test_mesh_intersects_spatial_splines() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -531,12 +531,12 @@ mod tests {
         let mesh = crate::mesh::generate_mesh(&model);
         let scale = 1.0 / 12.0;
 
-                // Evaluate at multiple specific Z intervals
+        // Evaluate at multiple specific Z intervals
         let test_zs = vec![-20.0, 20.0];
 
         for target_z in test_zs {
             let target_z_scaled = target_z * scale;
-            
+
             let mut best_z_diff = f32::INFINITY;
             let mut best_z = 0.0;
             for i in 0..(mesh.vertices.len() / 3) {
@@ -547,19 +547,23 @@ mod tests {
                     best_z = z;
                 }
             }
-            
-                                    // Relaxed assertion: The adaptive mesher optimizes flat areas, so rings might be ~1-2 inches apart.
-            assert!(best_z_diff < 2.0 * scale, "Mesh should have a Z ring reasonably close to {}", target_z);
+
+            // Relaxed assertion: The adaptive mesher optimizes flat areas, so rings might be ~1-2 inches apart.
+            assert!(
+                best_z_diff < 2.0 * scale,
+                "Mesh should have a Z ring reasonably close to {}",
+                target_z
+            );
 
             let mut mesh_apex_x = 0.0;
             let mut mesh_apex_y = 0.0;
             let mut found_apex = false;
-            
+
             for i in 0..(mesh.vertices.len() / 3) {
                 let x = mesh.vertices[i * 3];
                 let y = mesh.vertices[i * 3 + 1];
                 let z = mesh.vertices[i * 3 + 2];
-                
+
                 if (z - best_z).abs() < 1e-4 {
                     if x > mesh_apex_x {
                         mesh_apex_x = x;
@@ -568,16 +572,19 @@ mod tests {
                     }
                 }
             }
-            
-            assert!(found_apex, "Should have found an apex point in the mesh ring");
-            
+
+            assert!(
+                found_apex,
+                "Should have found an apex point in the mesh ring"
+            );
+
             let eval_z = best_z / scale;
             let outline = model.outline.as_ref().unwrap();
             let bounds = crate::geometry::get_board_bounds(&model);
             let v_outer = crate::geometry::find_v_at_z(outline, eval_z, 0.0, bounds.tip_t);
-            
-                        let expected_profile = crate::geometry::get_board_profile_at_z(&model, eval_z, v_outer);
-            
+
+            let expected_profile = crate::geometry::get_board_profile_at_z(&model, eval_z, v_outer);
+
             let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
             let dist = eval_z - mid_z;
             let rail_coeff = if dist > 0.0 {
@@ -589,13 +596,14 @@ mod tests {
                 let ease_t = t * t * (3.0 - 2.0 * t);
                 1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
             };
-            
-            let expected_y = expected_profile.bot_y + (expected_profile.apex_y - expected_profile.bot_y) * rail_coeff;
-            
+
+            let expected_y = expected_profile.bot_y
+                + (expected_profile.apex_y - expected_profile.bot_y) * rail_coeff;
+
             let x_err = (mesh_apex_x - expected_profile.apex_x * scale).abs();
             let y_err = (mesh_apex_y - expected_y * scale).abs();
-            
-                                    assert!(
+
+            assert!(
                 x_err <= 5e-3,
                 "Mesh Apex X ({}) does not intersect Analytical Apex X ({}) at actual Z={}! Error: {}",
                 mesh_apex_x, expected_profile.apex_x * scale, eval_z, x_err

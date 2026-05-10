@@ -110,7 +110,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let segments_v = z_rings.len() - 1;
 
-        // Adaptive Crosswise (U) Columns
+    // Adaptive Crosswise (U) Columns
     let mut base_u = Vec::new();
     let tolerance_degrees_u = 3.0;
     let min_dist_u = 0.05;
@@ -164,7 +164,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                             let v_outer = crate::geometry::find_v_at_z(outline, *z, 0.0, v_tip);
                             for i in 0..=50 {
                                 let test_u = i as f32 / 50.0 * b.t_apex;
-                                let test_pt = crate::geometry::get_point_at_uv_base(model, test_u, v_outer, *z, inner_x, 1.0);
+                                let test_pt = crate::geometry::get_point_at_uv_base(
+                                    model, test_u, v_outer, *z, inner_x, 1.0,
+                                );
                                 let diff = (test_pt.x - chan_x.abs()).abs();
                                 if diff < min_diff {
                                     min_diff = diff;
@@ -177,8 +179,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                                 step *= 0.5;
                                 let u_left = (u_search - step).max(0.0);
                                 let u_right = (u_search + step).min(b.t_apex);
-                                let pt_left = crate::geometry::get_point_at_uv_base(model, u_left, v_outer, *z, inner_x, 1.0);
-                                let pt_right = crate::geometry::get_point_at_uv_base(model, u_right, v_outer, *z, inner_x, 1.0);
+                                let pt_left = crate::geometry::get_point_at_uv_base(
+                                    model, u_left, v_outer, *z, inner_x, 1.0,
+                                );
+                                let pt_right = crate::geometry::get_point_at_uv_base(
+                                    model, u_right, v_outer, *z, inner_x, 1.0,
+                                );
                                 if (pt_left.x - chan_x.abs()).abs() < min_diff {
                                     min_diff = (pt_left.x - chan_x.abs()).abs();
                                     u_search = u_left;
@@ -211,7 +217,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     u_params_half = final_u;
     // --- END NEW ---
 
-        // Compute Arc Length mapping from the primary cross section to prevent UV stretching
+    // Compute Arc Length mapping from the primary cross section to prevent UV stretching
     let cs_arc_table = if !model.cross_sections.is_empty() {
         let mut primary_cs = &model.cross_sections[0];
         let mut max_width = 0.0;
@@ -238,12 +244,18 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             let (t0, l0) = cs_arc_table[i];
             let (t1, l1) = cs_arc_table[i + 1];
             if t_val >= t0 && t_val <= t1 {
-                let frac = if t1 > t0 { (t_val - t0) / (t1 - t0) } else { 0.0 };
+                let frac = if t1 > t0 {
+                    (t_val - t0) / (t1 - t0)
+                } else {
+                    0.0
+                };
                 len_at_t = l0 + frac * (l1 - l0);
                 break;
             }
         }
-        if t_val >= 1.0 { len_at_t = total_cs_len; }
+        if t_val >= 1.0 {
+            len_at_t = total_cs_len;
+        }
         len_at_t / total_cs_len
     };
 
@@ -308,7 +320,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
         let heat_color = color_heatmap(normalized_foil);
 
-                for &(u_val, side, is_stringer, u_tex) in u_columns.iter() {
+        for &(u_val, side, is_stringer, u_tex) in u_columns.iter() {
             let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, side);
             if is_stringer {
                 point.x = inner_x;
@@ -346,7 +358,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             uvs.push(u);
             uvs.push(v);
 
-                        let side = u_columns[j].1;
+            let side = u_columns[j].1;
             let u_val = u_columns[j].0;
             let n = crate::geometry::get_surface_normal_at_uvz(model, u_val, z_inches, side);
 
@@ -1247,7 +1259,7 @@ mod tests {
         u_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
         u_vals.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
 
-                let mut found_cliff = false;
+        let mut found_cliff = false;
         for i in 0..u_vals.len() - 1 {
             let diff = (u_vals[i + 1] - u_vals[i]).abs();
             // Confirm there are U-rings extremely close together (cliff) but not overlapping
@@ -1260,7 +1272,7 @@ mod tests {
             found_cliff,
             "Topology should duplicate U-columns around the channel wall cliff"
         );
-        
+
         // Assert channel depths are normal-projected, preventing X footprint widening
         let mut max_x = 0.0_f32;
         let scale = 1.0 / 12.0;
@@ -1274,12 +1286,14 @@ mod tests {
                 }
             }
         }
-        
-        let outline_x_at_50 = crate::geometry::evaluate_composite_outline_at_z(&model, 50.0, 0.5).x * scale;
+
+        let outline_x_at_50 =
+            crate::geometry::evaluate_composite_outline_at_z(&model, 50.0, 0.5).x * scale;
         assert!(
             max_x <= outline_x_at_50 + 1e-3,
             "Channel projection must not widen the board's X footprint. Max X: {}, Outline X: {}",
-            max_x, outline_x_at_50
+            max_x,
+            outline_x_at_50
         );
 
         println!("✅ test_channel_u_column_clustering passed.");

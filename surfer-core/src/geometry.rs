@@ -668,7 +668,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         }
     }
 
-        let mut tuck_x = outline_pt.x.max(0.0);
+    let mut tuck_x = outline_pt.x.max(0.0);
     let mut has_rail_outline = false;
     if let Some(ro) = &model.rail_outline {
         if !ro.control_points.is_empty() {
@@ -812,7 +812,7 @@ pub fn get_point_at_uv_base(
         0.0
     };
 
-        let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x_for_rail;
+    let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x_for_rail;
     final_pos.y = profile.bot_y + (final_pos.y - profile.bot_y) * local_rail_coeff;
 
     if final_pos.x < inner_x {
@@ -837,25 +837,25 @@ pub fn get_point_at_uv(
     let t_apex = if let Some(b) = &blend { b.t_apex } else { 0.5 };
 
     if u <= t_apex {
-        if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
+        if let Some((mut chan_x, chan_depth)) =
+            get_channel_profile_at_z(model, side < 0.0, z_inches)
+        {
             let profile = get_board_profile_at_z(model, z_inches, v);
             let apex_x = profile.apex_x.max(0.001);
             chan_x = chan_x.abs();
             if chan_x > inner_x && chan_x < apex_x {
                 let mut channel_applied = false;
                 let mut t = 0.0;
-                if final_pos.x.abs() <= chan_x {
+                                if final_pos.x.abs() <= chan_x {
                     if chan_x > inner_x {
                         t = (final_pos.x.abs() - inner_x) / (chan_x - inner_x);
                         channel_applied = true;
                     }
-                } else {
-                    if apex_x > chan_x {
-                        t = 1.0 - (final_pos.x.abs() - chan_x) / (apex_x - chan_x);
-                        channel_applied = true;
-                    }
+                } else if apex_x > chan_x {
+                    t = 1.0 - (final_pos.x.abs() - chan_x) / (apex_x - chan_x);
+                    channel_applied = true;
                 }
-                
+
                 if channel_applied {
                     let normal = get_surface_normal_base_at_uvz(model, u, z_inches, side);
                     final_pos -= normal * (t * chan_depth);
@@ -864,7 +864,7 @@ pub fn get_point_at_uv(
         }
     }
 
-        final_pos
+    final_pos
 }
 
 /// Spherical Linear Interpolation for normal vectors.
@@ -896,7 +896,12 @@ pub fn slerp_normals(n1: Vec3, n2: Vec3, t: f32, fallback_mid: Vec3) -> Vec3 {
 
 /// Evaluates the analytical surface normals at the absolute Z-poles (nose or tail) of the board.
 /// Returns (top_normal, bottom_normal).
-pub fn get_surface_normal_base_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side: f32) -> Vec3 {
+pub fn get_surface_normal_base_at_uvz(
+    model: &BoardModel,
+    u: f32,
+    z_inches: f32,
+    side: f32,
+) -> Vec3 {
     let bounds = get_board_bounds(model);
 
     if (z_inches - bounds.nose_z).abs() < 1e-4 {
@@ -1295,7 +1300,7 @@ mod tests {
                 Vec3::new(10.0, 0.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
             ],
-                        tangents1: vec![
+            tangents1: vec![
                 Vec3::new(0.0, -1.0, 0.0),
                 Vec3::new(10.0, -0.5, 0.0),
                 Vec3::new(5.0, 1.0, 0.0),

@@ -789,15 +789,27 @@ mod tests {
             "Bent curve should subdivide heavily compared to a straight curve"
         );
 
-                println!("✅ test_adaptive_sampling passed.");
+        println!("✅ test_adaptive_sampling passed.");
     }
 
     #[test]
     fn test_uv_arc_length_uniformity() {
         let curve = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(20.0, 0.0, 0.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 0.0)],
-            tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(15.0, 0.0, 0.0), Vec3::new(20.0, 0.0, 0.0)],
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(20.0, 0.0, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(15.0, 0.0, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(15.0, 0.0, 0.0),
+                Vec3::new(20.0, 0.0, 0.0),
+            ],
             ..Default::default()
         };
 
@@ -806,7 +818,7 @@ mod tests {
         asym_curve.weights = Some(vec![1.0, 10.0, 1.0]);
 
         let table = build_arc_length_table(&asym_curve, 1000);
-        
+
         let t25 = get_t_at_arc_length_ratio(&table, 0.25);
         let t50 = get_t_at_arc_length_ratio(&table, 0.50);
         let t75 = get_t_at_arc_length_ratio(&table, 0.75);
@@ -823,13 +835,13 @@ mod tests {
         let d4 = p75.distance(p100);
 
         let avg = (d1 + d2 + d3 + d4) / 4.0;
-        
+
         // Assert that physical distance between arc-length mapped points is roughly equal
         assert!((d1 - avg).abs() < 0.1, "D1 mismatch: {} vs {}", d1, avg);
         assert!((d2 - avg).abs() < 0.1, "D2 mismatch: {} vs {}", d2, avg);
         assert!((d3 - avg).abs() < 0.1, "D3 mismatch: {} vs {}", d3, avg);
         assert!((d4 - avg).abs() < 0.1, "D4 mismatch: {} vs {}", d4, avg);
-        
+
         println!("✅ test_uv_arc_length_uniformity passed.");
     }
 }
