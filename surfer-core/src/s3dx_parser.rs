@@ -531,8 +531,8 @@ mod tests {
         let mesh = crate::mesh::generate_mesh(&model);
         let scale = 1.0 / 12.0;
 
-        // Evaluate at multiple specific Z intervals
-        let test_zs = vec![30.0, 60.0];
+                // Evaluate at multiple specific Z intervals
+        let test_zs = vec![-20.0, 20.0];
 
         for target_z in test_zs {
             let target_z_scaled = target_z * scale;
