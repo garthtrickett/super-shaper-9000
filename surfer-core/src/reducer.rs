@@ -228,15 +228,13 @@ fn apply_node_position(
             let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
             let is_layer = curve_name.starts_with("outlineLayer_");
             let is_channel = curve_name.starts_with("channel_");
-            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+                        if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
                 pos.x = 0.0;
             }
             if is_cross_section || is_outline_type {
                 if is_channel && curve_name.contains("_left_") {
                     pos.x = pos.x.min(0.0);
-                } else if is_channel && curve_name.contains("_right_") {
-                    pos.x = pos.x.max(0.0);
-                } else if !is_channel {
+                } else if (is_channel && curve_name.contains("_right_")) || !is_channel {
                     pos.x = pos.x.max(0.0);
                 }
             }
@@ -310,15 +308,13 @@ fn apply_node_exact(
             let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
             let is_layer = curve_name.starts_with("outlineLayer_");
             let is_channel = curve_name.starts_with("channel_");
-            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+                        if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
                 pos.x = 0.0;
             }
             if is_cross_section || is_outline_type {
                 if is_channel && curve_name.contains("_left_") {
                     pos.x = pos.x.min(0.0);
-                } else if is_channel && curve_name.contains("_right_") {
-                    pos.x = pos.x.max(0.0);
-                } else if !is_channel {
+                } else if (is_channel && curve_name.contains("_right_")) || !is_channel {
                     pos.x = pos.x.max(0.0);
                 }
             }
@@ -377,10 +373,8 @@ fn apply_continuity(
             let dir = anchor - t_src;
             let dist_tgt = (t_tgt - anchor).length();
 
-            if level == "G1" || level == "G2" {
-                if dir.length_squared() > 1e-6 {
-                    t_tgt = anchor + dir.normalize() * dist_tgt;
-                }
+                        if (level == "G1" || level == "G2") && dir.length_squared() > 1e-6 {
+                t_tgt = anchor + dir.normalize() * dist_tgt;
             }
 
             if level == "G2" {
@@ -543,8 +537,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         BoardAction::UpdateVolume { volume } => {
             model.volume = volume;
         }
-        BoardAction::LoadDesign { state } => {
-            *model = state;
+                BoardAction::LoadDesign { state } => {
+            *model = *state;
             effects.push(Effect::LogInfo {
                 message: "Rust Engine: LOAD_DESIGN applied.".to_string(),
             });
@@ -600,11 +594,11 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                    let is_sym = model
+                                        let is_sym = model
                         .bottom_channels
                         .as_ref()
                         .and_then(|c| c.get(idx))
-                        .map_or(false, |ch| ch.is_symmetric);
+                        .is_some_and(|ch| ch.is_symmetric);
 
                     if is_sym {
                         let mirrored_side = if side == "left" { "right" } else { "left" };
@@ -641,11 +635,11 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                    let is_sym = model
+                                        let is_sym = model
                         .bottom_channels
                         .as_ref()
                         .and_then(|c| c.get(idx))
-                        .map_or(false, |ch| ch.is_symmetric);
+                        .is_some_and(|ch| ch.is_symmetric);
 
                     if is_sym {
                         let mirrored_side = if side == "left" { "right" } else { "left" };
@@ -680,11 +674,11 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                    let is_sym = model
+                                        let is_sym = model
                         .bottom_channels
                         .as_ref()
                         .and_then(|c| c.get(idx))
-                        .map_or(false, |ch| ch.is_symmetric);
+                        .is_some_and(|ch| ch.is_symmetric);
 
                     if is_sym {
                         let mirrored_side = if side == "left" { "right" } else { "left" };

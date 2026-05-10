@@ -30,6 +30,7 @@ pub fn evaluate_cubic_hermite(p1: Vec3, p2: Vec3, m1: Vec3, m2: Vec3, t: f32) ->
 
 /// Evaluates a Rational 3D Cubic Bezier curve at a given `t` (0.0 to 1.0)
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub fn evaluate_rational_bezier_cubic(
     p0: Vec3,
     t0: Vec3,
@@ -60,6 +61,7 @@ pub fn evaluate_rational_bezier_cubic(
 
 /// Evaluates the first derivative of a Rational 3D Cubic Bezier curve at `t`
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub fn evaluate_rational_first_derivative(
     p0: Vec3,
     t0: Vec3,
@@ -100,6 +102,7 @@ pub fn evaluate_rational_first_derivative(
 
 /// Evaluates the second derivative of a Rational 3D Cubic Bezier curve at `t`
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub fn evaluate_rational_second_derivative(
     p0: Vec3,
     t0: Vec3,
@@ -324,6 +327,7 @@ pub fn adaptive_sample_t(
 
     t_values.push(0.0);
 
+        #[allow(clippy::too_many_arguments)]
     fn subdivide(
         curve: &BezierCurveData,
         t_start: f32,

@@ -247,8 +247,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
         let heat_color = color_heatmap(normalized_foil);
 
-        for j in 0..num_cols {
-            let (u_val, side, is_stringer) = u_columns[j];
+                for &(u_val, side, is_stringer) in u_columns.iter() {
             let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, side);
             if is_stringer {
                 point.x = inner_x;
@@ -316,11 +315,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 grid[i + 1][j].0 - grid[i - 1][j].0
             };
 
-            let tangent_u = if j == 0 {
+                        let tangent_u = if j == 0 {
                 grid[i][1].0 - grid[i][0].0
-            } else if j == num_cols - 1 {
-                grid[i][j].0 - grid[i][j - 1].0
-            } else if j == right_half_cols - 1 {
+            } else if j == num_cols - 1 || j == right_half_cols - 1 {
                 grid[i][j].0 - grid[i][j - 1].0
             } else if j == right_half_cols {
                 grid[i][j + 1].0 - grid[i][j].0
@@ -422,9 +419,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 return;
             }
 
-            let mut notch_start_idx = 0;
-            for i in 0..=segments_v {
-                if z_rings[i] > notch_z + 1e-4 {
+                        let mut notch_start_idx = 0;
+            for (i, &z_inch) in z_rings.iter().enumerate() {
+                if z_inch > notch_z + 1e-4 {
                     notch_start_idx = i.saturating_sub(1);
                     break;
                 }
@@ -590,14 +587,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 let (pos, color, u, v) = ring[j];
                 let side = u_columns[j].1;
 
-                let target_x = if is_nose {
+                                let target_x = if is_nose {
                     0.0
+                } else if side > 0.0 {
+                    right_target_x
                 } else {
-                    if side > 0.0 {
-                        right_target_x
-                    } else {
-                        left_target_x
-                    }
+                    left_target_x
                 };
 
                 let new_x = target_x + (pos.x - target_x) * fraction;
