@@ -238,11 +238,11 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             0.0
         };
 
-                let profile = crate::geometry::get_board_profile_at_z(model, z_inches, v_outer);
+        let profile = crate::geometry::get_board_profile_at_z(model, z_inches, v_outer);
         let center_thick = (profile.top_y - profile.bot_y).max(0.001);
         let rail_thick = (profile.apex_y - profile.bot_y).max(0.0);
         let foil_ratio = rail_thick / center_thick;
-        
+
         // Map foil_ratio: ~0.25 (pinched/blue) to ~0.75 (boxy/red)
         let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
         let heat_color = color_heatmap(normalized_foil);
@@ -272,7 +272,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
     let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
 
-        let mut normals = Vec::new();
+    let mut normals = Vec::new();
     for i in 0..=segments_v {
         let z_inches = z_rings[i];
         for j in 0..num_cols {
@@ -355,7 +355,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 n = Vec3::new(0.0, if u_columns[j].0 > 0.5 { 1.0 } else { -1.0 }, 0.0);
             }
 
-                        // Stringer seam smoothing: Force X=0 for perfect centerline reflection,
+            // Stringer seam smoothing: Force X=0 for perfect centerline reflection,
             // EXCEPT in swallow tails where inner_x > 0.0 (exposed outer edge).
             let is_stringer = u_columns[j].2;
             let current_inner_x = grid[i][j].0.x.abs() / scale;
@@ -365,15 +365,27 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
 
             // POLE NORMAL SMOOTHING: Prevent black shading artifacts at rounded pin tails
-            // If we are at the absolute tip, override the calculated normal with the 
+            // If we are at the absolute tip, override the calculated normal with the
             // analytical pole normal, smoothly blended from top to bottom based on U.
             if i == segments_v && (tip_z - z_inches).abs() < 1e-4 && current_inner_x < 1e-4 {
-                n = crate::geometry::slerp_normals(tail_n_bot, tail_n_top, u_columns[j].0, Vec3::new(0.0, 0.0, 1.0));
+                n = crate::geometry::slerp_normals(
+                    tail_n_bot,
+                    tail_n_top,
+                    u_columns[j].0,
+                    Vec3::new(0.0, 0.0, 1.0),
+                );
             } else if i == 0 && (z_inches - nose_z).abs() < 1e-4 && current_inner_x < 1e-4 {
-                n = crate::geometry::slerp_normals(nose_n_bot, nose_n_top, u_columns[j].0, Vec3::new(0.0, 0.0, -1.0));
+                n = crate::geometry::slerp_normals(
+                    nose_n_bot,
+                    nose_n_top,
+                    u_columns[j].0,
+                    Vec3::new(0.0, 0.0, -1.0),
+                );
             }
 
-            normals.push(n.x); normals.push(n.y); normals.push(n.z);
+            normals.push(n.x);
+            normals.push(n.y);
+            normals.push(n.z);
         }
     }
 
@@ -684,7 +696,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         &mut indices,
     );
 
-        // Dynamically integrate volume using the Shoelace formula on cross sections
+    // Dynamically integrate volume using the Shoelace formula on cross sections
     let mut total_volume_cubic_feet = 0.0;
 
     for i in 0..segments_v {
@@ -1040,7 +1052,7 @@ mod tests {
         println!("✅ test_split_normals_at_poles passed.");
     }
 
-        #[test]
+    #[test]
     fn deleted_test_golden_s3dx_rounded_pin_geometry() {}
 
     #[test]
@@ -1225,7 +1237,7 @@ mod tests {
             tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
             ..Default::default()
         });
-                model.cross_sections = vec![BezierCurveData {
+        model.cross_sections = vec![BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.25, 0.0),
                 Vec3::new(10.0, 0.0, 0.0),
@@ -1469,7 +1481,7 @@ mod tests {
             tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
             ..Default::default()
         });
-                model.cross_sections = vec![BezierCurveData {
+        model.cross_sections = vec![BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.25, 0.0),
                 Vec3::new(10.0, 0.0, 0.0),
@@ -1564,7 +1576,7 @@ mod tests {
             tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
             ..Default::default()
         });
-                model.cross_sections = vec![BezierCurveData {
+        model.cross_sections = vec![BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.25, 0.0),
                 Vec3::new(10.0, 0.0, 0.0),

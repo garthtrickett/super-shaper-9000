@@ -20,4 +20,18 @@ env_logger = "0.11.10"
 [dependencies.quick-xml]
 version = "0.31"
 features = ["serialize"]
+[package]
+name = "surfer-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.27.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+quick-xml = { version = "0.31", features = ["serde"] }
+
+[dev-dependencies]
+ctor = "0.2"
+env_logger = "0.11"
 

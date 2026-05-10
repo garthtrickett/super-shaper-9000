@@ -10,13 +10,13 @@ pub struct Shape3dDesign {
 pub struct S3dxBoard {
     #[serde(rename = "Length")]
     pub length: f32,
-        #[serde(rename = "Width")]
+    #[serde(rename = "Width")]
     pub width: f32,
     #[serde(rename = "Thickness")]
     pub thickness: f32,
     #[serde(rename = "Volume")]
     pub volume: Option<f32>,
-    
+
     #[serde(rename = "VConcaveTail")]
     pub v_concave_tail: Option<f32>,
     #[serde(rename = "VConcaveNose")]
@@ -34,14 +34,14 @@ pub struct S3dxBoard {
     pub str_bot: Option<S3dxCurveContainer>,
     #[serde(rename = "StrDeck")]
     pub str_deck: Option<S3dxCurveContainer>,
-    
+
     #[serde(rename = "curveDefTop1")]
     pub curve_def_top1: Option<S3dxBezierDefContainer>,
-        #[serde(rename = "curveDefTop2")]
+    #[serde(rename = "curveDefTop2")]
     pub curve_def_top2: Option<S3dxBezierDefContainer>,
     #[serde(rename = "curveDefTop3")]
     pub curve_def_top3: Option<S3dxBezierDefContainer>,
-    
+
     #[serde(rename = "curveDefSide0")]
     pub curve_def_side0: Option<S3dxBezierDefContainer>,
     #[serde(rename = "curveDefSide2")]
@@ -49,7 +49,7 @@ pub struct S3dxBoard {
     #[serde(rename = "curveDefSide4")]
     pub curve_def_side4: Option<S3dxBezierDefContainer>,
 
-            #[serde(rename = "Number_of_slices")]
+    #[serde(rename = "Number_of_slices")]
     pub number_of_slices: Option<usize>,
 
     #[serde(rename = "Couple")]
@@ -137,46 +137,70 @@ pub struct S3dxPoint3d {
     pub u: Option<f32>,
 }
 
-use crate::model::{BoardModel, BezierCurveData};
+use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
-fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, scale: f32) -> Option<BezierCurveData> {
+fn convert_s3dx_bezier3d(
+    bezier3d: &S3dxBezier3d,
+    board_length: f32,
+    scale: f32,
+) -> Option<BezierCurveData> {
     let mut control_points = Vec::new();
     let mut weights = Vec::new();
     if let Some(poly) = &bezier3d.control_points {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                control_points.push(Vec3::new(p.y * scale, p.z * scale, (p.x - board_length / 2.0) * scale));
+                control_points.push(Vec3::new(
+                    p.y * scale,
+                    p.z * scale,
+                    (p.x - board_length / 2.0) * scale,
+                ));
                 let u_val = p.u.unwrap_or(-1.0);
                 // Map S3DX default of -1.0 to our engine's baseline of 1.0
-                weights.push(if (u_val - (-1.0)).abs() < 1e-5 { 1.0 } else { u_val });
+                weights.push(if (u_val - (-1.0)).abs() < 1e-5 {
+                    1.0
+                } else {
+                    u_val
+                });
             }
         }
     }
-    
+
     let mut tangents1 = Vec::new();
     if let Some(poly) = &bezier3d.tangents_1 {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                tangents1.push(Vec3::new(p.y * scale, p.z * scale, (p.x - board_length / 2.0) * scale));
+                tangents1.push(Vec3::new(
+                    p.y * scale,
+                    p.z * scale,
+                    (p.x - board_length / 2.0) * scale,
+                ));
             }
         }
     }
-    
+
     let mut tangents2 = Vec::new();
     if let Some(poly) = &bezier3d.tangents_2 {
         if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
             for p in pts {
-                tangents2.push(Vec3::new(p.y * scale, p.z * scale, (p.x - board_length / 2.0) * scale));
+                tangents2.push(Vec3::new(
+                    p.y * scale,
+                    p.z * scale,
+                    (p.x - board_length / 2.0) * scale,
+                ));
             }
         }
     }
-    
+
     if control_points.is_empty() {
         return None;
     }
 
-    let final_weights = if weights.is_empty() { None } else { Some(weights) };
+    let final_weights = if weights.is_empty() {
+        None
+    } else {
+        Some(weights)
+    };
 
     Some(BezierCurveData {
         control_points,
@@ -186,59 +210,77 @@ fn convert_s3dx_bezier3d(bezier3d: &S3dxBezier3d, board_length: f32, scale: f32)
     })
 }
 
-fn convert_s3dx_curve(s3dx_curve: &Option<S3dxCurveContainer>, board_length: f32, scale: f32) -> Option<BezierCurveData> {
+fn convert_s3dx_curve(
+    s3dx_curve: &Option<S3dxCurveContainer>,
+    board_length: f32,
+    scale: f32,
+) -> Option<BezierCurveData> {
     let bezier3d = s3dx_curve.as_ref()?.bezier3d.as_ref()?;
     convert_s3dx_bezier3d(bezier3d, board_length, scale)
 }
 
-fn convert_s3dx_bezier_def(s3dx_def: &Option<S3dxBezierDefContainer>, board_length: f32, scale: f32) -> Option<BezierCurveData> {
+fn convert_s3dx_bezier_def(
+    s3dx_def: &Option<S3dxBezierDefContainer>,
+    board_length: f32,
+    scale: f32,
+) -> Option<BezierCurveData> {
     let bezier3d = s3dx_def.as_ref()?.bezier_def.as_ref()?.bezier3d.as_ref()?;
     convert_s3dx_bezier3d(bezier3d, board_length, scale)
 }
 
-fn convert_s3dx_couples(s3dx_couples: &Option<S3dxCouplesContainer>, board_length: f32, scale: f32) -> Option<BezierCurveData> {
+fn convert_s3dx_couples(
+    s3dx_couples: &Option<S3dxCouplesContainer>,
+    board_length: f32,
+    scale: f32,
+) -> Option<BezierCurveData> {
     let bezier3d = s3dx_couples.as_ref()?.bezier3d.as_ref()?;
     convert_s3dx_bezier3d(bezier3d, board_length, scale)
 }
 
 pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
-    let mut sanitized = xml.replace("<Ref. point>", "<Ref_point>").replace("</Ref. point>", "</Ref_point>");
-    
+    let mut sanitized = xml
+        .replace("<Ref. point>", "<Ref_point>")
+        .replace("</Ref. point>", "</Ref_point>");
+
     // Dynamically replace all <Couples_X> with <Couple> so Serde can parse them into a Vec.
     // We scan a reasonably high number of potential slices (e.g. 100) which far exceeds realistic CAD limits.
     for i in 0..100 {
-                let start_tag = format!("<Couples_{}>", i);
+        let start_tag = format!("<Couples_{}>", i);
         let end_tag = format!("</Couples_{}>", i);
         if sanitized.contains(&start_tag) {
-            sanitized = sanitized.replace(&start_tag, "<Couple>").replace(&end_tag, "</Couple>");
+            sanitized = sanitized
+                .replace(&start_tag, "<Couple>")
+                .replace(&end_tag, "</Couple>");
         }
 
         let start_tag_calque = format!("<Calque_{}>", i);
         let end_tag_calque = format!("</Calque_{}>", i);
         if sanitized.contains(&start_tag_calque) {
-            sanitized = sanitized.replace(&start_tag_calque, "<Calque>").replace(&end_tag_calque, "</Calque>");
+            sanitized = sanitized
+                .replace(&start_tag_calque, "<Calque>")
+                .replace(&end_tag_calque, "</Calque>");
         }
     }
 
-    let design: Shape3dDesign = quick_xml::de::from_str(&sanitized)
-        .map_err(|e| format!("XML parsing error: {}", e))?;
+    let design: Shape3dDesign =
+        quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
     Ok(design.board.into())
 }
 
 impl From<S3dxBoard> for BoardModel {
     fn from(s3dx: S3dxBoard) -> Self {
-                let mut model = BoardModel::default();
+        let mut model = BoardModel::default();
         let bl = s3dx.length;
         // Safely infer CM to Inches if the board is unreasonably long (> 130 units)
         let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
-        
-                model.length = bl * scale;
+
+        model.length = bl * scale;
         model.width = s3dx.width * scale;
         model.thickness = s3dx.thickness * scale;
         if let Some(vol) = s3dx.volume {
             model.volume = vol;
         }
-        
+
         model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0) * scale;
         model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0) * scale;
         model.rail_coefficient_tail = s3dx.rail_coefficient_tail.unwrap_or(1.0);
@@ -248,12 +290,12 @@ impl From<S3dxBoard> for BoardModel {
         model.outline = convert_s3dx_curve(&s3dx.otl, bl, scale);
         model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, scale);
         model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, scale);
-        
+
         model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, scale);
-                model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
+        model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
         model.deck_shoulder = convert_s3dx_bezier_def(&s3dx.curve_def_top3, bl, scale);
         model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, scale);
-        
+
         let mut cross_sections = Vec::new();
         if let Some(couples) = s3dx.couples {
             for c in couples {
@@ -262,34 +304,46 @@ impl From<S3dxBoard> for BoardModel {
                 }
             }
         }
-        
-                cross_sections.sort_by(|a, b| {
+
+        cross_sections.sort_by(|a, b| {
             let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
             let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
             za.partial_cmp(&zb).unwrap()
         });
-        
+
         model.cross_sections = cross_sections;
 
         let mut outline_layers = Vec::new();
         let mut bottom_channels = Vec::new();
-        
+
         if let Some(calques) = s3dx.calques {
             for c in calques {
                 if let Some(calque) = c.calque3d {
                     let name = calque.nom.unwrap_or_else(|| "Layer".to_string());
-                    let otl_ext = convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
-                    let otl_int = convert_s3dx_curve(&calque.otl_int, bl, scale).unwrap_or_default();
-                    
+                    let otl_ext =
+                        convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
+                    let otl_int =
+                        convert_s3dx_curve(&calque.otl_int, bl, scale).unwrap_or_default();
+
                     let deck_bot = calque.deck_bot.unwrap_or(512);
                     let depth_val = calque.depth.unwrap_or(0.0) * scale;
-                    
+
                     if deck_bot == 256 || name.to_lowercase().contains("channel") {
                         let mut depth_curve = BezierCurveData::default();
-                        if depth_curve.control_points.is_empty() && !otl_ext.control_points.is_empty() {
-                            let z_start = otl_ext.control_points.first().map(|p| p.z).unwrap_or(-bl / 2.0);
-                            let z_end = otl_ext.control_points.last().map(|p| p.z).unwrap_or(bl / 2.0);
-                            
+                        if depth_curve.control_points.is_empty()
+                            && !otl_ext.control_points.is_empty()
+                        {
+                            let z_start = otl_ext
+                                .control_points
+                                .first()
+                                .map(|p| p.z)
+                                .unwrap_or(-bl / 2.0);
+                            let z_end = otl_ext
+                                .control_points
+                                .last()
+                                .map(|p| p.z)
+                                .unwrap_or(bl / 2.0);
+
                             depth_curve = BezierCurveData {
                                 control_points: vec![
                                     Vec3::new(0.0, depth_val, z_start),
@@ -308,10 +362,16 @@ impl From<S3dxBoard> for BoardModel {
                         }
 
                         let mut left_outline = otl_ext.clone();
-                        for p in &mut left_outline.control_points { p.x = -p.x; }
-                        for p in &mut left_outline.tangents1 { p.x = -p.x; }
-                        for p in &mut left_outline.tangents2 { p.x = -p.x; }
-                        
+                        for p in &mut left_outline.control_points {
+                            p.x = -p.x;
+                        }
+                        for p in &mut left_outline.tangents1 {
+                            p.x = -p.x;
+                        }
+                        for p in &mut left_outline.tangents2 {
+                            p.x = -p.x;
+                        }
+
                         bottom_channels.push(crate::model::ChannelLayer {
                             name: name.clone(),
                             is_symmetric: true,
@@ -330,14 +390,14 @@ impl From<S3dxBoard> for BoardModel {
                 }
             }
         }
-        
+
         if !outline_layers.is_empty() {
             model.outline_layers = Some(outline_layers);
         }
         if !bottom_channels.is_empty() {
             model.bottom_channels = Some(bottom_channels);
         }
-        
+
         model
     }
 }
@@ -353,35 +413,46 @@ mod tests {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
-        let content = fs::read_to_string(&path)
-            .unwrap_or_else(|_| panic!("Should be able to read the golden S3DX file from {:?}", path));
+        let content = fs::read_to_string(&path).unwrap_or_else(|_| {
+            panic!(
+                "Should be able to read the golden S3DX file from {:?}",
+                path
+            )
+        });
 
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-                assert!((model.length - 73.0).abs() < 0.1);
+        assert!((model.length - 73.0).abs() < 0.1);
         assert!((model.width - 21.177).abs() < 0.1);
         assert!((model.thickness - 2.7).abs() < 0.1);
-        
+
         assert!((model.v_concave_tail - (-0.061)).abs() < 0.01);
         assert!((model.v_concave_nose - (-0.072)).abs() < 0.01);
         assert_eq!(model.rail_coefficient_tail, 0.882);
         assert_eq!(model.rail_coefficient_nose, 0.876);
         assert_eq!(model.thickness_z_stretch, 1.0);
-        
+
         assert!(model.outline.is_some(), "Outline should be converted");
-        assert!(model.rocker_bottom.is_some(), "Rocker bottom should be converted");
+        assert!(
+            model.rocker_bottom.is_some(),
+            "Rocker bottom should be converted"
+        );
         assert!(model.rocker_top.is_some(), "Rocker top should be converted");
-        
-        assert_eq!(model.cross_sections.len(), 4, "Should have exactly 4 cross sections");
-        
+
+        assert_eq!(
+            model.cross_sections.len(),
+            4,
+            "Should have exactly 4 cross sections"
+        );
+
         let outline = model.outline.unwrap();
         assert_eq!(outline.control_points.len(), 4);
         assert!((outline.control_points[0].z - (-73.0 / 2.0)).abs() < 0.1); // Nose Z (Negative)
-        assert!((outline.control_points[3].z - (73.0 / 2.0)).abs() < 0.1);  // Tail Z (Positive)
+        assert!((outline.control_points[3].z - (73.0 / 2.0)).abs() < 0.1); // Tail Z (Positive)
         assert!((outline.control_points[0].x - 0.0).abs() < 1e-4); // Nose Width should be 0
     }
 
-            #[test]
+    #[test]
     fn test_s3dx_extracts_3d_layers() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -391,13 +462,25 @@ mod tests {
         }
         let content = fs::read_to_string(&path).unwrap();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
-        
-        assert!(model.outline_layers.is_some(), "Should dynamically parse 3D layers into outline_layers");
+
+        assert!(
+            model.outline_layers.is_some(),
+            "Should dynamically parse 3D layers into outline_layers"
+        );
         let layers = model.outline_layers.unwrap();
         assert!(layers.len() >= 1, "Should have at least 1 outline layer");
-        let tail_layer = layers.iter().find(|l| l.name == "SWALLOW TAIL").expect("Should find SWALLOW TAIL layer");
-        assert!(!tail_layer.otl_ext.control_points.is_empty(), "otl_ext should be populated");
-        assert!(!tail_layer.otl_int.control_points.is_empty(), "otl_int should be populated");
+        let tail_layer = layers
+            .iter()
+            .find(|l| l.name == "SWALLOW TAIL")
+            .expect("Should find SWALLOW TAIL layer");
+        assert!(
+            !tail_layer.otl_ext.control_points.is_empty(),
+            "otl_ext should be populated"
+        );
+        assert!(
+            !tail_layer.otl_int.control_points.is_empty(),
+            "otl_int should be populated"
+        );
     }
 
     #[test]
@@ -406,17 +489,36 @@ mod tests {
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
         let content = fs::read_to_string(&path).unwrap();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
-        
-        assert_eq!(model.cross_sections.len(), 4, "Should dynamically parse 4 cross sections");
-        
-                let z0 = model.cross_sections[0].control_points[0].z;
+
+        assert_eq!(
+            model.cross_sections.len(),
+            4,
+            "Should dynamically parse 4 cross sections"
+        );
+
+        let z0 = model.cross_sections[0].control_points[0].z;
         let z3 = model.cross_sections[3].control_points[0].z;
-        assert!(z0 < z3, "Cross sections should be ordered from nose to tail");
-        assert!(z0 < 0.0, "First cross section should be near the nose (negative Z)");
-        assert!(z3 > 0.0, "Last cross section should be near the tail (positive Z)");
-        
-        let weights = model.cross_sections[0].weights.as_ref().expect("Weights should be populated");
-        assert_eq!(weights[0], 1.0, "S3DX default u=-1.0 should map to weight=1.0");
+        assert!(
+            z0 < z3,
+            "Cross sections should be ordered from nose to tail"
+        );
+        assert!(
+            z0 < 0.0,
+            "First cross section should be near the nose (negative Z)"
+        );
+        assert!(
+            z3 > 0.0,
+            "Last cross section should be near the tail (positive Z)"
+        );
+
+        let weights = model.cross_sections[0]
+            .weights
+            .as_ref()
+            .expect("Weights should be populated");
+        assert_eq!(
+            weights[0], 1.0,
+            "S3DX default u=-1.0 should map to weight=1.0"
+        );
     }
 
     #[test]
@@ -425,43 +527,62 @@ mod tests {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
-        let content = fs::read_to_string(&path)
-            .unwrap_or_else(|_| panic!("Should be able to read the golden S3DX file from {:?}", path));
+        let content = fs::read_to_string(&path).unwrap_or_else(|_| {
+            panic!(
+                "Should be able to read the golden S3DX file from {:?}",
+                path
+            )
+        });
 
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
-        
+
         let mesh = crate::mesh::generate_mesh(&model);
-        
+
         assert!(mesh.vertices.len() > 0, "Mesh should have vertices");
         assert!(mesh.indices.len() > 0, "Mesh should have indices");
-        
-                let scale = 1.0 / 12.0;
+
+        let scale = 1.0 / 12.0;
         let tail_z = model.length / 2.0;
-        
+
         for i in 0..(mesh.vertices.len() / 3) {
             let y = mesh.vertices[i * 3 + 1];
             let z = mesh.vertices[i * 3 + 2];
             // Check for the \"up triangle\" - geometry sticking up past the rocker deck height
             if (z - tail_z * scale).abs() < 0.1 {
-                assert!(y < 10.0 * scale, "GEOMETRY SPIKE DETECTED AT TAIL: y={} is way too high", y / scale);
+                assert!(
+                    y < 10.0 * scale,
+                    "GEOMETRY SPIKE DETECTED AT TAIL: y={} is way too high",
+                    y / scale
+                );
             }
         }
 
         // Check rail mid-point collapse near the tail
-        let z_test = tail_z - 1.0; 
-        let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_test).unwrap();
+        let z_test = tail_z - 1.0;
+        let blend =
+            crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_test).unwrap();
         let t_apex = blend.t_apex;
         let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
         let pt_apex = crate::geometry::get_point_at_uv(&model, t_apex, 1.0, z_test, 0.0, 1.0);
         let t_mid_rail = t_apex + (t_shoulder - t_apex) * 0.5;
-        let pt_mid_rail = crate::geometry::get_point_at_uv(&model, t_mid_rail, 1.0, z_test, 0.0, 1.0);
+        let pt_mid_rail =
+            crate::geometry::get_point_at_uv(&model, t_mid_rail, 1.0, z_test, 0.0, 1.0);
 
-                assert!(pt_mid_rail.x > 0.0, "Mid-rail collapsed to the stringer! Bug present.");
-        assert!(pt_mid_rail.x <= pt_apex.x + 1e-4, "Mid-rail is outside the apex!");
-        
+        assert!(
+            pt_mid_rail.x > 0.0,
+            "Mid-rail collapsed to the stringer! Bug present."
+        );
+        assert!(
+            pt_mid_rail.x <= pt_apex.x + 1e-4,
+            "Mid-rail is outside the apex!"
+        );
+
         let pt_bot = crate::geometry::get_point_at_uv(&model, 0.0, 1.0, z_test, 0.0, 1.0);
         let pt_top = crate::geometry::get_point_at_uv(&model, 1.0, 1.0, z_test, 0.0, 1.0);
-        assert!(pt_top.y - pt_bot.y > 0.0, "Tail thickness should not collapse to zero");
+        assert!(
+            pt_top.y - pt_bot.y > 0.0,
+            "Tail thickness should not collapse to zero"
+        );
     }
 }

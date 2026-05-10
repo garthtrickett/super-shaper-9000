@@ -1,5 +1,5 @@
-use glam::Vec3;
 use crate::model::{BezierCurveData, BoardModel};
+use glam::Vec3;
 // use crate::bezier::evaluate_bezier_cubic;
 
 #[inline]
@@ -15,7 +15,7 @@ pub fn evaluate_curve(curve: &BezierCurveData, t: f32) -> Vec3 {
     }
     let local_t = scaled_t - segment_idx as f32;
 
-        let p0 = curve.control_points[segment_idx];
+    let p0 = curve.control_points[segment_idx];
     let p1 = curve.control_points[segment_idx + 1];
     let t0 = curve.tangents2[segment_idx];
     let t1 = curve.tangents1[segment_idx + 1];
@@ -43,7 +43,12 @@ pub struct BoardBounds {
 }
 
 pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
-    let default_bounds = BoardBounds { nose_z: 0.0, tip_z: 0.0, notch_z: 0.0, tip_t: 1.0 };
+    let default_bounds = BoardBounds {
+        nose_z: 0.0,
+        tip_z: 0.0,
+        notch_z: 0.0,
+        tip_t: 1.0,
+    };
     let outline = match &model.outline {
         Some(o) => o,
         None => return default_bounds,
@@ -51,18 +56,18 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     if outline.control_points.is_empty() {
         return default_bounds;
     }
-    
+
     let nose_z = evaluate_curve(outline, 0.0).z;
     let notch_z = evaluate_curve(outline, 1.0).z;
-    
+
     let mut tip_z = f32::NEG_INFINITY;
     let mut tip_t = 1.0;
     let steps = 50;
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
         let p = evaluate_curve(outline, t);
-        if p.z > tip_z { 
-            tip_z = p.z; 
+        if p.z > tip_z {
+            tip_z = p.z;
             tip_t = t;
         }
     }
@@ -86,14 +91,19 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     }
     tip_t = t_search;
 
-    BoardBounds { nose_z, tip_z, notch_z, tip_t }
+    BoardBounds {
+        nose_z,
+        tip_z,
+        notch_z,
+        tip_t,
+    }
 }
 
 pub fn evaluate_bezier_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> Vec3 {
     let mut best_t = hint_t;
     let mut min_err = f32::INFINITY;
     let steps = 50;
-    
+
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
         let p = evaluate_curve(curve, t);
@@ -128,11 +138,15 @@ pub fn evaluate_bezier_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32)
     evaluate_curve(curve, t_search)
 }
 
-pub fn evaluate_bezier_pos_and_tan_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> (Vec3, Vec3) {
+pub fn evaluate_bezier_pos_and_tan_at_z(
+    curve: &BezierCurveData,
+    target_z: f32,
+    hint_t: f32,
+) -> (Vec3, Vec3) {
     let mut best_t = hint_t;
     let mut min_err = f32::INFINITY;
     let steps = 50;
-    
+
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
         let p = evaluate_curve(curve, t);
@@ -167,7 +181,11 @@ pub fn evaluate_bezier_pos_and_tan_at_z(curve: &BezierCurveData, target_z: f32, 
     crate::bezier::evaluate_composite_pos_and_tangent(curve, t_search)
 }
 
-pub fn evaluate_composite_outline_pos_and_tan_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> (Vec3, Vec3) {
+pub fn evaluate_composite_outline_pos_and_tan_at_z(
+    model: &BoardModel,
+    z_inches: f32,
+    hint_t: f32,
+) -> (Vec3, Vec3) {
     let outline = match &model.outline {
         Some(o) => o,
         None => return (Vec3::ZERO, Vec3::Z),
@@ -177,14 +195,17 @@ pub fn evaluate_composite_outline_pos_and_tan_at_z(model: &BoardModel, z_inches:
 
     if let Some(layers) = &model.outline_layers {
         for layer in layers {
-            if layer.otl_ext.control_points.is_empty() { continue; }
+            if layer.otl_ext.control_points.is_empty() {
+                continue;
+            }
             let min_z = layer.otl_ext.control_points.first().unwrap().z;
             let max_z = layer.otl_ext.control_points.last().unwrap().z;
             let z0 = min_z.min(max_z);
             let z1 = min_z.max(max_z);
 
             if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
-                let (ext_pt, ext_tan) = evaluate_bezier_pos_and_tan_at_z(&layer.otl_ext, z_inches, hint_t);
+                let (ext_pt, ext_tan) =
+                    evaluate_bezier_pos_and_tan_at_z(&layer.otl_ext, z_inches, hint_t);
                 final_x = ext_pt.x;
                 final_tan = ext_tan;
             }
@@ -203,7 +224,7 @@ pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, min_t: f32, max_t: f3
     let mut best_t = min_t;
     let mut min_err = f32::INFINITY;
     let steps = 50;
-    
+
     // Initial coarse search
     for i in 0..=steps {
         let t = min_t + (i as f32 / steps as f32) * (max_t - min_t);
@@ -218,15 +239,15 @@ pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, min_t: f32, max_t: f3
     // Fine binary search around the best coarse result
     let mut t_search = best_t;
     let mut step_size = (max_t - min_t) / steps as f32;
-    
+
     for _ in 0..15 {
         step_size /= 2.0;
         let t_left = min_t.max(t_search - step_size);
         let t_right = max_t.min(t_search + step_size);
-        
+
         let p_left = evaluate_curve(curve, t_left);
         let p_right = evaluate_curve(curve, t_right);
-        
+
         let err_left = (p_left.z - target_z).abs();
         let err_right = (p_right.z - target_z).abs();
 
@@ -238,7 +259,7 @@ pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, min_t: f32, max_t: f3
             t_search = t_right;
         }
     }
-    
+
     t_search
 }
 
@@ -255,11 +276,22 @@ pub fn evaluate_notch_inner_x(curve: &BezierCurveData, tip_t: f32, target_z: f32
 pub fn find_apex_t(curve: &BezierCurveData) -> f32 {
     let mut is_flat = true;
     for i in 0..curve.control_points.len() {
-        if curve.control_points[i].x.abs() > 0.000001 { is_flat = false; break; }
-        if i < curve.tangents1.len() && curve.tangents1[i].x.abs() > 0.000001 { is_flat = false; break; }
-        if i < curve.tangents2.len() && curve.tangents2[i].x.abs() > 0.000001 { is_flat = false; break; }
+        if curve.control_points[i].x.abs() > 0.000001 {
+            is_flat = false;
+            break;
+        }
+        if i < curve.tangents1.len() && curve.tangents1[i].x.abs() > 0.000001 {
+            is_flat = false;
+            break;
+        }
+        if i < curve.tangents2.len() && curve.tangents2[i].x.abs() > 0.000001 {
+            is_flat = false;
+            break;
+        }
     }
-    if is_flat { return 0.5; }
+    if is_flat {
+        return 0.5;
+    }
 
     let mut best_t = 0.5;
     let mut max_x = f32::NEG_INFINITY;
@@ -335,7 +367,7 @@ impl<'a> BlendResult<'a> {
         // Compute non-uniform tangents using finite differences
         // This ensures C1 Continuity globally while preventing overshoot across uneven spacing
         let dz = z2 - z1;
-        
+
         let m1 = if (z2 - z0).abs() > 1e-5 {
             (p2 - p0) * (dz / (z2 - z0))
         } else {
@@ -352,10 +384,27 @@ impl<'a> BlendResult<'a> {
     }
 }
 
-pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a[BezierCurveData], z_inches: f32) -> Option<BlendResult<'a>> {
-    if cross_sections.is_empty() { return None; }
-    let min_z = cross_sections.first().unwrap().control_points.first().unwrap().z;
-    let max_z = cross_sections.last().unwrap().control_points.first().unwrap().z;
+pub fn get_cross_section_blend_at_z<'a>(
+    cross_sections: &'a [BezierCurveData],
+    z_inches: f32,
+) -> Option<BlendResult<'a>> {
+    if cross_sections.is_empty() {
+        return None;
+    }
+    let min_z = cross_sections
+        .first()
+        .unwrap()
+        .control_points
+        .first()
+        .unwrap()
+        .z;
+    let max_z = cross_sections
+        .last()
+        .unwrap()
+        .control_points
+        .first()
+        .unwrap()
+        .z;
 
     let mut k0 = 0;
     let mut lerp_factor = 0.0;
@@ -367,7 +416,7 @@ pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a[BezierCurveData], z_
     } else {
         for k in 0..cross_sections.len() - 1 {
             let z0 = cross_sections[k].control_points.first().unwrap().z;
-            let z1 = cross_sections[k+1].control_points.first().unwrap().z;
+            let z1 = cross_sections[k + 1].control_points.first().unwrap().z;
             if z_inches >= z0 && z_inches <= z1 {
                 k0 = k;
                 let dz = z1 - z0;
@@ -393,13 +442,24 @@ pub fn get_cross_section_blend_at_z<'a>(cross_sections: &'a[BezierCurveData], z_
     // Apex parameter interpolation remains strictly linear
     let t_apex = (t_apex0 + (t_apex1 - t_apex0) * lerp_factor).clamp(0.0, 1.0);
 
-    Some(BlendResult { t_apex, s_prev, s0, s1, s_next, lerp_factor })
+    Some(BlendResult {
+        t_apex,
+        s_prev,
+        s0,
+        s1,
+        s_next,
+        lerp_factor,
+    })
 }
 
-pub fn get_channel_profile_at_z(model: &BoardModel, is_left: bool, z_inches: f32) -> Option<(f32, f32)> {
+pub fn get_channel_profile_at_z(
+    model: &BoardModel,
+    is_left: bool,
+    z_inches: f32,
+) -> Option<(f32, f32)> {
     let mut best_profile = None;
     let mut max_depth = 0.0_f32;
-    
+
     if let Some(channels) = &model.bottom_channels {
         for channel in channels {
             let (outline, depth) = if is_left {
@@ -439,10 +499,11 @@ pub struct BoardProfile {
 }
 
 pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) -> BoardProfile {
-        let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
+    let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, hint_t);
     let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, hint_t);
-    
-    let (outline_pt, mut outline_tangent) = evaluate_composite_outline_pos_and_tan_at_z(model, z_inches, hint_t);
+
+    let (outline_pt, mut outline_tangent) =
+        evaluate_composite_outline_pos_and_tan_at_z(model, z_inches, hint_t);
     let base_outline_pt = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), z_inches, hint_t);
     let outline_delta = outline_pt.x - base_outline_pt.x;
 
@@ -451,9 +512,9 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     if outline_tangent.is_nan() || outline_tangent.length_squared() < 1e-5 {
         outline_tangent = Vec3::new(0.0, 0.0, 1.0);
     }
-    
+
     // Normal in the XZ plane, pointing "outward" to the right (+X)
-        let mut outline_normal = Vec3::new(outline_tangent.z, 0.0, -outline_tangent.x).normalize();
+    let mut outline_normal = Vec3::new(outline_tangent.z, 0.0, -outline_tangent.x).normalize();
     if outline_normal.is_nan() || outline_normal.length_squared() < 1e-5 {
         outline_normal = Vec3::new(1.0, 0.0, 0.0);
     }
@@ -461,7 +522,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let bounds = get_board_bounds(model);
     let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
     let dist = z_inches - mid_z;
-        let v_concave_add = if dist > 0.0 {
+    let v_concave_add = if dist > 0.0 {
         let t = (dist / (bounds.tip_z - mid_z)).max(0.0).min(1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
         model.v_concave_tail * ease_t
@@ -471,9 +532,11 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         model.v_concave_nose * ease_t
     };
 
-        let actual_bot_y = bot_pt.y - v_concave_add;
+    let actual_bot_y = bot_pt.y - v_concave_add;
     let mut top_y = top_pt.y;
-    if top_y < actual_bot_y { top_y = actual_bot_y; }
+    if top_y < actual_bot_y {
+        top_y = actual_bot_y;
+    }
 
     let mut apex_x = outline_pt.x.max(0.0);
     let mut apex_y = bot_pt.y + (top_y - bot_pt.y) * 0.3;
@@ -494,11 +557,11 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         let p_apex = b.evaluate(b.t_apex);
         let slice_thick = p_top.y - p_bot.y;
         let world_thick = top_y - bot_pt.y;
-                if slice_thick.abs() > 1e-5 {
+        if slice_thick.abs() > 1e-5 {
             apex_y = bot_pt.y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
         }
     }
-        apex_y = apex_y.max(bot_pt.y - 2.0);
+    apex_y = apex_y.max(bot_pt.y - 2.0);
 
     let mut tuck_y = bot_pt.y;
     if let Some(b) = &blend {
@@ -514,7 +577,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     }
 
     let mut tuck_x = outline_pt.x.max(0.0);
-        if let Some(ro) = &model.rail_outline {
+    if let Some(ro) = &model.rail_outline {
         if !ro.control_points.is_empty() {
             tuck_x = (evaluate_bezier_at_z(ro, z_inches, hint_t).x + outline_delta).max(0.0);
         }
@@ -522,33 +585,45 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
 
     if let Some(layers) = &model.outline_layers {
         for layer in layers {
-            if layer.otl_int.control_points.is_empty() { continue; }
+            if layer.otl_int.control_points.is_empty() {
+                continue;
+            }
             let min_z = layer.otl_ext.control_points.first().unwrap().z;
             let max_z = layer.otl_ext.control_points.last().unwrap().z;
             let z0 = min_z.min(max_z);
             let z1 = min_z.max(max_z);
 
-                        if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
+            if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
                 // If we're inside a wing, the INNER outline dictates the tuck position
                 let int_pt = evaluate_bezier_at_z(&layer.otl_int, z_inches, hint_t);
                 tuck_x = int_pt.x; // This is an absolute X, not relative
             }
         }
     }
-            let final_apex_x = apex_x.max(0.001);
+    let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
 
-        BoardProfile {
-        top_y, bot_y: actual_bot_y,
-        apex_x: final_apex_x, apex_y,
-        tuck_x: final_tuck_x, tuck_y,
+    BoardProfile {
+        top_y,
+        bot_y: actual_bot_y,
+        apex_x: final_apex_x,
+        apex_y,
+        tuck_x: final_tuck_x,
+        tuck_y,
         half_width: outline_pt.x.max(0.0),
         outline_tangent,
         outline_normal,
     }
 }
 
-pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_x: f32, side: f32) -> Vec3 {
+pub fn get_point_at_uv(
+    model: &BoardModel,
+    u: f32,
+    v: f32,
+    z_inches: f32,
+    inner_x: f32,
+    side: f32,
+) -> Vec3 {
     let profile = get_board_profile_at_z(model, z_inches, v);
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
 
@@ -593,35 +668,47 @@ pub fn get_point_at_uv(model: &BoardModel, u: f32, v: f32, z_inches: f32, inner_
     let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x;
 
     if u <= b.t_apex {
-                let slice_h = (p_apex.y - p_bot.y).max(1e-4);
+        let slice_h = (p_apex.y - p_bot.y).max(1e-4);
         let world_h = profile.apex_y - profile.bot_y;
         let norm_y = (p.y - p_bot.y) / slice_h;
         let base_y = profile.bot_y + norm_y * world_h * local_rail_coeff;
         final_pos.y = base_y;
 
-        if let Some((mut chan_x, chan_depth)) = get_channel_profile_at_z(model, side < 0.0, z_inches) {
+        if let Some((mut chan_x, chan_depth)) =
+            get_channel_profile_at_z(model, side < 0.0, z_inches)
+        {
             chan_x = chan_x.abs();
             if chan_x > inner_x && chan_x < world_apex.x {
                 if final_pos.x <= chan_x {
-                    let t = if chan_x > inner_x { (final_pos.x - inner_x) / (chan_x - inner_x) } else { 0.0 };
+                    let t = if chan_x > inner_x {
+                        (final_pos.x - inner_x) / (chan_x - inner_x)
+                    } else {
+                        0.0
+                    };
                     final_pos.y = base_y + t * chan_depth;
                 } else {
-                    let t = if world_apex.x > chan_x { (final_pos.x - chan_x) / (world_apex.x - chan_x) } else { 0.0 };
+                    let t = if world_apex.x > chan_x {
+                        (final_pos.x - chan_x) / (world_apex.x - chan_x)
+                    } else {
+                        0.0
+                    };
                     final_pos.y = base_y + (1.0 - t) * chan_depth;
                 }
             }
         }
     } else {
-                let slice_h = (p_top.y - p_apex.y).max(1e-4);
+        let slice_h = (p_top.y - p_apex.y).max(1e-4);
         let norm_y = (p.y - p_apex.y) / slice_h;
-        
+
         let base_y = profile.bot_y + (profile.apex_y - profile.bot_y) * local_rail_coeff;
         let target_top_y = profile.bot_y + (profile.top_y - profile.bot_y) * local_rail_coeff;
-        
+
         final_pos.y = base_y + norm_y * (target_top_y - base_y);
     }
 
-        if final_pos.x < inner_x { final_pos.x = inner_x; }
+    if final_pos.x < inner_x {
+        final_pos.x = inner_x;
+    }
     final_pos.y = final_pos.y.max(profile.bot_y - 2.0);
 
     final_pos
@@ -685,15 +772,29 @@ pub fn get_pole_normals(model: &BoardModel, z_inches: f32, _is_nose: bool) -> (V
 pub fn color_heatmap(normalized_value: f32) -> Vec3 {
     let hue = (1.0 - normalized_value) * 240.0;
     let h = hue / 360.0;
-        let hue2rgb = |p: f32, q: f32, mut t: f32| -> f32 {
-        if t < 0.0 { t += 1.0; }
-        if t > 1.0 { t -= 1.0; }
-        if t < 1.0 / 6.0 { return p + (q - p) * 6.0 * t; }
-        if t < 1.0 / 2.0 { return q; }
-        if t < 2.0 / 3.0 { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
+    let hue2rgb = |p: f32, q: f32, mut t: f32| -> f32 {
+        if t < 0.0 {
+            t += 1.0;
+        }
+        if t > 1.0 {
+            t -= 1.0;
+        }
+        if t < 1.0 / 6.0 {
+            return p + (q - p) * 6.0 * t;
+        }
+        if t < 1.0 / 2.0 {
+            return q;
+        }
+        if t < 2.0 / 3.0 {
+            return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+        }
         p
     };
-    Vec3::new(hue2rgb(0.0, 1.0, h + 1.0 / 3.0), hue2rgb(0.0, 1.0, h), hue2rgb(0.0, 1.0, h - 1.0 / 3.0))
+    Vec3::new(
+        hue2rgb(0.0, 1.0, h + 1.0 / 3.0),
+        hue2rgb(0.0, 1.0, h),
+        hue2rgb(0.0, 1.0, h - 1.0 / 3.0),
+    )
 }
 
 #[cfg(test)]
@@ -708,23 +809,31 @@ mod tests {
         // Setup a rounded pin tail (ends exactly at X=0)
         model.outline = Some(BezierCurveData {
             control_points: vec![
-                Vec3::new(0.0, 0.0, 0.0), 
-                Vec3::new(10.0, 0.0, 50.0), 
-                Vec3::new(0.0, 0.0, 100.0) // PIN TAIL
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 50.0),
+                Vec3::new(0.0, 0.0, 100.0), // PIN TAIL
             ],
-            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 40.0), Vec3::new(2.0, 0.0, 95.0)],
-            tangents2: vec![Vec3::new(5.0, 0.0, 5.0), Vec3::new(10.0, 0.0, 60.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 40.0),
+                Vec3::new(2.0, 0.0, 95.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, 0.0, 5.0),
+                Vec3::new(10.0, 0.0, 60.0),
+                Vec3::new(0.0, 0.0, 100.0),
+            ],
             ..Default::default()
         });
-        model.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
-            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)],
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)],
             tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
             ..Default::default()
         });
-        model.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
-            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)],
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)],
             tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
             ..Default::default()
         });
@@ -732,31 +841,44 @@ mod tests {
             control_points: vec![
                 Vec3::new(0.0, -1.25, 0.0),
                 Vec3::new(10.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.25, 0.0)
+                Vec3::new(0.0, 1.25, 0.0),
             ],
-            tangents1: vec![Vec3::new(0.0, -1.25, 0.0), Vec3::new(5.0, -1.25, 0.0), Vec3::new(5.0, 1.25, 0.0)],
-            tangents2: vec![Vec3::new(5.0, -1.25, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.25, 0.0)],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(5.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.5, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
             ..Default::default()
         }];
-        
+
         let blend = super::get_cross_section_blend_at_z(&model.cross_sections, 99.0).unwrap();
         // Get the U parameter for the shoulder (midway between apex and stringer on the deck)
         let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
 
         // Sample just before the tip (where width > 1e-5, normal calculation)
         let pt_99 = super::get_point_at_uv(&model, t_shoulder, 1.0, 99.0, 0.0, 1.0);
-        
+
         // Sample at the exact tip (where width <= 1e-5, fallback triggered)
         let pt_100 = super::get_point_at_uv(&model, t_shoulder, 1.0, 100.0, 0.0, 1.0);
-        
+
         // The shoulder Y should smoothly taper. It should NOT jump drastically to the top stringer height (1.0)
         let diff_y = (pt_100.y - pt_99.y).abs();
-        assert!(diff_y < 0.2, "Shoulder Y spiked abruptly at the tip! y_99: {}, y_100: {}", pt_99.y, pt_100.y);
+        assert!(
+            diff_y < 0.2,
+            "Shoulder Y spiked abruptly at the tip! y_99: {}, y_100: {}",
+            pt_99.y,
+            pt_100.y
+        );
     }
 
     #[test]
     fn test_cross_section_blend_hermite() {
-                let cs1 = BezierCurveData {
+        let cs1 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
@@ -777,26 +899,29 @@ mod tests {
 
         let sections = vec![cs1, cs2, cs3];
         let blend = get_cross_section_blend_at_z(&sections, 15.0).unwrap();
-        
+
         assert_eq!(blend.lerp_factor, 0.5);
-        
+
         // evaluate at t_mid = 1.0 (the outer edge of the cross section)
         let pt = blend.evaluate(1.0);
-        
+
         // Since it's a Hermite spline transitioning from X=5 to X=10 to X=5 over Z=10,20,30
-        // At Z=15, X should be smoothly interpolated. 
+        // At Z=15, X should be smoothly interpolated.
         // dz = 10. m1 for Z=10 to Z=20 is based on (X=10 - X=5)/10 * 10 = 5.
         // m2 for Z=20 is based on (X=5 - X=5)/20 * 10 = 0.
         // As a result of Hermite smoothing, the value at midpoint shouldn't just be 7.5 (linear).
         assert!(pt.x > 5.0 && pt.x < 10.0);
-        assert_eq!(pt.z, 15.0, "Z coordinate must remain strictly linear across Hermite blend");
-        
-                println!("✅ test_cross_section_blend_hermite passed.");
+        assert_eq!(
+            pt.z, 15.0,
+            "Z coordinate must remain strictly linear across Hermite blend"
+        );
+
+        println!("✅ test_cross_section_blend_hermite passed.");
     }
 
     #[test]
     fn test_cross_section_blend_out_of_bounds() {
-                let cs1 = BezierCurveData {
+        let cs1 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
@@ -812,44 +937,56 @@ mod tests {
 
         // 1. Before first section (e.g., towards the nose)
         let blend_before = get_cross_section_blend_at_z(&sections, 0.0).unwrap();
-        assert_eq!(blend_before.lerp_factor, 0.0, "Should clamp to the first section");
+        assert_eq!(
+            blend_before.lerp_factor, 0.0,
+            "Should clamp to the first section"
+        );
         let pt_before = blend_before.evaluate(1.0);
-        assert_eq!(pt_before.x, 5.0, "Should rigidly evaluate to the first section");
+        assert_eq!(
+            pt_before.x, 5.0,
+            "Should rigidly evaluate to the first section"
+        );
 
         // 2. After last section (e.g., towards the tail)
         let blend_after = get_cross_section_blend_at_z(&sections, 30.0).unwrap();
-        assert_eq!(blend_after.lerp_factor, 0.0, "Should clamp to the last section");
+        assert_eq!(
+            blend_after.lerp_factor, 0.0,
+            "Should clamp to the last section"
+        );
         let pt_after = blend_after.evaluate(1.0);
-        assert_eq!(pt_after.x, 10.0, "Should rigidly evaluate to the last section");
-        
+        assert_eq!(
+            pt_after.x, 10.0,
+            "Should rigidly evaluate to the last section"
+        );
+
         println!("✅ test_cross_section_blend_out_of_bounds passed.");
     }
 
-        #[test]
+    #[test]
     fn test_board_profile_normals() {
         let mut model = BoardModel::default();
         // Setup straight outline: 10 units wide along Z
-                model.outline = Some(BezierCurveData {
+        model.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
             ..Default::default()
         });
-        model.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
-            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)],
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)],
             tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
             ..Default::default()
         });
-        model.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
-            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)],
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)],
             tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
             ..Default::default()
         });
-        
-                let profile = get_board_profile_at_z(&model, 50.0, 0.5);
-        
+
+        let profile = get_board_profile_at_z(&model, 50.0, 0.5);
+
         // Tangent should point completely along Z axis
         assert!((profile.outline_tangent.z - 1.0).abs() < 1e-4);
         // Normal should point perfectly right (+X axis) in the XZ plane
@@ -858,36 +995,36 @@ mod tests {
         println!("✅ test_board_profile_normals passed.");
     }
 
-        #[test]
+    #[test]
     fn test_zone_based_uv_evaluation() {
         let mut model = BoardModel::default();
-                model.outline = Some(BezierCurveData {
+        model.outline = Some(BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
             ..Default::default()
         });
-        model.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], 
-            tangents1: vec![Vec3::ZERO, Vec3::new(0., 0.6667, 66.6667)], 
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(0., 0.6667, 66.6667)],
             tangents2: vec![Vec3::new(0., 0.3333, 33.3333), Vec3::new(0., 1., 100.0)],
             ..Default::default()
         });
-        model.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], 
-            tangents1: vec![Vec3::ZERO, Vec3::new(0., -0.6667, 66.6667)], 
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(0., -0.6667, 66.6667)],
             tangents2: vec![Vec3::new(0., -0.3333, 33.3333), Vec3::new(0., -1., 100.0)],
             ..Default::default()
         });
-        model.cross_sections = vec![BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(10.,0.,0.), Vec3::ZERO], 
-            tangents1: vec![Vec3::ZERO, Vec3::new(10.,0.,0.), Vec3::ZERO], 
-            tangents2: vec![Vec3::ZERO, Vec3::new(10.,0.,0.), Vec3::ZERO],
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(10., 0., 0.), Vec3::ZERO],
+            tangents1: vec![Vec3::ZERO, Vec3::new(10., 0., 0.), Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::new(10., 0., 0.), Vec3::ZERO],
             ..Default::default()
         }];
 
         // UV 0.0 should be at the bottom stringer (inner_x = 0)
-                        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0);
+        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0);
         assert_eq!(pt_bot_stringer.x, 0.0);
 
         // UV 1.0 should be at the top stringer (inner_x = 0)
@@ -962,28 +1099,31 @@ mod tests {
         let z = 50.0;
         let hint_t = 0.5;
         let blend = super::get_cross_section_blend_at_z(&model_narrow.cross_sections, z).unwrap();
-        
+
         let t_apex = blend.t_apex;
         let t_tuck = 0.25;
 
         let p_narrow_apex = super::get_point_at_uv(&model_narrow, t_apex, hint_t, z, 0.0, 1.0);
         let p_narrow_tuck = super::get_point_at_uv(&model_narrow, t_tuck, hint_t, z, 0.0, 1.0);
-        
+
         let p_wide_apex = super::get_point_at_uv(&model_wide, t_apex, hint_t, z, 0.0, 1.0);
         let p_wide_tuck = super::get_point_at_uv(&model_wide, t_tuck, hint_t, z, 0.0, 1.0);
 
         let narrow_rail_width = p_narrow_apex.x - p_narrow_tuck.x;
         let wide_rail_width = p_wide_apex.x - p_wide_tuck.x;
 
-        assert!(wide_rail_width > narrow_rail_width, "Rail width should scale proportionally with overall board width.");
-        
+        assert!(
+            wide_rail_width > narrow_rail_width,
+            "Rail width should scale proportionally with overall board width."
+        );
+
         println!("✅ test_proportional_tail_scaling passed.");
     }
 
     #[test]
     fn test_deck_curvature_preservation() {
         let mut model = BoardModel::default();
-        
+
         let cs = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.0, 0.0),
@@ -1028,8 +1168,12 @@ mod tests {
         });
 
         let pt = super::get_point_at_uv(&model, 0.75, 0.5, 50.0, 0.0, 1.0);
-        
-        assert!(pt.y > 0.5, "Deck curvature should be preserved and not fall back to flat lerp. y={}", pt.y);
+
+        assert!(
+            pt.y > 0.5,
+            "Deck curvature should be preserved and not fall back to flat lerp. y={}",
+            pt.y
+        );
 
         println!("✅ test_deck_curvature_preservation passed.");
     }
@@ -1037,12 +1181,12 @@ mod tests {
     #[test]
     fn test_radial_ease() {
         let eps = 1e-5;
-        
+
         // EaseIn: Should start slow and accelerate (midpoint < 0.5)
         assert!((radial_ease(0.0, EaseType::EaseIn) - 0.0).abs() < eps);
         assert!((radial_ease(1.0, EaseType::EaseIn) - 1.0).abs() < eps);
         assert!(radial_ease(0.5, EaseType::EaseIn) < 0.5);
-        
+
         // EaseOut: Should start fast and decelerate (midpoint > 0.5)
         assert!((radial_ease(0.0, EaseType::EaseOut) - 0.0).abs() < eps);
         assert!((radial_ease(1.0, EaseType::EaseOut) - 1.0).abs() < eps);
@@ -1051,32 +1195,53 @@ mod tests {
         // EaseInOut: Should be symmetric (midpoint == 0.5)
         assert!((radial_ease(0.0, EaseType::EaseInOut) - 0.0).abs() < eps);
         assert!((radial_ease(1.0, EaseType::EaseInOut) - 1.0).abs() < eps);
-                assert!((radial_ease(0.5, EaseType::EaseInOut) - 0.5).abs() < eps);
+        assert!((radial_ease(0.5, EaseType::EaseInOut) - 0.5).abs() < eps);
 
         println!("✅ test_radial_ease passed.");
     }
 
-                #[test]
+    #[test]
     fn test_swallow_tail_notch_detection() {
         let mut model = BoardModel::default();
         // Swallow tail: outline goes out to Z=100 (tip), then cuts back to Z=95 at stringer (X=0)
         model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0), Vec3::new(0.0, 0.0, 95.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 80.0), Vec3::new(5.0, 0.0, 100.0)],
-            tangents2: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 110.0), Vec3::new(0.0, 0.0, 95.0)],
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 100.0),
+                Vec3::new(0.0, 0.0, 95.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 80.0),
+                Vec3::new(5.0, 0.0, 100.0),
+            ],
+            tangents2: vec![
+                Vec3::new(0.0, 0.0, 20.0),
+                Vec3::new(10.0, 0.0, 110.0),
+                Vec3::new(0.0, 0.0, 95.0),
+            ],
             ..Default::default()
         });
 
         let bounds = get_board_bounds(&model);
-        
+
         assert_eq!(bounds.nose_z, 0.0);
         assert_eq!(bounds.notch_z, 95.0);
-        assert!(bounds.tip_z > 95.0, "Tip Z should be further out than the notch");
-        assert!(bounds.tip_t < 1.0, "Tip parameter should be before the end of the curve");
+        assert!(
+            bounds.tip_z > 95.0,
+            "Tip Z should be further out than the notch"
+        );
+        assert!(
+            bounds.tip_t < 1.0,
+            "Tip parameter should be before the end of the curve"
+        );
 
         // Test inner notch evaluation at z = 98
         let inner_x = evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, 98.0);
-        assert!(inner_x > 0.0 && inner_x < 10.0, "Inner X should be evaluated correctly between the tip and stringer");
+        assert!(
+            inner_x > 0.0 && inner_x < 10.0,
+            "Inner X should be evaluated correctly between the tip and stringer"
+        );
 
         println!("✅ test_swallow_tail_notch_detection passed.");
     }
@@ -1097,18 +1262,21 @@ mod tests {
         let n3 = Vec3::new(0.0, -1.0, 0.0);
         let n4 = Vec3::new(0.0, 0.0, -1.0);
         let mid_90 = slerp_normals(n3, n4, 0.5, Vec3::X);
-        
+
         // Linear interpolation would give (0, -0.5, -0.5) with magnitude 0.707
         // Slerp must maintain a magnitude of 1.0, so the result should be (0, -0.707, -0.707)
         let expected_val = -2.0_f32.sqrt() / 2.0;
-        assert!((mid_90.length() - 1.0).abs() < 1e-5, "Slerp must maintain unit length");
+        assert!(
+            (mid_90.length() - 1.0).abs() < 1e-5,
+            "Slerp must maintain unit length"
+        );
         assert!((mid_90.y - expected_val).abs() < 1e-5, "Y should be -0.707");
         assert!((mid_90.z - expected_val).abs() < 1e-5, "Z should be -0.707");
 
         println!("✅ test_normal_slerp passed.");
     }
 
-        #[test]
+    #[test]
     fn deleted_test_rail_does_not_collapse_at_pin_tail() {}
 
     #[test]
@@ -1119,51 +1287,87 @@ mod tests {
             tangents2: vec![Vec3::new(5.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
             weights: Some(vec![1.0, 1.0]),
         };
-        
+
         // Evaluate target_z using standard weights
         let t_std = find_v_at_z(&curve, 50.0, 0.0, 1.0);
         let pt_std = evaluate_curve(&curve, t_std);
-        
+
         // Increase tension/weight at the tail node
         curve.weights = Some(vec![1.0, 5.0]);
         let t_weighted = find_v_at_z(&curve, 50.0, 0.0, 1.0);
         let pt_weighted = evaluate_curve(&curve, t_weighted);
-        
+
         // Verify the binary search successfully resolves to z=50 for both
         assert!((pt_std.z - 50.0).abs() < 1e-3);
         assert!((pt_weighted.z - 50.0).abs() < 1e-3);
-        
+
         // Verify the parameterization has shifted physically due to the rational weight
-        assert!(t_weighted < t_std, "Higher weight at P1 should pull the curve, reaching z=50 earlier in parameter t");
-        
-                println!("✅ test_rational_geometry_integration passed.");
+        assert!(
+            t_weighted < t_std,
+            "Higher weight at P1 should pull the curve, reaching z=50 earlier in parameter t"
+        );
+
+        println!("✅ test_rational_geometry_integration passed.");
     }
 
     #[test]
     fn test_wing_tuck_offset_prevents_intersection() {
         use crate::model::OutlineLayer;
         let mut model = BoardModel::default();
-        
+
         model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(10.0, 0.0, 40.0), Vec3::new(0.0, 0.0, 90.0)],
-            tangents2: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 60.0), Vec3::ZERO],
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 50.0),
+                Vec3::new(0.0, 0.0, 100.0),
+            ],
+            tangents1: vec![
+                Vec3::ZERO,
+                Vec3::new(10.0, 0.0, 40.0),
+                Vec3::new(0.0, 0.0, 90.0),
+            ],
+            tangents2: vec![
+                Vec3::new(0.0, 0.0, 10.0),
+                Vec3::new(10.0, 0.0, 60.0),
+                Vec3::ZERO,
+            ],
             ..Default::default()
         });
 
         model.rail_outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(9.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(9.0, 0.0, 40.0), Vec3::new(0.0, 0.0, 90.0)],
-            tangents2: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(9.0, 0.0, 60.0), Vec3::ZERO],
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(9.0, 0.0, 50.0),
+                Vec3::new(0.0, 0.0, 100.0),
+            ],
+            tangents1: vec![
+                Vec3::ZERO,
+                Vec3::new(9.0, 0.0, 40.0),
+                Vec3::new(0.0, 0.0, 90.0),
+            ],
+            tangents2: vec![
+                Vec3::new(0.0, 0.0, 10.0),
+                Vec3::new(9.0, 0.0, 60.0),
+                Vec3::ZERO,
+            ],
             ..Default::default()
         });
-        
+
         let base_outline_x = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), 75.0, 0.5).x;
-        
+
         let wing_ext = BezierCurveData {
-            control_points: vec![Vec3::new(base_outline_x - 2.0, 0.0, 70.0), Vec3::new(base_outline_x - 2.0, 0.0, 80.0)],
-            tangents1: vec![Vec3::new(base_outline_x - 2.0, 0.0, 70.0), Vec3::new(base_outline_x - 2.0, 0.0, 75.0)],
-            tangents2: vec![Vec3::new(base_outline_x - 2.0, 0.0, 75.0), Vec3::new(base_outline_x - 2.0, 0.0, 80.0)],
+            control_points: vec![
+                Vec3::new(base_outline_x - 2.0, 0.0, 70.0),
+                Vec3::new(base_outline_x - 2.0, 0.0, 80.0),
+            ],
+            tangents1: vec![
+                Vec3::new(base_outline_x - 2.0, 0.0, 70.0),
+                Vec3::new(base_outline_x - 2.0, 0.0, 75.0),
+            ],
+            tangents2: vec![
+                Vec3::new(base_outline_x - 2.0, 0.0, 75.0),
+                Vec3::new(base_outline_x - 2.0, 0.0, 80.0),
+            ],
             ..Default::default()
         };
         model.outline_layers = Some(vec![OutlineLayer {
@@ -1172,21 +1376,36 @@ mod tests {
             otl_int: BezierCurveData::default(),
         }]);
 
-        model.rocker_top = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)], ..Default::default() });
-        model.rocker_bottom = Some(BezierCurveData { control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)], ..Default::default() });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
+            tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
+            tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
+            tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
+            ..Default::default()
+        });
 
-                let profile = super::get_board_profile_at_z(&model, 75.0, 0.5);
-        
-        assert!(profile.tuck_x < profile.apex_x, "Tuck X ({}) must remain inside Apex X ({}) to prevent self-intersection", profile.tuck_x, profile.apex_x);
-        
-                println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
+        let profile = super::get_board_profile_at_z(&model, 75.0, 0.5);
+
+        assert!(
+            profile.tuck_x < profile.apex_x,
+            "Tuck X ({}) must remain inside Apex X ({}) to prevent self-intersection",
+            profile.tuck_x,
+            profile.apex_x
+        );
+
+        println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
     }
 
-        #[test]
+    #[test]
     fn test_asymmetric_channel_evaluation() {
         let mut model = BoardModel::default();
         use crate::model::ChannelLayer;
-        
+
         let chan_start_z = 25.0;
         let chan_end_z = 75.0;
         let right_out_start = Vec3::new(5.0, 0.0, chan_start_z);
@@ -1202,24 +1421,47 @@ mod tests {
         model.bottom_channels = Some(vec![ChannelLayer {
             name: "Test Channel".to_string(),
             is_symmetric: false,
-            left_outline: BezierCurveData { control_points: vec![left_out_start, left_out_end], tangents1: vec![left_out_start, left_out_end], tangents2: vec![left_out_start, left_out_end], ..Default::default() },
-            left_depth: BezierCurveData { control_points: vec![left_depth_start, left_depth_end], tangents1: vec![left_depth_start, left_depth_end], tangents2: vec![left_depth_start, left_depth_end], ..Default::default() },
-            right_outline: BezierCurveData { control_points: vec![right_out_start, right_out_end], tangents1: vec![right_out_start, right_out_end], tangents2: vec![right_out_start, right_out_end], ..Default::default() },
-            right_depth: BezierCurveData { control_points: vec![right_depth_start, right_depth_end], tangents1: vec![right_depth_start, right_depth_end], tangents2: vec![right_depth_start, right_depth_end], ..Default::default() }
+            left_outline: BezierCurveData {
+                control_points: vec![left_out_start, left_out_end],
+                tangents1: vec![left_out_start, left_out_end],
+                tangents2: vec![left_out_start, left_out_end],
+                ..Default::default()
+            },
+            left_depth: BezierCurveData {
+                control_points: vec![left_depth_start, left_depth_end],
+                tangents1: vec![left_depth_start, left_depth_end],
+                tangents2: vec![left_depth_start, left_depth_end],
+                ..Default::default()
+            },
+            right_outline: BezierCurveData {
+                control_points: vec![right_out_start, right_out_end],
+                tangents1: vec![right_out_start, right_out_end],
+                tangents2: vec![right_out_start, right_out_end],
+                ..Default::default()
+            },
+            right_depth: BezierCurveData {
+                control_points: vec![right_depth_start, right_depth_end],
+                tangents1: vec![right_depth_start, right_depth_end],
+                tangents2: vec![right_depth_start, right_depth_end],
+                ..Default::default()
+            },
         }]);
 
         let profile_right = super::get_channel_profile_at_z(&model, false, 50.0).unwrap();
         let profile_left = super::get_channel_profile_at_z(&model, true, 50.0).unwrap();
-        
+
         assert_eq!(profile_right.1, 1.0);
         assert_eq!(profile_left.1, 0.5);
-        assert!(profile_right.1 != profile_left.1, "Asymmetric channels should have different depths");
+        assert!(
+            profile_right.1 != profile_left.1,
+            "Asymmetric channels should have different depths"
+        );
 
         // Outside bounds Z -> Should be None
         let profile_outside_z = super::get_channel_profile_at_z(&model, false, 10.0);
         assert!(profile_outside_z.is_none());
-        
-                println!("✅ test_asymmetric_channel_evaluation passed.");
+
+        println!("✅ test_asymmetric_channel_evaluation passed.");
     }
 
     #[test]
@@ -1232,28 +1474,46 @@ mod tests {
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
             ..Default::default()
         });
-        model_base.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)], 
-            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)], 
+        model_base.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)],
+            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)],
             tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
             ..Default::default()
         });
-        model_base.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)], 
-            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)], 
+        model_base.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)],
+            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)],
             tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
             ..Default::default()
         });
         model_base.cross_sections = vec![BezierCurveData {
-            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(8.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(8.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
-            tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(8.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(8.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
-            tangents2: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(8.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(8.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(8.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(8.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(8.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(8.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(8.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(8.0, 1.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
             weights: Some(vec![1.0; 5]),
         }];
 
         let mut model_mod_v = model_base.clone();
         model_mod_v.v_concave_tail = -1.0;
-        
+
         let mut model_mod_rail = model_base.clone();
         model_mod_rail.rail_coefficient_tail = 0.5;
 
@@ -1261,31 +1521,47 @@ mod tests {
         let z_center = 50.0;
         let profile_base_mid = super::get_board_profile_at_z(&model_base, z_center, 0.5);
         let profile_mod_mid = super::get_board_profile_at_z(&model_mod_v, z_center, 0.5);
-        assert!((profile_base_mid.bot_y - profile_mod_mid.bot_y).abs() < 1e-4, "Modifiers should taper to 0 at the midpoint");
+        assert!(
+            (profile_base_mid.bot_y - profile_mod_mid.bot_y).abs() < 1e-4,
+            "Modifiers should taper to 0 at the midpoint"
+        );
 
         // 2. Tail of the board (Z=95)
         let z_tail = 95.0;
         let profile_base_tail = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
         let profile_mod_tail = super::get_board_profile_at_z(&model_mod_v, z_tail, 0.5);
 
-        assert!(profile_mod_tail.bot_y > profile_base_tail.bot_y, "V-Concave < 0 should physically raise the stringer (Vee)");
-        assert!((profile_mod_tail.apex_y - profile_base_tail.apex_y).abs() < 1e-4, "V-Concave should not alter the rail rocker height");
+        assert!(
+            profile_mod_tail.bot_y > profile_base_tail.bot_y,
+            "V-Concave < 0 should physically raise the stringer (Vee)"
+        );
+        assert!(
+            (profile_mod_tail.apex_y - profile_base_tail.apex_y).abs() < 1e-4,
+            "V-Concave should not alter the rail rocker height"
+        );
 
         // Test Rail Coefficient (Thinning the deck shoulder)
         // U = 0.8 is up on the deck shoulder.
-                let pt_base = super::get_point_at_uv(&model_base, 0.8, 0.5, z_tail, 0.0, 1.0);
+        let pt_base = super::get_point_at_uv(&model_base, 0.8, 0.5, z_tail, 0.0, 1.0);
         let pt_mod = super::get_point_at_uv(&model_mod_rail, 0.8, 0.5, z_tail, 0.0, 1.0);
 
         println!("\n--- DIAGNOSTICS FOR EXTREMITY MODIFIERS ---");
         println!("pt_base: {:?}", pt_base);
         println!("pt_mod: {:?}", pt_mod);
-        
+
         let profile_base = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
         let profile_mod = super::get_board_profile_at_z(&model_mod_rail, z_tail, 0.5);
-        println!("profile_base: top_y={}, bot_y={}, apex_y={}", profile_base.top_y, profile_base.bot_y, profile_base.apex_y);
-        println!("profile_mod: top_y={}, bot_y={}, apex_y={}", profile_mod.top_y, profile_mod.bot_y, profile_mod.apex_y);
-        
-        let blend = super::get_cross_section_blend_at_z(&model_base.cross_sections, z_tail).unwrap();
+        println!(
+            "profile_base: top_y={}, bot_y={}, apex_y={}",
+            profile_base.top_y, profile_base.bot_y, profile_base.apex_y
+        );
+        println!(
+            "profile_mod: top_y={}, bot_y={}, apex_y={}",
+            profile_mod.top_y, profile_mod.bot_y, profile_mod.apex_y
+        );
+
+        let blend =
+            super::get_cross_section_blend_at_z(&model_base.cross_sections, z_tail).unwrap();
         let p = blend.evaluate(0.8);
         println!("blend at u=0.8: t_apex={}, p={:?}", blend.t_apex, p);
         println!("-------------------------------------------\n");

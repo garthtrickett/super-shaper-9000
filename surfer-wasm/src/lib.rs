@@ -1,4 +1,3 @@
-
 use js_sys::{Float32Array, Object, Reflect, Uint32Array};
 use serde::Serialize;
 use surfer_core::model::BoardAction;
@@ -18,7 +17,7 @@ pub struct WasmEngine {
 
 #[wasm_bindgen]
 impl WasmEngine {
-        #[wasm_bindgen(constructor)]
+    #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
         // Route standard Rust logs to the browser console
@@ -29,21 +28,21 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
+    pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
         // Deserialize the JS action into our core Rust BoardAction
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            
+
         log::info!("[Rust FFI] Processing action: {:?}", action);
-            
+
         // Step the SAM state machine
         let (new_state, effects) = self.engine.update(action);
-        
+
         let res = WasmUpdateResult {
             state: &new_state,
             effects: &effects,
         };
-        
+
         // Return the tuple as serialized JS objects
         Ok(serde_wasm_bindgen::to_value(&res)?)
     }
@@ -54,39 +53,71 @@ impl WasmEngine {
         Ok(serde_wasm_bindgen::to_value(state)?)
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn get_mesh(&self) -> Result<JsValue, JsValue> {
         let mesh = self.engine.compute_mesh();
         let obj = Object::new();
 
         let vertex_count = mesh.vertices.len() / 3;
         let triangle_count = mesh.indices.len() / 3;
-        
-        Reflect::set(&obj, &JsValue::from_str("vertices"), &Float32Array::from(mesh.vertices.as_slice()))?;
-        Reflect::set(&obj, &JsValue::from_str("indices"), &Uint32Array::from(mesh.indices.as_slice()))?;
-        Reflect::set(&obj, &JsValue::from_str("uvs"), &Float32Array::from(mesh.uvs.as_slice()))?;
-        Reflect::set(&obj, &JsValue::from_str("colors"), &Float32Array::from(mesh.colors.as_slice()))?;
-        Reflect::set(&obj, &JsValue::from_str("normals"), &Float32Array::from(mesh.normals.as_slice()))?;
-        Reflect::set(&obj, &JsValue::from_str("volumeLiters"), &JsValue::from_f64(mesh.volume_liters as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("vertexCount"), &JsValue::from_f64(vertex_count as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("triangleCount"), &JsValue::from_f64(triangle_count as f64))?;
-        
+
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("vertices"),
+            &Float32Array::from(mesh.vertices.as_slice()),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("indices"),
+            &Uint32Array::from(mesh.indices.as_slice()),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("uvs"),
+            &Float32Array::from(mesh.uvs.as_slice()),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("colors"),
+            &Float32Array::from(mesh.colors.as_slice()),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("normals"),
+            &Float32Array::from(mesh.normals.as_slice()),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("volumeLiters"),
+            &JsValue::from_f64(mesh.volume_liters as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("vertexCount"),
+            &JsValue::from_f64(vertex_count as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("triangleCount"),
+            &JsValue::from_f64(triangle_count as f64),
+        )?;
+
         Ok(obj.into())
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn get_curvature_combs(&self) -> Result<JsValue, JsValue> {
         let combs = self.engine.compute_curvature_combs();
         Ok(Float32Array::from(combs.as_slice()).into())
     }
 
     #[wasm_bindgen]
-        pub fn get_slice_profile(&self, z: f32) -> Result<JsValue, JsValue> {
+    pub fn get_slice_profile(&self, z: f32) -> Result<JsValue, JsValue> {
         let profile = self.engine.compute_slice_profile(z);
         Ok(Float32Array::from(profile.as_slice()).into())
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn get_foil_stats(&self) -> Result<JsValue, JsValue> {
         let stats = self.engine.compute_foil_stats();
         Ok(Float32Array::from(stats.as_slice()).into())
@@ -94,7 +125,8 @@ impl WasmEngine {
 
     #[wasm_bindgen]
     pub fn export_s3dx(&self) -> Result<String, JsValue> {
-        Ok(surfer_core::s3dx_exporter::export_s3dx(&self.engine.get_model()))
+        Ok(surfer_core::s3dx_exporter::export_s3dx(
+            &self.engine.get_model(),
+        ))
     }
 }
-

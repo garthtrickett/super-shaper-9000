@@ -1,21 +1,24 @@
-use glam::Vec3;
-use crate::model::*;
 use crate::geometry::{evaluate_bezier_at_z, get_board_bounds};
+use crate::model::*;
+use glam::Vec3;
 
-fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a mut BezierCurveData> {
+fn get_curve_mut<'a>(
+    model: &'a mut BoardModel,
+    curve_name: &str,
+) -> Option<&'a mut BezierCurveData> {
     match curve_name {
         "outline" => model.outline.as_mut(),
         "rockerTop" => model.rocker_top.as_mut(),
         "rockerBottom" => model.rocker_bottom.as_mut(),
         "apexOutline" => model.apex_outline.as_mut(),
         "railOutline" => model.rail_outline.as_mut(),
-                "apexRocker" => model.apex_rocker.as_mut(),
+        "apexRocker" => model.apex_rocker.as_mut(),
         "deckShoulder" => model.deck_shoulder.as_mut(),
-                name if name.starts_with("crossSection_") => {
+        name if name.starts_with("crossSection_") => {
             let idx_str = name.strip_prefix("crossSection_")?;
             let idx: usize = idx_str.parse().ok()?;
             model.cross_sections.get_mut(idx)
-        },
+        }
         name if name.starts_with("outlineLayer_") => {
             let parts: Vec<&str> = name.split('_').collect();
             if parts.len() == 3 {
@@ -32,9 +35,9 @@ fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a 
                     }
                 }
             }
-                        None
-        },
-                name if name.starts_with("channel_") => {
+            None
+        }
+        name if name.starts_with("channel_") => {
             let parts: Vec<&str> = name.split('_').collect();
             if parts.len() == 4 {
                 let idx: usize = parts[1].parse().ok()?;
@@ -53,13 +56,13 @@ fn get_curve_mut<'a>(model: &'a mut BoardModel, curve_name: &str) -> Option<&'a 
                 }
             }
             None
-        },
-        _ => None
+        }
+        _ => None,
     }
 }
 
 pub fn push_history(model: &mut BoardModel) {
-        let snapshot = ManualSnapshot {
+    let snapshot = ManualSnapshot {
         outline: model.outline.clone(),
         outline_layers: model.outline_layers.clone(),
         bottom_channels: model.bottom_channels.clone(),
@@ -67,7 +70,7 @@ pub fn push_history(model: &mut BoardModel) {
         apex_outline: model.apex_outline.clone(),
         rocker_top: model.rocker_top.clone(),
         rocker_bottom: model.rocker_bottom.clone(),
-                apex_rocker: model.apex_rocker.clone(),
+        apex_rocker: model.apex_rocker.clone(),
         deck_shoulder: model.deck_shoulder.clone(),
         cross_sections: model.cross_sections.clone(),
     };
@@ -89,36 +92,66 @@ pub fn push_history(model: &mut BoardModel) {
 }
 
 fn scale_curve_data_width(c: &mut BezierCurveData, factor: f32) {
-    for p in &mut c.control_points { p.x *= factor; }
-    for p in &mut c.tangents1 { p.x *= factor; }
-    for p in &mut c.tangents2 { p.x *= factor; }
+    for p in &mut c.control_points {
+        p.x *= factor;
+    }
+    for p in &mut c.tangents1 {
+        p.x *= factor;
+    }
+    for p in &mut c.tangents2 {
+        p.x *= factor;
+    }
 }
 
 fn scale_curve_width(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if factor <= 0.0 || factor.is_nan() { return; }
-    if let Some(c) = curve.as_mut() { scale_curve_data_width(c, factor); }
+    if factor <= 0.0 || factor.is_nan() {
+        return;
+    }
+    if let Some(c) = curve.as_mut() {
+        scale_curve_data_width(c, factor);
+    }
 }
 
 fn scale_curve_data_thickness(c: &mut BezierCurveData, factor: f32) {
-    for p in &mut c.control_points { p.y *= factor; }
-    for p in &mut c.tangents1 { p.y *= factor; }
-    for p in &mut c.tangents2 { p.y *= factor; }
+    for p in &mut c.control_points {
+        p.y *= factor;
+    }
+    for p in &mut c.tangents1 {
+        p.y *= factor;
+    }
+    for p in &mut c.tangents2 {
+        p.y *= factor;
+    }
 }
 
 fn scale_curve_thickness(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if factor <= 0.0 || factor.is_nan() { return; }
-    if let Some(c) = curve.as_mut() { scale_curve_data_thickness(c, factor); }
+    if factor <= 0.0 || factor.is_nan() {
+        return;
+    }
+    if let Some(c) = curve.as_mut() {
+        scale_curve_data_thickness(c, factor);
+    }
 }
 
 fn scale_curve_data_length(c: &mut BezierCurveData, factor: f32) {
-    for p in &mut c.control_points { p.z *= factor; }
-    for p in &mut c.tangents1 { p.z *= factor; }
-    for p in &mut c.tangents2 { p.z *= factor; }
+    for p in &mut c.control_points {
+        p.z *= factor;
+    }
+    for p in &mut c.tangents1 {
+        p.z *= factor;
+    }
+    for p in &mut c.tangents2 {
+        p.z *= factor;
+    }
 }
 
 fn scale_curve_length(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if factor <= 0.0 || factor.is_nan() { return; }
-    if let Some(c) = curve.as_mut() { scale_curve_data_length(c, factor); }
+    if factor <= 0.0 || factor.is_nan() {
+        return;
+    }
+    if let Some(c) = curve.as_mut() {
+        scale_curve_data_length(c, factor);
+    }
 }
 
 fn apply_tail_type(model: &mut BoardModel) {
@@ -131,7 +164,9 @@ fn apply_tail_type(model: &mut BoardModel) {
         None => return,
     };
     let len = outline.control_points.len();
-    if len < 2 { return; }
+    if len < 2 {
+        return;
+    }
 
     let last_z = outline.control_points[len - 1].z;
     let prev_z = outline.control_points[len - 2].z;
@@ -139,14 +174,14 @@ fn apply_tail_type(model: &mut BoardModel) {
 
     if is_swallow && !currently_swallow {
         let tip_z = outline.control_points[len - 1].z;
-        
+
         // Old tail point becomes the prong
         outline.control_points[len - 1].x = (width / 4.0).max(1.0);
-        
+
         // Add the notch
         let notch_z = tip_z - depth;
         let notch_pos = Vec3::new(0.0, 0.0, notch_z);
-        
+
         outline.control_points.push(notch_pos);
         let incoming = notch_pos - Vec3::new(1.0, 0.0, -1.0);
         outline.tangents1.push(incoming);
@@ -173,9 +208,20 @@ fn apply_tail_type(model: &mut BoardModel) {
     }
 }
 
-fn apply_node_position(model: &mut BoardModel, curve_name: &str, index: usize, node_type: &str, mut pos: Vec3) {
+fn apply_node_position(
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    node_type: &str,
+    mut pos: Vec3,
+) {
     let is_cross_section = curve_name.starts_with("crossSection_");
-    let is_outline_type = curve_name == "outline" || curve_name == "apexOutline" || curve_name == "railOutline" || curve_name == "deckShoulder" || curve_name.starts_with("outlineLayer_") || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+    let is_outline_type = curve_name == "outline"
+        || curve_name == "apexOutline"
+        || curve_name == "railOutline"
+        || curve_name == "deckShoulder"
+        || curve_name.starts_with("outlineLayer_")
+        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
 
     if let Some(target) = get_curve_mut(model, curve_name) {
         if node_type == "anchor" {
@@ -241,9 +287,22 @@ fn apply_node_position(model: &mut BoardModel, curve_name: &str, index: usize, n
     }
 }
 
-fn apply_node_exact(model: &mut BoardModel, curve_name: &str, index: usize, anchor: Option<Vec3>, tangent1: Option<Vec3>, tangent2: Option<Vec3>, weight: Option<f32>) {
+fn apply_node_exact(
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    anchor: Option<Vec3>,
+    tangent1: Option<Vec3>,
+    tangent2: Option<Vec3>,
+    weight: Option<f32>,
+) {
     let is_cross_section = curve_name.starts_with("crossSection_");
-    let is_outline_type = curve_name == "outline" || curve_name == "apexOutline" || curve_name == "railOutline" || curve_name == "deckShoulder" || curve_name.starts_with("outlineLayer_") || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+    let is_outline_type = curve_name == "outline"
+        || curve_name == "apexOutline"
+        || curve_name == "railOutline"
+        || curve_name == "deckShoulder"
+        || curve_name.starts_with("outlineLayer_")
+        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
 
     if let Some(target) = get_curve_mut(model, curve_name) {
         if let Some(a) = anchor {
@@ -287,12 +346,18 @@ fn apply_node_exact(model: &mut BoardModel, curve_name: &str, index: usize, anch
     }
 }
 
-fn apply_continuity(model: &mut BoardModel, curve_name: &str, index: usize, level: &str, master: &str) {
+fn apply_continuity(
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    level: &str,
+    master: &str,
+) {
     if let Some(target) = get_curve_mut(model, curve_name) {
         if index > 0 && index < target.control_points.len().saturating_sub(1) {
             let anchor = target.control_points[index];
             let is_t1_master = master == "tangent1";
-            
+
             let (t_src, mut t_tgt, f_src, f_tgt) = if is_t1_master {
                 (
                     target.tangents1[index],
@@ -308,20 +373,20 @@ fn apply_continuity(model: &mut BoardModel, curve_name: &str, index: usize, leve
                     target.tangents2[index - 1],
                 )
             };
-            
+
             let dir = anchor - t_src;
             let dist_tgt = (t_tgt - anchor).length();
-            
+
             if level == "G1" || level == "G2" {
                 if dir.length_squared() > 1e-6 {
                     t_tgt = anchor + dir.normalize() * dist_tgt;
                 }
             }
-            
+
             if level == "G2" {
                 t_tgt = crate::bezier::solve_g2_tangent(anchor, t_src, f_src, f_tgt);
             }
-            
+
             if is_t1_master {
                 target.tangents2[index] = t_tgt;
             } else {
@@ -335,16 +400,20 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();
 
     match action {
-                        BoardAction::UpdateNumber { param, value } => match param.as_str() {
+        BoardAction::UpdateNumber { param, value } => match param.as_str() {
             "length" => {
-                let factor = if model.length > 0.0 { value / model.length } else { 1.0 };
+                let factor = if model.length > 0.0 {
+                    value / model.length
+                } else {
+                    1.0
+                };
                 model.length = value;
                 scale_curve_length(&mut model.outline, factor);
                 scale_curve_length(&mut model.rail_outline, factor);
                 scale_curve_length(&mut model.apex_outline, factor);
                 scale_curve_length(&mut model.rocker_top, factor);
                 scale_curve_length(&mut model.rocker_bottom, factor);
-                                scale_curve_length(&mut model.apex_rocker, factor);
+                scale_curve_length(&mut model.apex_rocker, factor);
                 scale_curve_length(&mut model.deck_shoulder, factor);
                 if let Some(layers) = &mut model.outline_layers {
                     for l in layers {
@@ -363,14 +432,18 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 for cs in &mut model.cross_sections {
                     scale_curve_data_length(cs, factor);
                 }
-            },
+            }
             "width" => {
-                let factor = if model.width > 0.0 { value / model.width } else { 1.0 };
+                let factor = if model.width > 0.0 {
+                    value / model.width
+                } else {
+                    1.0
+                };
                 model.width = value;
                 scale_curve_width(&mut model.outline, factor);
                 scale_curve_width(&mut model.rail_outline, factor);
-                                            scale_curve_width(&mut model.apex_outline, factor);
-            scale_curve_width(&mut model.deck_shoulder, factor);
+                scale_curve_width(&mut model.apex_outline, factor);
+                scale_curve_width(&mut model.deck_shoulder, factor);
                 scale_curve_width(&mut model.deck_shoulder, factor);
                 if let Some(layers) = &mut model.outline_layers {
                     for l in layers {
@@ -387,18 +460,22 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 for cs in &mut model.cross_sections {
                     scale_curve_data_width(cs, factor);
                 }
-            },
+            }
             "swallowDepth" => {
                 model.swallow_depth = value;
                 apply_tail_type(model);
             }
             "thickness" => {
-                let factor = if model.thickness > 0.0 { value / model.thickness } else { 1.0 };
+                let factor = if model.thickness > 0.0 {
+                    value / model.thickness
+                } else {
+                    1.0
+                };
                 model.thickness = value;
                 scale_curve_thickness(&mut model.rocker_top, factor);
                 scale_curve_thickness(&mut model.rocker_bottom, factor);
-                                            scale_curve_thickness(&mut model.apex_rocker, factor);
-            scale_curve_thickness(&mut model.deck_shoulder, factor);
+                scale_curve_thickness(&mut model.apex_rocker, factor);
+                scale_curve_thickness(&mut model.deck_shoulder, factor);
                 scale_curve_thickness(&mut model.deck_shoulder, factor);
                 if let Some(channels) = &mut model.bottom_channels {
                     for ch in channels {
@@ -409,17 +486,17 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 for cs in &mut model.cross_sections {
                     scale_curve_data_thickness(cs, factor);
                 }
-            },
+            }
             "frontFinZ" => model.front_fin_z = value,
             "frontFinX" => model.front_fin_x = value,
             "rearFinZ" => model.rear_fin_z = value,
             "rearFinX" => model.rear_fin_x = value,
-                        "toeAngle" => model.toe_angle = value,
+            "toeAngle" => model.toe_angle = value,
             "cantAngle" => model.cant_angle = value,
             "mriSlicePosition" => model.mri_slice_position = Some(value),
             _ => {}
         },
-                BoardAction::UpdateString { param, value } => match param.as_str() {
+        BoardAction::UpdateString { param, value } => match param.as_str() {
             "finSetup" => model.fin_setup = value,
             "coreMaterial" => model.core_material = value,
             "glassingSchedule" => model.glassing_schedule = value,
@@ -430,16 +507,20 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             _ => {}
         },
-                BoardAction::UpdateBoolean { param, value } => match param.as_str() {
+        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
             "showGizmos" => model.show_gizmos = Some(value),
             "showSolidMesh" => model.show_solid_mesh = Some(value),
             "showHeatmap" => {
                 model.show_heatmap = Some(value);
-                if value { model.show_zebra = Some(false); }
+                if value {
+                    model.show_zebra = Some(false);
+                }
             }
             "showZebra" => {
                 model.show_zebra = Some(value);
-                if value { model.show_heatmap = Some(false); }
+                if value {
+                    model.show_heatmap = Some(false);
+                }
             }
             "showApexLine" => model.show_apex_line = Some(value),
             "showOutline" => model.show_outline = Some(value),
@@ -447,13 +528,15 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "showRockerBottom" => model.show_rocker_bottom = Some(value),
             "showApexOutline" => model.show_apex_outline = Some(value),
             "showRailOutline" => model.show_rail_outline = Some(value),
-                        "showApexRocker" => model.show_apex_rocker = Some(value),
+            "showApexRocker" => model.show_apex_rocker = Some(value),
             "showDeckShoulder" => model.show_deck_shoulder = Some(value),
-                        "showCrossSections" => model.show_cross_sections = Some(value),
+            "showCrossSections" => model.show_cross_sections = Some(value),
             "showCurvature" => model.show_curvature = Some(value),
             "showMriView" => {
                 model.show_mri_view = Some(value);
-                if value { model.show_zebra = Some(false); }
+                if value {
+                    model.show_zebra = Some(false);
+                }
             }
             _ => {}
         },
@@ -462,20 +545,52 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         }
         BoardAction::LoadDesign { state } => {
             *model = state;
-            effects.push(Effect::LogInfo { message: "Rust Engine: LOAD_DESIGN applied.".to_string() });
+            effects.push(Effect::LogInfo {
+                message: "Rust Engine: LOAD_DESIGN applied.".to_string(),
+            });
         }
-                BoardAction::SetCurves { outline, rail_outline, apex_outline, deck_shoulder, rocker_top, rocker_bottom, apex_rocker, cross_sections } => {
-            if let Some(c) = outline { model.outline = Some(c); }
-            if let Some(c) = deck_shoulder { model.deck_shoulder = Some(c); }
-            if let Some(c) = rail_outline { model.rail_outline = Some(c); }
-            if let Some(c) = apex_outline { model.apex_outline = Some(c); }
-            if let Some(c) = rocker_top { model.rocker_top = Some(c); }
-            if let Some(c) = rocker_bottom { model.rocker_bottom = Some(c); }
-            if let Some(c) = apex_rocker { model.apex_rocker = Some(c); }
-            if let Some(cs) = cross_sections { model.cross_sections = cs; }
+        BoardAction::SetCurves {
+            outline,
+            rail_outline,
+            apex_outline,
+            deck_shoulder,
+            rocker_top,
+            rocker_bottom,
+            apex_rocker,
+            cross_sections,
+        } => {
+            if let Some(c) = outline {
+                model.outline = Some(c);
+            }
+            if let Some(c) = deck_shoulder {
+                model.deck_shoulder = Some(c);
+            }
+            if let Some(c) = rail_outline {
+                model.rail_outline = Some(c);
+            }
+            if let Some(c) = apex_outline {
+                model.apex_outline = Some(c);
+            }
+            if let Some(c) = rocker_top {
+                model.rocker_top = Some(c);
+            }
+            if let Some(c) = rocker_bottom {
+                model.rocker_bottom = Some(c);
+            }
+            if let Some(c) = apex_rocker {
+                model.apex_rocker = Some(c);
+            }
+            if let Some(cs) = cross_sections {
+                model.cross_sections = cs;
+            }
             push_history(model);
         }
-                                BoardAction::UpdateNodePosition { curve, index, node_type, position } => {
+        BoardAction::UpdateNodePosition {
+            curve,
+            index,
+            node_type,
+            position,
+        } => {
             let pos = Vec3::from_array(position);
             apply_node_position(model, &curve, index, &node_type, pos);
 
@@ -485,14 +600,25 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                    let is_sym = model.bottom_channels.as_ref().and_then(|c| c.get(idx)).map_or(false, |ch| ch.is_symmetric);
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .map_or(false, |ch| ch.is_symmetric);
 
                     if is_sym {
                         let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve = format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
                         let mut mirrored_pos = pos;
                         mirrored_pos.x = -mirrored_pos.x;
-                        apply_node_position(model, &mirrored_curve, index, &node_type, mirrored_pos);
+                        apply_node_position(
+                            model,
+                            &mirrored_curve,
+                            index,
+                            &node_type,
+                            mirrored_pos,
+                        );
                     }
                 }
             }
@@ -500,7 +626,12 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         BoardAction::SelectNode { node } => {
             model.selected_node = node;
         }
-                        BoardAction::ApplyContinuity { curve, index, level, master } => {
+        BoardAction::ApplyContinuity {
+            curve,
+            index,
+            level,
+            master,
+        } => {
             let master_str = master.as_deref().unwrap_or("tangent1");
             apply_continuity(model, &curve, index, &level, master_str);
 
@@ -510,18 +641,38 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                    let is_sym = model.bottom_channels.as_ref().and_then(|c| c.get(idx)).map_or(false, |ch| ch.is_symmetric);
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .map_or(false, |ch| ch.is_symmetric);
 
                     if is_sym {
                         let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve = format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
                         apply_continuity(model, &mirrored_curve, index, &level, master_str);
                     }
                 }
             }
         }
-                                        BoardAction::UpdateNodeExact { curve, index, anchor, tangent1, tangent2, weight } => {
-            apply_node_exact(model, &curve, index, anchor.map(Vec3::from_array), tangent1.map(Vec3::from_array), tangent2.map(Vec3::from_array), weight);
+        BoardAction::UpdateNodeExact {
+            curve,
+            index,
+            anchor,
+            tangent1,
+            tangent2,
+            weight,
+        } => {
+            apply_node_exact(
+                model,
+                &curve,
+                index,
+                anchor.map(Vec3::from_array),
+                tangent1.map(Vec3::from_array),
+                tangent2.map(Vec3::from_array),
+                weight,
+            );
 
             if curve.starts_with("channel_") {
                 let parts: Vec<&str> = curve.split('_').collect();
@@ -529,15 +680,28 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let idx: usize = parts[1].parse().unwrap_or(0);
                     let side = parts[2];
                     let c_type = parts[3];
-                    let is_sym = model.bottom_channels.as_ref().and_then(|c| c.get(idx)).map_or(false, |ch| ch.is_symmetric);
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .map_or(false, |ch| ch.is_symmetric);
 
                     if is_sym {
                         let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve = format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
                         let m_anchor = anchor.map(|a| Vec3::new(-a[0], a[1], a[2]));
                         let m_t1 = tangent1.map(|a| Vec3::new(-a[0], a[1], a[2]));
                         let m_t2 = tangent2.map(|a| Vec3::new(-a[0], a[1], a[2]));
-                        apply_node_exact(model, &mirrored_curve, index, m_anchor, m_t1, m_t2, weight);
+                        apply_node_exact(
+                            model,
+                            &mirrored_curve,
+                            index,
+                            m_anchor,
+                            m_t1,
+                            m_t2,
+                            weight,
+                        );
                     }
                 }
             }
@@ -546,7 +710,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
-                BoardAction::Undo => {
+        BoardAction::Undo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx > 0 {
                     idx -= 1;
@@ -559,13 +723,13 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     model.apex_outline = snap.apex_outline.clone();
                     model.rocker_top = snap.rocker_top.clone();
                     model.rocker_bottom = snap.rocker_bottom.clone();
-                                        model.apex_rocker = snap.apex_rocker.clone();
+                    model.apex_rocker = snap.apex_rocker.clone();
                     model.deck_shoulder = snap.deck_shoulder.clone();
                     model.cross_sections = snap.cross_sections.clone();
                 }
             }
         }
-                BoardAction::Redo => {
+        BoardAction::Redo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx + 1 < history.len() {
                     idx += 1;
@@ -584,7 +748,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
             }
         }
-                BoardAction::ScaleWidth { factor } => {
+        BoardAction::ScaleWidth { factor } => {
             model.width *= factor;
             scale_curve_width(&mut model.outline, factor);
             scale_curve_width(&mut model.rail_outline, factor);
@@ -622,10 +786,10 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-                        BoardAction::ImportS3dx { xml } => {
+        BoardAction::ImportS3dx { xml } => {
             match crate::s3dx_parser::parse_s3dx(&xml) {
                 Ok(mut parsed_model) => {
-                                        // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
+                    // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
                     parsed_model.show_gizmos = model.show_gizmos;
                     parsed_model.show_solid_mesh = model.show_solid_mesh;
                     parsed_model.show_heatmap = model.show_heatmap;
@@ -636,19 +800,23 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     parsed_model.show_rocker_bottom = model.show_rocker_bottom;
                     parsed_model.show_apex_outline = model.show_apex_outline;
                     parsed_model.show_rail_outline = model.show_rail_outline;
-                                        parsed_model.show_apex_rocker = model.show_apex_rocker;
+                    parsed_model.show_apex_rocker = model.show_apex_rocker;
                     parsed_model.show_deck_shoulder = model.show_deck_shoulder;
                     parsed_model.show_cross_sections = model.show_cross_sections;
                     parsed_model.show_curvature = model.show_curvature;
                     parsed_model.show_mri_view = model.show_mri_view;
                     parsed_model.mri_slice_position = model.mri_slice_position;
-                    
+
                     *model = parsed_model;
                     push_history(model);
-                    effects.push(Effect::LogInfo { message: "Rust Engine: S3DX file imported successfully.".to_string() });
+                    effects.push(Effect::LogInfo {
+                        message: "Rust Engine: S3DX file imported successfully.".to_string(),
+                    });
                 }
                 Err(e) => {
-                    effects.push(Effect::LogInfo { message: format!("Rust Engine Error: Failed to parse S3DX: {}", e) });
+                    effects.push(Effect::LogInfo {
+                        message: format!("Rust Engine Error: Failed to parse S3DX: {}", e),
+                    });
                 }
             }
         }
@@ -672,7 +840,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
 
                 let ext_start_pos = Vec3::new(base_x_start - 1.0, 0.0, wing_start_z);
                 let ext_end_pos = Vec3::new(base_x_end - 1.0, 0.0, wing_end_z);
-                
+
                 let int_start_pos = Vec3::new(base_x_start - 1.5, 0.0, wing_start_z);
                 let int_end_pos = Vec3::new(base_x_end - 1.5, 0.0, wing_end_z);
 
@@ -697,7 +865,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 });
             }
 
-                        model.outline_layers = Some(layers);
+            model.outline_layers = Some(layers);
             push_history(model);
         }
         BoardAction::RemoveOutlineLayer { index } => {
@@ -709,16 +877,20 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-                BoardAction::AddBottomChannel => {
+        BoardAction::AddBottomChannel => {
             let mut channels = model.bottom_channels.take().unwrap_or_default();
 
-                        let bounds = get_board_bounds(model);
+            let bounds = get_board_bounds(model);
             // If outline isn't set yet, fallback to using the numerical length parameter
-            let tip_z = if bounds.tip_z.abs() < 1e-3 { model.length / 2.0 } else { bounds.tip_z };
+            let tip_z = if bounds.tip_z.abs() < 1e-3 {
+                model.length / 2.0
+            } else {
+                bounds.tip_z
+            };
 
             let channel_start_z = tip_z - 25.0;
             let channel_end_z = tip_z - 5.0;
-            
+
             let right_out_start = Vec3::new(2.0, 0.0, channel_start_z);
             let right_out_end = Vec3::new(2.0, 0.0, channel_end_z);
             let right_depth_start = Vec3::new(0.0, 0.5, channel_start_z);
@@ -738,8 +910,14 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
 
             let right_depth = BezierCurveData {
                 control_points: vec![right_depth_start, right_depth_end],
-                tangents1: vec![right_depth_start, right_depth_end.lerp(right_depth_start, 0.33)],
-                tangents2: vec![right_depth_start.lerp(right_depth_end, 0.33), right_depth_end],
+                tangents1: vec![
+                    right_depth_start,
+                    right_depth_end.lerp(right_depth_start, 0.33),
+                ],
+                tangents2: vec![
+                    right_depth_start.lerp(right_depth_end, 0.33),
+                    right_depth_end,
+                ],
                 ..Default::default()
             };
 
@@ -752,7 +930,10 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
 
             let left_depth = BezierCurveData {
                 control_points: vec![left_depth_start, left_depth_end],
-                tangents1: vec![left_depth_start, left_depth_end.lerp(left_depth_start, 0.33)],
+                tangents1: vec![
+                    left_depth_start,
+                    left_depth_end.lerp(left_depth_start, 0.33),
+                ],
                 tangents2: vec![left_depth_start.lerp(left_depth_end, 0.33), left_depth_end],
                 ..Default::default()
             };
@@ -788,7 +969,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         }
     }
 
-        effects
+    effects
 }
 
 #[cfg(test)]
@@ -797,7 +978,7 @@ mod tests {
     use glam::Vec3;
 
     fn create_mock_model() -> BoardModel {
-                BoardModel {
+        BoardModel {
             outline: Some(BezierCurveData {
                 control_points: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 0.0), Vec3::ZERO],
                 tangents1: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, -2.0), Vec3::ZERO],
@@ -887,17 +1068,35 @@ mod tests {
         });
 
         // 1. Parametric Width Scale (20.0 -> 22.0 is a 1.1x factor)
-        update(&mut model, BoardAction::UpdateNumber { param: "width".to_string(), value: 22.0 });
+        update(
+            &mut model,
+            BoardAction::UpdateNumber {
+                param: "width".to_string(),
+                value: 22.0,
+            },
+        );
         assert!((model.width - 22.0).abs() < 1e-5);
         assert!((model.outline.as_ref().unwrap().control_points[0].x - 11.0).abs() < 1e-5);
 
         // 2. Parametric Length Scale (100.0 -> 110.0 is a 1.1x factor)
-        update(&mut model, BoardAction::UpdateNumber { param: "length".to_string(), value: 110.0 });
+        update(
+            &mut model,
+            BoardAction::UpdateNumber {
+                param: "length".to_string(),
+                value: 110.0,
+            },
+        );
         assert!((model.length - 110.0).abs() < 1e-5);
         assert!((model.outline.as_ref().unwrap().control_points[0].z - 55.0).abs() < 1e-5);
 
         // 3. Parametric Thickness Scale (2.5 -> 3.0 is a 1.2x factor)
-        update(&mut model, BoardAction::UpdateNumber { param: "thickness".to_string(), value: 3.0 });
+        update(
+            &mut model,
+            BoardAction::UpdateNumber {
+                param: "thickness".to_string(),
+                value: 3.0,
+            },
+        );
         assert!((model.thickness - 3.0).abs() < 1e-5);
         // The outline isn't scaled in Y (thickness), but we can verify the top rocker is
         model.rocker_top = Some(BezierCurveData {
@@ -906,11 +1105,17 @@ mod tests {
             tangents2: vec![Vec3::ZERO],
             ..Default::default()
         });
-        update(&mut model, BoardAction::UpdateNumber { param: "thickness".to_string(), value: 3.6 }); // 3.0 -> 3.6 is 1.2x
+        update(
+            &mut model,
+            BoardAction::UpdateNumber {
+                param: "thickness".to_string(),
+                value: 3.6,
+            },
+        ); // 3.0 -> 3.6 is 1.2x
         assert!((model.rocker_top.as_ref().unwrap().control_points[0].y - 1.5).abs() < 1e-5);
     }
 
-        #[test]
+    #[test]
     fn test_update_node_exact_weight() {
         let mut model = create_mock_model();
         let action = BoardAction::UpdateNodeExact {
@@ -922,7 +1127,7 @@ mod tests {
             weight: Some(2.5),
         };
         update(&mut model, action);
-        
+
         let outline = model.outline.as_ref().unwrap();
         // Weights should be initialized and set
         let weights = outline.weights.as_ref().unwrap();
@@ -932,7 +1137,7 @@ mod tests {
         assert_eq!(weights[2], 1.0); // Default initialized
     }
 
-            #[test]
+    #[test]
     fn test_bottom_channels() {
         let mut model = create_mock_model();
         assert!(model.bottom_channels.is_none());
@@ -946,15 +1151,39 @@ mod tests {
             curve: "channel_0_right_depth".to_string(),
             index: 0,
             node_type: "anchor".to_string(),
-            position:[1.0, 1.0, 0.0],
+            position: [1.0, 1.0, 0.0],
         };
         update(&mut model, action);
-        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].right_depth.control_points[0].y, 1.0);
-        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].right_depth.control_points[0].x, 1.0);
+        assert_eq!(
+            model.bottom_channels.as_ref().unwrap()[0]
+                .right_depth
+                .control_points[0]
+                .y,
+            1.0
+        );
+        assert_eq!(
+            model.bottom_channels.as_ref().unwrap()[0]
+                .right_depth
+                .control_points[0]
+                .x,
+            1.0
+        );
 
         // Left should update and mirror X
-        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].left_depth.control_points[0].y, 1.0);
-        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].left_depth.control_points[0].x, -1.0);
+        assert_eq!(
+            model.bottom_channels.as_ref().unwrap()[0]
+                .left_depth
+                .control_points[0]
+                .y,
+            1.0
+        );
+        assert_eq!(
+            model.bottom_channels.as_ref().unwrap()[0]
+                .left_depth
+                .control_points[0]
+                .x,
+            -1.0
+        );
 
         update(&mut model, BoardAction::RemoveBottomChannel { index: 0 });
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
@@ -964,7 +1193,7 @@ mod tests {
     fn test_asymmetric_channel_update() {
         let mut model = create_mock_model();
         update(&mut model, BoardAction::AddBottomChannel);
-        
+
         // Unlink the channel symmetry
         model.bottom_channels.as_mut().unwrap()[0].is_symmetric = false;
 
@@ -973,28 +1202,40 @@ mod tests {
             curve: "channel_0_right_outline".to_string(),
             index: 0,
             node_type: "anchor".to_string(),
-            position:[5.0, 0.0, 0.0],
+            position: [5.0, 0.0, 0.0],
         };
         update(&mut model, action);
-        
+
         // Right should update
-        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].right_outline.control_points[0].x, 5.0);
+        assert_eq!(
+            model.bottom_channels.as_ref().unwrap()[0]
+                .right_outline
+                .control_points[0]
+                .x,
+            5.0
+        );
 
         // Left should REMAIN at the default initialized position (-2.0)
-        assert_eq!(model.bottom_channels.as_ref().unwrap()[0].left_outline.control_points[0].x, -2.0);
+        assert_eq!(
+            model.bottom_channels.as_ref().unwrap()[0]
+                .left_outline
+                .control_points[0]
+                .x,
+            -2.0
+        );
     }
 
     #[test]
     fn test_mri_disables_zebra() {
         let mut model = create_mock_model();
         model.show_zebra = Some(true);
-        
+
         let action = BoardAction::UpdateBoolean {
             param: "showMriView".to_string(),
             value: true,
         };
         update(&mut model, action);
-        
+
         assert_eq!(model.show_mri_view, Some(true));
         assert_eq!(model.show_zebra, Some(false));
     }

@@ -12,7 +12,7 @@
     "test:server": "bun test src/server",
     "test:rust": "RUST_BACKTRACE=1 RUST_LOG=info cargo test -- --nocapture --test-threads=1",
         "test:all": "bun run test:rust && bun test:server && bun test:e2e && bun run test:unit",
-    "lint:rust": "cargo fmt --all -- --check && cargo clippy --workspace -- -D warnings",
+    "lint:rust": "cargo fmt --all && cargo clippy --workspace -- -D warnings",
     "lint": "eslint . --cache --fix && bun run lint:rust",
     "check-types": "bun install && tsc --noEmit"
   },

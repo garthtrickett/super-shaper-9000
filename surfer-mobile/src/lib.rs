@@ -35,18 +35,21 @@ impl MobileSurferEngine {
         })
     }
 
-        /// Proposes an action encoded as a JSON string.
+    /// Proposes an action encoded as a JSON string.
     /// Returns the updated BoardModel state, also encoded as a JSON string.
     pub fn propose_action(&self, action_json: String) -> Result<String, SurferError> {
-        let action: BoardAction = serde_json::from_str(&action_json)
-            .map_err(|e| SurferError::InvalidAction { message: format!("Failed to parse action: {}", e) })?;
-            
+        let action: BoardAction =
+            serde_json::from_str(&action_json).map_err(|e| SurferError::InvalidAction {
+                message: format!("Failed to parse action: {}", e),
+            })?;
+
         let mut engine = self.engine.lock().unwrap();
         let (new_state, _effects) = engine.update(action);
-        
-        let result = serde_json::to_string(&new_state)
-            .map_err(|e| SurferError::InvalidAction { message: format!("Failed to serialize state: {}", e) })?;
-            
+
+        let result = serde_json::to_string(&new_state).map_err(|e| SurferError::InvalidAction {
+            message: format!("Failed to serialize state: {}", e),
+        })?;
+
         Ok(result)
     }
 
@@ -60,7 +63,7 @@ impl MobileSurferEngine {
     pub fn get_mesh(&self) -> MobileGeometryData {
         let engine = self.engine.lock().unwrap();
         let mesh = engine.compute_mesh();
-        
+
         MobileGeometryData {
             vertices: mesh.vertices,
             indices: mesh.indices,

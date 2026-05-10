@@ -1,5 +1,5 @@
-use glam::Vec3;
 use crate::model::BezierCurveData;
+use glam::Vec3;
 
 /// Evaluates a 3D Cubic Bezier curve at a given `t` (0.0 to 1.0) using SIMD-backed `glam::Vec3`.
 #[inline]
@@ -31,9 +31,15 @@ pub fn evaluate_cubic_hermite(p1: Vec3, p2: Vec3, m1: Vec3, m2: Vec3, t: f32) ->
 /// Evaluates a Rational 3D Cubic Bezier curve at a given `t` (0.0 to 1.0)
 #[inline]
 pub fn evaluate_rational_bezier_cubic(
-    p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3,
-    w0: f32, w1: f32, w2: f32, w3: f32,
-    t: f32
+    p0: Vec3,
+    t0: Vec3,
+    t1: Vec3,
+    p1: Vec3,
+    w0: f32,
+    w1: f32,
+    w2: f32,
+    w3: f32,
+    t: f32,
 ) -> Vec3 {
     let u = 1.0 - t;
     let tt = t * t;
@@ -55,9 +61,15 @@ pub fn evaluate_rational_bezier_cubic(
 /// Evaluates the first derivative of a Rational 3D Cubic Bezier curve at `t`
 #[inline]
 pub fn evaluate_rational_first_derivative(
-    p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3,
-    w0: f32, w1: f32, w2: f32, w3: f32,
-    t: f32
+    p0: Vec3,
+    t0: Vec3,
+    t1: Vec3,
+    p1: Vec3,
+    w0: f32,
+    w1: f32,
+    w2: f32,
+    w3: f32,
+    t: f32,
 ) -> Vec3 {
     let u = 1.0 - t;
     let uu = u * u;
@@ -78,12 +90,10 @@ pub fn evaluate_rational_first_derivative(
     let pt = p / d;
 
     let n_prime = (t0 * w1 - p0 * w0) * (3.0 * b0_2)
-                + (t1 * w2 - t0 * w1) * (3.0 * b1_2)
-                + (p1 * w3 - t1 * w2) * (3.0 * b2_2);
+        + (t1 * w2 - t0 * w1) * (3.0 * b1_2)
+        + (p1 * w3 - t1 * w2) * (3.0 * b2_2);
 
-    let d_prime = (w1 - w0) * (3.0 * b0_2)
-                + (w2 - w1) * (3.0 * b1_2)
-                + (w3 - w2) * (3.0 * b2_2);
+    let d_prime = (w1 - w0) * (3.0 * b0_2) + (w2 - w1) * (3.0 * b1_2) + (w3 - w2) * (3.0 * b2_2);
 
     (n_prime - pt * d_prime) / d
 }
@@ -91,9 +101,15 @@ pub fn evaluate_rational_first_derivative(
 /// Evaluates the second derivative of a Rational 3D Cubic Bezier curve at `t`
 #[inline]
 pub fn evaluate_rational_second_derivative(
-    p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3,
-    w0: f32, w1: f32, w2: f32, w3: f32,
-    t: f32
+    p0: Vec3,
+    t0: Vec3,
+    t1: Vec3,
+    p1: Vec3,
+    w0: f32,
+    w1: f32,
+    w2: f32,
+    w3: f32,
+    t: f32,
 ) -> Vec3 {
     let u = 1.0 - t;
     let uu = u * u;
@@ -117,20 +133,17 @@ pub fn evaluate_rational_second_derivative(
     let pt = p / d;
 
     let n_prime = (t0 * w1 - p0 * w0) * (3.0 * b0_2)
-                + (t1 * w2 - t0 * w1) * (3.0 * b1_2)
-                + (p1 * w3 - t1 * w2) * (3.0 * b2_2);
+        + (t1 * w2 - t0 * w1) * (3.0 * b1_2)
+        + (p1 * w3 - t1 * w2) * (3.0 * b2_2);
 
-    let d_prime = (w1 - w0) * (3.0 * b0_2)
-                + (w2 - w1) * (3.0 * b1_2)
-                + (w3 - w2) * (3.0 * b2_2);
+    let d_prime = (w1 - w0) * (3.0 * b0_2) + (w2 - w1) * (3.0 * b1_2) + (w3 - w2) * (3.0 * b2_2);
 
     let pt_prime = (n_prime - pt * d_prime) / d;
 
     let n_double_prime = (t1 * w2 - t0 * w1 * 2.0 + p0 * w0) * (6.0 * b0_1)
-                       + (p1 * w3 - t1 * w2 * 2.0 + t0 * w1) * (6.0 * b1_1);
+        + (p1 * w3 - t1 * w2 * 2.0 + t0 * w1) * (6.0 * b1_1);
 
-    let d_double_prime = (w2 - w1 * 2.0 + w0) * (6.0 * b0_1)
-                       + (w3 - w2 * 2.0 + w1) * (6.0 * b1_1);
+    let d_double_prime = (w2 - w1 * 2.0 + w0) * (6.0 * b0_1) + (w3 - w2 * 2.0 + w1) * (6.0 * b1_1);
 
     (n_double_prime - pt_prime * (2.0 * d_prime) - pt * d_double_prime) / d
 }
@@ -156,16 +169,24 @@ pub fn evaluate_bezier_second_derivative(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3,
 
 /// Computes the curvature quill (principal normal scaled by curvature magnitude) at a given `t`
 #[inline]
-pub fn evaluate_curvature_quill(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, weights: Option<(f32, f32, f32, f32)>, t: f32, scale: f32) -> Vec3 {
+pub fn evaluate_curvature_quill(
+    p0: Vec3,
+    t0: Vec3,
+    t1: Vec3,
+    p1: Vec3,
+    weights: Option<(f32, f32, f32, f32)>,
+    t: f32,
+    scale: f32,
+) -> Vec3 {
     let (d1, d2) = if let Some((w0, w1, w2, w3)) = weights {
         (
             evaluate_rational_first_derivative(p0, t0, t1, p1, w0, w1, w2, w3, t),
-            evaluate_rational_second_derivative(p0, t0, t1, p1, w0, w1, w2, w3, t)
+            evaluate_rational_second_derivative(p0, t0, t1, p1, w0, w1, w2, w3, t),
         )
     } else {
         (
             evaluate_bezier_first_derivative(p0, t0, t1, p1, t),
-            evaluate_bezier_second_derivative(p0, t0, t1, p1, t)
+            evaluate_bezier_second_derivative(p0, t0, t1, p1, t),
         )
     };
 
@@ -180,7 +201,7 @@ pub fn evaluate_curvature_quill(p0: Vec3, t0: Vec3, t1: Vec3, p1: Vec3, weights:
         return Vec3::ZERO; // Straight line
     }
 
-        let d1_len = d1_len_sq.sqrt();
+    let d1_len = d1_len_sq.sqrt();
     let kappa = cross_len / (d1_len_sq * d1_len);
     let n = cross.cross(d1).normalize();
 
@@ -206,7 +227,7 @@ pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: 
     let v = t_source - anchor;
     let v_len_sq = v.length_squared();
 
-    // If the source tangent is directly on top of the anchor, 
+    // If the source tangent is directly on top of the anchor,
     // curvature is undefined/infinite. Fallback to anchor.
     if v_len_sq < 1e-6 {
         return anchor;
@@ -222,10 +243,10 @@ pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: 
         return anchor - v;
     }
 
-    // The algebraic solution for matching curvature magnitude 
+    // The algebraic solution for matching curvature magnitude
     // between two cubic Bezier segments meeting at G1.
     let c = (cross_tgt / cross_src).sqrt();
-    
+
     // Clamp multiplier to prevent exploding handles on extreme CAD distortions
     let c_clamped = c.clamp(0.01, 100.0);
 
@@ -237,7 +258,10 @@ pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: 
 pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (Vec3, Vec3) {
     let num_segments = curve.control_points.len().saturating_sub(1);
     if num_segments == 0 {
-        return (curve.control_points.first().copied().unwrap_or(Vec3::ZERO), Vec3::X);
+        return (
+            curve.control_points.first().copied().unwrap_or(Vec3::ZERO),
+            Vec3::X,
+        );
     }
 
     let num_segments_f = num_segments as f32;
@@ -246,7 +270,7 @@ pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (V
     if segment_idx >= num_segments {
         segment_idx = num_segments - 1;
     }
-    
+
     let local_t = scaled_t - segment_idx as f32;
 
     let p0 = curve.control_points[segment_idx];
@@ -254,7 +278,7 @@ pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (V
     let t0 = curve.tangents2[segment_idx];
     let t1 = curve.tangents1[segment_idx + 1];
 
-        let weights = curve.weights.as_ref().and_then(|w| {
+    let weights = curve.weights.as_ref().and_then(|w| {
         if w.len() > segment_idx + 1 {
             Some((w[segment_idx], 1.0, 1.0, w[segment_idx + 1]))
         } else {
@@ -265,23 +289,31 @@ pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (V
     let (pos, d1) = if let Some((w0, w1, w2, w3)) = weights {
         (
             evaluate_rational_bezier_cubic(p0, t0, t1, p1, w0, w1, w2, w3, local_t),
-            evaluate_rational_first_derivative(p0, t0, t1, p1, w0, w1, w2, w3, local_t)
+            evaluate_rational_first_derivative(p0, t0, t1, p1, w0, w1, w2, w3, local_t),
         )
     } else {
         (
             evaluate_bezier_cubic(p0, t0, t1, p1, local_t),
-            evaluate_bezier_first_derivative(p0, t0, t1, p1, local_t)
+            evaluate_bezier_first_derivative(p0, t0, t1, p1, local_t),
         )
     };
-    
-    let tan = if d1.length_squared() > 1e-6 { d1.normalize() } else { Vec3::X };
-    
+
+    let tan = if d1.length_squared() > 1e-6 {
+        d1.normalize()
+    } else {
+        Vec3::X
+    };
+
     (pos, tan)
 }
 
 /// Dynamically samples a curve's parameter `t` (0.0 to 1.0) by subdividing areas of high curvature.
 /// Returns a sorted, deduplicated list of optimal `t` values.
-pub fn adaptive_sample_t(curve: &BezierCurveData, tolerance_degrees: f32, min_dist: f32) -> Vec<f32> {
+pub fn adaptive_sample_t(
+    curve: &BezierCurveData,
+    tolerance_degrees: f32,
+    min_dist: f32,
+) -> Vec<f32> {
     let mut t_values = Vec::new();
     if curve.control_points.is_empty() {
         return t_values;
@@ -289,7 +321,7 @@ pub fn adaptive_sample_t(curve: &BezierCurveData, tolerance_degrees: f32, min_di
 
     let tolerance_radians = tolerance_degrees.to_radians();
     let max_depth = 8; // Prevent infinite recursion on micro-corners
-    
+
     t_values.push(0.0);
 
     fn subdivide(
@@ -307,7 +339,7 @@ pub fn adaptive_sample_t(curve: &BezierCurveData, tolerance_degrees: f32, min_di
         results: &mut Vec<f32>,
     ) {
         let dist = p_start.distance(p_end);
-        
+
         // Calculate angle between tangents. clamp to[-1, 1] to avoid NaN from float precision drifts.
         let dot = tan_start.dot(tan_end).clamp(-1.0, 1.0);
         let angle = dot.acos();
@@ -319,8 +351,34 @@ pub fn adaptive_sample_t(curve: &BezierCurveData, tolerance_degrees: f32, min_di
             let t_mid = (t_start + t_end) / 2.0;
             let (p_mid, tan_mid) = evaluate_composite_pos_and_tangent(curve, t_mid);
 
-            subdivide(curve, t_start, p_start, tan_start, t_mid, p_mid, tan_mid, tolerance_radians, min_dist, depth + 1, max_depth, results);
-            subdivide(curve, t_mid, p_mid, tan_mid, t_end, p_end, tan_end, tolerance_radians, min_dist, depth + 1, max_depth, results);
+            subdivide(
+                curve,
+                t_start,
+                p_start,
+                tan_start,
+                t_mid,
+                p_mid,
+                tan_mid,
+                tolerance_radians,
+                min_dist,
+                depth + 1,
+                max_depth,
+                results,
+            );
+            subdivide(
+                curve,
+                t_mid,
+                p_mid,
+                tan_mid,
+                t_end,
+                p_end,
+                tan_end,
+                tolerance_radians,
+                min_dist,
+                depth + 1,
+                max_depth,
+                results,
+            );
         } else {
             results.push(t_end);
         }
@@ -329,14 +387,27 @@ pub fn adaptive_sample_t(curve: &BezierCurveData, tolerance_degrees: f32, min_di
     let (p0, t0) = evaluate_composite_pos_and_tangent(curve, 0.0);
     let (p1, t1) = evaluate_composite_pos_and_tangent(curve, 1.0);
 
-    subdivide(curve, 0.0, p0, t0, 1.0, p1, t1, tolerance_radians, min_dist, 0, max_depth, &mut t_values);
+    subdivide(
+        curve,
+        0.0,
+        p0,
+        t0,
+        1.0,
+        p1,
+        t1,
+        tolerance_radians,
+        min_dist,
+        0,
+        max_depth,
+        &mut t_values,
+    );
 
-        // Filter floating point overlaps
+    // Filter floating point overlaps
     t_values.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
     t_values
 }
 
-/// Samples a composite Bezier curve with `steps` resolution. 
+/// Samples a composite Bezier curve with `steps` resolution.
 /// Replicates the TypeScript `sampleBezierCurve` logic identically.
 pub fn sample_curve(curve: &BezierCurveData, steps: usize) -> Vec<Vec3> {
     let mut pts = Vec::with_capacity(steps + 1);
@@ -355,16 +426,16 @@ pub fn sample_curve(curve: &BezierCurveData, steps: usize) -> Vec<Vec3> {
         if segment_idx >= num_segments {
             segment_idx = num_segments - 1;
         }
-        
+
         let local_t = scaled_t - segment_idx as f32;
 
         let p0 = curve.control_points[segment_idx];
         let p1 = curve.control_points[segment_idx + 1];
         // t0 is the OUTGOING tangent of P0 (tangents2)
-                let t0 = curve.tangents2[segment_idx];
+        let t0 = curve.tangents2[segment_idx];
         // t1 is the INCOMING tangent of P1 (tangents1)
         let t1 = curve.tangents1[segment_idx + 1];
-        
+
         let weights = curve.weights.as_ref().and_then(|w| {
             if w.len() > segment_idx + 1 {
                 Some((w[segment_idx], 1.0, 1.0, w[segment_idx + 1]))
@@ -395,13 +466,16 @@ mod tests {
         // linear. This is critical for 3D lofting to prevent self-intersecting meshes.
         let p1 = Vec3::new(0.0, 0.0, 10.0);
         let p2 = Vec3::new(0.0, 0.0, 20.0);
-        
+
         let dz = 10.0;
         let m1 = Vec3::new(0.0, 0.0, dz);
         let m2 = Vec3::new(0.0, 0.0, dz);
-        
+
         let mid = evaluate_cubic_hermite(p1, p2, m1, m2, 0.5);
-        assert_eq!(mid.z, 15.0, "Z coordinate must remain perfectly linear to prevent bulging");
+        assert_eq!(
+            mid.z, 15.0,
+            "Z coordinate must remain perfectly linear to prevent bulging"
+        );
         println!("✅ test_cubic_hermite_z_linearity passed.");
     }
 
@@ -409,30 +483,37 @@ mod tests {
     fn test_derivatives_and_curvature() {
         let p0 = Vec3::new(0.0, 0.0, 0.0);
         let p1 = Vec3::new(3.0, 0.0, 0.0);
-        
+
         // 1. Straight line
         let t0_straight = Vec3::new(1.0, 0.0, 0.0);
         let t1_straight = Vec3::new(2.0, 0.0, 0.0);
-        
+
         let d2_straight = evaluate_bezier_second_derivative(p0, t0_straight, t1_straight, p1, 0.5);
         assert_eq!(d2_straight, Vec3::ZERO);
-        
-                let quill_straight = evaluate_curvature_quill(p0, t0_straight, t1_straight, p1, None, 0.5, 1.0);
+
+        let quill_straight =
+            evaluate_curvature_quill(p0, t0_straight, t1_straight, p1, None, 0.5, 1.0);
         assert_eq!(quill_straight, Vec3::ZERO);
-        
+
         // 2. Bent curve
         let t0_bent = Vec3::new(1.0, 1.0, 0.0);
         let t1_bent = Vec3::new(2.0, 1.0, 0.0);
-        
+
         let d1_bent = evaluate_bezier_first_derivative(p0, t0_bent, t1_bent, p1, 0.5);
         let quill_bent = evaluate_curvature_quill(p0, t0_bent, t1_bent, p1, None, 0.5, 1.0);
-        
+
         // The magnitude of the quill should be greater than 0 since the curve is bent
-        assert!(quill_bent.length() > 0.0, "Curvature quill should be non-zero for a bent curve");
-        
+        assert!(
+            quill_bent.length() > 0.0,
+            "Curvature quill should be non-zero for a bent curve"
+        );
+
         // The dot product of the first derivative and principal normal (quill) should be 0 (perpendicular)
-        assert!(d1_bent.dot(quill_bent).abs() < 1e-5, "Quill should be perpendicular to tangent");
-        
+        assert!(
+            d1_bent.dot(quill_bent).abs() < 1e-5,
+            "Quill should be perpendicular to tangent"
+        );
+
         println!("✅ test_derivatives_and_curvature passed.");
     }
 
@@ -445,7 +526,7 @@ mod tests {
 
         // Evaluated exactly at the midpoint
         let mid = evaluate_bezier_cubic(p0, t0, t1, p1, 0.5);
-        
+
         // A straight line bezier should evaluate precisely to its midpoint
         assert_eq!(mid.x, 1.5);
         assert_eq!(mid.y, 0.0);
@@ -455,7 +536,7 @@ mod tests {
 
     #[test]
     fn test_sample_curve() {
-                let curve = BezierCurveData {
+        let curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
             tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
@@ -464,43 +545,43 @@ mod tests {
 
         let samples = sample_curve(&curve, 2);
         assert_eq!(samples.len(), 3);
-        
+
         assert_eq!(samples[0].x, 0.0);
         assert_eq!(samples[1].x, 5.0);
         assert_eq!(samples[2].x, 10.0);
         println!("✅ sample_curve passed and generated expected vertex distribution.");
     }
 
-        #[test]
+    #[test]
     fn test_solve_g2_tangent() {
         let anchor = Vec3::new(0.0, 0.0, 0.0);
-        
+
         // Source curve (Left side, evaluates at t=1)
         let f_source = Vec3::new(-2.0, 1.0, 0.0); // A1
         let t_source = Vec3::new(-1.0, 0.0, 0.0); // A2
-        
+
         // Target curve (Right side, evaluates at t=0)
         let f_target = Vec3::new(2.0, -2.0, 0.0); // B2
-        
+
         let t_target = solve_g2_tangent(anchor, t_source, f_source, f_target);
-        
+
         // Expected mathematically: c = sqrt(2). t_target = (sqrt(2), 0, 0)
         let c_expected = 2.0_f32.sqrt();
         assert!((t_target.x - c_expected).abs() < 1e-5);
         assert_eq!(t_target.y, 0.0);
         assert_eq!(t_target.z, 0.0);
-        
+
         // Verify dynamically using evaluate_curvature_quill
-                let quill_src = evaluate_curvature_quill(
+        let quill_src = evaluate_curvature_quill(
             Vec3::new(-3.0, 0.0, 0.0), // Arbitrary A0
             f_source,
             t_source,
             anchor,
             None,
             1.0,
-            1.0
+            1.0,
         );
-        
+
         let quill_tgt = evaluate_curvature_quill(
             anchor,
             t_target,
@@ -508,16 +589,19 @@ mod tests {
             Vec3::new(3.0, 0.0, 0.0), // Arbitrary B3
             None,
             0.0,
-            1.0
+            1.0,
         );
-        
+
         // Quills must match in length (curvature magnitude) perfectly across the joint.
-        assert!((quill_src.length() - quill_tgt.length()).abs() < 1e-5, "G2 Curvatures must match!");
-        
+        assert!(
+            (quill_src.length() - quill_tgt.length()).abs() < 1e-5,
+            "G2 Curvatures must match!"
+        );
+
         println!("✅ test_solve_g2_tangent passed.");
     }
 
-        #[test]
+    #[test]
     fn test_rational_bezier_equivalence() {
         let p0 = Vec3::new(0.0, 0.0, 0.0);
         let t0 = Vec3::new(1.0, 1.0, 0.0);
@@ -528,15 +612,24 @@ mod tests {
         let std_pos = evaluate_bezier_cubic(p0, t0, t1, p1, t);
         let rat_pos = evaluate_rational_bezier_cubic(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, t);
 
-        assert!((std_pos - rat_pos).length() < 1e-5, "Rational with weights 1.0 must match Standard");
+        assert!(
+            (std_pos - rat_pos).length() < 1e-5,
+            "Rational with weights 1.0 must match Standard"
+        );
 
         let std_d1 = evaluate_bezier_first_derivative(p0, t0, t1, p1, t);
         let rat_d1 = evaluate_rational_first_derivative(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, t);
-        assert!((std_d1 - rat_d1).length() < 1e-5, "Rational d1 with weights 1.0 must match Standard");
+        assert!(
+            (std_d1 - rat_d1).length() < 1e-5,
+            "Rational d1 with weights 1.0 must match Standard"
+        );
 
         let std_d2 = evaluate_bezier_second_derivative(p0, t0, t1, p1, t);
         let rat_d2 = evaluate_rational_second_derivative(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, t);
-        assert!((std_d2 - rat_d2).length() < 1e-4, "Rational d2 with weights 1.0 must match Standard");
+        assert!(
+            (std_d2 - rat_d2).length() < 1e-4,
+            "Rational d2 with weights 1.0 must match Standard"
+        );
     }
 
     #[test]
@@ -547,12 +640,15 @@ mod tests {
         let p1 = Vec3::new(3.0, 0.0, 0.0);
 
         let mid_std = evaluate_rational_bezier_cubic(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, 0.5);
-        
+
         // Increase weight of P0
         let mid_pulled = evaluate_rational_bezier_cubic(p0, t0, t1, p1, 10.0, 1.0, 1.0, 1.0, 0.5);
-        
+
         // P0 is at origin, so mid_pulled should be closer to origin than mid_std
-        assert!(mid_pulled.length() < mid_std.length(), "Increasing P0 weight should pull curve towards P0");
+        assert!(
+            mid_pulled.length() < mid_std.length(),
+            "Increasing P0 weight should pull curve towards P0"
+        );
     }
 
     #[test]
@@ -565,18 +661,24 @@ mod tests {
         // t = 0
         let d1_start = evaluate_rational_first_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 0.0);
         let d2_start = evaluate_rational_second_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 0.0);
-        assert!(!d1_start.is_nan() && !d2_start.is_nan(), "Derivatives should not be NaN at t=0");
+        assert!(
+            !d1_start.is_nan() && !d2_start.is_nan(),
+            "Derivatives should not be NaN at t=0"
+        );
 
         // t = 1
         let d1_end = evaluate_rational_first_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 1.0);
         let d2_end = evaluate_rational_second_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 1.0);
-        assert!(!d1_end.is_nan() && !d2_end.is_nan(), "Derivatives should not be NaN at t=1");
+        assert!(
+            !d1_end.is_nan() && !d2_end.is_nan(),
+            "Derivatives should not be NaN at t=1"
+        );
     }
 
     #[test]
     fn test_adaptive_sampling() {
         // Curve 1: Straight line
-                let straight = BezierCurveData {
+        let straight = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
             tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
@@ -587,7 +689,7 @@ mod tests {
         assert_eq!(t_straight.len(), 9);
 
         // Curve 2: Highly bent curve
-                let bent = BezierCurveData {
+        let bent = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 10.0, 0.0)],
             tangents2: vec![Vec3::new(0.0, 10.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
@@ -595,8 +697,11 @@ mod tests {
         };
         let t_bent = adaptive_sample_t(&bent, 5.0, 0.1);
         // The bent curve requires more subdivisions to meet the angle tolerance
-        assert!(t_bent.len() > 9, "Bent curve should subdivide heavily compared to a straight curve");
-        
+        assert!(
+            t_bent.len() > 9,
+            "Bent curve should subdivide heavily compared to a straight curve"
+        );
+
         println!("✅ test_adaptive_sampling passed.");
     }
 }

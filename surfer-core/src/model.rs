@@ -1,7 +1,9 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
-fn default_one() -> f32 { 1.0 }
+fn default_one() -> f32 {
+    1.0
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,7 +44,7 @@ pub struct ManualSnapshot {
     pub apex_outline: Option<BezierCurveData>,
     pub rocker_top: Option<BezierCurveData>,
     pub rocker_bottom: Option<BezierCurveData>,
-        pub apex_rocker: Option<BezierCurveData>,
+    pub apex_rocker: Option<BezierCurveData>,
     pub deck_shoulder: Option<BezierCurveData>,
     pub cross_sections: Vec<BezierCurveData>,
 }
@@ -55,21 +57,36 @@ pub struct BoardModel {
     pub thickness: f32,
     pub volume: f32,
     pub fin_setup: String,
-    #[serde(default)] pub front_fin_z: f32,
-    #[serde(default)] pub front_fin_x: f32,
-    #[serde(default)] pub rear_fin_z: f32,
-    #[serde(default)] pub rear_fin_x: f32,
-    #[serde(default)] pub toe_angle: f32,
-    #[serde(default)] pub cant_angle: f32,
-        #[serde(default)] pub core_material: String,
-    #[serde(default)] pub glassing_schedule: String,
-        #[serde(default)] pub tail_type: String,
-    #[serde(default)] pub swallow_depth: f32,
-    #[serde(default)] pub v_concave_tail: f32,
-    #[serde(default)] pub v_concave_nose: f32,
-    #[serde(default = "default_one")] pub rail_coefficient_tail: f32,
-    #[serde(default = "default_one")] pub rail_coefficient_nose: f32,
-    #[serde(default = "default_one")]     pub thickness_z_stretch: f32,
+    #[serde(default)]
+    pub front_fin_z: f32,
+    #[serde(default)]
+    pub front_fin_x: f32,
+    #[serde(default)]
+    pub rear_fin_z: f32,
+    #[serde(default)]
+    pub rear_fin_x: f32,
+    #[serde(default)]
+    pub toe_angle: f32,
+    #[serde(default)]
+    pub cant_angle: f32,
+    #[serde(default)]
+    pub core_material: String,
+    #[serde(default)]
+    pub glassing_schedule: String,
+    #[serde(default)]
+    pub tail_type: String,
+    #[serde(default)]
+    pub swallow_depth: f32,
+    #[serde(default)]
+    pub v_concave_tail: f32,
+    #[serde(default)]
+    pub v_concave_nose: f32,
+    #[serde(default = "default_one")]
+    pub rail_coefficient_tail: f32,
+    #[serde(default = "default_one")]
+    pub rail_coefficient_nose: f32,
+    #[serde(default = "default_one")]
+    pub thickness_z_stretch: f32,
     pub show_gizmos: Option<bool>,
     pub show_solid_mesh: Option<bool>,
     pub show_heatmap: Option<bool>,
@@ -81,7 +98,7 @@ pub struct BoardModel {
     pub show_apex_outline: Option<bool>,
     pub show_rail_outline: Option<bool>,
     pub show_apex_rocker: Option<bool>,
-            pub show_deck_shoulder: Option<bool>,
+    pub show_deck_shoulder: Option<bool>,
     pub show_cross_sections: Option<bool>,
     pub show_curvature: Option<bool>,
     pub show_mri_view: Option<bool>,
@@ -89,17 +106,17 @@ pub struct BoardModel {
     pub selected_node: Option<SelectedNode>,
     pub history: Option<Vec<ManualSnapshot>>,
     pub history_index: Option<usize>,
-    
-        pub outline: Option<BezierCurveData>,
+
+    pub outline: Option<BezierCurveData>,
     pub outline_layers: Option<Vec<OutlineLayer>>,
     pub bottom_channels: Option<Vec<ChannelLayer>>,
     pub rail_outline: Option<BezierCurveData>,
     pub apex_outline: Option<BezierCurveData>,
     pub rocker_top: Option<BezierCurveData>,
     pub rocker_bottom: Option<BezierCurveData>,
-        pub apex_rocker: Option<BezierCurveData>,
+    pub apex_rocker: Option<BezierCurveData>,
     pub deck_shoulder: Option<BezierCurveData>,
-        #[serde(default)]
+    #[serde(default)]
     pub cross_sections: Vec<BezierCurveData>,
 }
 
@@ -125,7 +142,7 @@ impl Default for BoardModel {
             v_concave_nose: 0.0,
             rail_coefficient_tail: 1.0,
             rail_coefficient_nose: 1.0,
-                        thickness_z_stretch: 1.0,
+            thickness_z_stretch: 1.0,
             show_gizmos: None,
             show_solid_mesh: None,
             show_heatmap: None,
@@ -137,7 +154,7 @@ impl Default for BoardModel {
             show_apex_outline: None,
             show_rail_outline: None,
             show_apex_rocker: None,
-                        show_deck_shoulder: None,
+            show_deck_shoulder: None,
             show_cross_sections: None,
             show_curvature: None,
             show_mri_view: None,
@@ -152,7 +169,7 @@ impl Default for BoardModel {
             apex_outline: None,
             rocker_top: None,
             rocker_bottom: None,
-                        apex_rocker: None,
+            apex_rocker: None,
             deck_shoulder: None,
             cross_sections: Vec::new(),
         }
@@ -174,32 +191,44 @@ pub enum BoardAction {
     LoadDesign { state: BoardModel },
     #[serde(rename = "SET_CURVES")]
     #[serde(rename_all = "camelCase")]
-    SetCurves { 
+    SetCurves {
         outline: Option<BezierCurveData>,
         rail_outline: Option<BezierCurveData>,
         apex_outline: Option<BezierCurveData>,
         rocker_top: Option<BezierCurveData>,
         rocker_bottom: Option<BezierCurveData>,
-                apex_rocker: Option<BezierCurveData>,
+        apex_rocker: Option<BezierCurveData>,
         deck_shoulder: Option<BezierCurveData>,
-        cross_sections: Option<Vec<BezierCurveData>>
+        cross_sections: Option<Vec<BezierCurveData>>,
     },
     #[serde(rename = "UPDATE_NODE_POSITION")]
     #[serde(rename_all = "camelCase")]
-    UpdateNodePosition { curve: String, index: usize, node_type: String, position: [f32; 3] },
+    UpdateNodePosition {
+        curve: String,
+        index: usize,
+        node_type: String,
+        position: [f32; 3],
+    },
     #[serde(rename = "SELECT_NODE")]
     SelectNode { node: Option<SelectedNode> },
     #[serde(rename = "UPDATE_NODE_EXACT")]
     #[serde(rename_all = "camelCase")]
-    UpdateNodeExact { curve: String, index: usize, anchor: Option<[f32; 3]>, tangent1: Option<[f32; 3]>, tangent2: Option<[f32; 3]>, weight: Option<f32> },
+    UpdateNodeExact {
+        curve: String,
+        index: usize,
+        anchor: Option<[f32; 3]>,
+        tangent1: Option<[f32; 3]>,
+        tangent2: Option<[f32; 3]>,
+        weight: Option<f32>,
+    },
     #[serde(rename = "APPLY_CONTINUITY")]
     #[serde(rename_all = "camelCase")]
-    ApplyContinuity { 
-        curve: String, 
-        index: usize, 
+    ApplyContinuity {
+        curve: String,
+        index: usize,
         level: String,
         #[serde(default)]
-        master: Option<String>
+        master: Option<String>,
     },
     #[serde(rename = "SAVE_HISTORY_SNAPSHOT")]
     SaveHistorySnapshot,
@@ -221,9 +250,9 @@ pub enum BoardAction {
     RemoveBottomChannel { index: usize },
     #[serde(rename = "TOGGLE_CHANNEL_SYMMETRY")]
     ToggleChannelSymmetry { index: usize },
-        #[serde(rename = "IMPORT_S3DX")]
+    #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
-    ImportS3dx { xml: String }
+    ImportS3dx { xml: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -258,7 +287,7 @@ pub struct RawGeometryData {
 
 mod serde_vec3_as_array {
     use glam::Vec3;
-    use serde::{Serialize, Deserialize, Serializer, Deserializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     pub fn serialize<S>(vecs: &Vec<Vec3>, serializer: S) -> Result<S::Ok, S::Error>
     where
