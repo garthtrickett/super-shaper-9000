@@ -835,6 +835,105 @@ pub fn slerp_normals(n1: Vec3, n2: Vec3, t: f32, fallback_mid: Vec3) -> Vec3 {
 
 /// Evaluates the analytical surface normals at the absolute Z-poles (nose or tail) of the board.
 /// Returns (top_normal, bottom_normal).
+pub fn get_surface_normal_at_uvz(
+    model: &BoardModel,
+    u: f32,
+    z_inches: f32,
+    side: f32,
+) -> Vec3 {
+    let bounds = get_board_bounds(model);
+    
+    // Fallback for absolute poles
+    if (z_inches - bounds.nose_z).abs() < 1e-4 {
+        let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
+        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
+        if side < 0.0 { n.x = -n.x; }
+        return n;
+    }
+    if (z_inches - bounds.tip_z).abs() < 1e-4 {
+        let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
+        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
+        if side < 0.0 { n.x = -n.x; }
+        return n;
+    }
+
+    let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+    let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
+    let profile = get_board_profile_at_z(model, z_inches, v_outer);
+
+    let inner_x = if z_inches > bounds.notch_z {
+        evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z_inches)
+    } else {
+        0.0
+    };
+
+    let mut t_u = Vec3::ZERO;
+    let mut t_v = Vec3::ZERO;
+
+    if let Some(b) = &blend {
+        let dp_du = b.evaluate_derivative_u(u);
+        let p_bot = b.evaluate(0.0);
+        let p_top = b.evaluate(1.0);
+        let p_apex = b.evaluate(b.t_apex);
+        
+        let slice_width = (p_apex.x - p_bot.x).max(1e-4);
+        let world_width = (profile.apex_x - inner_x).max(0.0);
+        
+        let dnorm_x_du = dp_du.x / slice_width;
+        let dx_du = dnorm_x_du * world_width * side;
+        
+        let slice_h = if u <= b.t_apex { (p_apex.y - p_bot.y).max(1e-4) } else { (p_top.y - p_apex.y).max(1e-4) };
+        let world_h = if u <= b.t_apex { profile.apex_y - profile.bot_y } else { profile.top_y - profile.apex_y };
+        let dnorm_y_du = dp_du.y / slice_h;
+        let dy_du = dnorm_y_du * world_h;
+        
+        t_u = Vec3::new(dx_du, dy_du, 0.0);
+        
+        let dz_slice = b.s1.control_points.first().unwrap().z - b.s0.control_points.first().unwrap().z;
+        let d_lerp_dz = if dz_slice.abs() > 1e-5 { 1.0 / dz_slice } else { 0.0 };
+        let dp_dz = b.evaluate_derivative_z(u) * d_lerp_dz;
+        let dnorm_x_dz = dp_dz.x / slice_width;
+        
+        let outline_tan = profile.outline_tangent;
+        let dx_dz_outline = if outline_tan.z.abs() > 1e-5 { outline_tan.x / outline_tan.z } else { 0.0 };
+        
+        let p_u = b.evaluate(u);
+        let norm_x = ((p_u.x - p_bot.x) / slice_width).clamp(0.0, 1.0);
+        
+        let dx_dz = (dx_dz_outline * norm_x + dnorm_x_dz * world_width) * side;
+        
+        let dz = 1e-3;
+        let pt_plus = get_point_at_uv(model, u, v_outer, z_inches + dz, inner_x, side);
+        let pt_minus = get_point_at_uv(model, u, v_outer, z_inches - dz, inner_x, side);
+        let t_v_exact = (pt_plus - pt_minus) / (2.0 * dz);
+        
+        t_v = Vec3::new(dx_dz, t_v_exact.y, 1.0).normalize();
+    } else {
+        t_u = Vec3::new(side, profile.top_y - profile.bot_y, 0.0);
+        t_v = Vec3::new(0.0, 0.0, 1.0);
+    }
+    
+    if t_u.length_squared() > 1e-6 {
+        t_u = t_u.normalize();
+    } else {
+        t_u = Vec3::new(side, 0.0, 0.0);
+    }
+    
+    let mut n = t_u.cross(t_v).normalize();
+    
+    if side < 0.0 {
+        n = -n;
+    }
+    
+    let pt = get_point_at_uv(model, u, v_outer, z_inches, inner_x, side);
+    if pt.x.abs() < 1e-4 && inner_x < 1e-4 {
+        n.x = 0.0;
+        n = n.normalize();
+    }
+    
+    n
+}
+
 pub fn get_pole_normals(model: &BoardModel, z_inches: f32, _is_nose: bool) -> (Vec3, Vec3) {
     let r_top = model.rocker_top.as_ref().unwrap();
     let r_bot = model.rocker_bottom.as_ref().unwrap();
@@ -1059,6 +1158,63 @@ mod tests {
         assert!((numeric_dz.y - analytic_dz.y).abs() < 1e-2, "Z derivative Y mismatch: {} vs {}", numeric_dz.y, analytic_dz.y);
 
         println!("✅ test_blend_derivatives_u_and_z passed.");
+    }
+
+        #[test]
+    fn test_analytical_surface_normals() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(5.0, -1.0, 0.0),
+                Vec3::new(5.0, 1.0, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.5, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            ..Default::default()
+        }];
+
+        let n_deck = super::get_surface_normal_at_uvz(&model, 1.0, 50.0, 1.0);
+        assert!(n_deck.y > 0.99, "Deck stringer normal should point UP. Got {:?}", n_deck);
+        assert!(n_deck.x.abs() < 1e-4, "Deck stringer normal should have no X component. Got {:?}", n_deck);
+
+        let n_bot = super::get_surface_normal_at_uvz(&model, 0.0, 50.0, 1.0);
+        assert!(n_bot.y < -0.99, "Bottom stringer normal should point DOWN. Got {:?}", n_bot);
+        assert!(n_bot.x.abs() < 1e-4, "Bottom stringer normal should have no X component. Got {:?}", n_bot);
+
+        let n_apex = super::get_surface_normal_at_uvz(&model, 0.5, 50.0, 1.0);
+        assert!(n_apex.x > 0.9, "Apex normal should point OUTWARD horizontally. Got {:?}", n_apex);
+
+        let n_apex_left = super::get_surface_normal_at_uvz(&model, 0.5, 50.0, -1.0);
+        assert!(n_apex_left.x < -0.9, "Left apex normal should point OUTWARD horizontally (-X). Got {:?}", n_apex_left);
+
+        println!("✅ test_analytical_surface_normals passed.");
     }
 
     #[test]
