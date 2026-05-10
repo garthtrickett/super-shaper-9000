@@ -6,24 +6,12 @@ edition = "2021"
 [lib]
 crate-type = ["rlib"]
 
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-glam = { version = "0.27", features = ["serde"] }
 
-[dependencies.log]
-version = "0.4"
 
 [dev-dependencies]
 ctor = "1.0.3"
 env_logger = "0.11.10"
 
-[dependencies.quick-xml]
-version = "0.31"
-features = ["serialize"]
-[package]
-name = "surfer-core"
-version = "0.1.0"
-edition = "2021"
 
 [dependencies]
 glam = "0.27.0"
@@ -31,7 +19,4 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 quick-xml = { version = "0.31", features = ["serde"] }
 
-[dev-dependencies]
-ctor = "0.2"
-env_logger = "0.11"
 
