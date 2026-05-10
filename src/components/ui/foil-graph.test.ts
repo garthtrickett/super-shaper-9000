@@ -27,13 +27,13 @@ describe("FoilGraph", () => {
     // Should have 3 paths: center thickness fill, center thickness line, rail thickness line
     expect(paths.length).to.equal(3);
 
-    // Check that the line paths have valid 'd' attributes
+        // Check that the line paths have valid 'd' attributes
     const ctPath = paths[1];
     const rtPath = paths[2];
     
-    expect(ctPath.getAttribute("d")).to.match(/^M/); // Starts with "Move to"
-    expect(rtPath.getAttribute("d")).to.match(/^M/);
-    expect(ctPath.getAttribute("d")!.split(" ").length).to.be.greaterThan(5);
-    expect(rtPath.getAttribute("d")!.split(" ").length).to.be.greaterThan(5);
+    expect(ctPath!.getAttribute("d")).to.match(/^M/); // Starts with "Move to"
+    expect(rtPath!.getAttribute("d")).to.match(/^M/);
+    expect(ctPath!.getAttribute("d")!.split(" ").length).to.be.greaterThan(5);
+    expect(rtPath!.getAttribute("d")!.split(" ").length).to.be.greaterThan(5);
   });
 });

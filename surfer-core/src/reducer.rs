@@ -843,8 +843,7 @@ mod tests {
         assert_eq!(outline.tangents2[1], Vec3::new(6.0, 0.0, 3.0)); // Was [5, 0, 2]
     }
 
-        #[test]
-        #[test]
+    #[test]
     fn test_scale_width_action() {
         let mut model = create_mock_model();
         model.width = 20.0;
@@ -861,7 +860,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_parametric_proxy_updates_curves() {
         let mut model = create_mock_model();
         model.length = 100.0;

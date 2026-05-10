@@ -17,10 +17,10 @@ export class FoilGraph extends LitElement {
     let maxT = 0;
     const pts = [];
 
-    for (let i = 0; i < this.data.length; i += 3) {
-      const z = this.data[i];
-      const ct = this.data[i+1];
-      const rt = this.data[i+2];
+        for (let i = 0; i < this.data.length; i += 3) {
+      const z = this.data[i]!;
+      const ct = this.data[i+1]!;
+      const rt = this.data[i+2]!;
       minZ = Math.min(minZ, z);
       maxZ = Math.max(maxZ, z);
       maxT = Math.max(maxT, ct, rt);

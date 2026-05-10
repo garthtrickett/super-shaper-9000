@@ -484,13 +484,13 @@ export class BoardViewport extends LitElement {
     if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
       return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).botY - 2.0 + yInches;
     }
-    if (curveName.startsWith('crossSection_')) {
-      const idx = parseInt(curveName.split('_')[1], 10);
+        if (curveName.startsWith('crossSection_')) {
+      const idx = parseInt(curveName.split('_')[1] || "0", 10);
       const cs = this.boardState.crossSections?.[idx];
       if (cs && cs.controlPoints.length > 0) {
         const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches);
-        const rawBot = cs.controlPoints[0][1];
-        const rawTop = cs.controlPoints[cs.controlPoints.length - 1][1];
+        const rawBot = cs.controlPoints[0]![1];
+        const rawTop = cs.controlPoints[cs.controlPoints.length - 1]![1];
         const rawH = Math.max(rawTop - rawBot, 0.0001);
         const worldH = Math.max(profile.topY - profile.botY, 0.0001);
         return profile.botY + ((yInches - rawBot) / rawH) * worldH;
