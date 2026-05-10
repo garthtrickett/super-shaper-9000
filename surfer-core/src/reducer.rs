@@ -844,6 +844,7 @@ mod tests {
     }
 
         #[test]
+        #[test]
     fn test_scale_width_action() {
         let mut model = create_mock_model();
         model.width = 20.0;
@@ -851,15 +852,16 @@ mod tests {
         let action = BoardAction::ScaleWidth { factor: 1.1 };
         update(&mut model, action);
 
-        assert_eq!(model.width, 22.0);
-                let outline = model.outline.as_ref().unwrap();
+        assert!((model.width - 22.0).abs() < 1e-5);
+        let outline = model.outline.as_ref().unwrap();
         // 5.0 * 1.1 = 5.5
-        assert_eq!(outline.control_points[1].x, 5.5);
-        assert_eq!(outline.tangents1[1].x, 5.5);
-        assert_eq!(outline.tangents2[1].x, 5.5);
+        assert!((outline.control_points[1].x - 5.5).abs() < 1e-5);
+        assert!((outline.tangents1[1].x - 5.5).abs() < 1e-5);
+        assert!((outline.tangents2[1].x - 5.5).abs() < 1e-5);
     }
 
     #[test]
+        #[test]
     fn test_parametric_proxy_updates_curves() {
         let mut model = create_mock_model();
         model.length = 100.0;
@@ -876,17 +878,17 @@ mod tests {
 
         // 1. Parametric Width Scale (20.0 -> 22.0 is a 1.1x factor)
         update(&mut model, BoardAction::UpdateNumber { param: "width".to_string(), value: 22.0 });
-        assert_eq!(model.width, 22.0);
-        assert_eq!(model.outline.as_ref().unwrap().control_points[0].x, 11.0); // 10.0 * 1.1
+        assert!((model.width - 22.0).abs() < 1e-5);
+        assert!((model.outline.as_ref().unwrap().control_points[0].x - 11.0).abs() < 1e-5);
 
         // 2. Parametric Length Scale (100.0 -> 110.0 is a 1.1x factor)
         update(&mut model, BoardAction::UpdateNumber { param: "length".to_string(), value: 110.0 });
-        assert_eq!(model.length, 110.0);
-        assert_eq!(model.outline.as_ref().unwrap().control_points[0].z, 55.0); // 50.0 * 1.1
+        assert!((model.length - 110.0).abs() < 1e-5);
+        assert!((model.outline.as_ref().unwrap().control_points[0].z - 55.0).abs() < 1e-5);
 
         // 3. Parametric Thickness Scale (2.5 -> 3.0 is a 1.2x factor)
         update(&mut model, BoardAction::UpdateNumber { param: "thickness".to_string(), value: 3.0 });
-        assert_eq!(model.thickness, 3.0);
+        assert!((model.thickness - 3.0).abs() < 1e-5);
         // The outline isn't scaled in Y (thickness), but we can verify the top rocker is
         model.rocker_top = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, 1.25, 0.0)],
@@ -895,7 +897,7 @@ mod tests {
             ..Default::default()
         });
         update(&mut model, BoardAction::UpdateNumber { param: "thickness".to_string(), value: 3.6 }); // 3.0 -> 3.6 is 1.2x
-        assert_eq!(model.rocker_top.as_ref().unwrap().control_points[0].y, 1.5); // 1.25 * 1.2
+        assert!((model.rocker_top.as_ref().unwrap().control_points[0].y - 1.5).abs() < 1e-5);
     }
 
         #[test]
