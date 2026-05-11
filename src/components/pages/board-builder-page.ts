@@ -1,5 +1,5 @@
 // src/components/pages/board-builder-page.ts
-import { LitElement, html } from "lit";
+import { LitElement, html, type PropertyValues } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
@@ -18,7 +18,7 @@ export class BoardBuilderPage extends LitElement {
 
   @state() private mathEngine?: WasmEngine;
 
-        @state() private boardSnapshot?: { state: BoardModel, mesh: RustMesh, curvatureCombs: Float32Array, foilData: Float32Array };
+        
 
   @state() private showExportModal = false;
   @state() private showImportModal = false;
@@ -38,27 +38,10 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-      private _handleWorkerMessage = (e: MessageEvent) => {
-    const data = e.data as { type: string, id?: string, profile?: Float32Array, foilData?: Float32Array };
+        private _handleWorkerMessage = (e: MessageEvent) => {
+    const data = e.data as { type: string, id?: string, profile?: Float32Array };
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
-    }
-                                                                if (data.type === "STATE_UPDATED") {
-      const stateData = data as unknown as { state: BoardModel, mesh: RustMesh, curvatureCombs: Float32Array, foilData: Float32Array };
-      
-      if (this.mathEngine) {
-        this.mathEngine.propose({ type: "LOAD_DESIGN", state: stateData.state });
-      }
-
-      this.boardSnapshot = {
-        state: stateData.state,
-        mesh: stateData.mesh,
-        curvatureCombs: stateData.curvatureCombs,
-        foilData: stateData.foilData
-      };
-      if (this.showContourEditor) {
-        this.requestSliceProfile();
-      }
     }
   };
 
@@ -215,15 +198,12 @@ export class BoardBuilderPage extends LitElement {
     }
   };
 
-        override connectedCallback() {
+          override connectedCallback() {
     super.connectedCallback();
     window.addEventListener("keydown", this._handleKeyDown);
 
-    initWasm().then(() => {
+    void initWasm().then(() => {
       this.mathEngine = new WasmEngine();
-      if (this.wasmCtrl.model) {
-        this.mathEngine.propose({ type: "LOAD_DESIGN", state: this.wasmCtrl.model });
-      }
       this.requestUpdate();
     });
 
@@ -244,7 +224,17 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+      protected override willUpdate(changedProperties: PropertyValues) {
+    if (super.willUpdate) {
+        super.willUpdate(changedProperties);
+    }
+    // Sync the main-thread mathEngine with the controller's model before every render.
+    if (this.wasmCtrl.model && this.mathEngine) {
+        this.mathEngine.propose({ type: "LOAD_DESIGN", state: this.wasmCtrl.model });
+    }
+  }
+
+  private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
     const { userData, position } = e.detail;
     
     // Dispatch the primary node position update
@@ -307,12 +297,11 @@ export class BoardBuilderPage extends LitElement {
     `;
   }
 
-    override render() {
-        const snapshot = this.boardSnapshot;
-    const state = snapshot?.state || this.wasmCtrl.model || INITIAL_STATE;
-    const mesh = snapshot?.mesh || this.wasmCtrl.mesh;
-    const curvatureCombs = snapshot?.curvatureCombs || this.wasmCtrl.curvatureCombs;
-    const foilData = snapshot?.foilData || this.wasmCtrl.foilData;
+        override render() {
+    const state = this.wasmCtrl.model || INITIAL_STATE;
+    const mesh = this.wasmCtrl.mesh;
+    const curvatureCombs = this.wasmCtrl.curvatureCombs;
+    const foilData = this.wasmCtrl.foilData;
 
     return html`
             ${this._renderExportModal()}
