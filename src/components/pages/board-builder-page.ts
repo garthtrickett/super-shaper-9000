@@ -5,7 +5,6 @@ import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import initWasm, { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
 import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builder-page.logic";
-import type { RustMesh } from "../3d/board-viewport";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
@@ -224,11 +223,11 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-            protected override willUpdate(changedProperties: PropertyValues) {
+                  protected override willUpdate(changedProperties: PropertyValues) {
     super.willUpdate(changedProperties);
     // Sync the main-thread mathEngine with the controller's model before every render.
-    if (this.wasmCtrl.model && this.mathEngine) {
-        this.mathEngine.propose({ type: "LOAD_DESIGN", state: this.wasmCtrl.model });
+    if (this.mathEngine) {
+        this.mathEngine.propose({ type: "LOAD_DESIGN", state: this.wasmCtrl.model || INITIAL_STATE });
     }
   }
 
