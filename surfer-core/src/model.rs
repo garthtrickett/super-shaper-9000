@@ -1,11 +1,12 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
+use approx::AbsDiffEq;
 
 fn default_one() -> f32 {
     1.0
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OutlineLayer {
     pub name: String,
@@ -13,7 +14,7 @@ pub struct OutlineLayer {
     pub otl_int: BezierCurveData,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelLayer {
     pub name: String,
@@ -34,7 +35,7 @@ pub struct SelectedNode {
     pub node_type: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ManualSnapshot {
     pub outline: Option<BezierCurveData>,
@@ -49,7 +50,7 @@ pub struct ManualSnapshot {
     pub cross_sections: Vec<BezierCurveData>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BoardModel {
     pub length: f32,

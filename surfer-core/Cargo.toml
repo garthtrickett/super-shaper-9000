@@ -12,14 +12,12 @@ quick-xml = { version = "0.31.0", features = ["serialize"] }
 
 glam = "0.27.0"
 log = "0.4"
+approx = "0.5"
+
+
 
 [dev-dependencies]
+approx = "0.5"
 env_logger = "0.11"
 ctor = "0.2"
-
-[dependencies]
-approx = "0.5"
-
-[dev-dependencies]
-approx = "0.5"
 
