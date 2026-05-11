@@ -322,10 +322,29 @@ pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (V
         )
     };
 
-    let tan = if d1.length_squared() > 1e-6 {
+        let tan = if d1.length_squared() > 1e-6 {
         d1.normalize()
     } else {
-        Vec3::X
+        // Fallback to secant numerical approximation if exact derivative is zero (handles on top of anchor)
+        let delta = 0.001;
+        let t_plus = (local_t + delta).min(1.0);
+        let t_minus = (local_t - delta).max(0.0);
+        let p_plus = if let Some((w0, w1, w2, w3)) = weights {
+            evaluate_rational_bezier_cubic(p0, t0, t1, p1, w0, w1, w2, w3, t_plus)
+        } else {
+            evaluate_bezier_cubic(p0, t0, t1, p1, t_plus)
+        };
+        let p_minus = if let Some((w0, w1, w2, w3)) = weights {
+            evaluate_rational_bezier_cubic(p0, t0, t1, p1, w0, w1, w2, w3, t_minus)
+        } else {
+            evaluate_bezier_cubic(p0, t0, t1, p1, t_minus)
+        };
+        let diff = p_plus - p_minus;
+        if diff.length_squared() > 1e-6 {
+            diff.normalize()
+        } else {
+            Vec3::X
+        }
     };
 
     (pos, tan)

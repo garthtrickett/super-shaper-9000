@@ -2103,6 +2103,139 @@ mod tests {
         assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
     }
 
+        #[test]
+    fn test_2d_curve_parity() {
+        // Simulating a known 2D curve to verify evaluation parity with industry standard CAD
+        let outline = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            weights: None,
+        };
+        let z_target = 50.0;
+        let hint_t = 0.5;
+        let pt = evaluate_bezier_at_z(&outline, z_target, hint_t);
+        // By symmetry of the handles, exactly at Z=50, X should be 5.0
+        assert!((pt.x - 5.0).abs() < 1e-3, "2D Curve Parity failed: X={}, expected 5.0", pt.x);
+        assert!((pt.z - 50.0).abs() < 1e-3, "2D Curve Parity failed: Z={}, expected 50.0", pt.z);
+    }
+
+    #[test]
+    fn test_3d_lofting_parity() {
+        // Ensures Hermite interpolation between cross sections correctly lofts the 3D surface
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.cross_sections = vec![
+            BezierCurveData {
+                control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
+                tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(5.0, -1.0, 0.0), Vec3::new(5.0, 1.0, 0.0)],
+                tangents2: vec![Vec3::new(5.0, -1.0, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.0, 0.0)],
+                ..Default::default()
+            },
+            BezierCurveData {
+                control_points: vec![Vec3::new(0.0, -1.0, 100.0), Vec3::new(10.0, 0.0, 100.0), Vec3::new(0.0, 1.0, 100.0)],
+                tangents1: vec![Vec3::new(0.0, -1.0, 100.0), Vec3::new(5.0, -1.0, 100.0), Vec3::new(5.0, 1.0, 100.0)],
+                tangents2: vec![Vec3::new(5.0, -1.0, 100.0), Vec3::new(10.0, 0.5, 100.0), Vec3::new(0.0, 1.0, 100.0)],
+                ..Default::default()
+            }
+        ];
+
+        let profile = get_board_profile_at_z(&model, 50.0, 0.5);
+        // Half-width should be 10, apex should be near X=10, Y=0
+        assert!((profile.half_width - 10.0).abs() < 1e-3);
+        // By evaluating the center, the apex shouldn't shift unpredictably
+        assert!((profile.apex_x - 10.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_pin_tail_uv_singularity() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)], // X=0 at tail (pin)
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 66.6667)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(0.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+
+        // Evaluate near the pin tail to ensure no NaNs in normals
+        let u = 0.5;
+        let z = 99.99;
+        let n = get_surface_normal_at_uvz(&model, u, z, 1.0);
+        assert!(!n.is_nan(), "Normal should not be NaN near pin tail singularity");
+    }
+
+    #[test]
+    fn test_swallow_tail_split_normals() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 100.0),
+                Vec3::new(0.0, 0.0, 95.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 80.0),
+                Vec3::new(5.0, 0.0, 100.0),
+            ],
+            tangents2: vec![
+                Vec3::new(0.0, 0.0, 20.0),
+                Vec3::new(10.0, 0.0, 110.0),
+                Vec3::new(0.0, 0.0, 95.0),
+            ],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+
+        // The notch is at Z=95, the tip is at Z=100.
+        // At Z=98, the stringer is empty (cut out by the swallow). We evaluate the surface normal on the rail.
+        let bounds = get_board_bounds(&model);
+        let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), 98.0, 0.0, bounds.tip_t);
+        // The normal should be well defined
+        let n = get_surface_normal_at_uvz(&model, 0.5, 98.0, 1.0);
+        assert!(!n.is_nan(), "Normal should not be NaN at swallow tail rail");
+    }
+
     #[test]
     fn test_channel_projection_on_v_tail() {
         use crate::model::ChannelLayer;
