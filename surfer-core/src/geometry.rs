@@ -614,6 +614,8 @@ pub struct BoardProfile {
     pub apex_y: f32,
     pub tuck_x: f32,
     pub tuck_y: f32,
+    pub shoulder_x: f32,
+    pub shoulder_y: f32,
     pub half_width: f32,
     pub outline_tangent: Vec3,
     pub outline_normal: Vec3,
@@ -682,18 +684,23 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             apex_y = bot_pt.y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
         }
     }
-    apex_y = apex_y.max(bot_pt.y - 2.0);
+        apex_y = apex_y.max(bot_pt.y - 2.0);
 
     let mut tuck_y = bot_pt.y;
+    let mut shoulder_y = bot_pt.y + (top_y - bot_pt.y) * 0.8;
+
     if let Some(b) = &blend {
         let p_bot = b.evaluate(0.0);
         let p_top = b.evaluate(1.0);
         let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
         let p_tuck = b.evaluate(t_tuck);
+        let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
+        let p_shoulder = b.evaluate(t_shoulder);
         let slice_thick = p_top.y - p_bot.y;
         let world_thick = top_y - bot_pt.y;
         if slice_thick.abs() > 1e-5 {
             tuck_y = bot_pt.y + world_thick * ((p_tuck.y - p_bot.y) / slice_thick);
+            shoulder_y = bot_pt.y + world_thick * ((p_shoulder.y - p_bot.y) / slice_thick);
         }
     }
 
@@ -718,6 +725,27 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         }
     }
 
+    let mut shoulder_x = outline_pt.x.max(0.0) * 0.5;
+    let mut has_deck_shoulder = false;
+    if let Some(ds) = &model.deck_shoulder {
+        if !ds.control_points.is_empty() {
+            shoulder_x = (evaluate_bezier_at_z(ds, z_inches, hint_t).x + outline_delta).max(0.0);
+            has_deck_shoulder = true;
+        }
+    }
+    if !has_deck_shoulder {
+        if let Some(b) = &blend {
+            let p_bot = b.evaluate(0.0);
+            let p_apex = b.evaluate(b.t_apex);
+            let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
+            let p_shoulder = b.evaluate(t_shoulder);
+            let slice_width = p_apex.x - p_bot.x;
+            if slice_width.abs() > 1e-5 {
+                shoulder_x = outline_pt.x.max(0.0) * ((p_shoulder.x - p_bot.x) / slice_width);
+            }
+        }
+    }
+
     if let Some(layers) = &model.outline_layers {
         for layer in layers {
             if layer.otl_int.control_points.is_empty() {
@@ -735,8 +763,9 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             }
         }
     }
-    let final_apex_x = apex_x.max(0.001);
+        let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
+    let final_shoulder_x = shoulder_x.max(0.0).min(final_apex_x);
 
     BoardProfile {
         top_y,
@@ -745,6 +774,8 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         apex_y,
         tuck_x: final_tuck_x,
         tuck_y,
+        shoulder_x: final_shoulder_x,
+        shoulder_y,
         half_width: outline_pt.x.max(0.0),
         outline_tangent,
         outline_normal,
@@ -766,13 +797,15 @@ pub fn get_point_at_uv_base(
         let py = profile.bot_y + (profile.top_y - profile.bot_y) * u;
         return Vec3::new(profile.half_width, py, z_inches);
     }
-    let b = blend.unwrap();
+        let b = blend.unwrap();
     let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+    let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
 
     let p = b.evaluate(u);
     let p_bot = b.evaluate(0.0);
     let p_tuck = b.evaluate(t_tuck);
     let p_apex = b.evaluate(b.t_apex);
+    let p_shoulder = b.evaluate(t_shoulder);
     let p_top = b.evaluate(1.0);
 
     let mut final_pos = Vec3::ZERO;
@@ -804,22 +837,36 @@ pub fn get_point_at_uv_base(
             (u - t_tuck) / (b.t_apex - t_tuck)
         };
 
-        final_pos.x = profile.tuck_x + w_x * (profile.apex_x - profile.tuck_x);
+                final_pos.x = profile.tuck_x + w_x * (profile.apex_x - profile.tuck_x);
         final_pos.y = profile.tuck_y + w_y * (profile.apex_y - profile.tuck_y);
-    } else {
-        let w_x = if (p_top.x - p_apex.x).abs() > 1e-5 {
-            (p.x - p_apex.x) / (p_top.x - p_apex.x)
+    } else if u <= t_shoulder {
+        let w_x = if (p_shoulder.x - p_apex.x).abs() > 1e-5 {
+            (p.x - p_apex.x) / (p_shoulder.x - p_apex.x)
         } else {
-            (u - b.t_apex) / (1.0 - b.t_apex)
+            (u - b.t_apex) / (t_shoulder - b.t_apex)
         };
-        let w_y = if (p_top.y - p_apex.y).abs() > 1e-5 {
-            (p.y - p_apex.y) / (p_top.y - p_apex.y)
+        let w_y = if (p_shoulder.y - p_apex.y).abs() > 1e-5 {
+            (p.y - p_apex.y) / (p_shoulder.y - p_apex.y)
         } else {
-            (u - b.t_apex) / (1.0 - b.t_apex)
+            (u - b.t_apex) / (t_shoulder - b.t_apex)
         };
 
-        final_pos.x = profile.apex_x + w_x * (inner_x - profile.apex_x);
-        final_pos.y = profile.apex_y + w_y * (profile.top_y - profile.apex_y);
+        final_pos.x = profile.apex_x + w_x * (profile.shoulder_x - profile.apex_x);
+        final_pos.y = profile.apex_y + w_y * (profile.shoulder_y - profile.apex_y);
+    } else {
+        let w_x = if (p_top.x - p_shoulder.x).abs() > 1e-5 {
+            (p.x - p_shoulder.x) / (p_top.x - p_shoulder.x)
+        } else {
+            (u - t_shoulder) / (1.0 - t_shoulder)
+        };
+        let w_y = if (p_top.y - p_shoulder.y).abs() > 1e-5 {
+            (p.y - p_shoulder.y) / (p_top.y - p_shoulder.y)
+        } else {
+            (u - t_shoulder) / (1.0 - t_shoulder)
+        };
+
+        final_pos.x = profile.shoulder_x + w_x * (inner_x - profile.shoulder_x);
+        final_pos.y = profile.shoulder_y + w_y * (profile.top_y - profile.shoulder_y);
     }
 
     let bounds = get_board_bounds(model);

@@ -133,7 +133,7 @@ impl WasmEngine {
     pub fn get_profile_at_z(&self, z: f32) -> Result<JsValue, JsValue> {
         let model = self.engine.get_model();
         let bounds = surfer_core::geometry::get_board_bounds(model);
-        let outline = match &model.outline {
+                let outline = match &model.outline {
             Some(o) => o,
             None => {
                 let obj = Object::new();
@@ -143,6 +143,8 @@ impl WasmEngine {
                 let _ = Reflect::set(&obj, &JsValue::from_str("apexY"), &JsValue::from_f64(0.0));
                 let _ = Reflect::set(&obj, &JsValue::from_str("tuckX"), &JsValue::from_f64(4.5));
                 let _ = Reflect::set(&obj, &JsValue::from_str("tuckY"), &JsValue::from_f64(-1.0));
+                let _ = Reflect::set(&obj, &JsValue::from_str("shoulderX"), &JsValue::from_f64(4.0));
+                let _ = Reflect::set(&obj, &JsValue::from_str("shoulderY"), &JsValue::from_f64(0.8));
                 let _ = Reflect::set(&obj, &JsValue::from_str("halfWidth"), &JsValue::from_f64(5.0));
                 return Ok(obj.into());
             }
@@ -150,7 +152,7 @@ impl WasmEngine {
         let v_outer = surfer_core::geometry::find_v_at_z(outline, z, 0.0, bounds.tip_t);
         let profile = surfer_core::geometry::get_board_profile_at_z(model, z, v_outer);
 
-        let obj = Object::new();
+                let obj = Object::new();
         Reflect::set(
             &obj,
             &JsValue::from_str("topY"),
@@ -180,6 +182,16 @@ impl WasmEngine {
             &obj,
             &JsValue::from_str("tuckY"),
             &JsValue::from_f64(profile.tuck_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("shoulderX"),
+            &JsValue::from_f64(profile.shoulder_x as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("shoulderY"),
+            &JsValue::from_f64(profile.shoulder_y as f64),
         )?;
         Reflect::set(
             &obj,

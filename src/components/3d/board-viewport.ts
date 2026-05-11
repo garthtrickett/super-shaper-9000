@@ -209,14 +209,14 @@ export class BoardViewport extends LitElement {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
 
-        const projectY = (curveName: string, p: Point3D): Point3D => {
+            const projectY = (curveName: string, p: Point3D): Point3D => {
       if (!this.boardState) return p;
-      const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
+      const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
 
       let finalY = p[1];
       if (["outline", "apexOutline"].includes(curveName)) finalY = profile.apexY;
       else if (curveName === "railOutline") finalY = profile.tuckY;
-      else if (curveName === "deckShoulder") finalY = profile.topY;
+      else if (curveName === "deckShoulder") finalY = profile.shoulderY;
 
       return [p[0], finalY, p[2]];
     };
