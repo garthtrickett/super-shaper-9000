@@ -27,14 +27,14 @@ test.describe('Quad Viewport CAD Interface', () => {
     const box = await canvas.boundingBox();
     expect(box).toBeDefined();
 
-        // Define quadrant centers (offset to avoid clicking the board/gizmos)
-    const topLeft = { x: box!.x + box!.width * 0.10, y: box!.y + box!.height * 0.10 };
-    const topRight = { x: box!.x + box!.width * 0.60, y: box!.y + box!.height * 0.10 };
+            // Define quadrant coordinates (top-right of each quadrant to avoid top-left overlay buttons and centered board)
+    const topLeft = { x: box!.x + box!.width * 0.40, y: box!.y + box!.height * 0.10 };
+    const topRight = { x: box!.x + box!.width * 0.90, y: box!.y + box!.height * 0.10 };
 
     // --- 1. Drag in a 2D view (Top Left) and verify NO rotation occurs ---
     await page.mouse.move(topLeft.x, topLeft.y);
     await page.mouse.down();
-    await page.mouse.move(topLeft.x + 50, topLeft.y + 50, { steps: 2 });
+    await page.mouse.move(topLeft.x - 50, topLeft.y + 50, { steps: 2 });
         await page.mouse.up();
     await page.waitForTimeout(500); // Wait for momentum to settle
 
@@ -43,10 +43,10 @@ test.describe('Quad Viewport CAD Interface', () => {
       mask: [page.locator('button[title*="Flip"]')]
     });
 
-    // --- 2. Drag in the 3D view (Top Right) and verify rotation DOES occur ---
+        // --- 2. Drag in the 3D view (Top Right) and verify rotation DOES occur ---
     await page.mouse.move(topRight.x, topRight.y);
     await page.mouse.down();
-    await page.mouse.move(topRight.x + 80, topRight.y + 50, { steps: 2 });
+    await page.mouse.move(topRight.x - 50, topRight.y + 50, { steps: 2 });
     await page.mouse.up();
     await page.waitForTimeout(500); // Wait for orbit controls to settle
 
