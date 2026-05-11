@@ -5,8 +5,8 @@ import { customElement, property } from "lit/decorators.js";
 export class BoardControls extends LitElement {
   @property({ type: Number }) length = 70;
   @property({ type: Number }) width = 18.75;
-    @property({ type: Number }) thickness = 2.5;
-    @property({ type: Number }) volume = 0.0;
+        @property({ type: Number }) thickness = 2.5;
+  @property({ type: Object }) meshData?: { volumeLiters: number; vertexCount: number; triangleCount: number };
   @property({ type: String }) tailType = "squash";
   @property({ type: Number }) swallowDepth = 4.0;
   @property({ type: String }) finSetup = "quad";
@@ -33,17 +33,16 @@ export class BoardControls extends LitElement {
     @property({ type: Boolean }) showCrossSections = true;
   @property({ type: Boolean }) showCurvature = false;
   @property({ type: Boolean }) showMriView = false;
-  @property({ type: Number }) mriSlicePosition = 50.0;
-  @property({ type: Number }) vertexCount = 0;
-  @property({ type: Number }) triangleCount = 0;
+    @property({ type: Number }) mriSlicePosition = 50.0;
       @property({ type: Array }) outlineLayers: { name: string }[] =[];
     @property({ type: Array }) bottomChannels: { name: string, isSymmetric?: boolean }[] =[];
   @property({ type: Object }) foilData?: Float32Array;
 
-  // Physics Engine: Calculate weight based on volume, core density, and glassing weight
+    // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
     const baseFoam = this.coreMaterial === 'eps' ? 1.5 : 2.5; // lbs per cubic ft
-    const cubicFt = this.volume / 28.3168;
+    const volume = this.meshData?.volumeLiters ?? 0.0;
+    const cubicFt = volume / 28.3168;
     const foamWeight = cubicFt * baseFoam;
     const glassWeight = this.glassingSchedule === 'heavy' ? 3.5 : this.glassingSchedule === 'standard' ? 2.5 : 1.8;
     const stringerWeight = 0.5;
@@ -255,12 +254,12 @@ export class BoardControls extends LitElement {
         </div>
 
         <!-- Top HUD Panel -->
-        <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 grid grid-cols-2 gap-y-4 gap-x-2 shadow-inner">
+                <div class="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mb-6 grid grid-cols-2 gap-y-4 gap-x-2 shadow-inner">
           <!-- Volume -->
           <div class="flex flex-col items-center">
             <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Est. Volume</span>
             <div class="text-2xl font-black text-blue-500 tracking-tighter">
-              ${this.volume.toFixed(1)}<span class="text-sm text-zinc-400 ml-1">L</span>
+              ${(this.meshData?.volumeLiters ?? 0).toFixed(1)}<span class="text-sm text-zinc-400 ml-1">L</span>
             </div>
           </div>
           <!-- Weight -->
@@ -274,14 +273,14 @@ export class BoardControls extends LitElement {
           <div class="flex flex-col items-center pt-2 border-t border-zinc-800">
             <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Vertices</span>
             <div class="text-xl font-black text-zinc-400 tracking-tighter">
-              ${(this.vertexCount / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
+              ${((this.meshData?.vertexCount ?? 0) / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
             </div>
           </div>
           <!-- Triangles -->
           <div class="flex flex-col items-center pt-2 border-t border-zinc-800">
             <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Triangles</span>
             <div class="text-xl font-black text-zinc-400 tracking-tighter">
-              ${(this.triangleCount / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
+              ${((this.meshData?.triangleCount ?? 0) / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
             </div>
           </div>
         </div>

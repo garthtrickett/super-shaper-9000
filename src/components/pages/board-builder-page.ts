@@ -14,6 +14,8 @@ import "../ui/foil-graph";
 export class BoardBuilderPage extends LitElement {
       private wasmCtrl = new WasmSamController(this);
 
+    @state() private boardSnapshot?: { state: BoardModel, mesh: any, curvatureCombs: Float32Array, foilData: Float32Array };
+
   @state() private showExportModal = false;
   @state() private showImportModal = false;
     @state() private importError = "";
@@ -36,7 +38,13 @@ export class BoardBuilderPage extends LitElement {
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
     }
-        if (data.type === "STATE_UPDATED") {
+                if (data.type === "STATE_UPDATED") {
+      this.boardSnapshot = {
+        state: (data as any).state,
+        mesh: (data as any).mesh,
+        curvatureCombs: (data as any).curvatureCombs,
+        foilData: (data as any).foilData
+      };
       if (this.showContourEditor) {
         this.requestSliceProfile();
       }
@@ -248,9 +256,11 @@ export class BoardBuilderPage extends LitElement {
   }
 
     override render() {
-    const state = this.wasmCtrl.model || INITIAL_STATE;
-    const vertexCount = this.wasmCtrl.mesh?.vertexCount || 0;
-    const triangleCount = this.wasmCtrl.mesh?.triangleCount || 0;
+        const snapshot = this.boardSnapshot;
+    const state = snapshot?.state || this.wasmCtrl.model || INITIAL_STATE;
+    const mesh = snapshot?.mesh || this.wasmCtrl.mesh;
+    const curvatureCombs = snapshot?.curvatureCombs || this.wasmCtrl.curvatureCombs;
+    const foilData = snapshot?.foilData || this.wasmCtrl.foilData;
 
     return html`
             ${this._renderExportModal()}
@@ -283,16 +293,14 @@ export class BoardBuilderPage extends LitElement {
       ` : ''}
       <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
         <!-- UI Controls Panel -->
-        <board-controls
+                <board-controls
           class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl"
                     .length=${state.length}
           .width=${state.width}
                     .thickness=${state.thickness}
-          .volume=${this.wasmCtrl.mesh?.volumeLiters ?? 0}
+          .meshData=${mesh}
           .tailType=${state.tailType ?? 'squash'}
           .swallowDepth=${state.swallowDepth ?? 4.0}
-          .vertexCount=${vertexCount}
-          .triangleCount=${triangleCount}
           .finSetup=${state.finSetup}
           .frontFinZ=${state.frontFinZ}
           .frontFinX=${state.frontFinX}
@@ -326,9 +334,9 @@ export class BoardBuilderPage extends LitElement {
                     .showCurvature=${state.showCurvature ?? false}
           .showMriView=${state.showMriView ?? false}
                     .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
-          .outlineLayers=${state.outlineLayers ||[]}
+                    .outlineLayers=${state.outlineLayers ||[]}
                     .bottomChannels=${state.bottomChannels ||[]}
-          .foilData=${this.wasmCtrl.foilData}
+          .foilData=${foilData}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
@@ -361,11 +369,11 @@ export class BoardBuilderPage extends LitElement {
         </div>
 
                 <!-- Render the 3D scene taking up the full remaining area -->
-                <board-viewport 
+                                <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
-          .meshData=${this.wasmCtrl.mesh}
-                    .curvatureCombs=${this.wasmCtrl.curvatureCombs}
+          .meshData=${mesh}
+                    .curvatureCombs=${curvatureCombs}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected

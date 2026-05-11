@@ -139,12 +139,11 @@ describe("BoardControls (UI Component)", () => {
     });
   });
 
-  describe("Rendering", () => {
+    describe("Rendering", () => {
     it("should display vertex and triangle counts when properties are set", async () => {
       const el = await fixture<BoardControls>(html`
         <board-controls
-          .vertexCount=${12345}
-          .triangleCount=${23456}
+          .meshData=${{ vertexCount: 12345, triangleCount: 23456, volumeLiters: 0 }}
         ></board-controls>
       `);
       await el.updateComplete;
