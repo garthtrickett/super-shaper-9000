@@ -211,7 +211,7 @@ export class BoardViewport extends LitElement {
 
     const projectY = (curveName: string, p: Point3D): Point3D => {
       if (!this.boardState) return p;
-      const profile = mathEngine.get_profile_at_z(p[2]);
+      const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
 
       let finalY = p[1];
       if (["outline", "apexOutline"].includes(curveName)) finalY = profile.apexY;
@@ -310,8 +310,8 @@ export class BoardViewport extends LitElement {
                 const drawOutline = (curveData: BezierCurveData) => {
            if (curveData && curveData.controlPoints.length > 0) {
               const sampledOutline = this.sampleBezierCurve(curveData, 50).map(p => {
-                 const profile = mathEngine.get_profile_at_z(p[2]);
-                 return [p[0], profile.botY, p[2]] as Point3D;
+                 const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
+                 return[p[0], profile.botY, p[2]] as Point3D;
               });
               const line = buildLine(sampledOutline, matChannelOutline, 1, false);
               (line as THREE.Line).computeLineDistances();
@@ -321,7 +321,7 @@ export class BoardViewport extends LitElement {
         const drawDepth = (curveData: BezierCurveData) => {
            if (curveData && curveData.controlPoints.length > 0) {
               const sampledDepth = this.sampleBezierCurve(curveData, 50).map(p => {
-                 const profile = mathEngine.get_profile_at_z(p[2]);
+                 const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
                  return[p[0], profile.botY - 2.0 + p[1], p[2]] as Point3D;
               });
               this.wireframeGroup.add(buildLine(sampledDepth, matChannelDepth, 2, false));
@@ -407,7 +407,7 @@ export class BoardViewport extends LitElement {
 
     // Ensure the Apex line follows the vertical rocker profile
     const sampled = this.sampleBezierCurve(activeApexOutline, 100).map((p) => {
-      const profile = mathEngine.get_profile_at_z(p[2]);
+      const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
       return[p[0], profile.apexY, p[2]] as Point3D;
     });
 
@@ -453,7 +453,7 @@ export class BoardViewport extends LitElement {
   
         private getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
     if (!this.boardState) return yInches;
-    const profile = mathEngine.get_profile_at_z(zInches);
+    const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number };
     if (['outline', 'apexOutline'].includes(curveName)) {
       return profile.apexY;
     }

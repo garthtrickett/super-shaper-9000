@@ -410,7 +410,7 @@ export class BoardBuilderPage extends LitElement {
           .boardState=${state}
           .meshData=${mesh}
           .curvatureCombs=${curvatureCombs}
-          .mathEngine=${(this.wasmCtrl as any).mathEngine}
+          .mathEngine=${(this.wasmCtrl as unknown as { mathEngine?: WasmEngine }).mathEngine}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected

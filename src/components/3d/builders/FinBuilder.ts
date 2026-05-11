@@ -96,7 +96,7 @@ export class FinBuilder {
 
         // 3. Position the container on the board
                 const zLoc = (boardState.length / 2) - zFromTail;
-        const profile = mathEngine.get_profile_at_z(zLoc);
+        const profile = mathEngine.get_profile_at_z(zLoc) as { halfWidth: number, botY: number };
         const xPos = isCenter ? 0 : (profile.halfWidth - railOffset);
         const actualX = isRight ? xPos : -xPos;
         const yPos = mathEngine.get_bottom_y_at(zLoc, actualX);
@@ -105,8 +105,8 @@ export class FinBuilder {
         
         // 4. Align to Rocker (pitch) but ignore local Concave/Channel slope for absolute Cant & Pitch control
         const delta = 0.5;
-        const pitchYC = mathEngine.get_profile_at_z(zLoc).botY;
-        const pitchYF = mathEngine.get_profile_at_z(zLoc - delta).botY;
+        const pitchYC = (mathEngine.get_profile_at_z(zLoc) as { botY: number }).botY;
+        const pitchYF = (mathEngine.get_profile_at_z(zLoc - delta) as { botY: number }).botY;
         
         const pRockerC = new THREE.Vector3(actualX, pitchYC, zLoc);
         const pRockerF = new THREE.Vector3(actualX, pitchYF, zLoc - delta);

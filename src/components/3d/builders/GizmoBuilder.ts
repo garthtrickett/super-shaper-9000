@@ -30,7 +30,7 @@ export class GizmoBuilder {
     const lineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
 
                 const getZHeight = (curveName: string, yInches: number, zInches: number) => {
-        const profile = mathEngine.get_profile_at_z(zInches);
+        const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number };
         if (['outline', 'apexOutline'].includes(curveName)) {
             return profile.apexY;
         }
