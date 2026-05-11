@@ -36,7 +36,7 @@ export class WasmSamController implements ReactiveController {
     const msg = e.data as WorkerMessage;
     if (!msg || typeof msg !== 'object') return;
     
-    if (msg.seq !== undefined && msg.seq < this.currentSequence) {
+    if ((msg as { seq?: number }).seq !== undefined && (msg as { seq?: number }).seq! < this.currentSequence) {
       runClientUnscoped(clientLog("info", "Dropped stale worker message"));
       return;
     }
@@ -45,7 +45,7 @@ export class WasmSamController implements ReactiveController {
       this.model = msg.state;
       this.mesh = msg.mesh;
       this.curvatureCombs = msg.curvatureCombs;
-      this.foilData = msg.foilData;
+      this.foilData = (msg as { foilData?: Float32Array }).foilData;
       this.host.requestUpdate();
     }
   };
