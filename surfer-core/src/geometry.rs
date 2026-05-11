@@ -2106,9 +2106,9 @@ mod tests {
         #[test]
     fn test_2d_curve_parity() {
         // Simulating a known 2D curve to verify evaluation parity with industry standard CAD
-        let outline = BezierCurveData {
+                let outline = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6667)],
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
             weights: None,
         };

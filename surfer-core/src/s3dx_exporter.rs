@@ -25,8 +25,11 @@ pub fn export_s3dx(model: &BoardModel) -> String {
             if c.control_points.is_empty() {
                 return String::new();
             }
-            let mut b = String::new();
-            b.push_str(&format!("<{}>\n<Bezier3d>\n<Name>{}</Name>\n<Degree>3</Degree>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n<Plan>{}</Plan>\n", tag_name, name, symmetry, plan));
+                        let mut b = String::new();
+            if !tag_name.is_empty() {
+                b.push_str(&format!("<{}>\n", tag_name));
+            }
+            b.push_str(&format!("<Bezier3d>\n<Name>{}</Name>\n<Degree>3</Degree>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n<Plan>{}</Plan>\n", name, symmetry, plan));
 
             let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
                 if pts.is_empty() {
@@ -76,14 +79,17 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                     i, i
                 ));
             }
-            for i in 0..c.control_points.len() {
+                        for i in 0..c.control_points.len() {
                 b.push_str(&format!(
                     "<Tangent_type_point_{}> 0</Tangent_type_point_{}>\n",
                     i, i
                 ));
             }
 
-            b.push_str(&format!("</Bezier3d>\n</{}>\n", tag_name));
+            b.push_str("</Bezier3d>\n");
+            if !tag_name.is_empty() {
+                b.push_str(&format!("</{}>\n", tag_name));
+            }
             b
         } else {
             String::new()
@@ -101,7 +107,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
             if c.control_points.is_empty() {
                 return String::new();
             }
-            let b = format_bezier(name, "Bezier3d", &Some(c.clone()), symmetry, plan);
+                        let b = format_bezier(name, "", &Some(c.clone()), symmetry, plan);
             format!("<{}>\n<BezierDef>\n<Top>{}</Top>\n<Displayed>1</Displayed>\n{}\n</BezierDef>\n</{}>\n", tag_name, top, b, tag_name)
         } else {
             String::new()
@@ -173,8 +179,8 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         2,
     ));
 
-    for (i, cs) in model.cross_sections.iter().enumerate() {
-        let b = format_bezier("cpl", "Bezier3d", &Some(cs.clone()), 6, 3);
+        for (i, cs) in model.cross_sections.iter().enumerate() {
+        let b = format_bezier("cpl", "", &Some(cs.clone()), 6, 3);
         xml.push_str(&format!(
             "<Couples_{}>\n<Dessus>1</Dessus>\n<Dessous>1</Dessous>\n{}\n</Couples_{}>\n",
             i, b, i
