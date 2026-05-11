@@ -8,9 +8,6 @@ export class SceneManager {
   public readonly renderer: THREE.WebGLRenderer;
   public readonly controls: {
     perspective: OrbitControls;
-    top: OrbitControls;
-    side: OrbitControls;
-    profile: OrbitControls;
   };
   public readonly cameras: {
     perspective: THREE.PerspectiveCamera;
@@ -49,7 +46,7 @@ export class SceneManager {
     this.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-        this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.localClippingEnabled = true;
 
@@ -59,22 +56,12 @@ export class SceneManager {
     // 5. Controls
     this.controls = {
       perspective: new OrbitControls(this.cameras.perspective, this.renderer.domElement),
-      top: new OrbitControls(this.cameras.top, this.renderer.domElement),
-      side: new OrbitControls(this.cameras.side, this.renderer.domElement),
-      profile: new OrbitControls(this.cameras.profile, this.renderer.domElement),
     };
 
-    Object.values(this.controls).forEach(ctrl => {
-      ctrl.enableDamping = true;
-      ctrl.dampingFactor = 0.05;
-      ctrl.target.set(0, 0, 0);
-      ctrl.enabled = false;
-    });
-
+    this.controls.perspective.enableDamping = true;
+    this.controls.perspective.dampingFactor = 0.05;
+    this.controls.perspective.target.set(0, 0, 0);
     this.controls.perspective.enabled = true;
-    this.controls.top.enableRotate = false;
-    this.controls.side.enableRotate = false;
-    this.controls.profile.enableRotate = false;
 
     // 6. Add initial groups & grids
     groups.forEach(group => this.scene.add(group));
@@ -180,9 +167,6 @@ export class SceneManager {
     const loop = () => {
       this.animationId = requestAnimationFrame(loop);
       this.controls.perspective.update();
-      this.controls.top.update();
-      this.controls.side.update();
-      this.controls.profile.update();
       onLoop(); // Callback for external updates like zebra animation
 
       this.renderer.setScissorTest(true);
@@ -223,7 +207,7 @@ export class SceneManager {
     cancelAnimationFrame(this.animationId);
     this.resizeObserver.disconnect();
     this.renderer.dispose();
-    Object.values(this.controls).forEach(ctrl => ctrl.dispose());
+    this.controls.perspective.dispose();
   }
 
   private onResize() {

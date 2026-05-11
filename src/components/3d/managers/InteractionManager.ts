@@ -13,6 +13,9 @@ export class InteractionManager {
   private activeDragCamera: THREE.Camera | null = null;
   private boardState?: BoardModel;
   private maximizedView: 'perspective' | 'top' | 'side' | 'profile' | null = null;
+  private isPanning = false;
+  private panStartPixel = new THREE.Vector2();
+  private activePanCamera: THREE.OrthographicCamera | null = null;
 
   constructor(
     private host: HTMLElement,
@@ -25,9 +28,6 @@ export class InteractionManager {
     },
     private controls: {
       perspective: OrbitControls;
-      top: OrbitControls;
-      side: OrbitControls;
-      profile: OrbitControls;
     },
     private gizmoGroup: THREE.Group
   ) {}
@@ -40,7 +40,7 @@ export class InteractionManager {
     this.canvas.addEventListener("pointerleave", this.onPointerUp);
   }
 
-    public isDragging(): boolean {
+  public isDragging(): boolean {
     return this.draggedGizmo !== null;
   }
 
@@ -60,9 +60,6 @@ export class InteractionManager {
     this.maximizedView = view;
     if (view) {
       this.controls.perspective.enabled = (view === 'perspective');
-      this.controls.top.enabled = (view === 'top');
-      this.controls.side.enabled = (view === 'side');
-      this.controls.profile.enabled = (view === 'profile');
     }
   }
 
@@ -111,62 +108,65 @@ export class InteractionManager {
 
     const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
     
-    if (this.maximizedView) {
-      this.controls.perspective.enabled = (this.maximizedView === 'perspective');
-      this.controls.top.enabled = (this.maximizedView === 'top');
-      this.controls.side.enabled = (this.maximizedView === 'side');
-      this.controls.profile.enabled = (this.maximizedView === 'profile');
-    } else {
-      this.controls.perspective.enabled = (camera === this.cameras.perspective);
-      this.controls.top.enabled = (camera === this.cameras.top);
-      this.controls.side.enabled = (camera === this.cameras.side);
-      this.controls.profile.enabled = (camera === this.cameras.profile);
+    if (this.boardState?.showGizmos !== false) {
+      this.mouse.copy(mouse);
+      this.raycaster.setFromCamera(this.mouse, camera);
+      this.raycaster.layers.mask = camera.layers.mask;
+      
+      const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
+      const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
+
+      if (hit) {
+        this.draggedGizmo = hit.object as THREE.Mesh;
+        this.activeDragCamera = camera;
+        
+        this.controls.perspective.enabled = false;
+        
+        // Calculate a plane facing the camera, which works flawlessly for all orthogonal layouts and is highly intuitive for 3D viewports
+        const worldNormal = new THREE.Vector3();
+        camera.getWorldDirection(worldNormal).negate();
+        
+        const worldPos = new THREE.Vector3();
+        this.draggedGizmo.getWorldPosition(worldPos);
+        
+        this.dragPlane.setFromNormalAndCoplanarPoint(worldNormal, worldPos);
+        
+        if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragOffset)) {
+          this.dragOffset.sub(worldPos);
+        }
+        return;
+      }
     }
 
-    if (this.boardState?.showGizmos === false) return;
-
-    this.mouse.copy(mouse);
-    this.raycaster.setFromCamera(this.mouse, camera);
-    this.raycaster.layers.mask = camera.layers.mask;
-    
-    const intersects = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
-    const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
-
-    if (hit) {
-      this.draggedGizmo = hit.object as THREE.Mesh;
-      this.activeDragCamera = camera;
-      
-      this.controls.perspective.enabled = false;
-      this.controls.top.enabled = false;
-      this.controls.side.enabled = false;
-      this.controls.profile.enabled = false;
-      
-      // Calculate a plane facing the camera, which works flawlessly for all orthogonal layouts and is highly intuitive for 3D viewports
-      const worldNormal = new THREE.Vector3();
-      camera.getWorldDirection(worldNormal).negate();
-      
-      const worldPos = new THREE.Vector3();
-      this.draggedGizmo.getWorldPosition(worldPos);
-      
-      this.dragPlane.setFromNormalAndCoplanarPoint(worldNormal, worldPos);
-      
-      if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragOffset)) {
-        this.dragOffset.sub(worldPos);
-      }
+    // Handle panning vs orbiting if no gizmo was clicked
+    if (camera === this.cameras.perspective) {
+        this.controls.perspective.enabled = true;
+    } else {
+        this.controls.perspective.enabled = false;
+        this.isPanning = true;
+        this.activePanCamera = camera as THREE.OrthographicCamera;
+        this.panStartPixel.set(e.clientX, e.clientY);
     }
   }
 
   private onPointerMove = (e: PointerEvent) => {
-    if (e.buttons === 0 && !this.draggedGizmo) {
-      if (!this.maximizedView) {
-        const { camera } = this.getQuadrantCameraAndMouse(e);
-        if (this.controls.perspective.enabled !== (camera === this.cameras.perspective)) {
-          this.controls.perspective.enabled = (camera === this.cameras.perspective);
-          this.controls.top.enabled = (camera === this.cameras.top);
-          this.controls.side.enabled = (camera === this.cameras.side);
-          this.controls.profile.enabled = (camera === this.cameras.profile);
-        }
-      }
+    if (this.isPanning && this.activePanCamera) {
+      const dx = e.clientX - this.panStartPixel.x;
+      const dy = e.clientY - this.panStartPixel.y;
+      this.panStartPixel.set(e.clientX, e.clientY);
+
+      const vpWidth = this.maximizedView ? this.canvas.clientWidth : this.canvas.clientWidth / 2;
+      const vpHeight = this.maximizedView ? this.canvas.clientHeight : this.canvas.clientHeight / 2;
+
+      const worldWidth = this.activePanCamera.right - this.activePanCamera.left;
+      const worldHeight = this.activePanCamera.top - this.activePanCamera.bottom;
+
+      const deltaXWorld = -(dx / vpWidth) * worldWidth;
+      const deltaYWorld = (dy / vpHeight) * worldHeight;
+
+      this.activePanCamera.translateX(deltaXWorld);
+      this.activePanCamera.translateY(deltaYWorld);
+      return;
     }
 
     if (!this.draggedGizmo || !this.activeDragCamera) return;
@@ -207,7 +207,7 @@ export class InteractionManager {
           stateInches.x = 0;
         }
       }
-            if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_') || curveName.startsWith('outlineLayer_'))) {
+      if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_') || curveName.startsWith('outlineLayer_'))) {
         if (stateInches.x < 0) stateInches.x = 0;
       }
 
@@ -219,6 +219,11 @@ export class InteractionManager {
 
   private onPointerUp = (e: PointerEvent) => {
     const dist = Math.hypot(e.clientX - this.dragStartPos.x, e.clientY - this.dragStartPos.y);
+
+    if (this.isPanning) {
+      this.isPanning = false;
+      this.activePanCamera = null;
+    }
 
     if (this.draggedGizmo) {
       if (dist >= 5) {
@@ -236,19 +241,6 @@ export class InteractionManager {
       this.activeDragCamera = null;
     }
     
-    if (this.maximizedView) {
-      this.controls.perspective.enabled = (this.maximizedView === 'perspective');
-      this.controls.top.enabled = (this.maximizedView === 'top');
-      this.controls.side.enabled = (this.maximizedView === 'side');
-      this.controls.profile.enabled = (this.maximizedView === 'profile');
-    } else {
-      const { camera } = this.getQuadrantCameraAndMouse(e);
-      this.controls.perspective.enabled = (camera === this.cameras.perspective);
-      this.controls.top.enabled = (camera === this.cameras.top);
-      this.controls.side.enabled = (camera === this.cameras.side);
-      this.controls.profile.enabled = (camera === this.cameras.profile);
-    }
-
     if (dist < 5) {
       const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
       this.mouse.copy(mouse);
