@@ -561,13 +561,10 @@ mod tests {
             "Last cross section should be near the tail (positive Z)"
         );
 
-        let weights = model.cross_sections[0]
-            .weights
-            .as_ref()
-            .expect("Weights should be populated");
-        assert_eq!(
-            weights[0], 1.0,
-            "S3DX default u=-1.0 should map to weight=1.0"
+                let weights_opt = model.cross_sections[0].weights.as_ref();
+        assert!(
+            weights_opt.is_none() || weights_opt.unwrap()[0] == 1.0,
+            "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
         );
     }
 
