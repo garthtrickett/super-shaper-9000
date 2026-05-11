@@ -9,12 +9,16 @@ export class SceneManager {
   public readonly controls: {
     perspective: OrbitControls;
   };
-  public readonly cameras: {
-    perspective: THREE.PerspectiveCamera;
+    public readonly cameras: {
+    perspective: THREE.PerspectiveCamera | THREE.OrthographicCamera;
     top: THREE.OrthographicCamera;
     side: THREE.OrthographicCamera;
     profile: THREE.OrthographicCamera;
   };
+
+  public isOrtho3d = false;
+  private perspCam: THREE.PerspectiveCamera;
+  private orthoCam: THREE.OrthographicCamera;
 
   public maximizedView: 'perspective' | 'top' | 'side' | 'profile' | null = null;
   private animationId: number = 0;
@@ -25,10 +29,13 @@ export class SceneManager {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xf1f5f9); // slate-100 for high contrast with white board
 
-    // 2. Camera setup
+        // 2. Camera setup
     const aspect = canvas.clientWidth / canvas.clientHeight;
+    this.perspCam = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000);
+    this.orthoCam = this.createOrthoCamera(aspect);
+
     this.cameras = {
-      perspective: new THREE.PerspectiveCamera(50, aspect, 0.1, 1000),
+      perspective: this.perspCam,
       top: this.createOrthoCamera(aspect),
       side: this.createOrthoCamera(aspect),
       profile: this.createOrthoCamera(aspect),
@@ -81,8 +88,9 @@ export class SceneManager {
     return new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
   }
 
-  private configureCameras() {
-    this.cameras.perspective.position.set(-6, 4, -6);
+    private configureCameras() {
+    this.perspCam.position.set(-6, 4, -6);
+    this.orthoCam.position.set(-6, 4, -6);
 
     this.cameras.top.position.set(0, 10, 0);
     this.cameras.top.up.set(0, 0, -1);
@@ -100,11 +108,15 @@ export class SceneManager {
     this.cameras.profile.up.set(0, 1, 0);
     this.cameras.profile.lookAt(0, 0, 0);
     this.cameras.profile.layers.disableAll();
-    this.cameras.profile.layers.enable(3); this.cameras.profile.layers.enable(8);
+        this.cameras.profile.layers.enable(3); this.cameras.profile.layers.enable(8);
 
-    this.cameras.perspective.layers.enableAll();
-    this.cameras.perspective.layers.disable(5); this.cameras.perspective.layers.disable(6);
-    this.cameras.perspective.layers.disable(7); this.cameras.perspective.layers.disable(8);
+    this.perspCam.layers.enableAll();
+    this.perspCam.layers.disable(5); this.perspCam.layers.disable(6);
+    this.perspCam.layers.disable(7); this.perspCam.layers.disable(8);
+
+    this.orthoCam.layers.enableAll();
+    this.orthoCam.layers.disable(5); this.orthoCam.layers.disable(6);
+    this.orthoCam.layers.disable(7); this.orthoCam.layers.disable(8);
   }
 
   private setupLighting() {
@@ -135,8 +147,49 @@ export class SceneManager {
     this.scene.add(floor);
   }
 
-  public setMaximizedView(view: 'perspective' | 'top' | 'side' | 'profile' | null) {
+    public setMaximizedView(view: 'perspective' | 'top' | 'side' | 'profile' | null) {
     this.maximizedView = view;
+  }
+
+  public toggleOrtho() {
+    this.isOrtho3d = !this.isOrtho3d;
+    
+    if (this.isOrtho3d) {
+      const target = this.controls.perspective.target;
+      const pos = this.perspCam.position;
+      const dist = pos.distanceTo(target);
+      
+      this.orthoCam.position.copy(pos);
+      this.orthoCam.quaternion.copy(this.perspCam.quaternion);
+      this.orthoCam.zoom = 1;
+      
+      const fov = this.perspCam.fov;
+      const frustumSize = 2 * dist * Math.tan(THREE.MathUtils.degToRad(fov / 2));
+      const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+      
+      this.orthoCam.left = -frustumSize * aspect / 2;
+      this.orthoCam.right = frustumSize * aspect / 2;
+      this.orthoCam.top = frustumSize / 2;
+      this.orthoCam.bottom = -frustumSize / 2;
+      this.orthoCam.updateProjectionMatrix();
+
+      this.cameras.perspective = this.orthoCam;
+      this.controls.perspective.object = this.orthoCam;
+    } else {
+      const target = this.controls.perspective.target;
+      const pos = this.orthoCam.position;
+      const dist = pos.distanceTo(target);
+      const zoom = this.orthoCam.zoom;
+      
+      const newDist = dist / zoom;
+      const dir = new THREE.Vector3().subVectors(pos, target).normalize();
+      
+      this.perspCam.position.copy(target).addScaledVector(dir, newDist);
+      this.perspCam.quaternion.copy(this.orthoCam.quaternion);
+      
+      this.cameras.perspective = this.perspCam;
+      this.controls.perspective.object = this.perspCam;
+    }
   }
 
   private setupGrids() {
@@ -215,8 +268,8 @@ export class SceneManager {
     const height = this.canvas.clientHeight;
     const aspect = width / height;
 
-    this.cameras.perspective.aspect = aspect;
-    this.cameras.perspective.updateProjectionMatrix();
+        this.perspCam.aspect = aspect;
+    this.perspCam.updateProjectionMatrix();
 
     const frustumSize = 10;
     const orthoLeft = -frustumSize * aspect / 2;
@@ -230,7 +283,17 @@ export class SceneManager {
       cam.top = orthoTop;
       cam.bottom = orthoBottom;
       cam.updateProjectionMatrix();
-    });
+        });
+
+    if (this.isOrtho3d) {
+      const dist = this.orthoCam.position.distanceTo(this.controls.perspective.target);
+      const fSize = 2 * dist * Math.tan(THREE.MathUtils.degToRad(this.perspCam.fov / 2));
+      this.orthoCam.left = -fSize * aspect / 2;
+      this.orthoCam.right = fSize * aspect / 2;
+      this.orthoCam.top = fSize / 2;
+      this.orthoCam.bottom = -fSize / 2;
+      this.orthoCam.updateProjectionMatrix();
+    }
 
     this.renderer.setSize(width, height);
   }

@@ -20,8 +20,8 @@ export class InteractionManager {
   constructor(
     private host: HTMLElement,
     private canvas: HTMLCanvasElement,
-    private cameras: {
-      perspective: THREE.PerspectiveCamera;
+        private cameras: {
+      perspective: THREE.PerspectiveCamera | THREE.OrthographicCamera;
       top: THREE.OrthographicCamera;
       side: THREE.OrthographicCamera;
       profile: THREE.OrthographicCamera;
