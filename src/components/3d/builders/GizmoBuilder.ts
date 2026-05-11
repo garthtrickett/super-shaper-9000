@@ -29,13 +29,16 @@ export class GizmoBuilder {
     const handleGeo = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
     const lineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
 
-                const getZHeight = (curveName: string, yInches: number, zInches: number) => {
+                                const getZHeight = (curveName: string, yInches: number, zInches: number) => {
         const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number };
         if (['outline', 'apexOutline'].includes(curveName)) {
             return profile.apexY;
         }
         if (curveName === 'railOutline') {
-            return profile.botY;
+            return profile.tuckY;
+        }
+        if (curveName === 'deckShoulder') {
+            return profile.topY;
         }
         if (curveName.startsWith('channel_') && curveName.endsWith('_outline')) {
             return profile.botY;

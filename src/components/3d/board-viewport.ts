@@ -209,13 +209,14 @@ export class BoardViewport extends LitElement {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
 
-    const projectY = (curveName: string, p: Point3D): Point3D => {
+        const projectY = (curveName: string, p: Point3D): Point3D => {
       if (!this.boardState) return p;
       const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
 
       let finalY = p[1];
       if (["outline", "apexOutline"].includes(curveName)) finalY = profile.apexY;
       else if (curveName === "railOutline") finalY = profile.tuckY;
+      else if (curveName === "deckShoulder") finalY = profile.topY;
 
       return [p[0], finalY, p[2]];
     };
@@ -270,8 +271,10 @@ export class BoardViewport extends LitElement {
     const activeApexRocker = this.boardState?.apexRocker
             ? this.sampleBezierCurve(this.boardState.apexRocker, 100)
       : null;
-    const activeDeckShoulder = this.boardState?.deckShoulder
-      ? this.sampleBezierCurve(this.boardState.deckShoulder, 100)
+        const activeDeckShoulder = this.boardState?.deckShoulder
+      ? this.sampleBezierCurve(this.boardState.deckShoulder, 100).map((p) =>
+          projectY("deckShoulder", p),
+        )
       : null;
 
     if (this.boardState?.showOutline !== false) {
@@ -451,14 +454,17 @@ export class BoardViewport extends LitElement {
     }
   }
   
-        private getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
+          private getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
     if (!this.boardState) return yInches;
     const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number };
     if (['outline', 'apexOutline'].includes(curveName)) {
       return profile.apexY;
     }
     if (curveName === 'railOutline') {
-      return profile.botY;
+      return profile.tuckY;
+    }
+    if (curveName === 'deckShoulder') {
+      return profile.topY;
     }
     if (curveName.startsWith('channel_') && curveName.endsWith('_outline')) {
       return profile.botY;
