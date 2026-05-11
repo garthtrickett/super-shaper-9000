@@ -9,6 +9,12 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     let mesh = crate::mesh::generate_mesh(model);
     xml.push_str(&format!("<Volume>{:.3}</Volume>\n", mesh.volume_liters));
 
+    xml.push_str(&format!("<VConcaveTail>{:.3}</VConcaveTail>\n", model.v_concave_tail));
+    xml.push_str(&format!("<VConcaveNose>{:.3}</VConcaveNose>\n", model.v_concave_nose));
+    xml.push_str(&format!("<RailCoefficientTail>{:.3}</RailCoefficientTail>\n", model.rail_coefficient_tail));
+    xml.push_str(&format!("<RailCoefficientNose>{:.3}</RailCoefficientNose>\n", model.rail_coefficient_nose));
+    xml.push_str(&format!("<ThicknessZStretch>{:.3}</ThicknessZStretch>\n", model.thickness_z_stretch));
+
     let format_bezier = |name: &str,
                          tag_name: &str,
                          curve: &Option<BezierCurveData>,
@@ -22,7 +28,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
             let mut b = String::new();
             b.push_str(&format!("<{}>\n<Bezier3d>\n<Name>{}</Name>\n<Degree>3</Degree>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n<Plan>{}</Plan>\n", tag_name, name, symmetry, plan));
 
-            let format_poly = |tag: &str, pts: &[Vec3]| -> String {
+            let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
                 if pts.is_empty() {
                     return String::new();
                 }
@@ -30,17 +36,26 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 p_str.push_str(&format!("<{}>\n<Polygone3d>\n<Nb_of_points>{}</Nb_of_points>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n", tag, pts.len(), symmetry));
                 p_str.push_str(&format!("<Symmetry_center>\n<Point3d>\n<x>0.0</x><y>0.0</y><z>0.0</z><u>-1.0</u><color>0</color>\n</Point3d>\n</Symmetry_center>\n<Plan>{}</Plan>\n", plan));
                 let half_len = model.length / 2.0;
-                for p in pts {
+                for (i, p) in pts.iter().enumerate() {
                     let s3dx_x = p.z + half_len;
-                    p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>-1.000000</u><color>0</color>\n</Point3d>\n", s3dx_x, p.x, p.y));
+                    let mut u = -1.0;
+                    if let Some(w) = weights {
+                        if i < w.len() {
+                            u = w[i];
+                            if (u - 1.0).abs() < 1e-5 {
+                                u = -1.0;
+                            }
+                        }
+                    }
+                    p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>{:.6}</u><color>0</color>\n</Point3d>\n", s3dx_x, p.x, p.y, u));
                 }
                 p_str.push_str(&format!("</Polygone3d>\n</{}>\n", tag));
                 p_str
             };
 
-            b.push_str(&format_poly("Control_points", &c.control_points));
-            b.push_str(&format_poly("Tangents_1", &c.tangents1));
-            b.push_str(&format_poly("Tangents_2", &c.tangents2));
+            b.push_str(&format_poly("Control_points", &c.control_points, &c.weights));
+            b.push_str(&format_poly("Tangents_1", &c.tangents1, &c.weights));
+            b.push_str(&format_poly("Tangents_2", &c.tangents2, &c.weights));
 
             let mut tm = String::new();
             tm.push_str("<Tangents_m>\n<Polygone3d>\n");
@@ -170,6 +185,45 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         model.cross_sections.len()
     ));
 
+    let mut calques = String::new();
+    let mut calque_count = 0;
+    if let Some(layers) = &model.outline_layers {
+        for l in layers {
+            calques.push_str(&format!("<Calque_{}>\n<Calque3D>\n", calque_count));
+            calques.push_str(&format!("<Nom>{}</Nom>\n", l.name));
+            calques.push_str("<DeckBot>512</DeckBot>\n");
+            calques.push_str("<Depth>0.000000</Depth>\n");
+            calques.push_str(&format_bezier("otlExt", "OtlExt", &Some(l.otl_ext.clone()), 6, 1));
+            calques.push_str(&format_bezier("otlInt", "OtlInt", &Some(l.otl_int.clone()), 6, 1));
+            calques.push_str("</Calque3D>\n");
+            calques.push_str(&format!("</Calque_{}>\n", calque_count));
+            calque_count += 1;
+        }
+    }
+
+    if let Some(channels) = &model.bottom_channels {
+        for ch in channels {
+            calques.push_str(&format!("<Calque_{}>\n<Calque3D>\n", calque_count));
+            calques.push_str(&format!("<Nom>{}</Nom>\n", ch.name));
+            calques.push_str("<DeckBot>256</DeckBot>\n");
+            let depth = if ch.right_depth.control_points.len() > 0 {
+                ch.right_depth.control_points[0].y
+            } else {
+                0.0
+            };
+            calques.push_str(&format!("<Depth>{:.6}</Depth>\n", depth));
+            calques.push_str(&format_bezier("otlExt", "OtlExt", &Some(ch.right_outline.clone()), 6, 1));
+            calques.push_str("</Calque3D>\n");
+            calques.push_str(&format!("</Calque_{}>\n", calque_count));
+            calque_count += 1;
+        }
+    }
+
+    if calque_count > 0 {
+        xml.push_str(&format!("<Number_of_3DLayers>{}</Number_of_3DLayers>\n", calque_count));
+        xml.push_str(&calques);
+    }
+
     xml.push_str("</Board>\n<Scene></Scene>\n</Shape3d_design>");
     xml
 }
@@ -199,7 +253,72 @@ mod tests {
         assert!(xml.contains("<Thickness>2.625</Thickness>"));
         // Volume is dynamically computed from mesh now, we don't strictly assert the exact value here
 
-        // Ensure it successfully closes
+                // Ensure it successfully closes
         assert!(xml.contains("</Shape3d_design>"));
+    }
+
+    #[test]
+    fn test_s3dx_round_trip() {
+        use crate::model::{BezierCurveData, OutlineLayer, ChannelLayer};
+        use glam::Vec3;
+
+        let mut model = BoardModel::default();
+        model.length = 72.0;
+        model.width = 20.0;
+        model.thickness = 2.5;
+        model.v_concave_tail = 0.5;
+        model.v_concave_nose = -0.5;
+        model.rail_coefficient_tail = 0.9;
+        model.rail_coefficient_nose = 1.1;
+        model.thickness_z_stretch = 1.2;
+
+        let curve = BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 72.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 36.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 36.0), Vec3::new(10.0, 0.0, 72.0)],
+            weights: Some(vec![1.5, 2.5]),
+        };
+
+        model.outline = Some(curve.clone());
+        model.rocker_top = Some(curve.clone());
+        model.rocker_bottom = Some(curve.clone());
+        model.rail_outline = Some(curve.clone());
+        model.apex_outline = Some(curve.clone());
+        model.apex_rocker = Some(curve.clone());
+        model.deck_shoulder = Some(curve.clone());
+
+        model.cross_sections = vec![curve.clone(), curve.clone()];
+
+        model.outline_layers = Some(vec![OutlineLayer {
+            name: "Wing1".to_string(),
+            otl_ext: curve.clone(),
+            otl_int: curve.clone(),
+        }]);
+
+        let depth_curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 72.0)],
+            tangents1: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 36.0)],
+            tangents2: vec![Vec3::new(0.0, 1.5, 36.0), Vec3::new(0.0, 1.5, 72.0)],
+            weights: None,
+        };
+        
+        let mut left_outline = curve.clone();
+        for p in &mut left_outline.control_points { p.x = -p.x; }
+        for p in &mut left_outline.tangents1 { p.x = -p.x; }
+        for p in &mut left_outline.tangents2 { p.x = -p.x; }
+
+        model.bottom_channels = Some(vec![ChannelLayer {
+            name: "Channel1".to_string(),
+            is_symmetric: true,
+            left_outline: left_outline.clone(),
+            right_outline: curve.clone(),
+            left_depth: depth_curve.clone(),
+            right_depth: depth_curve.clone(),
+        }]);
+
+        let xml = super::export_s3dx(&model);
+        let parsed_model = crate::s3dx_parser::parse_s3dx(&xml).expect("Failed to parse back the generated XML");
+
+        approx::assert_relative_eq!(model, parsed_model, epsilon = 1e-3);
     }
 }
