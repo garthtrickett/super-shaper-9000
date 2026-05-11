@@ -12,47 +12,50 @@ interface WorkerMessage {
 }
 
 export class WasmSamController implements ReactiveController {
-  public worker: Worker;
   public model?: BoardModel;
   public mesh?: RustMesh;
   public curvatureCombs?: Float32Array;
   public foilData?: Float32Array;
-
+  
+  public worker: Worker;
   public currentSequence = 0;
-  private lastAcceptedSequence = 0;
 
   constructor(private host: ReactiveControllerHost) {
-    this.worker = new Worker(new URL("./workers/board-worker.ts", import.meta.url), { type: "module" });
     this.host.addController(this);
-    
-    this.worker.addEventListener("message", (e: MessageEvent) => {
-      const data = e.data;
-      
-      if (data.seq !== undefined) {
-        if (data.seq < this.lastAcceptedSequence) {
-          console.warn(`[WasmSamController] Dropped stale message seq: ${data.seq} (current: ${this.lastAcceptedSequence})`);
-          return;
-        }
-        this.lastAcceptedSequence = data.seq;
-      }
-      
-      if (data.type === "STATE_UPDATED") {
-        this.model = data.state;
-        this.mesh = data.mesh;
-        this.curvatureCombs = data.curvatureCombs;
-        this.foilData = data.foilData;
-        this.host.requestUpdate();
-      }
-    });
+    this.worker = new Worker(new URL("./workers/board-worker.ts", import.meta.url), { type: "module" });
+    this.worker.addEventListener("message", this.onMessage);
   }
 
-  propose(action: BoardAction) {
-    this.currentSequence++;
-    this.worker.postMessage({ type: "PROPOSE", action, seq: this.currentSequence });
-  }
+  public hostConnected() {}
 
-  hostConnected() {}
-  hostDisconnected() {
+  public hostDisconnected() {
     this.worker.terminate();
+  }
+
+  private onMessage = (e: MessageEvent<unknown>) => {
+    const msg = e.data as WorkerMessage;
+    if (!msg || typeof msg !== 'object') return;
+    
+    if (msg.seq !== undefined && msg.seq < this.currentSequence) {
+      runClientUnscoped(clientLog("info", "Dropped stale worker message"));
+      return;
+    }
+
+    if (msg.type === "STATE_UPDATED") {
+      this.model = msg.state;
+      this.mesh = msg.mesh;
+      this.curvatureCombs = msg.curvatureCombs;
+      this.foilData = msg.foilData;
+      this.host.requestUpdate();
+    }
+  };
+
+  public propose(action: BoardAction) {
+    this.currentSequence++;
+    this.worker.postMessage({
+      type: "PROPOSE",
+      seq: this.currentSequence,
+      action
+    });
   }
 }

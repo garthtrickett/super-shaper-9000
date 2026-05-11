@@ -4,6 +4,7 @@ import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builder-page.logic";
+import type { RustMesh } from "../3d/board-viewport";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
@@ -14,7 +15,7 @@ import "../ui/foil-graph";
 export class BoardBuilderPage extends LitElement {
       private wasmCtrl = new WasmSamController(this);
 
-    @state() private boardSnapshot?: { state: BoardModel, mesh: any, curvatureCombs: Float32Array, foilData: Float32Array };
+        @state() private boardSnapshot?: { state: BoardModel, mesh: RustMesh, curvatureCombs: Float32Array, foilData: Float32Array };
 
   @state() private showExportModal = false;
   @state() private showImportModal = false;
@@ -25,11 +26,12 @@ export class BoardBuilderPage extends LitElement {
     @state() private contourZPosition = 20.0;
   @state() private contourSliceData?: Float32Array;
 
-    private requestSliceProfile() {
+        private requestSliceProfile() {
     if (!this.showContourEditor) return;
-    const worker = (this.wasmCtrl as any).worker;
+    const ctrl = this.wasmCtrl as unknown as { worker?: Worker; currentSequence?: number };
+    const worker = ctrl.worker;
     if (worker) {
-      worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor", seq: (this.wasmCtrl as any).currentSequence });
+      worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor", seq: ctrl.currentSequence });
     }
   }
 
@@ -38,12 +40,13 @@ export class BoardBuilderPage extends LitElement {
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
     }
-                if (data.type === "STATE_UPDATED") {
+                                if (data.type === "STATE_UPDATED") {
+      const stateData = data as unknown as { state: BoardModel, mesh: RustMesh, curvatureCombs: Float32Array, foilData: Float32Array };
       this.boardSnapshot = {
-        state: (data as any).state,
-        mesh: (data as any).mesh,
-        curvatureCombs: (data as any).curvatureCombs,
-        foilData: (data as any).foilData
+        state: stateData.state,
+        mesh: stateData.mesh,
+        curvatureCombs: stateData.curvatureCombs,
+        foilData: stateData.foilData
       };
       if (this.showContourEditor) {
         this.requestSliceProfile();
