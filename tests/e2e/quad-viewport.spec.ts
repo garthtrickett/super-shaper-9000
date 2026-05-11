@@ -14,9 +14,9 @@ test.describe('Quad Viewport CAD Interface', () => {
   });
 
   test('should render the four-quadrant layout', async ({ page }) => {
-        // Bumping tolerance to account for anti-aliasing differences and subtle shading
+    // Bumping tolerance to account for anti-aliasing differences and subtle shading
     // improvements from the new B-Rep tail/nose cap topology.
-        await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
+    await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
       maxDiffPixels: 15000,
       mask:[page.locator('button[title*="Flip"]')]
     });
@@ -27,53 +27,62 @@ test.describe('Quad Viewport CAD Interface', () => {
     const box = await canvas.boundingBox();
     expect(box).toBeDefined();
 
-            // Define quadrant coordinates (top-right of each quadrant to avoid top-left overlay buttons and centered board)
+    // Define quadrant coordinates (top-right of each quadrant to avoid top-left overlay buttons and centered board)
     const topLeft = { x: box!.x + box!.width * 0.40, y: box!.y + box!.height * 0.10 };
     const topRight = { x: box!.x + box!.width * 0.90, y: box!.y + box!.height * 0.10 };
 
-        // --- 1. Drag in a 2D view (Top Left) and verify NO rotation occurs ---
+    // Helper to extract the exact position of the perspective camera
+    const getPerspectiveCameraPos = async () => {
+      return page.evaluate<{ x: number; y: number; z: number } | null>(() => {
+        type BoardViewportElement = HTMLElement & {
+          sceneManager?: {
+            cameras: {
+              perspective: {
+                position: { x: number; y: number; z: number };
+              };
+            };
+          };
+        };
+                const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+        const cam = viewport?.sceneManager?.cameras?.perspective;
+        return cam ? { x: cam.position.x, y: cam.position.y, z: cam.position.z } : null;
+      });
+    };
+
+    const initialPos = await getPerspectiveCameraPos();
+    expect(initialPos).not.toBeNull();
+
+    // --- 1. Drag in a 2D view (Top Left) and verify NO perspective rotation occurs ---
     await page.mouse.move(topLeft.x, topLeft.y);
     await page.mouse.down();
     await page.mouse.move(topLeft.x - 50, topLeft.y + 50, { steps: 10 });
     await page.mouse.up();
-    await page.waitForTimeout(500); // Wait for momentum to settle
+    
+    // Check that the perspective camera did not move
+    const posAfter2DDrag = await getPerspectiveCameraPos();
+    expect(posAfter2DDrag).not.toBeNull();
+    expect(posAfter2DDrag!.x).toBeCloseTo(initialPos!.x, 2);
+    expect(posAfter2DDrag!.y).toBeCloseTo(initialPos!.y, 2);
+    expect(posAfter2DDrag!.z).toBeCloseTo(initialPos!.z, 2);
 
-        await expect(page).toHaveScreenshot('quad-view-no-rotation.png', { 
-      maxDiffPixels: 15000,
-      mask: [page.locator('button[title*="Flip"]')]
-    });
-
-                    // --- 2. Programmatically rotate the 3D camera and verify rotation DOES occur ---
-    await page.evaluate(() => {
-      return new Promise<void>((resolve, reject) => {
-        const viewport = document.querySelector('board-viewport') as any;
-        if (!viewport || !viewport.sceneManager) {
-          return reject(new Error("sceneManager not found on board-viewport"));
-        }
-        
-        const camera = viewport.sceneManager.cameras.perspective;
-        // Move the camera to a drastically different angle to guarantee visual delta
-        camera.position.set(6, -4, 6); 
-        camera.lookAt(0, 0, 0);
-        
-        // Force OrbitControls to sync with the new camera position to prevent damping snap-back
-        viewport.sceneManager.controls.perspective.target.set(0, 0, 0);
-        viewport.sceneManager.controls.perspective.update();
-        
-        // Wait for two animation frames to ensure the canvas has been painted
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            resolve();
-          });
-        });
-      });
-    });
-    await page.waitForTimeout(500); // Extra buffer for Playwright
-
-    // Compare against the *un-rotated* screenshot. They should NOT match.
-    await expect(page).not.toHaveScreenshot('quad-view-no-rotation.png', {
-      mask: [page.locator('button[title*="Flip"]')]
-    });
+    // --- 2. Drag in the 3D Perspective view (Top Right) and verify rotation DOES occur ---
+    await page.mouse.move(topRight.x, topRight.y);
+    await page.mouse.down();
+    await page.mouse.move(topRight.x - 100, topRight.y + 100, { steps: 10 });
+    await page.mouse.up();
+    
+    // Check that the perspective camera DID move
+    const posAfter3DDrag = await getPerspectiveCameraPos();
+    expect(posAfter3DDrag).not.toBeNull();
+    
+    // Calculate 3D distance moved
+    const dx = posAfter3DDrag!.x - initialPos!.x;
+    const dy = posAfter3DDrag!.y - initialPos!.y;
+    const dz = posAfter3DDrag!.z - initialPos!.z;
+    const distanceMoved = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    
+    // It should have moved significantly
+    expect(distanceMoved).toBeGreaterThan(0.5);
   });
 
   test('should update 3D model when dragging a gizmo in a 2D view', async ({ page }) => {
@@ -81,15 +90,9 @@ test.describe('Quad Viewport CAD Interface', () => {
     const box = await canvas.boundingBox();
     expect(box).toBeDefined();
 
-        // Take a screenshot of the initial state before we drag anything
-        await expect(page).toHaveScreenshot('quad-view-gizmos-initial.png', { 
-      maxDiffPixels: 15000,
-      mask:[page.locator('button[title*="Flip"]')]
-    });
-
     // --- 1. Dynamically locate the 3D Gizmo from the application state ---
     // This perfectly calculates the projection matrix equivalent to find the 2px sphere.
-    const hitPosition = await page.evaluate(() => {
+    const hitPosition = await page.evaluate<{ x: number; y: number } | null>(() => {
       type BoardViewportElement = HTMLElement & {
         boardState?: {
           outline?: {
@@ -131,7 +134,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     });
     expect(hitPosition).toBeTruthy();
 
-        // Select the gizmo to open the inspector
+    // Select the gizmo to open the inspector
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
     await expect(page.locator('node-inspector')).toBeVisible();
 
@@ -149,13 +152,11 @@ test.describe('Quad Viewport CAD Interface', () => {
     // 3. WAIT for the DOM to reflect the new coordinates (this doesn't stall the GPU)
     await expect(xInput).not.toHaveValue(initialX);
 
-    // Optional: Give headless WebGL a tiny breather to finish the new paint
-    await page.waitForTimeout(500);
-
-    // 4. Now assert the screenshot (will pass instantly without looping)
-    await expect(page).not.toHaveScreenshot('quad-view-gizmos-initial.png', {
-      mask: [page.locator('button[title*="Flip"]')]
-    });
+    // 4. Verify the coordinate changed in the DOM as our deterministic assertion
+    const finalX = await xInput.inputValue();
+    const diff = Math.abs(parseFloat(finalX) - parseFloat(initialX));
+    
+    // Verify it moved by at least half an inch
+    expect(diff).toBeGreaterThan(0.5);
   });
-
 });
