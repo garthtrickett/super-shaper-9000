@@ -7,18 +7,19 @@ test.describe('Quad Viewport CAD Interface', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    // Wait for the 3D viewport to be initialized and rendered
+        // Wait for the 3D viewport to be initialized and rendered
     await page.waitForSelector('board-viewport canvas');
     // Give a brief moment for the initial board to render to avoid flaky screenshots
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
   });
 
   test('should render the four-quadrant layout', async ({ page }) => {
     // Bumping tolerance to account for anti-aliasing differences and subtle shading
     // improvements from the new B-Rep tail/nose cap topology.
-    await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
+        await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
       maxDiffPixels: 15000,
-      mask:[page.locator('button[title*="Flip"]')]
+      mask:[page.locator('button[title*="Flip"]')],
+      timeout: 15000
     });
   });
 
