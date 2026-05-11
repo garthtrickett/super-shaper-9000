@@ -486,24 +486,14 @@ export class BoardViewport extends LitElement {
     return yInches;
   }
 
+
+  
   private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40):[number, number, number][] {
-      const pts:[number, number, number][] =[];
-      const numSegments = bezier.controlPoints.length - 1;
-      if (numSegments < 1) return pts;
-      for (let i = 0; i <= steps; i++) {
-          const t = i / steps; const scaledT = t * numSegments;
-          let segmentIdx = Math.floor(scaledT); if (segmentIdx >= numSegments) segmentIdx = numSegments - 1;
-          const localT = scaledT - segmentIdx;
-          const P0 = bezier.controlPoints[segmentIdx]!; const P1 = bezier.controlPoints[segmentIdx + 1]!;
-          const T0 = bezier.tangents2[segmentIdx]!; const T1 = bezier.tangents1[segmentIdx + 1]!;
-          const u = 1 - localT, tt = localT*localT, uu = u*u, uuu = uu*u, ttt = tt*localT;
-          const x = uuu * P0[0] + 3 * uu * localT * T0[0] + 3 * u * tt * T1[0] + ttt * P1[0];
-          const y = uuu * P0[1] + 3 * uu * localT * T0[1] + 3 * u * tt * T1[1] + ttt * P1[1];
-          const z = uuu * P0[2] + 3 * uu * localT * T0[2] + 3 * u * tt * T1[2] + ttt * P1[2];
-          pts.push([x, y, z]);
-      }
-      return pts;
-  }
+                if (!this.mathEngine) return[];
+                      const flat = this.mathEngine.sample_curve(bezier, steps) as Float32Array;
+                      const pts:[number, number, number][] =[];
+                            for (let i = 0; i < flat.length; i += 3) {
+                            pts.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]);      }      return pts;  }
 
         private _updateGizmoPositionsFromState() {
     const mathEngine = this.mathEngine;

@@ -129,7 +129,22 @@ impl WasmEngine {
         Ok(Float32Array::from(stats.as_slice()).into())
     }
 
-        #[wasm_bindgen]
+            #[wasm_bindgen]
+    pub fn sample_curve(&self, curve_js: JsValue, steps: usize) -> Result<JsValue, JsValue> {
+        let curve: surfer_core::model::BezierCurveData = serde_wasm_bindgen::from_value(curve_js)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        let pts = surfer_core::bezier::sample_curve(&curve, steps);
+        let mut flat = Vec::with_capacity(pts.len() * 3);
+        for p in pts {
+            flat.push(p.x);
+            flat.push(p.y);
+            flat.push(p.z);
+        }
+        Ok(Float32Array::from(flat.as_slice()).into())
+    }
+
+    #[wasm_bindgen]
     pub fn get_profile_at_z(&self, z: f32) -> Result<JsValue, JsValue> {
         let model = self.engine.get_model();
         let bounds = surfer_core::geometry::get_board_bounds(model);
