@@ -109,6 +109,8 @@ pub struct S3dxBezierDef {
 pub struct S3dxBezier3d {
     #[serde(rename = "Name")]
     pub name: Option<String>,
+    #[serde(rename = "Plan")]
+    pub plan: Option<u8>,
     #[serde(rename = "Control_points")]
     pub control_points: Option<S3dxPolygonContainer>,
     #[serde(rename = "Tangents_1")]
@@ -141,6 +143,88 @@ use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
 fn convert_s3dx_bezier3d(
+    bezier3d: &S3dxBezier3d,
+    board_length: f32,
+    scale: f32,
+) -> Option<BezierCurveData> {
+    let mut control_points = Vec::new();
+    let mut weights = Vec::new();
+    if let Some(poly) = &bezier3d.control_points {
+        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
+            for p in pts {
+                control_points.push(Vec3::new(
+                    p.y * scale,
+                    p.z * scale,
+                    (board_length / 2.0 - p.x) * scale,
+                ));
+                let u_val = p.u.unwrap_or(-1.0);
+                // Map S3DX default of -1.0 to our engine's baseline of 1.0
+                weights.push(if (u_val - (-1.0)).abs() < 1e-5 {
+                    1.0
+                } else {
+                    u_val
+                });
+            }
+        }
+    }
+
+    let mut tangents1 = Vec::new();
+    if let Some(poly) = &bezier3d.tangents_1 {
+        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
+            for p in pts {
+                tangents1.push(Vec3::new(
+                    p.y * scale,
+                    p.z * scale,
+                    (board_length / 2.0 - p.x) * scale,
+                ));
+            }
+        }
+    }
+
+    let mut tangents2 = Vec::new();
+    if let Some(poly) = &bezier3d.tangents_2 {
+        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
+            for p in pts {
+                tangents2.push(Vec3::new(
+                    p.y * scale,
+                    p.z * scale,
+                    (board_length / 2.0 - p.x) * scale,
+                ));
+            }
+        }
+    }
+
+    if control_points.is_empty() {
+        return None;
+    }
+
+    let is_longitudinal = bezier3d.plan.unwrap_or(1) != 3;
+
+    // S3DX conventionally maps from Tail to Nose. We reverse this to match our 
+    // internal engine logic where t=0 evaluates to the Nose.
+    if is_longitudinal {
+        control_points.reverse();
+        weights.reverse();
+        let old_t1 = tangents1;
+        let old_t2 = tangents2;
+        tangents1 = old_t2.into_iter().rev().collect();
+        tangents2 = old_t1.into_iter().rev().collect();
+    }
+
+    let all_ones = weights.iter().all(|&w| (w - 1.0).abs() < 1e-5);
+    let final_weights = if weights.is_empty() || all_ones {
+        None
+    } else {
+        Some(weights)
+    };
+
+    Some(BezierCurveData {
+        control_points,
+        tangents1,
+        tangents2,
+        weights: final_weights,
+    })
+}
     bezier3d: &S3dxBezier3d,
     board_length: f32,
     scale: f32,

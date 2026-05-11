@@ -46,6 +46,24 @@ pub fn export_s3dx(model: &BoardModel) -> String {
             }
             b.push_str(&format!("<Bezier3d>\n<Name>{}</Name>\n<Degree>3</Degree>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n<Plan>{}</Plan>\n", name, symmetry, plan));
 
+                        let is_longitudinal = plan != 3;
+            let mut export_points = c.control_points.clone();
+            let mut export_t1 = c.tangents1.clone();
+            let mut export_t2 = c.tangents2.clone();
+            let mut export_weights = c.weights.clone();
+
+            // S3DX expects standard structural curves to run backwards (Tail -> Nose)
+            if is_longitudinal {
+                export_points.reverse();
+                let old_t1 = export_t1;
+                let old_t2 = export_t2;
+                export_t1 = old_t2.into_iter().rev().collect();
+                export_t2 = old_t1.into_iter().rev().collect();
+                if let Some(w) = export_weights.as_mut() {
+                    w.reverse();
+                }
+            }
+
             let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
                 if pts.is_empty() {
                     return String::new();
@@ -55,7 +73,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 p_str.push_str(&format!("<Symmetry_center>\n<Point3d>\n<x>0.0</x><y>0.0</y><z>0.0</z><u>-1.0</u><color>0</color>\n</Point3d>\n</Symmetry_center>\n<Plan>{}</Plan>\n", plan));
                 let half_len = model.length / 2.0;
                 for (i, p) in pts.iter().enumerate() {
-                    let s3dx_x = p.z + half_len;
+                    let s3dx_x = (half_len - p.z).max(0.0);
                     let mut u = -1.0;
                     if let Some(w) = weights {
                         if i < w.len() {
@@ -71,34 +89,34 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 p_str
             };
 
-            b.push_str(&format_poly(
+                        b.push_str(&format_poly(
                 "Control_points",
-                &c.control_points,
-                &c.weights,
+                &export_points,
+                &export_weights,
             ));
-            b.push_str(&format_poly("Tangents_1", &c.tangents1, &c.weights));
-            b.push_str(&format_poly("Tangents_2", &c.tangents2, &c.weights));
+            b.push_str(&format_poly("Tangents_1", &export_t1, &export_weights));
+            b.push_str(&format_poly("Tangents_2", &export_t2, &export_weights));
 
             let mut tm = String::new();
             tm.push_str("<Tangents_m>\n<Polygone3d>\n");
             tm.push_str(&format!(
                 "<Nb_of_points>{}</Nb_of_points>\n<Open>1</Open>\n<Symmetry>0</Symmetry>\n",
-                c.control_points.len()
+                export_points.len()
             ));
             tm.push_str("<Symmetry_center>\n<Point3d>\n<x>0.0</x><y>0.0</y><z>0.0</z><u>-1.0</u><color>0</color>\n</Point3d>\n</Symmetry_center>\n<Plan>0</Plan>\n");
-            for _ in &c.control_points {
+            for _ in &export_points {
                 tm.push_str("<Point3d>\n<x>0.0</x><y>0.0</y><z>0.0</z><u>-1.0</u><color>0</color>\n</Point3d>\n");
             }
             tm.push_str("</Polygone3d>\n</Tangents_m>\n");
             b.push_str(&tm);
 
-            for i in 0..c.control_points.len() {
+            for i in 0..export_points.len() {
                 b.push_str(&format!(
                     "<Control_type_point_{}> 0</Control_type_point_{}>\n",
                     i, i
                 ));
             }
-            for i in 0..c.control_points.len() {
+            for i in 0..export_points.len() {
                 b.push_str(&format!(
                     "<Tangent_type_point_{}> 0</Tangent_type_point_{}>\n",
                     i, i
