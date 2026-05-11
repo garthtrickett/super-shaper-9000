@@ -2227,10 +2227,8 @@ mod tests {
             ..Default::default()
         });
 
-        // The notch is at Z=95, the tip is at Z=100.
+                // The notch is at Z=95, the tip is at Z=100.
         // At Z=98, the stringer is empty (cut out by the swallow). We evaluate the surface normal on the rail.
-        let bounds = get_board_bounds(&model);
-        let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), 98.0, 0.0, bounds.tip_t);
         // The normal should be well defined
         let n = get_surface_normal_at_uvz(&model, 0.5, 98.0, 1.0);
         assert!(!n.is_nan(), "Normal should not be NaN at swallow tail rail");
