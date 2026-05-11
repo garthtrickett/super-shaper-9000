@@ -169,7 +169,7 @@ impl approx::AbsDiffEq for OutlineLayer {
 }
 impl approx::RelativeEq for OutlineLayer {
     fn default_max_relative() -> f32 { f32::EPSILON }
-    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+    fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
         self.abs_diff_eq(other, epsilon)
     }
 }
@@ -188,7 +188,7 @@ impl approx::AbsDiffEq for ChannelLayer {
 }
 impl approx::RelativeEq for ChannelLayer {
     fn default_max_relative() -> f32 { f32::EPSILON }
-    fn relative_eq(&self, other: &Self, epsilon: f32, max_relative: f32) -> bool {
+    fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
         self.abs_diff_eq(other, epsilon)
     }
 }
