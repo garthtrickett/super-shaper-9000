@@ -46,7 +46,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
             }
             b.push_str(&format!("<Bezier3d>\n<Name>{}</Name>\n<Degree>3</Degree>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n<Plan>{}</Plan>\n", name, symmetry, plan));
 
-                        let is_longitudinal = plan != 3;
+            let is_longitudinal = plan != 3;
             let mut export_points = c.control_points.clone();
             let mut export_t1 = c.tangents1.clone();
             let mut export_t2 = c.tangents2.clone();
@@ -89,7 +89,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 p_str
             };
 
-                        b.push_str(&format_poly(
+            b.push_str(&format_poly(
                 "Control_points",
                 &export_points,
                 &export_weights,
@@ -336,11 +336,18 @@ mod tests {
         model.rail_coefficient_nose = 1.1;
         model.thickness_z_stretch = 1.2;
 
-        let curve = BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 72.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 36.0)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 36.0), Vec3::new(10.0, 0.0, 72.0)],
+                let curve = BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, -36.0), Vec3::new(10.0, 0.0, 36.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, -36.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 36.0)],
             weights: Some(vec![1.5, 2.5]),
+        };
+
+        let cs_curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 10.0), Vec3::new(10.0, 1.0, 10.0)],
+            tangents1: vec![Vec3::new(0.0, 1.0, 10.0), Vec3::new(5.0, 1.0, 10.0)],
+            tangents2: vec![Vec3::new(5.0, 1.0, 10.0), Vec3::new(10.0, 1.0, 10.0)],
+            weights: None,
         };
 
         model.outline = Some(curve.clone());
@@ -351,7 +358,7 @@ mod tests {
         model.apex_rocker = Some(curve.clone());
         model.deck_shoulder = Some(curve.clone());
 
-        model.cross_sections = vec![curve.clone(), curve.clone()];
+        model.cross_sections = vec![cs_curve.clone(), cs_curve.clone()];
 
         model.outline_layers = Some(vec![OutlineLayer {
             name: "Wing1".to_string(),
@@ -360,9 +367,9 @@ mod tests {
         }]);
 
         let depth_curve = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 72.0)],
-            tangents1: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 72.0)],
-            tangents2: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 72.0)],
+            control_points: vec![Vec3::new(0.0, 1.5, -36.0), Vec3::new(0.0, 1.5, 36.0)],
+            tangents1: vec![Vec3::new(0.0, 1.5, -36.0), Vec3::new(0.0, 1.5, 0.0)],
+            tangents2: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 36.0)],
             weights: None,
         };
 

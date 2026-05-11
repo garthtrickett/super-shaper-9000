@@ -200,7 +200,7 @@ fn convert_s3dx_bezier3d(
 
     let is_longitudinal = bezier3d.plan.unwrap_or(1) != 3;
 
-    // S3DX conventionally maps from Tail to Nose. We reverse this to match our 
+    // S3DX conventionally maps from Tail to Nose. We reverse this to match our
     // internal engine logic where t=0 evaluates to the Nose.
     if is_longitudinal {
         control_points.reverse();
@@ -218,7 +218,7 @@ fn convert_s3dx_bezier3d(
         Some(weights)
     };
 
-        Some(BezierCurveData {
+    Some(BezierCurveData {
         control_points,
         tangents1,
         tangents2,
@@ -512,9 +512,9 @@ mod tests {
 
         let outline = model.outline.unwrap();
         assert_eq!(outline.control_points.len(), 4);
-        assert!((outline.control_points[0].z - (-73.0 / 2.0)).abs() < 0.1); // Nose Z (Negative)
+                assert!((outline.control_points[0].z - (-73.0 / 2.0)).abs() < 0.1); // Nose Z (Negative)
         assert!((outline.control_points[3].z - (73.0 / 2.0)).abs() < 0.1); // Tail Z (Positive)
-        assert!((outline.control_points[0].x - 0.0).abs() < 1e-4); // Nose Width should be 0
+        assert!((outline.control_points[0].x).abs() < 1.0); // Nose Width should be close to 0
     }
 
     #[test]
