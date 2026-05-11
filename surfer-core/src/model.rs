@@ -54,8 +54,7 @@ pub struct ManualSnapshot {
 pub struct BoardModel {
     pub length: f32,
     pub width: f32,
-    pub thickness: f32,
-    pub volume: f32,
+        pub thickness: f32,
     pub fin_setup: String,
     #[serde(default)]
     pub front_fin_z: f32,
@@ -125,8 +124,7 @@ impl Default for BoardModel {
         Self {
             length: 0.0,
             width: 0.0,
-            thickness: 0.0,
-            volume: 0.0,
+                        thickness: 0.0,
             fin_setup: String::new(),
             front_fin_z: 0.0,
             front_fin_x: 0.0,

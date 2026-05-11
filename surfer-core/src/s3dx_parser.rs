@@ -274,12 +274,9 @@ impl From<S3dxBoard> for BoardModel {
         // Safely infer CM to Inches if the board is unreasonably long (> 130 units)
         let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
 
-        model.length = bl * scale;
+                model.length = bl * scale;
         model.width = s3dx.width * scale;
         model.thickness = s3dx.thickness * scale;
-        if let Some(vol) = s3dx.volume {
-            model.volume = vol;
-        }
 
         model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0) * scale;
         model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0) * scale;

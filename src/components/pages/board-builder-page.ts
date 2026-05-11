@@ -285,10 +285,10 @@ export class BoardBuilderPage extends LitElement {
         <!-- UI Controls Panel -->
         <board-controls
           class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl"
-          .length=${state.length}
+                    .length=${state.length}
           .width=${state.width}
                     .thickness=${state.thickness}
-          .volume=${this.wasmCtrl.mesh?.volumeLiters ?? state.volume}
+          .volume=${this.wasmCtrl.mesh?.volumeLiters ?? 0}
           .tailType=${state.tailType ?? 'squash'}
           .swallowDepth=${state.swallowDepth ?? 4.0}
           .vertexCount=${vertexCount}

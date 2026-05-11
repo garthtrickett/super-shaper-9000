@@ -65,10 +65,9 @@ export const BoardModelSchema = S.Struct({
     apexRocker: S.optional(BezierCurveSchema),
   deckShoulder: S.optional(BezierCurveSchema),
   crossSections: S.Array(BezierCurveSchema),
-  length: S.Number,
+    length: S.Number,
   width: S.Number,
   thickness: S.Number,
-  volume: S.Number,
   finSetup: S.Literal("thruster", "quad", "twin"),
   frontFinZ: S.Number,
   frontFinX: S.Number,
@@ -153,10 +152,9 @@ export interface BoardModel {
     apexRocker?: BezierCurveData;
   deckShoulder?: BezierCurveData;
   crossSections: BezierCurveData[];
-  length: number;
+    length: number;
   width: number;
   thickness: number;
-  volume: number;
   finSetup: FinSetup;
   frontFinZ: number;
   frontFinX: number;
@@ -221,10 +219,9 @@ export const INITIAL_STATE: BoardModel = {
   showMriView: false,
   mriSlicePosition: 50.0,
   selectedNode: null,
-  length: 70, 
+    length: 70, 
   width: 18.75,
   thickness: 2.5,
-  volume: 30.5, 
   outline: basicOutline,
   rockerTop: basicRockerTop,
   rockerBottom: basicRockerBottom,

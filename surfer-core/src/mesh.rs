@@ -3,10 +3,9 @@ use crate::model::{BoardModel, RawGeometryData};
 use glam::Vec3;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
-    log::info!(
-        "[Rust core] generate_mesh: Rebuilding for length {:.1} (Volume expected: ~{:.1}L)",
-        model.length,
-        model.volume
+        log::info!(
+        "[Rust core] generate_mesh: Rebuilding for length {:.1}",
+        model.length
     );
     let scale = 1.0 / 12.0;
 

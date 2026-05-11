@@ -5,8 +5,8 @@ import { customElement, property } from "lit/decorators.js";
 export class BoardControls extends LitElement {
   @property({ type: Number }) length = 70;
   @property({ type: Number }) width = 18.75;
-  @property({ type: Number }) thickness = 2.5;
-    @property({ type: Number }) volume = 30.5;
+    @property({ type: Number }) thickness = 2.5;
+    @property({ type: Number }) volume = 0.0;
   @property({ type: String }) tailType = "squash";
   @property({ type: Number }) swallowDepth = 4.0;
   @property({ type: String }) finSetup = "quad";
