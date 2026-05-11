@@ -27,9 +27,9 @@ test.describe('Quad Viewport CAD Interface', () => {
     const box = await canvas.boundingBox();
     expect(box).toBeDefined();
 
-    // Define quadrant centers
-    const topLeft = { x: box!.x + box!.width * 0.25, y: box!.y + box!.height * 0.25 };
-    const topRight = { x: box!.x + box!.width * 0.75, y: box!.y + box!.height * 0.25 };
+        // Define quadrant centers (offset to avoid clicking the board/gizmos)
+    const topLeft = { x: box!.x + box!.width * 0.10, y: box!.y + box!.height * 0.10 };
+    const topRight = { x: box!.x + box!.width * 0.60, y: box!.y + box!.height * 0.10 };
 
     // --- 1. Drag in a 2D view (Top Left) and verify NO rotation occurs ---
     await page.mouse.move(topLeft.x, topLeft.y);

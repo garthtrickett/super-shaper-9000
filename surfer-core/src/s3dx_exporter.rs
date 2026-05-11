@@ -242,7 +242,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         for ch in channels {
             calques.push_str(&format!("<Calque_{}>\n<Calque3D>\n", calque_count));
             calques.push_str(&format!("<Nom>{}</Nom>\n", ch.name));
-                        calques.push_str("<DeckBot>256</DeckBot>\n");
+            calques.push_str("<DeckBot>256</DeckBot>\n");
             let depth = if !ch.right_depth.control_points.is_empty() {
                 ch.right_depth.control_points[0].y
             } else {

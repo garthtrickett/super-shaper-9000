@@ -1,9 +1,12 @@
 use crate::model::{BoardModel, RawGeometryData};
 
 pub fn export_obj(model: &BoardModel, mesh: &RawGeometryData) -> String {
-        let mut obj = String::new();
+    let mut obj = String::new();
     obj.push_str("# Super Shaper 9000 OBJ Export\n");
-    obj.push_str(&format!("# Length: {:.2}, Width: {:.2}\n", model.length, model.width));
+    obj.push_str(&format!(
+        "# Length: {:.2}, Width: {:.2}\n",
+        model.length, model.width
+    ));
 
     // Vertices
     for i in (0..mesh.vertices.len()).step_by(3) {
