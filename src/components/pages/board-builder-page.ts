@@ -405,11 +405,12 @@ export class BoardBuilderPage extends LitElement {
         </div>
 
                 <!-- Render the 3D scene taking up the full remaining area -->
-                                <board-viewport 
+                                        <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${mesh}
-                    .curvatureCombs=${curvatureCombs}
+          .curvatureCombs=${curvatureCombs}
+          .mathEngine=${(this.wasmCtrl as any).mathEngine}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected

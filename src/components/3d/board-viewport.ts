@@ -31,7 +31,8 @@ export interface RustMesh {
 export class BoardViewport extends LitElement {
     @property({ type: Object }) boardState?: BoardModel;
   @property({ type: Object }) meshData?: RustMesh;
-  @property({ type: Object }) curvatureCombs?: Float32Array;
+    @property({ type: Object }) curvatureCombs?: Float32Array;
+  @property({ attribute: false }) mathEngine?: WasmEngine;
   
   protected override createRenderRoot() { return this; }
 
@@ -165,9 +166,9 @@ export class BoardViewport extends LitElement {
     this.buildSolidMeshFromRust(this.meshData, scale);
   }
 
-    private _updateGeometry() {
+        private _updateGeometry() {
     if (!this.boardState) return;
-    const mathEngine = this.wasmCtrl.mathEngine;
+    const mathEngine = this.mathEngine;
     if (!mathEngine) return; // Wait for WASM to initialize
     
     while (this.wireframeGroup.children.length > 0) {
@@ -498,8 +499,8 @@ export class BoardViewport extends LitElement {
       return pts;
   }
 
-    private _updateGizmoPositionsFromState() {
-    const mathEngine = this.wasmCtrl.mathEngine;
+        private _updateGizmoPositionsFromState() {
+    const mathEngine = this.mathEngine;
     if (!this.boardState || !mathEngine) return;
     const scale = 1 / 12;
     const gizmosByUserData = new Map<string, THREE.Mesh>();

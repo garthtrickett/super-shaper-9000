@@ -2,8 +2,7 @@ import type { ReactiveController, ReactiveControllerHost } from "lit";
 import { type BoardModel, type BoardAction, INITIAL_STATE } from "../../components/pages/board-builder-page.logic";
 import type { RustMesh } from "../../components/3d/board-viewport";
 import init, { WasmEngine } from './wasm/surfer_wasm.js';
-import type { BoardModel, BoardAction } from "../../components/pages/board-builder-page.logic";
-import type { RustMesh } from "../../components/3d/board-viewport";
+
 import { clientLog } from "./clientLog";
 import { runClientUnscoped } from "./runtime";
 
