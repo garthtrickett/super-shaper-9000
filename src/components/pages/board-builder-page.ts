@@ -224,10 +224,8 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-      protected override willUpdate(changedProperties: PropertyValues) {
-    if (super.willUpdate) {
-        super.willUpdate(changedProperties);
-    }
+            protected override willUpdate(changedProperties: PropertyValues) {
+    super.willUpdate(changedProperties);
     // Sync the main-thread mathEngine with the controller's model before every render.
     if (this.wasmCtrl.model && this.mathEngine) {
         this.mathEngine.propose({ type: "LOAD_DESIGN", state: this.wasmCtrl.model });
