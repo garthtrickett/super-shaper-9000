@@ -196,7 +196,8 @@ fn convert_s3dx_bezier3d(
         return None;
     }
 
-    let final_weights = if weights.is_empty() {
+        let all_ones = weights.iter().all(|&w| (w - 1.0).abs() < 1e-5);
+    let final_weights = if weights.is_empty() || all_ones {
         None
     } else {
         Some(weights)

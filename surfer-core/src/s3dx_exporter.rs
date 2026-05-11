@@ -301,10 +301,10 @@ mod tests {
             otl_int: curve.clone(),
         }]);
 
-        let depth_curve = BezierCurveData {
+                let depth_curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 72.0)],
-            tangents1: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 36.0)],
-            tangents2: vec![Vec3::new(0.0, 1.5, 36.0), Vec3::new(0.0, 1.5, 72.0)],
+            tangents1: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 72.0)],
+            tangents2: vec![Vec3::new(0.0, 1.5, 0.0), Vec3::new(0.0, 1.5, 72.0)],
             weights: None,
         };
         
