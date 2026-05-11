@@ -218,76 +218,7 @@ fn convert_s3dx_bezier3d(
         Some(weights)
     };
 
-    Some(BezierCurveData {
-        control_points,
-        tangents1,
-        tangents2,
-        weights: final_weights,
-    })
-}
-    bezier3d: &S3dxBezier3d,
-    board_length: f32,
-    scale: f32,
-) -> Option<BezierCurveData> {
-    let mut control_points = Vec::new();
-    let mut weights = Vec::new();
-    if let Some(poly) = &bezier3d.control_points {
-        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
-            for p in pts {
-                control_points.push(Vec3::new(
-                    p.y * scale,
-                    p.z * scale,
-                    (p.x - board_length / 2.0) * scale,
-                ));
-                let u_val = p.u.unwrap_or(-1.0);
-                // Map S3DX default of -1.0 to our engine's baseline of 1.0
-                weights.push(if (u_val - (-1.0)).abs() < 1e-5 {
-                    1.0
-                } else {
-                    u_val
-                });
-            }
-        }
-    }
-
-    let mut tangents1 = Vec::new();
-    if let Some(poly) = &bezier3d.tangents_1 {
-        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
-            for p in pts {
-                tangents1.push(Vec3::new(
-                    p.y * scale,
-                    p.z * scale,
-                    (p.x - board_length / 2.0) * scale,
-                ));
-            }
-        }
-    }
-
-    let mut tangents2 = Vec::new();
-    if let Some(poly) = &bezier3d.tangents_2 {
-        if let Some(pts) = poly.polygone3d.as_ref().and_then(|p| p.point3d.as_ref()) {
-            for p in pts {
-                tangents2.push(Vec3::new(
-                    p.y * scale,
-                    p.z * scale,
-                    (p.x - board_length / 2.0) * scale,
-                ));
-            }
-        }
-    }
-
-    if control_points.is_empty() {
-        return None;
-    }
-
-    let all_ones = weights.iter().all(|&w| (w - 1.0).abs() < 1e-5);
-    let final_weights = if weights.is_empty() || all_ones {
-        None
-    } else {
-        Some(weights)
-    };
-
-    Some(BezierCurveData {
+        Some(BezierCurveData {
         control_points,
         tangents1,
         tangents2,
