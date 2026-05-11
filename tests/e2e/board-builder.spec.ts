@@ -51,13 +51,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const jsonContent = await textarea.inputValue();
     expect(jsonContent.length).toBeGreaterThan(0);
     
-    const parsedState = JSON.parse(jsonContent) as {
-      volume: number;
+        const parsedState = JSON.parse(jsonContent) as {
+      length: number;
       outline?: { controlPoints: unknown[] };
     };
     
     // Assert the state correctly reflects the populated curves
-    expect(parsedState.volume).toBeGreaterThan(10); // Dynamically calculated, just ensure it's a valid size
+    expect(parsedState.length).toBeGreaterThan(10);
     expect(parsedState.outline).toBeDefined();
     expect(Array.isArray(parsedState.outline?.controlPoints)).toBe(true);
     expect(parsedState.outline!.controlPoints.length).toBeGreaterThan(2);
