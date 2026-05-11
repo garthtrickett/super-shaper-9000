@@ -1,6 +1,6 @@
+use approx::AbsDiffEq;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
-use approx::AbsDiffEq;
 
 fn default_one() -> f32 {
     1.0
@@ -122,27 +122,40 @@ pub struct BoardModel {
 
 impl approx::AbsDiffEq for BezierCurveData {
     type Epsilon = f32;
-    fn default_epsilon() -> f32 { f32::EPSILON }
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
     fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        if self.control_points.len() != other.control_points.len() ||
-           self.tangents1.len() != other.tangents1.len() ||
-           self.tangents2.len() != other.tangents2.len() {
+        if self.control_points.len() != other.control_points.len()
+            || self.tangents1.len() != other.tangents1.len()
+            || self.tangents2.len() != other.tangents2.len()
+        {
             return false;
         }
         for (a, b) in self.control_points.iter().zip(other.control_points.iter()) {
-            if a.distance(*b) > epsilon { return false; }
+            if a.distance(*b) > epsilon {
+                return false;
+            }
         }
         for (a, b) in self.tangents1.iter().zip(other.tangents1.iter()) {
-            if a.distance(*b) > epsilon { return false; }
+            if a.distance(*b) > epsilon {
+                return false;
+            }
         }
         for (a, b) in self.tangents2.iter().zip(other.tangents2.iter()) {
-            if a.distance(*b) > epsilon { return false; }
+            if a.distance(*b) > epsilon {
+                return false;
+            }
         }
         match (&self.weights, &other.weights) {
             (Some(wa), Some(wb)) => {
-                if wa.len() != wb.len() { return false; }
+                if wa.len() != wb.len() {
+                    return false;
+                }
                 for (a, b) in wa.iter().zip(wb.iter()) {
-                    if (a - b).abs() > epsilon { return false; }
+                    if (a - b).abs() > epsilon {
+                        return false;
+                    }
                 }
             }
             (None, None) => {}
@@ -152,7 +165,9 @@ impl approx::AbsDiffEq for BezierCurveData {
     }
 }
 impl approx::RelativeEq for BezierCurveData {
-    fn default_max_relative() -> f32 { f32::EPSILON }
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
     fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
         self.abs_diff_eq(other, epsilon)
     }
@@ -160,15 +175,19 @@ impl approx::RelativeEq for BezierCurveData {
 
 impl approx::AbsDiffEq for OutlineLayer {
     type Epsilon = f32;
-    fn default_epsilon() -> f32 { f32::EPSILON }
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
     fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        self.name == other.name &&
-        self.otl_ext.abs_diff_eq(&other.otl_ext, epsilon) &&
-        self.otl_int.abs_diff_eq(&other.otl_int, epsilon)
+        self.name == other.name
+            && self.otl_ext.abs_diff_eq(&other.otl_ext, epsilon)
+            && self.otl_int.abs_diff_eq(&other.otl_int, epsilon)
     }
 }
 impl approx::RelativeEq for OutlineLayer {
-    fn default_max_relative() -> f32 { f32::EPSILON }
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
     fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
         self.abs_diff_eq(other, epsilon)
     }
@@ -176,18 +195,24 @@ impl approx::RelativeEq for OutlineLayer {
 
 impl approx::AbsDiffEq for ChannelLayer {
     type Epsilon = f32;
-    fn default_epsilon() -> f32 { f32::EPSILON }
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
     fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        self.name == other.name &&
-        self.is_symmetric == other.is_symmetric &&
-        self.left_outline.abs_diff_eq(&other.left_outline, epsilon) &&
-        self.right_outline.abs_diff_eq(&other.right_outline, epsilon) &&
-        self.left_depth.abs_diff_eq(&other.left_depth, epsilon) &&
-        self.right_depth.abs_diff_eq(&other.right_depth, epsilon)
+        self.name == other.name
+            && self.is_symmetric == other.is_symmetric
+            && self.left_outline.abs_diff_eq(&other.left_outline, epsilon)
+            && self
+                .right_outline
+                .abs_diff_eq(&other.right_outline, epsilon)
+            && self.left_depth.abs_diff_eq(&other.left_depth, epsilon)
+            && self.right_depth.abs_diff_eq(&other.right_depth, epsilon)
     }
 }
 impl approx::RelativeEq for ChannelLayer {
-    fn default_max_relative() -> f32 { f32::EPSILON }
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
     fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
         self.abs_diff_eq(other, epsilon)
     }
@@ -195,52 +220,110 @@ impl approx::RelativeEq for ChannelLayer {
 
 impl approx::AbsDiffEq for BoardModel {
     type Epsilon = f32;
-    fn default_epsilon() -> f32 { f32::EPSILON }
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
     fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
-        f32::abs_diff_eq(&self.length, &other.length, epsilon) &&
-        f32::abs_diff_eq(&self.width, &other.width, epsilon) &&
-        f32::abs_diff_eq(&self.thickness, &other.thickness, epsilon) &&
-        self.fin_setup == other.fin_setup &&
-        f32::abs_diff_eq(&self.front_fin_z, &other.front_fin_z, epsilon) &&
-        f32::abs_diff_eq(&self.front_fin_x, &other.front_fin_x, epsilon) &&
-        f32::abs_diff_eq(&self.rear_fin_z, &other.rear_fin_z, epsilon) &&
-        f32::abs_diff_eq(&self.rear_fin_x, &other.rear_fin_x, epsilon) &&
-        f32::abs_diff_eq(&self.toe_angle, &other.toe_angle, epsilon) &&
-        f32::abs_diff_eq(&self.cant_angle, &other.cant_angle, epsilon) &&
-        self.core_material == other.core_material &&
-        self.glassing_schedule == other.glassing_schedule &&
-        self.tail_type == other.tail_type &&
-        f32::abs_diff_eq(&self.swallow_depth, &other.swallow_depth, epsilon) &&
-        f32::abs_diff_eq(&self.v_concave_tail, &other.v_concave_tail, epsilon) &&
-        f32::abs_diff_eq(&self.v_concave_nose, &other.v_concave_nose, epsilon) &&
-        f32::abs_diff_eq(&self.rail_coefficient_tail, &other.rail_coefficient_tail, epsilon) &&
-        f32::abs_diff_eq(&self.rail_coefficient_nose, &other.rail_coefficient_nose, epsilon) &&
-        f32::abs_diff_eq(&self.thickness_z_stretch, &other.thickness_z_stretch, epsilon) &&
-        
-        (match (&self.outline, &other.outline) { (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon), (None, None) => true, _ => false }) &&
-        (match (&self.rail_outline, &other.rail_outline) { (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon), (None, None) => true, _ => false }) &&
-        (match (&self.apex_outline, &other.apex_outline) { (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon), (None, None) => true, _ => false }) &&
-        (match (&self.rocker_top, &other.rocker_top) { (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon), (None, None) => true, _ => false }) &&
-        (match (&self.rocker_bottom, &other.rocker_bottom) { (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon), (None, None) => true, _ => false }) &&
-        (match (&self.apex_rocker, &other.apex_rocker) { (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon), (None, None) => true, _ => false }) &&
-        (match (&self.deck_shoulder, &other.deck_shoulder) { (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon), (None, None) => true, _ => false }) &&
-        
-        self.cross_sections.len() == other.cross_sections.len() &&
-        self.cross_sections.iter().zip(other.cross_sections.iter()).all(|(a, b)| a.abs_diff_eq(b, epsilon)) &&
-        
-        (match (&self.outline_layers, &other.outline_layers) {
-            (Some(la), Some(lb)) => la.len() == lb.len() && la.iter().zip(lb.iter()).all(|(a, b)| a.abs_diff_eq(b, epsilon)),
-            (None, None) => true, _ => false
-        }) &&
-        
-        (match (&self.bottom_channels, &other.bottom_channels) {
-            (Some(ca), Some(cb)) => ca.len() == cb.len() && ca.iter().zip(cb.iter()).all(|(a, b)| a.abs_diff_eq(b, epsilon)),
-            (None, None) => true, _ => false
-        })
+        f32::abs_diff_eq(&self.length, &other.length, epsilon)
+            && f32::abs_diff_eq(&self.width, &other.width, epsilon)
+            && f32::abs_diff_eq(&self.thickness, &other.thickness, epsilon)
+            && self.fin_setup == other.fin_setup
+            && f32::abs_diff_eq(&self.front_fin_z, &other.front_fin_z, epsilon)
+            && f32::abs_diff_eq(&self.front_fin_x, &other.front_fin_x, epsilon)
+            && f32::abs_diff_eq(&self.rear_fin_z, &other.rear_fin_z, epsilon)
+            && f32::abs_diff_eq(&self.rear_fin_x, &other.rear_fin_x, epsilon)
+            && f32::abs_diff_eq(&self.toe_angle, &other.toe_angle, epsilon)
+            && f32::abs_diff_eq(&self.cant_angle, &other.cant_angle, epsilon)
+            && self.core_material == other.core_material
+            && self.glassing_schedule == other.glassing_schedule
+            && self.tail_type == other.tail_type
+            && f32::abs_diff_eq(&self.swallow_depth, &other.swallow_depth, epsilon)
+            && f32::abs_diff_eq(&self.v_concave_tail, &other.v_concave_tail, epsilon)
+            && f32::abs_diff_eq(&self.v_concave_nose, &other.v_concave_nose, epsilon)
+            && f32::abs_diff_eq(
+                &self.rail_coefficient_tail,
+                &other.rail_coefficient_tail,
+                epsilon,
+            )
+            && f32::abs_diff_eq(
+                &self.rail_coefficient_nose,
+                &other.rail_coefficient_nose,
+                epsilon,
+            )
+            && f32::abs_diff_eq(
+                &self.thickness_z_stretch,
+                &other.thickness_z_stretch,
+                epsilon,
+            )
+            && (match (&self.outline, &other.outline) {
+                (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.rail_outline, &other.rail_outline) {
+                (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.apex_outline, &other.apex_outline) {
+                (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.rocker_top, &other.rocker_top) {
+                (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.rocker_bottom, &other.rocker_bottom) {
+                (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.apex_rocker, &other.apex_rocker) {
+                (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.deck_shoulder, &other.deck_shoulder) {
+                (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && self.cross_sections.len() == other.cross_sections.len()
+            && self
+                .cross_sections
+                .iter()
+                .zip(other.cross_sections.iter())
+                .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+            && (match (&self.outline_layers, &other.outline_layers) {
+                (Some(la), Some(lb)) => {
+                    la.len() == lb.len()
+                        && la
+                            .iter()
+                            .zip(lb.iter())
+                            .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+                }
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.bottom_channels, &other.bottom_channels) {
+                (Some(ca), Some(cb)) => {
+                    ca.len() == cb.len()
+                        && ca
+                            .iter()
+                            .zip(cb.iter())
+                            .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+                }
+                (None, None) => true,
+                _ => false,
+            })
     }
 }
 impl approx::RelativeEq for BoardModel {
-    fn default_max_relative() -> f32 { f32::EPSILON }
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
     fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
         self.abs_diff_eq(other, epsilon)
     }

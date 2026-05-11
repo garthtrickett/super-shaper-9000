@@ -196,7 +196,7 @@ fn convert_s3dx_bezier3d(
         return None;
     }
 
-        let all_ones = weights.iter().all(|&w| (w - 1.0).abs() < 1e-5);
+    let all_ones = weights.iter().all(|&w| (w - 1.0).abs() < 1e-5);
     let final_weights = if weights.is_empty() || all_ones {
         None
     } else {
@@ -406,7 +406,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-        use approx::assert_relative_eq;
+    use approx::assert_relative_eq;
 
     #[test]
     fn test_akushaper_plank_parity() {
@@ -561,7 +561,7 @@ mod tests {
             "Last cross section should be near the tail (positive Z)"
         );
 
-                let weights_opt = model.cross_sections[0].weights.as_ref();
+        let weights_opt = model.cross_sections[0].weights.as_ref();
         assert!(
             weights_opt.is_none() || weights_opt.unwrap()[0] == 1.0,
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"

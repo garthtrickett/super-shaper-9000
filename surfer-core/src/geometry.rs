@@ -2103,10 +2103,10 @@ mod tests {
         assert!(pt_mod.y < pt_base.y, "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail");
     }
 
-        #[test]
+    #[test]
     fn test_2d_curve_parity() {
         // Simulating a known 2D curve to verify evaluation parity with industry standard CAD
-                let outline = BezierCurveData {
+        let outline = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6667)],
             tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
@@ -2116,8 +2116,16 @@ mod tests {
         let hint_t = 0.5;
         let pt = evaluate_bezier_at_z(&outline, z_target, hint_t);
         // By symmetry of the handles, exactly at Z=50, X should be 5.0
-        assert!((pt.x - 5.0).abs() < 1e-3, "2D Curve Parity failed: X={}, expected 5.0", pt.x);
-        assert!((pt.z - 50.0).abs() < 1e-3, "2D Curve Parity failed: Z={}, expected 50.0", pt.z);
+        assert!(
+            (pt.x - 5.0).abs() < 1e-3,
+            "2D Curve Parity failed: X={}, expected 5.0",
+            pt.x
+        );
+        assert!(
+            (pt.z - 50.0).abs() < 1e-3,
+            "2D Curve Parity failed: Z={}, expected 50.0",
+            pt.z
+        );
     }
 
     #[test]
@@ -2144,17 +2152,41 @@ mod tests {
         });
         model.cross_sections = vec![
             BezierCurveData {
-                control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0)],
-                tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(5.0, -1.0, 0.0), Vec3::new(5.0, 1.0, 0.0)],
-                tangents2: vec![Vec3::new(5.0, -1.0, 0.0), Vec3::new(10.0, 0.5, 0.0), Vec3::new(0.0, 1.0, 0.0)],
+                control_points: vec![
+                    Vec3::new(0.0, -1.0, 0.0),
+                    Vec3::new(10.0, 0.0, 0.0),
+                    Vec3::new(0.0, 1.0, 0.0),
+                ],
+                tangents1: vec![
+                    Vec3::new(0.0, -1.0, 0.0),
+                    Vec3::new(5.0, -1.0, 0.0),
+                    Vec3::new(5.0, 1.0, 0.0),
+                ],
+                tangents2: vec![
+                    Vec3::new(5.0, -1.0, 0.0),
+                    Vec3::new(10.0, 0.5, 0.0),
+                    Vec3::new(0.0, 1.0, 0.0),
+                ],
                 ..Default::default()
             },
             BezierCurveData {
-                control_points: vec![Vec3::new(0.0, -1.0, 100.0), Vec3::new(10.0, 0.0, 100.0), Vec3::new(0.0, 1.0, 100.0)],
-                tangents1: vec![Vec3::new(0.0, -1.0, 100.0), Vec3::new(5.0, -1.0, 100.0), Vec3::new(5.0, 1.0, 100.0)],
-                tangents2: vec![Vec3::new(5.0, -1.0, 100.0), Vec3::new(10.0, 0.5, 100.0), Vec3::new(0.0, 1.0, 100.0)],
+                control_points: vec![
+                    Vec3::new(0.0, -1.0, 100.0),
+                    Vec3::new(10.0, 0.0, 100.0),
+                    Vec3::new(0.0, 1.0, 100.0),
+                ],
+                tangents1: vec![
+                    Vec3::new(0.0, -1.0, 100.0),
+                    Vec3::new(5.0, -1.0, 100.0),
+                    Vec3::new(5.0, 1.0, 100.0),
+                ],
+                tangents2: vec![
+                    Vec3::new(5.0, -1.0, 100.0),
+                    Vec3::new(10.0, 0.5, 100.0),
+                    Vec3::new(0.0, 1.0, 100.0),
+                ],
                 ..Default::default()
-            }
+            },
         ];
 
         let profile = get_board_profile_at_z(&model, 50.0, 0.5);
@@ -2190,7 +2222,10 @@ mod tests {
         let u = 0.5;
         let z = 99.99;
         let n = get_surface_normal_at_uvz(&model, u, z, 1.0);
-        assert!(!n.is_nan(), "Normal should not be NaN near pin tail singularity");
+        assert!(
+            !n.is_nan(),
+            "Normal should not be NaN near pin tail singularity"
+        );
     }
 
     #[test]
@@ -2227,7 +2262,7 @@ mod tests {
             ..Default::default()
         });
 
-                // The notch is at Z=95, the tip is at Z=100.
+        // The notch is at Z=95, the tip is at Z=100.
         // At Z=98, the stringer is empty (cut out by the swallow). We evaluate the surface normal on the rail.
         // The normal should be well defined
         let n = get_surface_normal_at_uvz(&model, 0.5, 98.0, 1.0);

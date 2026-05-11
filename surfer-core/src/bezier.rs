@@ -322,7 +322,7 @@ pub fn evaluate_composite_pos_and_tangent(curve: &BezierCurveData, t: f32) -> (V
         )
     };
 
-        let tan = if d1.length_squared() > 1e-6 {
+    let tan = if d1.length_squared() > 1e-6 {
         d1.normalize()
     } else {
         // Fallback to secant numerical approximation if exact derivative is zero (handles on top of anchor)
