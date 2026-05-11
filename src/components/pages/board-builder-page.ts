@@ -56,6 +56,38 @@ export class BoardBuilderPage extends LitElement {
 
   protected override createRenderRoot() { return this; }
 
+        private async _handleExportObj() {
+      try {
+        const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+        if (!worker) return;
+        
+        const objText = await new Promise<string>((resolve) => {
+          const id = Math.random().toString();
+          const handler = (e: MessageEvent) => {
+            const data = e.data as { type: string; id?: string; obj?: string };
+            if (data.type === "EXPORT_OBJ_RESULT" && data.id === id) {
+              worker.removeEventListener("message", handler);
+              resolve(data.obj!);
+            }
+          };
+          worker.addEventListener("message", handler);
+          worker.postMessage({ type: "EXPORT_OBJ", id });
+        });
+
+        const state = this.wasmCtrl.model;
+        const length = state ? state.length.toFixed(1) : "Unknown";
+        const blob = new Blob([objText], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `SuperShaper_${length}.obj`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.error("Failed to export OBJ", e);
+      }
+    }
+
     private async _handleExportS3dx() {
     try {
       const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
@@ -341,7 +373,8 @@ export class BoardBuilderPage extends LitElement {
                     .bottomChannels=${state.bottomChannels ||[]}
           .foilData=${foilData}
           @export-design=${() => this.showExportModal = true}
-          @export-s3dx=${() => void this._handleExportS3dx()}
+                    @export-s3dx=${() => void this._handleExportS3dx()}
+          @export-obj=${() => void this._handleExportObj()}
           @import-design=${() => this.showImportModal = true}
                     @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this.wasmCtrl.propose({ type: e.detail.type, factor: e.detail.factor })}
                     @add-outline-layer=${() => this.wasmCtrl.propose({ type: 'ADD_OUTLINE_LAYER' })}

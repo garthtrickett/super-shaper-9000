@@ -5,7 +5,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
     xml.push_str("<Version>9</Version>\n<VersionNumber>9.1.0.4</VersionNumber>\n");
-        xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.3}</Length>\n<Width>{:.3}</Width>\n<Thickness>{:.3}</Thickness>\n", model.length, model.width, model.thickness));
+    xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.3}</Length>\n<Width>{:.3}</Width>\n<Thickness>{:.3}</Thickness>\n", model.length, model.width, model.thickness));
     let mesh = crate::mesh::generate_mesh(model);
     xml.push_str(&format!("<Volume>{:.3}</Volume>\n", mesh.volume_liters));
 
@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn test_export_s3dx_basic_structure() {
         let mut model = BoardModel::default();
-                model.length = 72.5;
+        model.length = 72.5;
         model.width = 20.25;
         model.thickness = 2.625;
 
@@ -196,7 +196,7 @@ mod tests {
         // Verify numerical formatting (should be to 3 decimal places)
         assert!(xml.contains("<Length>72.500</Length>"));
         assert!(xml.contains("<Width>20.250</Width>"));
-                assert!(xml.contains("<Thickness>2.625</Thickness>"));
+        assert!(xml.contains("<Thickness>2.625</Thickness>"));
         // Volume is dynamically computed from mesh now, we don't strictly assert the exact value here
 
         // Ensure it successfully closes

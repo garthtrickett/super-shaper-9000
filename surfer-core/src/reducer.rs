@@ -532,7 +532,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     model.show_zebra = Some(false);
                 }
             }
-                        _ => {}
+            _ => {}
         },
         BoardAction::LoadDesign { state } => {
             *model = *state;

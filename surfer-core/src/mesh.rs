@@ -3,7 +3,7 @@ use crate::model::{BoardModel, RawGeometryData};
 use glam::Vec3;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
-        log::info!(
+    log::info!(
         "[Rust core] generate_mesh: Rebuilding for length {:.1}",
         model.length
     );

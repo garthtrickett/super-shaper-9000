@@ -2,6 +2,7 @@ pub mod bezier;
 pub mod geometry;
 pub mod mesh;
 pub mod model;
+pub mod obj_exporter;
 pub mod reducer;
 pub mod s3dx_exporter;
 pub mod s3dx_parser;

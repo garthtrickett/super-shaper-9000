@@ -149,10 +149,14 @@ export class BoardControls extends LitElement {
     return html`
       <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar">
         <!-- Import / Export Actions -->
-        <div class="grid grid-cols-2 gap-2 mb-2">
+                <div class="grid grid-cols-2 gap-2 mb-2">
           <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
           <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export JSON</button>
-          
+        </div>
+        <div class="mb-2">
+          <button @click=${() => this.dispatchEvent(new CustomEvent('export-obj', { bubbles: true, composed: true }))} class="w-full bg-purple-600 hover:bg-purple-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export OBJ (3D Mesh)</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-2">
           <label class="col-span-2 flex items-center justify-between mt-2 bg-zinc-800 p-2 rounded cursor-pointer hover:bg-zinc-700 transition">
             <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Show Control Points</span>
             <input 

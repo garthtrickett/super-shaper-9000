@@ -274,7 +274,7 @@ impl From<S3dxBoard> for BoardModel {
         // Safely infer CM to Inches if the board is unreasonably long (> 130 units)
         let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
 
-                model.length = bl * scale;
+        model.length = bl * scale;
         model.width = s3dx.width * scale;
         model.thickness = s3dx.thickness * scale;
 
@@ -404,6 +404,58 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+
+        use approx::assert_relative_eq;
+
+    #[test]
+    fn test_akushaper_plank_parity() {
+        // Golden plank: 100" length, 10" width, 10" thickness, rectangular.
+        let xml = r#"<?xml version="1.0" encoding="iso-8859-1"?>
+<Shape3d_design>
+	<Board>
+		<Length>100.0</Length>
+		<Width>10.0</Width>
+		<Thickness>10.0</Thickness>
+		<Otl>
+			<Bezier3d>
+				<Control_points>
+					<Polygone3d>
+						<Point3d><x>0.0</x><y>5.0</y><z>0.0</z></Point3d>
+						<Point3d><x>100.0</x><y>5.0</y><z>0.0</z></Point3d>
+					</Polygone3d>
+				</Control_points>
+			</Bezier3d>
+		</Otl>
+		<StrBot>
+			<Bezier3d>
+				<Control_points>
+					<Polygone3d>
+						<Point3d><x>0.0</x><y>0.0</y><z>0.0</z></Point3d>
+						<Point3d><x>100.0</x><y>0.0</y><z>0.0</z></Point3d>
+					</Polygone3d>
+				</Control_points>
+			</Bezier3d>
+		</StrBot>
+		<StrDeck>
+			<Bezier3d>
+				<Control_points>
+					<Polygone3d>
+						<Point3d><x>0.0</x><y>10.0</y><z>0.0</z></Point3d>
+						<Point3d><x>100.0</x><y>10.0</y><z>0.0</z></Point3d>
+					</Polygone3d>
+				</Control_points>
+			</Bezier3d>
+		</StrDeck>
+	</Board>
+</Shape3d_design>"#;
+        let model = parse_s3dx(xml).expect("Failed to parse plank S3DX");
+        assert_relative_eq!(model.length, 100.0, epsilon = 1e-4);
+        assert_relative_eq!(model.width, 10.0, epsilon = 1e-4);
+        assert_relative_eq!(model.thickness, 10.0, epsilon = 1e-4);
+
+        let profile = crate::geometry::get_board_profile_at_z(&model, 50.0, 0.5);
+        assert_relative_eq!(profile.half_width * 2.0, 10.0, epsilon = 1e-4);
+    }
 
     #[test]
     fn can_convert_s3dx_to_board_model() {

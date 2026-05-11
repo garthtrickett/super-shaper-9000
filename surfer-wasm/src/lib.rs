@@ -130,9 +130,18 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-    pub fn export_s3dx(&self) -> Result<String, JsValue> {
+        pub fn export_s3dx(&self) -> Result<String, JsValue> {
         Ok(surfer_core::s3dx_exporter::export_s3dx(
             self.engine.get_model(),
+        ))
+    }
+
+    #[wasm_bindgen]
+    pub fn export_obj(&self) -> Result<String, JsValue> {
+        let mesh = self.engine.compute_mesh();
+        Ok(surfer_core::obj_exporter::export_obj(
+            self.engine.get_model(),
+            &mesh
         ))
     }
 }

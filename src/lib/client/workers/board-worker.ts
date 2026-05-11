@@ -47,9 +47,15 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
         return;
     }
 
-        if (msg.type === "EXPORT_S3DX") {
+                if (msg.type === "EXPORT_S3DX") {
         const xml = engine.export_s3dx();
         (self as unknown as Worker).postMessage({ type: "EXPORT_S3DX_RESULT", id: msg.id, seq: msg.seq, xml });
+        return;
+    }
+
+    if (msg.type === "EXPORT_OBJ") {
+        const obj = engine.export_obj();
+        (self as unknown as Worker).postMessage({ type: "EXPORT_OBJ_RESULT", id: msg.id, seq: msg.seq, obj });
         return;
     }
 
