@@ -6,7 +6,7 @@ test.describe('Visual Regression', () => {
   test('Zebra Flow analysis matches golden snapshot', async ({ page }) => {
     // Suppress expected console errors for cleaner test output
     page.on('console', msg => {
-      if (msg.type() === 'error') console.log(`[Browser Error] ${msg.text()}`);
+      if (msg.type() === 'error') console.info(`[Browser Error] ${msg.text()}`);
     });
 
     await page.goto('/');
@@ -70,7 +70,14 @@ test.describe('Visual Regression', () => {
 
     // 4. Freeze Zebra animation for deterministic screenshots
     await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      type BoardViewportElement = HTMLElement & {
+        zebraOffset: number;
+        textureManager?: {
+          updateZebraCanvas: (offset: number) => void;
+        };
+      };
+      
+            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (vp && vp.textureManager) {
         vp.zebraOffset = 0;
         vp.textureManager.updateZebraCanvas(0);
