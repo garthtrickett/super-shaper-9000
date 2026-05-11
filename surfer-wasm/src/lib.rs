@@ -124,7 +124,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        pub fn get_foil_stats(&self) -> Result<JsValue, JsValue> {
+    pub fn get_foil_stats(&self) -> Result<JsValue, JsValue> {
         let stats = self.engine.compute_foil_stats();
         Ok(Float32Array::from(stats.as_slice()).into())
     }
@@ -141,13 +141,41 @@ impl WasmEngine {
         let profile = surfer_core::geometry::get_board_profile_at_z(model, z, v_outer);
 
         let obj = Object::new();
-        Reflect::set(&obj, &JsValue::from_str("topY"), &JsValue::from_f64(profile.top_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("botY"), &JsValue::from_f64(profile.bot_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("apexX"), &JsValue::from_f64(profile.apex_x as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("apexY"), &JsValue::from_f64(profile.apex_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("tuckX"), &JsValue::from_f64(profile.tuck_x as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("tuckY"), &JsValue::from_f64(profile.tuck_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("halfWidth"), &JsValue::from_f64(profile.half_width as f64))?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("topY"),
+            &JsValue::from_f64(profile.top_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("botY"),
+            &JsValue::from_f64(profile.bot_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("apexX"),
+            &JsValue::from_f64(profile.apex_x as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("apexY"),
+            &JsValue::from_f64(profile.apex_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("tuckX"),
+            &JsValue::from_f64(profile.tuck_x as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("tuckY"),
+            &JsValue::from_f64(profile.tuck_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("halfWidth"),
+            &JsValue::from_f64(profile.half_width as f64),
+        )?;
         Ok(obj.into())
     }
 

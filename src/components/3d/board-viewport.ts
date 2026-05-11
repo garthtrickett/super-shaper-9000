@@ -79,7 +79,7 @@ export class BoardViewport extends LitElement {
       CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
     }
     
-        if (changedProperties.has("boardState") && this.boardState) {
+                if ((changedProperties.has("boardState") || changedProperties.has("mathEngine")) && this.boardState) {
       this.interactionManager?.setBoardState(this.boardState);
       const oldState = changedProperties.get("boardState") as BoardModel | undefined;
       let needsFullGeometryUpdate = false;
@@ -117,7 +117,7 @@ export class BoardViewport extends LitElement {
         shouldUpdateSolidMesh = true;
       }
 
-      if (needsFullGeometryUpdate) {
+            if (needsFullGeometryUpdate || changedProperties.has("mathEngine")) {
         clearTimeout(this.geometryUpdateDebounceId);
         void this._updateGeometry();
       } else if (isManualDragUpdate) {

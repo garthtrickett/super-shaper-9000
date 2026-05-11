@@ -3,6 +3,7 @@ import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
+import initWasm, { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
 import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builder-page.logic";
 import type { RustMesh } from "../3d/board-viewport";
 import "../3d/board-viewport";
@@ -13,7 +14,9 @@ import "../ui/foil-graph";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
-      private wasmCtrl = new WasmSamController(this);
+        private wasmCtrl = new WasmSamController(this);
+
+  @state() private mathEngine?: WasmEngine;
 
         @state() private boardSnapshot?: { state: BoardModel, mesh: RustMesh, curvatureCombs: Float32Array, foilData: Float32Array };
 
@@ -40,8 +43,13 @@ export class BoardBuilderPage extends LitElement {
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
     }
-                                if (data.type === "STATE_UPDATED") {
+                                                                if (data.type === "STATE_UPDATED") {
       const stateData = data as unknown as { state: BoardModel, mesh: RustMesh, curvatureCombs: Float32Array, foilData: Float32Array };
+      
+      if (this.mathEngine) {
+        this.mathEngine.propose({ type: "LOAD_DESIGN", state: stateData.state });
+      }
+
       this.boardSnapshot = {
         state: stateData.state,
         mesh: stateData.mesh,
@@ -207,9 +215,18 @@ export class BoardBuilderPage extends LitElement {
     }
   };
 
-    override connectedCallback() {
+        override connectedCallback() {
     super.connectedCallback();
     window.addEventListener("keydown", this._handleKeyDown);
+
+    initWasm().then(() => {
+      this.mathEngine = new WasmEngine();
+      if (this.wasmCtrl.model) {
+        this.mathEngine.propose({ type: "LOAD_DESIGN", state: this.wasmCtrl.model });
+      }
+      this.requestUpdate();
+    });
+
         setTimeout(() => {
       const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
       if (worker) {
@@ -410,7 +427,7 @@ export class BoardBuilderPage extends LitElement {
           .boardState=${state}
           .meshData=${mesh}
           .curvatureCombs=${curvatureCombs}
-          .mathEngine=${(this.wasmCtrl as unknown as { mathEngine?: WasmEngine }).mathEngine}
+                    .mathEngine=${this.mathEngine}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected
