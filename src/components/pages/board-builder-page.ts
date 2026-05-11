@@ -227,8 +227,8 @@ export class BoardBuilderPage extends LitElement {
     super.willUpdate(changedProperties);
     // Sync the main-thread mathEngine with the controller's model before every render.
     if (this.mathEngine) {
-        try {
-            const cleanState = JSON.parse(JSON.stringify(this.wasmCtrl.model || INITIAL_STATE));
+                try {
+            const cleanState = JSON.parse(JSON.stringify(this.wasmCtrl.model || INITIAL_STATE)) as BoardModel;
             this.mathEngine.propose({ type: "LOAD_DESIGN", state: cleanState });
         } catch (err) {
             console.error("Failed to sync main thread mathEngine:", err);
@@ -299,11 +299,11 @@ export class BoardBuilderPage extends LitElement {
     `;
   }
 
-        override render() {
+                override render() {
     const state = this.wasmCtrl.model || INITIAL_STATE;
-    const mesh = this.wasmCtrl.mesh;
-    const curvatureCombs = this.wasmCtrl.curvatureCombs;
-    const foilData = this.wasmCtrl.foilData;
+    const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
+    const curvatureCombs = (this.wasmCtrl as unknown as { curvatureCombs?: Float32Array }).curvatureCombs;
+    const foilData = (this.wasmCtrl as unknown as { foilData?: Float32Array }).foilData;
 
     return html`
             ${this._renderExportModal()}
