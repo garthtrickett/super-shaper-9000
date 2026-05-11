@@ -1,10 +1,9 @@
 import * as THREE from "three";
 import type { BoardModel } from "../../pages/board-builder-page.logic";
-import type { BoardCurves } from "../../../lib/client/geometry/board-curves";
-import { MeshGeneratorService } from "../../../lib/client/geometry/mesh-generator";
+import type { WasmEngine } from "../../../lib/client/wasm/surfer_wasm.js";
 
 export class FinBuilder {
-  static build(group: THREE.Group, boardState: BoardModel, curves: BoardCurves, scale: number) {
+  static build(group: THREE.Group, boardState: BoardModel, mathEngine: WasmEngine, scale: number) {
     while (group.children.length > 0) {
         const child = group.children[0] as THREE.Mesh;
         if (child.geometry) child.geometry.dispose();
@@ -96,18 +95,18 @@ export class FinBuilder {
         finContainer.add(finBlueprint);
 
         // 3. Position the container on the board
-        const zLoc = (boardState.length / 2) - zFromTail;
-        const profile = MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zLoc);
+                const zLoc = (boardState.length / 2) - zFromTail;
+        const profile = mathEngine.get_profile_at_z(zLoc);
         const xPos = isCenter ? 0 : (profile.halfWidth - railOffset);
         const actualX = isRight ? xPos : -xPos;
-        const yPos = MeshGeneratorService.getBottomYAt(boardState, curves, actualX, zLoc);
+        const yPos = mathEngine.get_bottom_y_at(zLoc, actualX);
 
         finContainer.position.set(actualX * scale, yPos * scale, zLoc * scale);
         
         // 4. Align to Rocker (pitch) but ignore local Concave/Channel slope for absolute Cant & Pitch control
         const delta = 0.5;
-        const pitchYC = MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zLoc).botY;
-        const pitchYF = MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zLoc - delta).botY;
+        const pitchYC = mathEngine.get_profile_at_z(zLoc).botY;
+        const pitchYF = mathEngine.get_profile_at_z(zLoc - delta).botY;
         
         const pRockerC = new THREE.Vector3(actualX, pitchYC, zLoc);
         const pRockerF = new THREE.Vector3(actualX, pitchYF, zLoc - delta);

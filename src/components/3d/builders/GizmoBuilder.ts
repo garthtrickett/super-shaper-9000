@@ -1,15 +1,14 @@
 import * as THREE from "three";
-import { BoardCurves } from "../../../lib/client/geometry/board-curves"; 
-import { MeshGeneratorService } from "../../../lib/client/geometry/mesh-generator"; 
 import type { BoardModel, BezierCurveData } from "../../pages/board-builder-page.logic";
 import { clientLog } from "../../../lib/client/clientLog";
 import { runClientUnscoped } from "../../../lib/client/runtime";
+import type { WasmEngine } from "../../../lib/client/wasm/surfer_wasm.js";
 
 export class GizmoBuilder {
   static build(
     group: THREE.Group, 
     boardState: BoardModel,
-    curves: BoardCurves, 
+    mathEngine: WasmEngine, 
     scale: number,
     matAnchor: THREE.Material,
     matHandle: THREE.Material
@@ -30,25 +29,25 @@ export class GizmoBuilder {
     const handleGeo = new THREE.BoxGeometry(0.3 * scale, 0.3 * scale, 0.3 * scale);
     const lineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
 
-        const getZHeight = (curveName: string, yInches: number, zInches: number) => {
+                const getZHeight = (curveName: string, yInches: number, zInches: number) => {
+        const profile = mathEngine.get_profile_at_z(zInches);
         if (['outline', 'apexOutline'].includes(curveName)) {
-            return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).apexY;
+            return profile.apexY;
         }
         if (curveName === 'railOutline') {
-            return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY;
+            return profile.botY;
         }
         if (curveName.startsWith('channel_') && curveName.endsWith('_outline')) {
-            return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY;
+            return profile.botY;
         }
                 if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
             // Vertically offset the depth curve gizmos slightly (-2.0 inches) so they don't visually overlap with the outline gizmos
-            return MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches).botY - 2.0 + yInches;
+            return profile.botY - 2.0 + yInches;
         }
                 if (curveName.startsWith('crossSection_')) {
             const idx = parseInt(curveName.split('_')[1] || "0", 10);
             const cs = boardState.crossSections?.[idx];
             if (cs && cs.controlPoints.length > 0) {
-                const profile = MeshGeneratorService.getBoardProfileAtZ(boardState, curves, zInches);
                 const rawBot = cs.controlPoints[0]![1];
                 const rawTop = cs.controlPoints[cs.controlPoints.length - 1]![1];
                 const rawH = Math.max(rawTop - rawBot, 0.0001);

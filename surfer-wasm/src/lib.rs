@@ -124,9 +124,61 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-    pub fn get_foil_stats(&self) -> Result<JsValue, JsValue> {
+        pub fn get_foil_stats(&self) -> Result<JsValue, JsValue> {
         let stats = self.engine.compute_foil_stats();
         Ok(Float32Array::from(stats.as_slice()).into())
+    }
+
+    #[wasm_bindgen]
+    pub fn get_profile_at_z(&self, z: f32) -> Result<JsValue, JsValue> {
+        let model = self.engine.get_model();
+        let bounds = surfer_core::geometry::get_board_bounds(model);
+        let outline = match &model.outline {
+            Some(o) => o,
+            None => return Err(JsValue::from_str("No outline found")),
+        };
+        let v_outer = surfer_core::geometry::find_v_at_z(outline, z, 0.0, bounds.tip_t);
+        let profile = surfer_core::geometry::get_board_profile_at_z(model, z, v_outer);
+
+        let obj = Object::new();
+        Reflect::set(&obj, &JsValue::from_str("topY"), &JsValue::from_f64(profile.top_y as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("botY"), &JsValue::from_f64(profile.bot_y as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("apexX"), &JsValue::from_f64(profile.apex_x as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("apexY"), &JsValue::from_f64(profile.apex_y as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("tuckX"), &JsValue::from_f64(profile.tuck_x as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("tuckY"), &JsValue::from_f64(profile.tuck_y as f64))?;
+        Reflect::set(&obj, &JsValue::from_str("halfWidth"), &JsValue::from_f64(profile.half_width as f64))?;
+        Ok(obj.into())
+    }
+
+    #[wasm_bindgen]
+    pub fn get_bottom_y_at(&self, z: f32, x: f32) -> f32 {
+        let model = self.engine.get_model();
+        let bounds = surfer_core::geometry::get_board_bounds(model);
+        let outline = match &model.outline {
+            Some(o) => o,
+            None => return 0.0,
+        };
+        let v_outer = surfer_core::geometry::find_v_at_z(outline, z, 0.0, bounds.tip_t);
+        let profile = surfer_core::geometry::get_board_profile_at_z(model, z, v_outer);
+
+        let inner_x = if z > bounds.notch_z {
+            surfer_core::geometry::evaluate_notch_inner_x(outline, bounds.tip_t, z)
+        } else {
+            0.0
+        };
+
+        let side = if x < 0.0 { -1.0 } else { 1.0 };
+        let abs_x = x.abs();
+
+        let u = if profile.half_width > 1e-4 {
+            (abs_x / profile.half_width).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        let pt = surfer_core::geometry::get_point_at_uv(model, u, v_outer, z, inner_x, side);
+        pt.y
     }
 
     #[wasm_bindgen]

@@ -5,8 +5,7 @@ import { customElement, property, query, state } from "lit/decorators.js";
 import type { PropertyValues } from "lit";
 import * as THREE from "three";
 import type { BoardModel, BezierCurveData } from "../pages/board-builder-page.logic";
-import { generateBoardCurves, type BoardCurves } from "../../lib/client/geometry/board-curves";
-import { MeshGeneratorService } from "../../lib/client/geometry/mesh-generator";
+import type { WasmEngine } from "../../lib/client/wasm/surfer_wasm.js";
 import { TextureManager } from "./managers/TextureManager";
 import { AnnotationBuilder } from "./builders/AnnotationBuilder";
 import { FinBuilder } from "./builders/FinBuilder";
@@ -54,7 +53,7 @@ export class BoardViewport extends LitElement {
   private apexLineGroup = new THREE.Group();
   private curvatureGroup = new THREE.Group();
     private zebraOffset = 0;
-  private latestCurves?: BoardCurves;
+  
   private mriClippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1000);
     
   private matAnchor = new THREE.MeshBasicMaterial({ color: 0x2563eb, depthTest: false });
@@ -166,11 +165,10 @@ export class BoardViewport extends LitElement {
     this.buildSolidMeshFromRust(this.meshData, scale);
   }
 
-  private async _updateGeometry() {
+    private _updateGeometry() {
     if (!this.boardState) return;
-    const curves: BoardCurves = await generateBoardCurves(this.boardState);
-    this.latestCurves = curves;
-    if (!curves.outline || curves.outline.length === 0) return;
+    const mathEngine = this.wasmCtrl.mathEngine;
+    if (!mathEngine) return; // Wait for WASM to initialize
     
     while (this.wireframeGroup.children.length > 0) {
         const child = this.wireframeGroup.children[0] as THREE.Line;
@@ -180,7 +178,7 @@ export class BoardViewport extends LitElement {
     }
 
     const scale = 1 / 12;
-    this.buildWireframe(curves, scale);
+    this.buildWireframe(mathEngine, scale);
 
     while (this.solidGroup.children.length > 0) {
         const child = this.solidGroup.children[0] as THREE.Mesh;
@@ -189,17 +187,16 @@ export class BoardViewport extends LitElement {
         this.solidGroup.remove(child);
     }
 
-        if (this.meshData) {
+    if (this.meshData) {
       this.buildSolidMeshFromRust(this.meshData, scale);
-    } else {
-      this.buildSolidMesh(curves, scale);
     }
-        FinBuilder.build(this.finGroup, this.boardState, curves, scale);
+    
+    FinBuilder.build(this.finGroup, this.boardState, mathEngine, scale);
     if (!this.interactionManager?.isDragging()) {
-      GizmoBuilder.build(this.gizmoGroup, this.boardState, curves, scale, this.matAnchor, this.matHandle);
+      GizmoBuilder.build(this.gizmoGroup, this.boardState, mathEngine, scale, this.matAnchor, this.matHandle);
     }
-    this.buildSliceLines(curves, scale);
-    this.buildApexLine(curves, scale);
+    this.buildSliceLines(mathEngine, scale);
+    this.buildApexLine(mathEngine, scale);
     CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, scale);
     AnnotationBuilder.build(this.annotationGroup, this.boardState, scale);
     this.solidGroup.visible = this.boardState?.showSolidMesh !== false;
@@ -207,13 +204,13 @@ export class BoardViewport extends LitElement {
     this.updateGizmoHighlights();
   }
   
-    private buildWireframe(curves: BoardCurves, scale: number) {
+        private buildWireframe(mathEngine: WasmEngine, scale: number) {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
 
     const projectY = (curveName: string, p: Point3D): Point3D => {
-      if (!this.boardState || !curves) return p;
-      const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, p[2]);
+      if (!this.boardState) return p;
+      const profile = mathEngine.get_profile_at_z(p[2]);
 
       let finalY = p[1];
       if (["outline", "apexOutline"].includes(curveName)) finalY = profile.apexY;
@@ -226,14 +223,14 @@ export class BoardViewport extends LitElement {
       ? this.sampleBezierCurve(this.boardState.outline, 100).map((p) =>
           projectY("outline", p),
         )
-      : curves.outline;
+      :[];
 
     const activeRockerTop = this.boardState?.rockerTop
       ? this.sampleBezierCurve(this.boardState.rockerTop, 100)
-      : curves.rockerTop;
+      :[];
     const activeRockerBottom = this.boardState?.rockerBottom
       ? this.sampleBezierCurve(this.boardState.rockerBottom, 100)
-      : curves.rockerBottom;
+      :[];
 
         const buildLine = (
       pts: [number, number, number][],
@@ -309,10 +306,10 @@ export class BoardViewport extends LitElement {
       const matChannelDepth = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.4 });
       
       this.boardState.bottomChannels.forEach(channel => {
-        const drawOutline = (curveData: BezierCurveData) => {
+                const drawOutline = (curveData: BezierCurveData) => {
            if (curveData && curveData.controlPoints.length > 0) {
               const sampledOutline = this.sampleBezierCurve(curveData, 50).map(p => {
-                 const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, p[2]);
+                 const profile = mathEngine.get_profile_at_z(p[2]);
                  return [p[0], profile.botY, p[2]] as Point3D;
               });
               const line = buildLine(sampledOutline, matChannelOutline, 1, false);
@@ -323,7 +320,7 @@ export class BoardViewport extends LitElement {
         const drawDepth = (curveData: BezierCurveData) => {
            if (curveData && curveData.controlPoints.length > 0) {
               const sampledDepth = this.sampleBezierCurve(curveData, 50).map(p => {
-                 const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState!, curves, p[2]);
+                 const profile = mathEngine.get_profile_at_z(p[2]);
                  return[p[0], profile.botY - 2.0 + p[1], p[2]] as Point3D;
               });
               this.wireframeGroup.add(buildLine(sampledDepth, matChannelDepth, 2, false));
@@ -387,56 +384,9 @@ export class BoardViewport extends LitElement {
     blueprintEdges.layers.set(5); this.solidGroup.add(blueprintEdges);
   }
 
-  private buildSolidMesh(curves: BoardCurves, _scale: number) {
-    const meshData = MeshGeneratorService.generateMesh(this.boardState!, curves);
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
-    geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
-    geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
-    geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
+  
 
-        if (meshData.colors && meshData.colors.length > 0) {
-      geom.setAttribute('color', new THREE.BufferAttribute(meshData.colors, 3));
-    }
-    const { map, bumpMap } = this.textureManager.getBoardTextures();
-        const standardMat = new THREE.MeshPhysicalMaterial({ 
-      map, bumpMap, bumpScale: 0.005, roughness: 0.4, metalness: 0.0, 
-      clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.5, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-      clippingPlanes: [this.mriClippingPlane]
-    });
-    const heatmapMat = new THREE.MeshStandardMaterial({ 
-      vertexColors: true, roughness: 0.8, side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-      clippingPlanes: [this.mriClippingPlane]
-    });
-    const zebraMat = new THREE.MeshStandardMaterial({ 
-      color: 0xffffff, metalness: 1.0, roughness: 0.0, envMap: this.textureManager.getZebraTexture(), side: THREE.DoubleSide,
-      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
-      clippingPlanes: [this.mriClippingPlane]
-    });
-    let activeMat: THREE.Material = standardMat;
-    if (this.boardState!.showHeatmap) activeMat = heatmapMat;
-    else if (this.boardState!.showZebra) activeMat = zebraMat;
-    const mesh = new THREE.Mesh(geom, activeMat);
-        mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
-    this.solidGroup.add(mesh);
-
-    const capMat = new THREE.MeshBasicMaterial({ color: 0x475569, side: THREE.BackSide, clippingPlanes: [this.mriClippingPlane] });
-    const capMesh = new THREE.Mesh(geom, capMat);
-    capMesh.layers.set(0);
-    this.solidGroup.add(capMesh);
-
-    const blueprintMat = new THREE.MeshBasicMaterial({ color: 0x09090b, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide, clippingPlanes: [this.mriClippingPlane] });
-    const blueprintMesh = new THREE.Mesh(geom, blueprintMat);
-    blueprintMesh.layers.set(5); this.solidGroup.add(blueprintMesh);
-    const edgesGeo = new THREE.EdgesGeometry(geom, 15);
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4, clippingPlanes: [this.mriClippingPlane] });
-    const blueprintEdges = new THREE.LineSegments(edgesGeo, edgesMat);
-    blueprintEdges.layers.set(5); this.solidGroup.add(blueprintEdges);
-  }
-
-  private buildApexLine(curves: BoardCurves, scale: number) {
+    private buildApexLine(mathEngine: WasmEngine, scale: number) {
     while (this.apexLineGroup.children.length > 0) {
       const child = this.apexLineGroup.children[0] as THREE.Line;
       child.geometry.dispose();
@@ -456,12 +406,8 @@ export class BoardViewport extends LitElement {
 
     // Ensure the Apex line follows the vertical rocker profile
     const sampled = this.sampleBezierCurve(activeApexOutline, 100).map((p) => {
-      const profile = MeshGeneratorService.getBoardProfileAtZ(
-        this.boardState!,
-        curves,
-        p[2],
-      );
-      return [p[0], profile.apexY, p[2]] as Point3D;
+      const profile = mathEngine.get_profile_at_z(p[2]);
+      return[p[0], profile.apexY, p[2]] as Point3D;
     });
 
     const ptsRight = sampled.map(
@@ -476,7 +422,7 @@ export class BoardViewport extends LitElement {
     this.apexLineGroup.visible = !!this.boardState?.showApexLine;
   }
 
-  private buildSliceLines(curves: BoardCurves, scale: number) {
+    private buildSliceLines(mathEngine: WasmEngine, scale: number) {
     while (this.sliceLinesGroup.children.length > 0) {
       const child = this.sliceLinesGroup.children[0] as THREE.Line;
       child.geometry.dispose(); (child.material as THREE.Material).dispose();
@@ -487,7 +433,7 @@ export class BoardViewport extends LitElement {
       crossSections.forEach((cs, idx) => {
         const curveName = `crossSection_${idx}`;
         const pts: THREE.Vector3[] = this.sampleBezierCurve(cs, 40).map(p => {
-          const worldY = this.getZHeight(curveName, p[1], p[2], curves);
+          const worldY = this.getZHeight(curveName, p[1], p[2], mathEngine);
           return new THREE.Vector3(p[0]*scale, worldY*scale, p[2]*scale);
         });
         const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z)).reverse();
@@ -504,25 +450,25 @@ export class BoardViewport extends LitElement {
     }
   }
   
-    private getZHeight(curveName: string, yInches: number, zInches: number, curves: BoardCurves): number {
+        private getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
     if (!this.boardState) return yInches;
+    const profile = mathEngine.get_profile_at_z(zInches);
     if (['outline', 'apexOutline'].includes(curveName)) {
-      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).apexY;
+      return profile.apexY;
     }
     if (curveName === 'railOutline') {
-      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).botY;
+      return profile.botY;
     }
     if (curveName.startsWith('channel_') && curveName.endsWith('_outline')) {
-      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).botY;
+      return profile.botY;
     }
     if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
-      return MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches).botY - 2.0 + yInches;
+      return profile.botY - 2.0 + yInches;
     }
         if (curveName.startsWith('crossSection_')) {
       const idx = parseInt(curveName.split('_')[1] || "0", 10);
       const cs = this.boardState.crossSections?.[idx];
       if (cs && cs.controlPoints.length > 0) {
-        const profile = MeshGeneratorService.getBoardProfileAtZ(this.boardState, curves, zInches);
         const rawBot = cs.controlPoints[0]![1];
         const rawTop = cs.controlPoints[cs.controlPoints.length - 1]![1];
         const rawH = Math.max(rawTop - rawBot, 0.0001);
@@ -552,8 +498,9 @@ export class BoardViewport extends LitElement {
       return pts;
   }
 
-  private _updateGizmoPositionsFromState() {
-    if (!this.boardState || !this.latestCurves) return;
+    private _updateGizmoPositionsFromState() {
+    const mathEngine = this.wasmCtrl.mathEngine;
+    if (!this.boardState || !mathEngine) return;
     const scale = 1 / 12;
     const gizmosByUserData = new Map<string, THREE.Mesh>();
     this.gizmoGroup.children.forEach(child => {
@@ -566,18 +513,18 @@ export class BoardViewport extends LitElement {
         const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
       if (!curveData) return;
       curveData.controlPoints.forEach((cp, i) => {
-        const cpY = this.getZHeight(curveName, cp[1], cp[2], this.latestCurves!);
+        const cpY = this.getZHeight(curveName, cp[1], cp[2], mathEngine);
         gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cpY * scale, cp[2] * scale);
         
         const t1 = curveData.tangents1[i]; 
         if (t1) {
-          const t1Y = this.getZHeight(curveName, t1[1], t1[2], this.latestCurves!);
+          const t1Y = this.getZHeight(curveName, t1[1], t1[2], mathEngine);
           gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, t1Y * scale, t1[2] * scale);
         }
         
         const t2 = curveData.tangents2[i]; 
         if (t2) {
-          const t2Y = this.getZHeight(curveName, t2[1], t2[2], this.latestCurves!);
+          const t2Y = this.getZHeight(curveName, t2[1], t2[2], mathEngine);
           gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, t2Y * scale, t2[2] * scale);
         }
       });
