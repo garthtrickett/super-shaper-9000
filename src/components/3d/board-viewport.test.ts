@@ -5,6 +5,14 @@ import "./board-viewport";
 import type { BoardViewport } from "./board-viewport";
 
 describe("BoardViewport (3D Component)", () => {
+  it("receives the mesh data directly from the parent (sovereign projection) without dispatching sync events", async () => {
+    const el = await fixture<BoardViewport>(
+      html`<board-viewport .boardState=${INITIAL_STATE} .meshData=${{ vertexCount: 100, triangleCount: 50, volumeLiters: 28.5 } as any}></board-viewport>`
+    );
+    expect(el.meshData).to.exist;
+    expect(el.meshData?.volumeLiters).to.equal(28.5);
+  });
+
   it("should render a canvas element in the light DOM", async () => {
     const el = await fixture<BoardViewport>(
       html`<board-viewport></board-viewport>`

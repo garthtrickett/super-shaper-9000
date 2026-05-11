@@ -23,8 +23,9 @@ describe("WasmSamController (FFI Integration)", () => {
     expect(controller.mesh).to.exist;
     expect(controller.mesh?.vertices).to.exist;
     // Assert the new properties from the adaptive mesh step
-    expect(controller.mesh?.vertexCount).to.be.a('number').and.greaterThan(0);
-        expect(controller.mesh?.triangleCount).to.be.a('number').and.greaterThan(0);
+        expect(controller.mesh?.vertexCount).to.be.a('number').and.greaterThan(0);
+    expect(controller.mesh?.triangleCount).to.be.a('number').and.greaterThan(0);
+    expect(controller.mesh?.volumeLiters).to.be.a('number').and.greaterThan(0);
     expect(controller.curvatureCombs).to.exist;
         expect((controller as any).foilData).to.exist;
     expect((controller as any).foilData).to.be.instanceOf(Float32Array);
