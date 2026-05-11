@@ -43,16 +43,32 @@ test.describe('Quad Viewport CAD Interface', () => {
       mask: [page.locator('button[title*="Flip"]')]
     });
 
-                // --- 2. Programmatically rotate the 3D camera and verify rotation DOES occur ---
+                    // --- 2. Programmatically rotate the 3D camera and verify rotation DOES occur ---
     await page.evaluate(() => {
-      const viewport = document.querySelector('board-viewport') as any;
-      if (viewport && viewport.sceneManager) {
+      return new Promise<void>((resolve, reject) => {
+        const viewport = document.querySelector('board-viewport') as any;
+        if (!viewport || !viewport.sceneManager) {
+          return reject(new Error("sceneManager not found on board-viewport"));
+        }
+        
         const camera = viewport.sceneManager.cameras.perspective;
-        camera.position.x += 3; // Directly move the camera to simulate orbit
-        camera.lookAt(0, 0, 0);   // Re-focus on the origin
-      }
+        // Move the camera to a drastically different angle to guarantee visual delta
+        camera.position.set(6, -4, 6); 
+        camera.lookAt(0, 0, 0);
+        
+        // Force OrbitControls to sync with the new camera position to prevent damping snap-back
+        viewport.sceneManager.controls.perspective.target.set(0, 0, 0);
+        viewport.sceneManager.controls.perspective.update();
+        
+        // Wait for two animation frames to ensure the canvas has been painted
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+      });
     });
-    await page.waitForTimeout(500); // Wait for the new camera position to render
+    await page.waitForTimeout(500); // Extra buffer for Playwright
 
     // Compare against the *un-rotated* screenshot. They should NOT match.
     await expect(page).not.toHaveScreenshot('quad-view-no-rotation.png', {
