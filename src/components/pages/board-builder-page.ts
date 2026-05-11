@@ -20,15 +20,14 @@ export class BoardBuilderPage extends LitElement {
   @state() private importJson = "";
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
       @state() private showContourEditor = false;
-  @state() private contourZPosition = 20.0;
+    @state() private contourZPosition = 20.0;
   @state() private contourSliceData?: Float32Array;
-  @state() private foilData?: Float32Array;
 
-  private requestSliceProfile() {
+    private requestSliceProfile() {
     if (!this.showContourEditor) return;
-        const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+    const worker = (this.wasmCtrl as any).worker;
     if (worker) {
-      worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor" });
+      worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor", seq: (this.wasmCtrl as any).currentSequence });
     }
   }
 
@@ -37,10 +36,7 @@ export class BoardBuilderPage extends LitElement {
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
     }
-    if (data.type === "STATE_UPDATED") {
-      if (data.foilData) {
-        this.foilData = data.foilData;
-      }
+        if (data.type === "STATE_UPDATED") {
       if (this.showContourEditor) {
         this.requestSliceProfile();
       }
@@ -291,8 +287,8 @@ export class BoardBuilderPage extends LitElement {
           class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl"
           .length=${state.length}
           .width=${state.width}
-          .thickness=${state.thickness}
-                    .volume=${state.volume}
+                    .thickness=${state.thickness}
+          .volume=${this.wasmCtrl.mesh?.volumeLiters ?? state.volume}
           .tailType=${state.tailType ?? 'squash'}
           .swallowDepth=${state.swallowDepth ?? 4.0}
           .vertexCount=${vertexCount}
@@ -331,8 +327,8 @@ export class BoardBuilderPage extends LitElement {
           .showMriView=${state.showMriView ?? false}
                     .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
           .outlineLayers=${state.outlineLayers ||[]}
-          .bottomChannels=${state.bottomChannels ||[]}
-          .foilData=${this.foilData}
+                    .bottomChannels=${state.bottomChannels ||[]}
+          .foilData=${this.wasmCtrl.foilData}
           @export-design=${() => this.showExportModal = true}
           @export-s3dx=${() => void this._handleExportS3dx()}
           @import-design=${() => this.showImportModal = true}
@@ -369,8 +365,7 @@ export class BoardBuilderPage extends LitElement {
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${this.wasmCtrl.mesh}
-          .curvatureCombs=${this.wasmCtrl.curvatureCombs}
-                    @volume-calculated=${(e: CustomEvent<{ volume: number }>) => this.wasmCtrl.propose({ type: "UPDATE_VOLUME", volume: e.detail.volume })}
+                    .curvatureCombs=${this.wasmCtrl.curvatureCombs}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected

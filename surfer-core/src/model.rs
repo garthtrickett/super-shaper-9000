@@ -184,10 +184,8 @@ pub enum BoardAction {
     UpdateNumber { param: String, value: f32 },
     #[serde(rename = "UPDATE_STRING")]
     UpdateString { param: String, value: String },
-    #[serde(rename = "UPDATE_BOOLEAN")]
+        #[serde(rename = "UPDATE_BOOLEAN")]
     UpdateBoolean { param: String, value: bool },
-    #[serde(rename = "UPDATE_VOLUME")]
-    UpdateVolume { volume: f32 },
     #[serde(rename = "LOAD_DESIGN")]
     LoadDesign { state: Box<BoardModel> },
     #[serde(rename = "SET_CURVES")]

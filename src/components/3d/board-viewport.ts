@@ -345,11 +345,8 @@ export class BoardViewport extends LitElement {
     geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
     geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
 
-    if (meshData.colors && meshData.colors.length > 0) {
+        if (meshData.colors && meshData.colors.length > 0) {
       geom.setAttribute('color', new THREE.BufferAttribute(meshData.colors, 3));
-    }
-    if (Math.abs(this.boardState!.volume - meshData.volumeLiters) > 0.05) {
-      this.dispatchEvent(new CustomEvent("volume-calculated", { detail: { volume: meshData.volumeLiters }, bubbles: true, composed: true }));
     }
 
     const { map, bumpMap } = this.textureManager.getBoardTextures();
@@ -398,11 +395,8 @@ export class BoardViewport extends LitElement {
     geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
     geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
 
-    if (meshData.colors && meshData.colors.length > 0) {
+        if (meshData.colors && meshData.colors.length > 0) {
       geom.setAttribute('color', new THREE.BufferAttribute(meshData.colors, 3));
-    }
-    if (Math.abs(this.boardState!.volume - meshData.volumeLiters) > 0.05) {
-      this.dispatchEvent(new CustomEvent("volume-calculated", { detail: { volume: meshData.volumeLiters }, bubbles: true, composed: true }));
     }
     const { map, bumpMap } = this.textureManager.getBoardTextures();
         const standardMat = new THREE.MeshPhysicalMaterial({ 

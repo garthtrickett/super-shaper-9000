@@ -532,11 +532,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     model.show_zebra = Some(false);
                 }
             }
-            _ => {}
+                        _ => {}
         },
-        BoardAction::UpdateVolume { volume } => {
-            model.volume = volume;
-        }
         BoardAction::LoadDesign { state } => {
             *model = *state;
             effects.push(Effect::LogInfo {

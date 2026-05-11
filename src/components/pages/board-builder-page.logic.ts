@@ -250,8 +250,7 @@ export const INITIAL_STATE: BoardModel = {
 export type BoardAction =
   | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
   | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
-  | { type: "UPDATE_BOOLEAN"; param: keyof BoardModel; value: boolean }
-  | { type: "UPDATE_VOLUME"; volume: number }
+    | { type: "UPDATE_BOOLEAN"; param: keyof BoardModel; value: boolean }
   | { type: "LOAD_DESIGN"; state: BoardModel }
     | { type: "SET_CURVES"; outline?: BezierCurveData; railOutline?: BezierCurveData; apexOutline?: BezierCurveData; deckShoulder?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
   | { type: "UPDATE_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }

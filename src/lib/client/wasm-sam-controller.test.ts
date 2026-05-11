@@ -34,6 +34,38 @@ describe("WasmSamController (FFI Integration)", () => {
     controller.hostDisconnected();
   });
 
+    it("drops stale messages via Sequence ID Fencing", async () => {
+    const host = new MockHost();
+    const controller = new WasmSamController(host);
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const initialLength = controller.model!.length;
+
+    controller.propose({
+      type: "UPDATE_NUMBER",
+      param: "length",
+      value: 85.0
+    });
+
+    // Spoof an outdated worker message
+    (controller as any).worker.dispatchEvent(new MessageEvent("message", {
+      data: {
+        type: "STATE_UPDATED",
+        seq: 0, // Lower than current sequence
+        state: { ...controller.model, length: 100.0 },
+        mesh: controller.mesh,
+        curvatureCombs: controller.curvatureCombs,
+        foilData: controller.foilData
+      }
+    }));
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // State should not be 100.0 because the seq was stale
+    expect(controller.model!.length).to.not.equal(100.0);
+    
+    controller.hostDisconnected();
+  });
+
   it("updates state and receives new mesh when an action is proposed", async () => {
     const host = new MockHost();
     const controller = new WasmSamController(host);

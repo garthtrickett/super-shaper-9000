@@ -12,37 +12,47 @@ interface WorkerMessage {
 }
 
 export class WasmSamController implements ReactiveController {
+  public worker: Worker;
   public model?: BoardModel;
   public mesh?: RustMesh;
   public curvatureCombs?: Float32Array;
+  public foilData?: Float32Array;
 
-  private worker: Worker;
+  public currentSequence = 0;
+  private lastAcceptedSequence = 0;
 
   constructor(private host: ReactiveControllerHost) {
+    this.worker = new Worker(new URL("./workers/board-worker.ts", import.meta.url), { type: "module" });
     this.host.addController(this);
-    this.worker = new Worker(new URL('./workers/board-worker.ts', import.meta.url), { type: 'module' });
-    this.worker.onmessage = this.onMessage;
+    
+    this.worker.addEventListener("message", (e: MessageEvent) => {
+      const data = e.data;
+      
+      if (data.seq !== undefined) {
+        if (data.seq < this.lastAcceptedSequence) {
+          console.warn(`[WasmSamController] Dropped stale message seq: ${data.seq} (current: ${this.lastAcceptedSequence})`);
+          return;
+        }
+        this.lastAcceptedSequence = data.seq;
+      }
+      
+      if (data.type === "STATE_UPDATED") {
+        this.model = data.state;
+        this.mesh = data.mesh;
+        this.curvatureCombs = data.curvatureCombs;
+        this.foilData = data.foilData;
+        this.host.requestUpdate();
+      }
+    });
+  }
+
+  propose(action: BoardAction) {
+    this.currentSequence++;
+    this.worker.postMessage({ type: "PROPOSE", action, seq: this.currentSequence });
   }
 
   hostConnected() {}
   hostDisconnected() {
     this.worker.terminate();
-  }
-
-  propose(action: BoardAction) {
-    this.worker.postMessage({ type: 'PROPOSE', action });
-  }
-
-  private onMessage = (e: MessageEvent<WorkerMessage>) => {
-    const msg = e.data;
-    if (msg.type === "STATE_UPDATED" && msg.state && msg.mesh) {
-      this.model = msg.state;
-      this.mesh = msg.mesh;
-      this.curvatureCombs = msg.curvatureCombs;
-      
-      runClientUnscoped(clientLog("debug", "[WasmSamController] State updated", { length: this.model.length }));
-      
-      this.host.requestUpdate();
-    }
   }
 }

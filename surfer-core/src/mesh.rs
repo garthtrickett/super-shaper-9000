@@ -110,13 +110,17 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let segments_v = z_rings.len() - 1;
 
-        // Adaptive Crosswise (U) Columns
+    // Adaptive Crosswise (U) Columns
     let mut critical_us = vec![0.0, 1.0];
     let mut adaptive_us = Vec::new();
     let tolerance_degrees_u = 3.0;
     let min_dist_u = 0.05;
     for cs in &model.cross_sections {
-        adaptive_us.extend(crate::bezier::adaptive_sample_t(cs, tolerance_degrees_u, min_dist_u));
+        adaptive_us.extend(crate::bezier::adaptive_sample_t(
+            cs,
+            tolerance_degrees_u,
+            min_dist_u,
+        ));
         let t_apex = crate::geometry::find_apex_t(cs);
         critical_us.push(t_apex);
         critical_us.push(0.01_f32.max(t_apex * 0.5)); // t_tuck
@@ -856,7 +860,7 @@ mod tests {
             .map(|c| Vec3::new(c[0], c[1], c[2]))
             .collect();
 
-                let scale = 1.0 / 12.0;
+        let scale = 1.0 / 12.0;
         let (min_z, max_z) = vertices
             .iter()
             .fold((f32::INFINITY, f32::NEG_INFINITY), |(min_z, max_z), v| {

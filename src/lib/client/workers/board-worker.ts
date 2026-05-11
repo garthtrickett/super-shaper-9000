@@ -29,7 +29,7 @@ init().then(() => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
 });
 
-self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; action?: BoardAction }>) => {
+self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; action?: BoardAction; seq?: number }>) => {
     if (!engine) {
         console.warn("[BoardWorker] Engine not ready, ignoring message.");
         return;
@@ -38,17 +38,18 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
     const msg = e.data;
                 if (msg.type === "GET_SLICE_PROFILE") {
         const profile = engine.get_slice_profile(msg.z!) as Float32Array;
-        (self as unknown as Worker).postMessage({
+                (self as unknown as Worker).postMessage({
             type: "SLICE_PROFILE_RESULT",
             id: msg.id,
+            seq: msg.seq,
             profile
         },[profile.buffer]);
         return;
     }
 
-    if (msg.type === "EXPORT_S3DX") {
+        if (msg.type === "EXPORT_S3DX") {
         const xml = engine.export_s3dx();
-        (self as unknown as Worker).postMessage({ type: "EXPORT_S3DX_RESULT", id: msg.id, xml });
+        (self as unknown as Worker).postMessage({ type: "EXPORT_S3DX_RESULT", id: msg.id, seq: msg.seq, xml });
         return;
     }
 
@@ -76,8 +77,9 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
 
                                     // 4. Send updated State and Mesh back to Main Thread
             console.info("[BoardWorker] Posting updated state. Channels:", state.bottomChannels?.length || 0);
-            (self as unknown as Worker).postMessage({
+                        (self as unknown as Worker).postMessage({
                 type: "STATE_UPDATED",
+                seq: msg.seq,
                 state,
                 mesh,
                 curvatureCombs,
