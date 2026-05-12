@@ -3,7 +3,7 @@ use crate::model::{BoardModel, RawGeometryData};
 use glam::Vec3;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
-    log::info!(
+    log::debug!(
         "[Rust core] generate_mesh: Rebuilding for length {:.1}",
         model.length
     );
@@ -753,9 +753,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     };
 
-    // --- Swallow Notch Wall ---
+        // --- Swallow Notch Wall ---
     if (tip_z - notch_z) >= 1e-3 {
-        log::info!(
+        log::debug!(
             "[Rust core] generate_mesh: Carving swallow tail notch (Depth: {:.2}in)",
             tip_z - notch_z
         );
@@ -825,10 +825,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         total_volume_cubic_feet += (area0 + area1) / 2.0 * dz;
     }
 
-    // 1 cubic foot = 28.3168 Liters
+        // 1 cubic foot = 28.3168 Liters
     let volume_liters = total_volume_cubic_feet * 28.3168;
 
-    log::info!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
+    log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
 
     RawGeometryData {
         vertices,

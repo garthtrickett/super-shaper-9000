@@ -227,7 +227,7 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-                        protected override willUpdate(changedProperties: PropertyValues) {
+    protected override willUpdate(changedProperties: PropertyValues) {
     super.willUpdate(changedProperties);
     // Sync the main-thread mathEngine with the controller's model before every render.
     if (this.mathEngine) {

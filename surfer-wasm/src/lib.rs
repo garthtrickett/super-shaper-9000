@@ -35,11 +35,13 @@ impl WasmEngine {
 
     #[wasm_bindgen]
     pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
-        // Deserialize the JS action into our core Rust BoardAction
+                // Deserialize the JS action into our core Rust BoardAction
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        log::info!("[Rust FFI] Processing action: {:?}", action);
+        if !matches!(action, BoardAction::LoadDesign { .. }) {
+            log::info!("[Rust FFI] Processing action: {:?}", action);
+        }
 
         // Step the SAM state machine
         let (new_state, effects) = self.engine.update(action);

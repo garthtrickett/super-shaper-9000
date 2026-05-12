@@ -556,11 +556,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             _ => {}
         },
-        BoardAction::LoadDesign { state } => {
+                BoardAction::LoadDesign { state } => {
             *model = *state;
-            effects.push(Effect::LogInfo {
-                message: "Rust Engine: LOAD_DESIGN applied.".to_string(),
-            });
+            // Suppress log info for LoadDesign to avoid console spam during syncing
         }
         BoardAction::SetCurves {
             outline,
