@@ -94,8 +94,9 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
                 foilData
             },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer, foilData.buffer]); // Transfer ownership of the buffers
 
-        } catch (err) {
+                } catch (err) {
             console.error("[BoardWorker] Error during proposal:", err);
+            (self as unknown as Worker).postMessage({ type: "ERROR", seq: msg.seq, error: String(err) });
         }
     }
 };

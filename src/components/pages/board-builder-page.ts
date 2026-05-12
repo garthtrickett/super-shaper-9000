@@ -4,7 +4,7 @@ import { customElement, state } from "lit/decorators.js";
 import { Schema as S } from "effect";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import initWasm, { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
-import { INITIAL_STATE, BoardModelSchema, type BoardModel } from "./board-builder-page.logic";
+import { INITIAL_STATE, BoardModelSchema, type BoardModel, type BoardAction } from "./board-builder-page.logic";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
@@ -23,13 +23,20 @@ export class BoardBuilderPage extends LitElement {
   @state() private showImportModal = false;
     @state() private importError = "";
   @state() private importJson = "";
-  @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
+    @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
       @state() private showContourEditor = false;
     @state() private contourZPosition = 20.0;
   @state() private contourSliceData?: Float32Array;
+  @state() private isProcessing = false;
+
+  private _proposeAction(action: BoardAction) {
+    this.isProcessing = true;
+    this.wasmCtrl.propose(action);
+  }
 
         private requestSliceProfile() {
     if (!this.showContourEditor) return;
+    this.isProcessing = true;
     const ctrl = this.wasmCtrl as unknown as { worker?: Worker; currentSequence?: number };
     const worker = ctrl.worker;
     if (worker) {
@@ -38,18 +45,26 @@ export class BoardBuilderPage extends LitElement {
   }
 
         private _handleWorkerMessage = (e: MessageEvent) => {
-    const data = e.data as { type: string, id?: string, profile?: Float32Array };
+    const data = e.data as { type: string, id?: string, profile?: Float32Array, seq?: number };
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
+      this.isProcessing = false;
+    }
+    if (data.type === "STATE_UPDATED" || data.type === "EXPORT_OBJ_RESULT" || data.type === "EXPORT_S3DX_RESULT" || data.type === "ERROR") {
+      const currentSeq = (this.wasmCtrl as any).currentSequence;
+      if (data.seq === undefined || data.seq === currentSeq) {
+        this.isProcessing = false;
+      }
     }
   };
 
   protected override createRenderRoot() { return this; }
 
-        private async _handleExportObj() {
+                private async _handleExportObj() {
       try {
+        this.isProcessing = true;
         const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
-        if (!worker) return;
+        if (!worker) { this.isProcessing = false; return; }
         
         const objText = await new Promise<string>((resolve) => {
           const id = Math.random().toString();
@@ -64,6 +79,7 @@ export class BoardBuilderPage extends LitElement {
           worker.postMessage({ type: "EXPORT_OBJ", id });
         });
 
+        this.isProcessing = false;
         const state = this.wasmCtrl.model;
         const length = state ? state.length.toFixed(1) : "Unknown";
         const blob = new Blob([objText], { type: "text/plain" });
@@ -73,15 +89,17 @@ export class BoardBuilderPage extends LitElement {
         a.download = `SuperShaper_${length}.obj`;
         a.click();
         URL.revokeObjectURL(url);
-      } catch (e) {
+            } catch (e) {
         console.error("Failed to export OBJ", e);
+        this.isProcessing = false;
       }
     }
 
-    private async _handleExportS3dx() {
+        private async _handleExportS3dx() {
     try {
+      this.isProcessing = true;
       const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
-      if (!worker) return;
+      if (!worker) { this.isProcessing = false; return; }
       
       const xml = await new Promise<string>((resolve) => {
         const id = Math.random().toString();
@@ -96,6 +114,7 @@ export class BoardBuilderPage extends LitElement {
         worker.postMessage({ type: "EXPORT_S3DX", id });
       });
 
+      this.isProcessing = false;
       const state = this.wasmCtrl.model;
       const length = state ? state.length.toFixed(1) : "Unknown";
       const blob = new Blob([xml], { type: "application/xml" });
@@ -105,8 +124,9 @@ export class BoardBuilderPage extends LitElement {
       a.download = `SuperShaper_${length}.s3dx`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e) {
+        } catch (e) {
       console.error("Failed to export S3DX", e);
+      this.isProcessing = false;
     }
   }
 
@@ -122,7 +142,7 @@ export class BoardBuilderPage extends LitElement {
       const decoder = new TextDecoder('iso-8859-1');
       const text = decoder.decode(buffer);
       
-      this.wasmCtrl.propose({
+            this._proposeAction({
         type: "IMPORT_S3DX",
         xml: text
       });
@@ -131,6 +151,7 @@ export class BoardBuilderPage extends LitElement {
       this.importJson = "";
       this.importError = "";
     } catch (err) {
+      this.isProcessing = false;
       console.error("Failed to read .s3dx file", err);
       this.importError = err instanceof Error ? err.message : "Failed to read .s3dx file";
     } finally {
@@ -145,8 +166,8 @@ export class BoardBuilderPage extends LitElement {
       const decode = S.decodeUnknownEither(BoardModelSchema);
       const result = decode(parsed);
       
-            if (result._tag === "Right") {
-        this.wasmCtrl.propose({ type: "LOAD_DESIGN", state: result.right as BoardModel });
+                        if (result._tag === "Right") {
+        this._proposeAction({ type: "LOAD_DESIGN", state: result.right as BoardModel });
         this.showImportModal = false;
         this.importJson = "";
         this.importError = "";
@@ -187,16 +208,16 @@ export class BoardBuilderPage extends LitElement {
     const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
     if (cmdOrCtrl && !e.altKey) {
-      if (e.key.toLowerCase() === 'z') {
+            if (e.key.toLowerCase() === 'z') {
         e.preventDefault();
                 if (e.shiftKey) {
-          this.wasmCtrl.propose({ type: "REDO" });
+          this._proposeAction({ type: "REDO" });
         } else {
-          this.wasmCtrl.propose({ type: "UNDO" });
+          this._proposeAction({ type: "UNDO" });
         }
       } else if (e.key.toLowerCase() === 'y') {
         e.preventDefault();
-        this.wasmCtrl.propose({ type: "REDO" });
+        this._proposeAction({ type: "REDO" });
       }
     }
   };
@@ -244,11 +265,11 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
     const { userData, position } = e.detail;
     
     // Dispatch the primary node position update
-    this.wasmCtrl.propose({
+    this._proposeAction({
       type: "UPDATE_NODE_POSITION",
       curve: userData.curve,
       nodeType: userData.type,
@@ -258,7 +279,7 @@ export class BoardBuilderPage extends LitElement {
 
     // If a continuity lock is active for the selected node, dispatch a follow-up action to the solver
     if (this._selectedNodeContinuity !== 'G0' && (userData.type === 'tangent1' || userData.type === 'tangent2')) {
-      this.wasmCtrl.propose({
+      this._proposeAction({
         type: 'APPLY_CONTINUITY',
         curve: userData.curve,
         index: userData.index,
@@ -329,8 +350,8 @@ export class BoardBuilderPage extends LitElement {
                 this.requestSliceProfile();
               }}
               @close-editor=${() => { this.showContourEditor = false; }}
-                            @update-node-position=${(e: CustomEvent<{ curve: string, index: number, nodeType: "anchor" | "tangent1" | "tangent2", position: [number, number, number] }>) => {
-                this.wasmCtrl.propose({
+                                                        @update-node-position=${(e: CustomEvent<{ curve: string, index: number, nodeType: "anchor" | "tangent1" | "tangent2", position: [number, number, number] }>) => {
+                this._proposeAction({
                   type: "UPDATE_NODE_POSITION",
                   curve: e.detail.curve,
                   index: e.detail.index,
@@ -346,6 +367,7 @@ export class BoardBuilderPage extends LitElement {
         <!-- UI Controls Panel -->
                 <board-controls
           class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl"
+          .isProcessing=${this.isProcessing}
                     .length=${state.length}
           .width=${state.width}
                     .thickness=${state.thickness}
@@ -361,14 +383,14 @@ export class BoardBuilderPage extends LitElement {
           .cantAngle=${state.cantAngle}
           .coreMaterial=${state.coreMaterial}
           .glassingSchedule=${state.glassingSchedule}
-                              @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
-            this.wasmCtrl.propose({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+                                                            @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+            this._proposeAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
-            this.wasmCtrl.propose({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
+            this._proposeAction({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
           }}
                     @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
-            this.wasmCtrl.propose({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
+            this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
           .showSolidMesh=${state.showSolidMesh ?? true}
           .showHeatmap=${state.showHeatmap ?? false}
@@ -392,18 +414,18 @@ export class BoardBuilderPage extends LitElement {
                     @export-s3dx=${() => void this._handleExportS3dx()}
           @export-obj=${() => void this._handleExportObj()}
           @import-design=${() => this.showImportModal = true}
-                    @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this.wasmCtrl.propose({ type: e.detail.type, factor: e.detail.factor })}
-                    @add-outline-layer=${() => this.wasmCtrl.propose({ type: 'ADD_OUTLINE_LAYER' })}
-          @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this.wasmCtrl.propose({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
-                    @add-bottom-channel=${() => this.wasmCtrl.propose({ type: 'ADD_BOTTOM_CHANNEL' })}
-          @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this.wasmCtrl.propose({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
-          @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this.wasmCtrl.propose({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
+                                        @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
+                    @add-outline-layer=${() => this._proposeAction({ type: 'ADD_OUTLINE_LAYER' })}
+          @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
+                    @add-bottom-channel=${() => this._proposeAction({ type: 'ADD_BOTTOM_CHANNEL' })}
+          @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
+          @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
           @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
         ></board-controls>
 
-                <div class="absolute top-4 right-4 z-10 flex gap-2">
+                                <div class="absolute top-4 right-4 z-10 flex gap-2">
           <button 
-            @click=${() => this.wasmCtrl.propose({ type: "UNDO" })}
+            @click=${() => this._proposeAction({ type: "UNDO" })}
             ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex <= 0}
             class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
             title="Undo (Cmd/Ctrl + Z)"
@@ -411,7 +433,7 @@ export class BoardBuilderPage extends LitElement {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
           </button>
                     <button 
-            @click=${() => this.wasmCtrl.propose({ type: "REDO" })}
+            @click=${() => this._proposeAction({ type: "REDO" })}
             ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex >= (state.history?.length || 0) - 1}
             class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
             title="Redo (Cmd/Ctrl + Shift + Z)"
@@ -427,12 +449,12 @@ export class BoardBuilderPage extends LitElement {
           .meshData=${mesh}
           .curvatureCombs=${curvatureCombs}
                     .mathEngine=${this.mathEngine}
-          @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
-                        this.wasmCtrl.propose({ type: "SELECT_NODE", node: e.detail.node });
+                    @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
+                        this._proposeAction({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected
             this._selectedNodeContinuity = 'G1';
           }}
-          @gizmo-drag-ended=${() => this.wasmCtrl.propose({ type: "SAVE_HISTORY_SNAPSHOT" })}
+          @gizmo-drag-ended=${() => this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" })}
                     @gizmo-dragged=${this._handleGizmoDrag}
         ></board-viewport>
 
@@ -440,8 +462,8 @@ export class BoardBuilderPage extends LitElement {
                       <node-inspector
             class="absolute top-16 right-4 z-20 w-[340px]"
             .boardState=${state}
-                                                                        @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number], weight?: number }>) => this.wasmCtrl.propose({ type: "UPDATE_NODE_EXACT", ...e.detail })}
-            @apply-continuity=${(e: CustomEvent<{ curve: string, index: number, level: "G0" | "G1" | "G2", master?: string }>) => this.wasmCtrl.propose({ type: "APPLY_CONTINUITY", ...e.detail })}
+                                                                                                                                                @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number], weight?: number }>) => this._proposeAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+            @apply-continuity=${(e: CustomEvent<{ curve: string, index: number, level: "G0" | "G1" | "G2", master?: string }>) => this._proposeAction({ type: "APPLY_CONTINUITY", ...e.detail })}
             @continuity-changed=${(e: CustomEvent<{ level: 'G0' | 'G1' | 'G2' }>) => this._selectedNodeContinuity = e.detail.level}
           ></node-inspector>
         ` : ''}
