@@ -671,15 +671,13 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         target_y + (pos.y - target_y) * fraction
                     };
 
-                                        vertices.push(new_x);
+                    vertices.push(new_x);
                     vertices.push(new_y);
                     vertices.push(pos.z);
 
-                    // Prevent UV degeneracy and texture hyper-tiling on caps by generating normalized physical UVs
-                    let u_norm = 0.5 + 0.5 * (new_x / (model.width / 2.0).max(0.001));
-                    let v_norm = 0.5 + 0.5 * (new_y / model.thickness.max(0.001));
-                    uvs.push(u_norm);
-                    uvs.push(v_norm);
+                    // Prevent UV degeneracy which poisons WebGL tangent generation and causes black holes
+                    uvs.push(new_x);
+                    uvs.push(new_y);
 
                     colors.push(color.x);
                     colors.push(color.y);
@@ -721,28 +719,34 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[c as usize * 3 + 1],
                         vertices[c as usize * 3 + 2],
                     );
-                                        let pt_d = Vec3::new(
+                    let pt_d = Vec3::new(
                         vertices[d as usize * 3],
                         vertices[d as usize * 3 + 1],
                         vertices[d as usize * 3 + 2],
                     );
 
-                                        let push_tri = |i1: u32, i2: u32, i3: u32, p1: Vec3, p2: Vec3, p3: Vec3, idxs: &mut Vec<u32>| {
-                        // A triangle is only degenerate if two of its vertices share the exact same point in space.
-                        // We check distance squared instead of cross-product to avoid accidentally culling valid micro-slivers.
-                        if p1.distance_squared(p2) > 1e-12 && p2.distance_squared(p3) > 1e-12 && p3.distance_squared(p1) > 1e-12 {
-                            idxs.push(i1);
-                            idxs.push(i2);
-                            idxs.push(i3);
-                        }
-                    };
-
                     if is_nose {
-                        push_tri(a, d, b, pt_a, pt_d, pt_b, indices);
-                        push_tri(a, c, d, pt_a, pt_c, pt_d, indices);
+                        if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-9 {
+                            indices.push(a);
+                            indices.push(d);
+                            indices.push(b);
+                        }
+                        if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
+                            indices.push(a);
+                            indices.push(c);
+                            indices.push(d);
+                        }
                     } else {
-                        push_tri(a, b, d, pt_a, pt_b, pt_d, indices);
-                        push_tri(a, d, c, pt_a, pt_d, pt_c, indices);
+                        if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
+                            indices.push(a);
+                            indices.push(b);
+                            indices.push(d);
+                        }
+                        if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-9 {
+                            indices.push(a);
+                            indices.push(d);
+                            indices.push(c);
+                        }
                     }
                 }
             }
