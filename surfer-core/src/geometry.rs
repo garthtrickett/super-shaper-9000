@@ -1021,20 +1021,26 @@ pub fn get_surface_normal_base_at_uvz(
     let bounds = get_board_bounds(model);
 
     if (z_inches - bounds.nose_z).abs() < 1e-4 {
-        let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
-        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
-        if side < 0.0 {
-            n.x = -n.x;
+        let width = evaluate_composite_outline_at_z(model, bounds.nose_z, 0.0).x;
+        if width < 1e-3 {
+            let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
+            if side < 0.0 {
+                n.x = -n.x;
+            }
+            return n;
         }
-        return n;
     }
     if (z_inches - bounds.tip_z).abs() < 1e-4 {
-        let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
-        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
-        if side < 0.0 {
-            n.x = -n.x;
+        let width = evaluate_composite_outline_at_z(model, bounds.tip_z, 1.0).x;
+        if width < 1e-3 {
+            let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
+            if side < 0.0 {
+                n.x = -n.x;
+            }
+            return n;
         }
-        return n;
     }
 
     let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
@@ -1084,20 +1090,26 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
     let bounds = get_board_bounds(model);
 
     if (z_inches - bounds.nose_z).abs() < 1e-4 {
-        let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
-        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
-        if side < 0.0 {
-            n.x = -n.x;
+        let width = evaluate_composite_outline_at_z(model, bounds.nose_z, 0.0).x;
+        if width < 1e-3 {
+            let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
+            if side < 0.0 {
+                n.x = -n.x;
+            }
+            return n;
         }
-        return n;
     }
     if (z_inches - bounds.tip_z).abs() < 1e-4 {
-        let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
-        let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
-        if side < 0.0 {
-            n.x = -n.x;
+        let width = evaluate_composite_outline_at_z(model, bounds.tip_z, 1.0).x;
+        if width < 1e-3 {
+            let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
+            if side < 0.0 {
+                n.x = -n.x;
+            }
+            return n;
         }
-        return n;
     }
 
     let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
