@@ -490,18 +490,13 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 return;
             }
 
-            let num_y_steps = 10;
+                        let num_y_steps = half;
 
             // Right Wall
             let start_v_idx = (vertices.len() / 3) as u32;
             for i in notch_start_idx..=segments_v {
                 let p_bot = grid[i][0].0;
                 let p_top = grid[i][half].0;
-                let c_bot = grid[i][0].1;
-                let c_top = grid[i][half].1;
-                let u_bot = grid[i][0].2;
-                let u_top = grid[i][half].2;
-                let v_coord = grid[i][0].3;
 
                 let mut n_wall = Vec3::new(-1.0, 0.0, 0.0);
 
@@ -516,11 +511,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     }
                 }
 
-                for step in 0..=num_y_steps {
-                    let fraction = step as f32 / num_y_steps as f32;
-                    let pos = p_bot.lerp(p_top, fraction);
-                    let color = c_bot.lerp(c_top, fraction);
-                    let u = u_bot + (u_top - u_bot) * fraction;
+                for step in 0..=half {
+                    let hull_pt = &grid[i][step];
+                    let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
+                    let color = hull_pt.1;
+                    let u = hull_pt.2;
+                    let v_coord = hull_pt.3;
 
                     vertices.push(pos.x);
                     vertices.push(pos.y);
@@ -537,9 +533,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
 
             for i in 0..num_z_steps {
-                let ring_a = start_v_idx + i as u32 * (num_y_steps + 1);
-                let ring_b = start_v_idx + (i + 1) as u32 * (num_y_steps + 1);
-                for j in 0..num_y_steps {
+                let ring_a = start_v_idx + i as u32 * (half as u32 + 1);
+                let ring_b = start_v_idx + (i + 1) as u32 * (half as u32 + 1);
+                for j in 0..half as u32 {
                     let a = ring_a + j;
                     let b = a + 1;
                     let c = ring_b + j;
@@ -558,11 +554,6 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             for i in notch_start_idx..=segments_v {
                 let p_top = grid[i][half + 1].0;
                 let p_bot = grid[i][num_cols - 1].0;
-                let c_top = grid[i][half + 1].1;
-                let c_bot = grid[i][num_cols - 1].1;
-                let u_top = grid[i][half + 1].2;
-                let u_bot = grid[i][num_cols - 1].2;
-                let v_coord = grid[i][num_cols - 1].3;
 
                 let mut n_wall = Vec3::new(1.0, 0.0, 0.0);
 
@@ -577,11 +568,13 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     }
                 }
 
-                for step in 0..=num_y_steps {
-                    let fraction = step as f32 / num_y_steps as f32;
-                    let pos = p_top.lerp(p_bot, fraction);
-                    let color = c_top.lerp(c_bot, fraction);
-                    let u = u_top + (u_bot - u_top) * fraction;
+                for step in 0..=half {
+                    let j = half + 1 + step;
+                    let hull_pt = &grid[i][j];
+                    let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
+                    let color = hull_pt.1;
+                    let u = hull_pt.2;
+                    let v_coord = hull_pt.3;
 
                     vertices.push(pos.x);
                     vertices.push(pos.y);
@@ -598,9 +591,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
 
             for i in 0..num_z_steps {
-                let ring_a = start_v_idx_left + i as u32 * (num_y_steps + 1);
-                let ring_b = start_v_idx_left + (i + 1) as u32 * (num_y_steps + 1);
-                for j in 0..num_y_steps {
+                let ring_a = start_v_idx_left + i as u32 * (half as u32 + 1);
+                let ring_b = start_v_idx_left + (i + 1) as u32 * (half as u32 + 1);
+                for j in 0..half as u32 {
                     let a = ring_a + j;
                     let b = a + 1;
                     let c = ring_b + j;
