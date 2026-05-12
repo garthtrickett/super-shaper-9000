@@ -556,7 +556,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             _ => {}
         },
-                BoardAction::LoadDesign { state } => {
+        BoardAction::LoadDesign { state } => {
             *model = *state;
             // Suppress log info for LoadDesign to avoid console spam during syncing
         }
@@ -869,8 +869,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     ..Default::default()
                 };
 
-                layers.push(OutlineLayer {
+                                layers.push(OutlineLayer {
                     name: format!("Wing {}", layers.len() + 1),
+                    active: true,
                     otl_ext,
                     otl_int,
                 });
@@ -879,12 +880,20 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             model.outline_layers = Some(layers);
             push_history(model);
         }
-        BoardAction::RemoveOutlineLayer { index } => {
+                BoardAction::RemoveOutlineLayer { index } => {
             if let Some(mut layers) = model.outline_layers.take() {
                 if index < layers.len() {
                     layers.remove(index);
                 }
                 model.outline_layers = Some(layers);
+            }
+            push_history(model);
+        }
+        BoardAction::ToggleOutlineLayer { index } => {
+            if let Some(layers) = &mut model.outline_layers {
+                if let Some(layer) = layers.get_mut(index) {
+                    layer.active = !layer.active;
+                }
             }
             push_history(model);
         }

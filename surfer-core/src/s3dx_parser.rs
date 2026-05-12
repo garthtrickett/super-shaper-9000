@@ -493,9 +493,10 @@ impl From<S3dxBoard> for BoardModel {
                             left_depth: depth_curve.clone(),
                             right_depth: depth_curve.clone(),
                         });
-                    } else {
+                                        } else {
                         outline_layers.push(crate::model::OutlineLayer {
                             name,
+                            active: false,
                             otl_ext,
                             otl_int,
                         });

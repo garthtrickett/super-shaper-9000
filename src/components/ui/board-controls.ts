@@ -34,8 +34,8 @@ export class BoardControls extends LitElement {
     @property({ type: Boolean }) showCrossSections = true;
   @property({ type: Boolean }) showCurvature = false;
   @property({ type: Boolean }) showMriView = false;
-    @property({ type: Number }) mriSlicePosition = 50.0;
-      @property({ type: Array }) outlineLayers: { name: string }[] =[];
+      @property({ type: Number }) mriSlicePosition = 50.0;
+      @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];
     @property({ type: Array }) bottomChannels: { name: string, isSymmetric?: boolean }[] =[];
   @property({ type: Object }) foilData?: Float32Array;
 
@@ -325,18 +325,25 @@ export class BoardControls extends LitElement {
                 title="Add Wing/Flyer"
               >ADD</button>
             </div>
-            ${(this.outlineLayers || []).length === 0 
+                        ${(this.outlineLayers ||[]).length === 0 
               ? html`<p class="text-xs text-zinc-500 text-center py-2">No wings defined.</p>`
-              : (this.outlineLayers || []).map((layer, index) => html`
+              : (this.outlineLayers ||[]).map((layer, index) => html`
               <div class="flex items-center justify-between mb-1 bg-zinc-800/50 p-1.5 rounded">
                 <span class="text-xs text-zinc-400">${layer.name}</span>
-                <button 
-                  @click=${() => this.dispatchEvent(new CustomEvent('remove-outline-layer', { detail: { index }, bubbles: true, composed: true }))}
-                  class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
-                  title="Remove Layer ${index + 1}"
-                >&times;</button>
+                <div class="flex items-center gap-1">
+                  <button 
+                    @click=${() => this.dispatchEvent(new CustomEvent('toggle-outline-layer', { detail: { index }, bubbles: true, composed: true }))}
+                    class="w-5 h-5 flex items-center justify-center text-[10px] ${layer.active !== false ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-zinc-600/50 hover:bg-zinc-600'} text-white font-bold rounded transition-colors"
+                    title="Toggle Layer Active"
+                  >A</button>
+                  <button 
+                    @click=${() => this.dispatchEvent(new CustomEvent('remove-outline-layer', { detail: { index }, bubbles: true, composed: true }))}
+                    class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
+                    title="Remove Layer ${index + 1}"
+                  >&times;</button>
+                </div>
               </div>
-                        `)}
+            `)}
           </div>
           <div class="h-px bg-zinc-800 my-3"></div>
           <div>

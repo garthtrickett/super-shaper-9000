@@ -147,8 +147,9 @@ export class GizmoBuilder {
         });
     }
 
-        if (boardState.showOutline !== false && boardState.outlineLayers) {
+                if (boardState.showOutline !== false && boardState.outlineLayers) {
         boardState.outlineLayers.forEach((layer, idx) => {
+            if (layer.active === false) return;
             if (layer.otlExt?.controlPoints?.length > 0) {
                 drawGizmosForCurve(layer.otlExt, `outlineLayer_${idx}_ext`, 1, true);
             }

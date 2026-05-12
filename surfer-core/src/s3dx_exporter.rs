@@ -236,9 +236,10 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     let mut calques = String::new();
     let mut calque_count = 0;
     if let Some(layers) = &model.outline_layers {
-        for l in layers {
+                for l in layers {
             calques.push_str(&format!("<Calque_{}>\n<Calque3D>\n", calque_count));
             calques.push_str(&format!("<Nom>{}</Nom>\n", l.name));
+            calques.push_str(&format!("<Actif>{}</Actif>\n", if l.active { 1 } else { 0 }));
             calques.push_str("<DeckBot>512</DeckBot>\n");
             calques.push_str("<Depth>0.000000</Depth>\n");
             calques.push_str(&format_bezier(

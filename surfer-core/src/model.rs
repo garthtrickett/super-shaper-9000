@@ -6,10 +6,16 @@ fn default_one() -> f32 {
     1.0
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OutlineLayer {
     pub name: String,
+    #[serde(default = "default_true")]
+    pub active: bool,
     pub otl_ext: BezierCurveData,
     pub otl_int: BezierCurveData,
 }
@@ -180,6 +186,7 @@ impl approx::AbsDiffEq for OutlineLayer {
     }
     fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
         self.name == other.name
+            && self.active == other.active
             && self.otl_ext.abs_diff_eq(&other.otl_ext, epsilon)
             && self.otl_int.abs_diff_eq(&other.otl_int, epsilon)
     }
@@ -447,10 +454,12 @@ pub enum BoardAction {
     ScaleWidth { factor: f32 },
     #[serde(rename = "SCALE_THICKNESS")]
     ScaleThickness { factor: f32 },
-    #[serde(rename = "ADD_OUTLINE_LAYER")]
+        #[serde(rename = "ADD_OUTLINE_LAYER")]
     AddOutlineLayer,
     #[serde(rename = "REMOVE_OUTLINE_LAYER")]
     RemoveOutlineLayer { index: usize },
+    #[serde(rename = "TOGGLE_OUTLINE_LAYER")]
+    ToggleOutlineLayer { index: usize },
     #[serde(rename = "ADD_BOTTOM_CHANNEL")]
     AddBottomChannel,
     #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]

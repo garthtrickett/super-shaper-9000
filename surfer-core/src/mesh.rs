@@ -43,9 +43,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         all_z.push(evaluate_curve(outline, t).z);
     }
 
-    let mut cliff_zs = Vec::new();
+        let mut cliff_zs = Vec::new();
     if let Some(layers) = &model.outline_layers {
         for layer in layers {
+            if !layer.active { continue; }
             if !layer.otl_ext.control_points.is_empty() {
                 for t in
                     crate::bezier::adaptive_sample_t(&layer.otl_ext, tolerance_degrees, min_dist)
@@ -753,7 +754,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     };
 
-        // --- Swallow Notch Wall ---
+    // --- Swallow Notch Wall ---
     if (tip_z - notch_z) >= 1e-3 {
         log::debug!(
             "[Rust core] generate_mesh: Carving swallow tail notch (Depth: {:.2}in)",
@@ -825,7 +826,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         total_volume_cubic_feet += (area0 + area1) / 2.0 * dz;
     }
 
-        // 1 cubic foot = 28.3168 Liters
+    // 1 cubic foot = 28.3168 Liters
     let volume_liters = total_volume_cubic_feet * 28.3168;
 
     log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);

@@ -52,8 +52,9 @@ export const BoardModelSchema = S.Struct({
   history: S.optional(S.Array(S.Unknown)),
   historyIndex: S.optional(S.Number),
   outline: BezierCurveSchema,
-  outlineLayers: S.optional(S.Array(S.Struct({
+    outlineLayers: S.optional(S.Array(S.Struct({
     name: S.String,
+    active: S.optional(S.Boolean),
     otlExt: BezierCurveSchema,
     otlInt: BezierCurveSchema
   }))),
@@ -111,7 +112,7 @@ export type SelectedNode = {
 
 export interface ManualSnapshot {
   outline: BezierCurveData;
-  outlineLayers?: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
+  outlineLayers?: { name: string; active?: boolean; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
   bottomChannels?: ChannelLayer[];
   railOutline?: BezierCurveData;
   apexOutline?: BezierCurveData;
@@ -141,9 +142,9 @@ export interface BoardModel {
   mriSlicePosition?: number;
   selectedNode?: SelectedNode | null;
   history?: ManualSnapshot[];
-  historyIndex?: number;
+    historyIndex?: number;
   outline: BezierCurveData;
-  outlineLayers?: { name: string; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
+  outlineLayers?: { name: string; active?: boolean; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
   bottomChannels?: ChannelLayer[];
   railOutline?: BezierCurveData;
   apexOutline?: BezierCurveData;
@@ -260,9 +261,10 @@ export type BoardAction =
   | { type: "SCALE_WIDTH"; factor: number }
   | { type: "SCALE_THICKNESS"; factor: number }
     | { type: "IMPORT_S3DX"; xml: string }
-  | { type: "ADD_OUTLINE_LAYER" }
+    | { type: "ADD_OUTLINE_LAYER" }
   | { type: "REMOVE_OUTLINE_LAYER"; index: number }
-    | { type: "ADD_BOTTOM_CHANNEL" }
+  | { type: "TOGGLE_OUTLINE_LAYER"; index: number }
+  | { type: "ADD_BOTTOM_CHANNEL" }
   | { type: "TOGGLE_CHANNEL_SYMMETRY"; index: number }
   | { type: "REMOVE_BOTTOM_CHANNEL"; index: number };
 
