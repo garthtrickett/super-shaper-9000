@@ -441,17 +441,28 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 continue;
             }
 
-            let a = (i * num_cols + j) as u32;
+                        let a = (i * num_cols + j) as u32;
             let b = a + 1;
             let c = ((i + 1) * num_cols + j) as u32;
             let d = c + 1;
 
-            indices.push(a);
-            indices.push(b);
-            indices.push(d);
-            indices.push(a);
-            indices.push(d);
-            indices.push(c);
+            let pos_a = grid[i][j].0;
+            let pos_b = grid[i][j + 1].0;
+            let pos_c = grid[i + 1][j].0;
+            let pos_d = grid[i + 1][j + 1].0;
+
+            // Only push valid triangles. If a ring collapses to a point at the poles,
+            // we dynamically drop the degenerate zero-area triangles.
+            if pos_a.distance_squared(pos_b) > 1e-10 {
+                indices.push(a);
+                indices.push(b);
+                indices.push(d);
+            }
+            if pos_c.distance_squared(pos_d) > 1e-10 {
+                indices.push(a);
+                indices.push(d);
+                indices.push(c);
+            }
         }
     }
 
