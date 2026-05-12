@@ -346,19 +346,41 @@ impl From<S3dxBoard> for BoardModel {
                     let type_calque = calque.type_calque.unwrap_or(0);
                     let x_max = calque.x_max.unwrap_or(0.0);
 
+                                        let otl_ext =
+                        convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
+                    let otl_int =
+                        convert_s3dx_curve(&calque.otl_int, bl, scale).unwrap_or_default();
+
+                    let mut is_swallow_geom = false;
+                    let mut swallow_depth_calc = 0.0;
+                    if !otl_ext.control_points.is_empty() {
+                        let tail_z = bl / 2.0 * scale;
+                        let has_prong = otl_ext.control_points.iter().any(|p| (p.z - tail_z).abs() < 1e-2 && p.x > 1e-2);
+                        let notch_point = otl_ext.control_points.iter().find(|p| p.x < 1e-2);
+                        if has_prong {
+                            if let Some(np) = notch_point {
+                                is_swallow_geom = true;
+                                swallow_depth_calc = tail_z - np.z;
+                            }
+                        }
+                    }
+
                     // Intercept messy Shape3D Swallow Tail hacks and promote them to clean semantic native properties
-                    if type_calque == 32 || name.to_uppercase().contains("SWALLOW") {
+                    if type_calque == 32 || name.to_uppercase().contains("SWALLOW") || is_swallow_geom {
                         model.tail_type = "swallow".to_string();
-                        let mut depth_s3dx = x_max;
+                        let mut depth_s3dx = x_max * scale;
                         if depth_s3dx == 0.0 {
-                            if let Some(otl_ext) = &calque.otl_ext {
-                                if let Some(b) = &otl_ext.bezier3d {
+                            depth_s3dx = swallow_depth_calc;
+                        }
+                        if depth_s3dx == 0.0 {
+                            if let Some(ext) = &calque.otl_ext {
+                                if let Some(b) = &ext.bezier3d {
                                     if let Some(cp) = &b.control_points {
                                         if let Some(poly) = &cp.polygone3d {
                                             if let Some(pts) = &poly.point3d {
                                                 for p in pts {
-                                                    if p.x > depth_s3dx {
-                                                        depth_s3dx = p.x;
+                                                    if p.x * scale > depth_s3dx {
+                                                        depth_s3dx = p.x * scale;
                                                     }
                                                 }
                                             }
@@ -367,14 +389,9 @@ impl From<S3dxBoard> for BoardModel {
                                 }
                             }
                         }
-                        model.swallow_depth = depth_s3dx * scale;
+                        model.swallow_depth = depth_s3dx;
                         continue;
                     }
-
-                    let otl_ext =
-                        convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
-                    let otl_int =
-                        convert_s3dx_curve(&calque.otl_int, bl, scale).unwrap_or_default();
 
                     let deck_bot = calque.deck_bot.unwrap_or(512);
                     let depth_val = calque.depth.unwrap_or(0.0) * scale;
