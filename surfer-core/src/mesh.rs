@@ -509,7 +509,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     }
                 }
 
-                                for hull_pt in grid[i].iter().take(half + 1) {
+                for hull_pt in grid[i].iter().take(half + 1) {
                     let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
                     let color = hull_pt.1;
                     let u = hull_pt.2;
@@ -565,7 +565,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     }
                 }
 
-                                for hull_pt in grid[i].iter().skip(half + 1).take(half + 1) {
+                for hull_pt in grid[i].iter().skip(half + 1).take(half + 1) {
                     let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
                     let color = hull_pt.1;
                     let u = hull_pt.2;
@@ -622,7 +622,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             right_min_x = right_min_x.min(x);
             right_max_x = right_max_x.max(x);
         }
-                let ring_width = right_max_x - right_min_x;
+        let ring_width = right_max_x - right_min_x;
         let is_sharp = ring_width < 0.005;
         let start_vertex_index = (vertices.len() / 3) as u32;
 
@@ -671,7 +671,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         target_y + (pos.y - target_y) * fraction
                     };
 
-                                        vertices.push(new_x);
+                    vertices.push(new_x);
                     vertices.push(new_y);
                     vertices.push(pos.z);
 
@@ -699,7 +699,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         continue; // Do not bridge the right and left halves on the caps!
                     }
 
-                                        let a = ring_a_start + j as u32;
+                    let a = ring_a_start + j as u32;
                     let b = a + 1;
                     let c = ring_b_start + j as u32;
                     let d = c + 1;
@@ -725,24 +725,24 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[d as usize * 3 + 2],
                     );
 
-                    if is_nose {
-                        if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-16 {
+                                        if is_nose {
+                        if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-9 {
                             indices.push(a);
                             indices.push(d);
                             indices.push(b);
                         }
-                        if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-16 {
+                        if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
                             indices.push(a);
                             indices.push(c);
                             indices.push(d);
                         }
                     } else {
-                        if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-16 {
+                        if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
                             indices.push(a);
                             indices.push(b);
                             indices.push(d);
                         }
-                        if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-16 {
+                        if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-9 {
                             indices.push(a);
                             indices.push(d);
                             indices.push(c);

@@ -906,7 +906,7 @@ pub fn get_point_at_uv_base(
     }
     final_pos.y = final_pos.y.max(profile.bot_y - 5.0);
 
-        let is_nose_pole = (z_inches - bounds.nose_z).abs() < 1e-4;
+    let is_nose_pole = (z_inches - bounds.nose_z).abs() < 1e-4;
     let is_tail_pole = (z_inches - bounds.tip_z).abs() < 1e-4;
 
     if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.1 {
