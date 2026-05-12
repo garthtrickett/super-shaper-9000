@@ -238,7 +238,6 @@ pub fn evaluate_curvature_quill(
 /// # Returns
 /// The required coordinate for `t_target` to ensure the target segment has the exact
 /// same curvature (rate of bend) as the source segment at the anchor point.
-#[inline]
 /// Computes the exact position of a target tangent handle to achieve G2 (Curvature) continuity.
 ///
 /// # Arguments
@@ -250,7 +249,7 @@ pub fn evaluate_curvature_quill(
 /// # Returns
 /// The required coordinate for `t_target` to ensure the target segment has the exact
 /// same curvature (rate of bend) as the source segment at the anchor point.
-#[inline]
+///
 pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: Vec3) -> Vec3 {
     let v = t_source - anchor;
     let v_len_sq = v.length_squared();
@@ -699,7 +698,7 @@ mod tests {
         println!("✅ sample_curve passed and generated expected vertex distribution.");
     }
 
-        #[test]
+    #[test]
     fn test_solve_g2_tangent_collinear_safety() {
         let anchor = Vec3::new(0.0, 0.0, 0.0);
 
@@ -712,8 +711,14 @@ mod tests {
 
         // G2 solver should intercept the collinearity and fallback to smooth G1
         // rather than outputting NaN/Infinity.
-        assert!(!t_target.x.is_nan(), "G2 solver exploded to NaN on flat geometry!");
-        assert_eq!(t_target.x, 5.0, "G2 solver should return mirrored G1 vector for collinear inputs");
+        assert!(
+            !t_target.x.is_nan(),
+            "G2 solver exploded to NaN on flat geometry!"
+        );
+        assert_eq!(
+            t_target.x, 5.0,
+            "G2 solver should return mirrored G1 vector for collinear inputs"
+        );
         assert_eq!(t_target.y, 0.0);
         assert_eq!(t_target.z, 0.0);
     }

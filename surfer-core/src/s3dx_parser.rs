@@ -604,6 +604,55 @@ mod tests {
         }
     }
 
+        #[test]
+    fn test_imported_fish_nose_mesh_integrity() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
+        if !path.exists() {
+            println!("FISH.s3dx not found, skipping nose integrity test");
+            return;
+        }
+        let content = fs::read_to_string(&path).unwrap();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        let mesh = crate::mesh::generate_mesh(&model);
+
+        // In FISH.s3dx, the nose is blunt/chopped (width > 0 at Z=nose_z).
+        // A blunt nose generates a flat front cap. The hull vertices at the rail 
+        // should have normals pointing OUTWARD (+X), not FORWARD (-Z).
+        // If they point forward, it creates a terrible shading artifact where the rails join the nose.
+        
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let scale = 1.0 / 12.0;
+        let nose_z = bounds.nose_z * scale;
+        
+        let mut outward_normals_found = false;
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
+            
+            if (z - nose_z).abs() < 1e-4 {
+                // Ignore the stringer (X=0) and look at the rail
+                if x > 0.05 * scale {
+                    let nx = mesh.normals[i * 3];
+                    let nz = mesh.normals[i * 3 + 2];
+                    
+                    // A proper hull normal at the rail should point predominantly outward (+X)
+                    // If nz is strongly negative (e.g. -0.9), it's pointing forward like a pole!
+                    if nx > 0.5 && nz > -0.5 {
+                        outward_normals_found = true;
+                    }
+                }
+            }
+        }
+        
+        assert!(
+            outward_normals_found,
+            "BUG: Hull normals at the blunt nose of FISH.s3dx are pointing forward (-Z) instead of outward! This creates a shading artifact where the rails join the nose."
+        );
+    }
+
     #[test]
     fn test_s3dx_promotes_swallow_tail_layer() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
