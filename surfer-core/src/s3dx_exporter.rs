@@ -5,28 +5,28 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
     xml.push_str("<Version>9</Version>\n<VersionNumber>9.1.0.4</VersionNumber>\n");
-    xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.3}</Length>\n<Width>{:.3}</Width>\n<Thickness>{:.3}</Thickness>\n", model.length, model.width, model.thickness));
+        xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.6}</Length>\n<Width>{:.6}</Width>\n<Thickness>{:.6}</Thickness>\n", model.length, model.width, model.thickness));
     let mesh = crate::mesh::generate_mesh(model);
-    xml.push_str(&format!("<Volume>{:.3}</Volume>\n", mesh.volume_liters));
+    xml.push_str(&format!("<Volume>{:.6}</Volume>\n", mesh.volume_liters));
 
     xml.push_str(&format!(
-        "<VConcaveTail>{:.3}</VConcaveTail>\n",
+        "<VConcaveTail>{:.6}</VConcaveTail>\n",
         model.v_concave_tail
     ));
     xml.push_str(&format!(
-        "<VConcaveNose>{:.3}</VConcaveNose>\n",
+        "<VConcaveNose>{:.6}</VConcaveNose>\n",
         model.v_concave_nose
     ));
     xml.push_str(&format!(
-        "<RailCoefficientTail>{:.3}</RailCoefficientTail>\n",
+        "<RailCoefficientTail>{:.6}</RailCoefficientTail>\n",
         model.rail_coefficient_tail
     ));
     xml.push_str(&format!(
-        "<RailCoefficientNose>{:.3}</RailCoefficientNose>\n",
+        "<RailCoefficientNose>{:.6}</RailCoefficientNose>\n",
         model.rail_coefficient_nose
     ));
     xml.push_str(&format!(
-        "<ThicknessZStretch>{:.3}</ThicknessZStretch>\n",
+        "<ThicknessZStretch>{:.6}</ThicknessZStretch>\n",
         model.thickness_z_stretch
     ));
 
@@ -322,81 +322,29 @@ mod tests {
     }
 
     #[test]
+    #[test]
     fn test_s3dx_round_trip() {
-        use crate::model::{BezierCurveData, ChannelLayer, OutlineLayer};
-        use glam::Vec3;
+        use std::fs;
+        use std::path::PathBuf;
 
-        let mut model = BoardModel::default();
-        model.length = 72.0;
-        model.width = 20.0;
-        model.thickness = 2.5;
-        model.v_concave_tail = 0.5;
-        model.v_concave_nose = -0.5;
-        model.rail_coefficient_tail = 0.9;
-        model.rail_coefficient_nose = 1.1;
-        model.thickness_z_stretch = 1.2;
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
 
-                let curve = BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, -36.0), Vec3::new(10.0, 0.0, 36.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, -36.0), Vec3::new(10.0, 0.0, 0.0)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 36.0)],
-            weights: Some(vec![1.5, 2.5]),
-        };
+        let content = fs::read_to_string(&path).unwrap_or_else(|_| {
+            panic!("Should be able to read the golden S3DX file from {:?}", path)
+        });
 
-        let cs_curve = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 1.0, 10.0), Vec3::new(10.0, 1.0, 10.0)],
-            tangents1: vec![Vec3::new(0.0, 1.0, 10.0), Vec3::new(5.0, 1.0, 10.0)],
-            tangents2: vec![Vec3::new(5.0, 1.0, 10.0), Vec3::new(10.0, 1.0, 10.0)],
-            weights: None,
-        };
+        // 1. Parse Ground Truth
+        let model_a = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse golden S3DX");
 
-        model.outline = Some(curve.clone());
-        model.rocker_top = Some(curve.clone());
-        model.rocker_bottom = Some(curve.clone());
-        model.rail_outline = Some(curve.clone());
-        model.apex_outline = Some(curve.clone());
-        model.apex_rocker = Some(curve.clone());
-        model.deck_shoulder = Some(curve.clone());
+        // 2. Export to XML
+        let exported_xml = crate::s3dx_exporter::export_s3dx(&model_a);
 
-        model.cross_sections = vec![cs_curve.clone(), cs_curve.clone()];
+        // 3. Re-Parse
+        let model_b = crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
 
-        model.outline_layers = Some(vec![OutlineLayer {
-            name: "Wing1".to_string(),
-            otl_ext: curve.clone(),
-            otl_int: curve.clone(),
-        }]);
-
-                let depth_curve = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 1.5, -36.0), Vec3::new(0.0, 1.5, 36.0)],
-            tangents1: vec![Vec3::new(0.0, 1.5, -36.0), Vec3::new(0.0, 1.5, 36.0)],
-            tangents2: vec![Vec3::new(0.0, 1.5, -36.0), Vec3::new(0.0, 1.5, 36.0)],
-            weights: None,
-        };
-
-        let mut left_outline = curve.clone();
-        for p in &mut left_outline.control_points {
-            p.x = -p.x;
-        }
-        for p in &mut left_outline.tangents1 {
-            p.x = -p.x;
-        }
-        for p in &mut left_outline.tangents2 {
-            p.x = -p.x;
-        }
-
-        model.bottom_channels = Some(vec![ChannelLayer {
-            name: "Channel1".to_string(),
-            is_symmetric: true,
-            left_outline: left_outline.clone(),
-            right_outline: curve.clone(),
-            left_depth: depth_curve.clone(),
-            right_depth: depth_curve.clone(),
-        }]);
-
-        let xml = super::export_s3dx(&model);
-        let parsed_model =
-            crate::s3dx_parser::parse_s3dx(&xml).expect("Failed to parse back the generated XML");
-
-        approx::assert_relative_eq!(model, parsed_model, epsilon = 1e-3);
+        // 4. Assert Losslessness
+        // epsilon = 1e-4 provides enough leniency for float -> string -> float serialization noise
+        approx::assert_relative_eq!(model_a, model_b, epsilon = 1e-4);
     }
 }
