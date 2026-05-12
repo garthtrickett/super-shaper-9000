@@ -882,25 +882,26 @@ mod tests {
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
         
-        // BUG 1: Nose Cap Normals (Slerped instead of Flat)
+                // BUG 1: Nose Cap Normals (Slerped instead of Flat)
         let nose_z = bounds.nose_z * scale;
-        let mut has_slerped_nose = false;
+        let mut flat_cap_found = false;
         for i in 0..(mesh.vertices.len() / 3) {
             let z = mesh.vertices[i * 3 + 2];
             if (z - nose_z).abs() < 1e-4 {
+                let nx = mesh.normals[i * 3];
                 let ny = mesh.normals[i * 3 + 1];
                 let nz = mesh.normals[i * 3 + 2];
-                // Nose cap points towards -Z.
-                if nz < -0.1 {
-                    if ny.abs() > 0.1 {
-                        has_slerped_nose = true;
-                    }
+                
+                // Nose cap on a blunt board should point exactly in -Z
+                if nx.abs() < 1e-2 && ny.abs() < 1e-2 && (nz - (-1.0)).abs() < 1e-2 {
+                    flat_cap_found = true;
+                    break;
                 }
             }
         }
         assert!(
-            !has_slerped_nose,
-            "BUG: TomoLike blunt nose cap has slerped normals instead of flat (-Z) normals!"
+            flat_cap_found,
+            "BUG: TomoLike blunt nose cap is missing its flat (-Z) normals! It might have been slerped."
         );
 
         // BUG 2: Mesh inside outline

@@ -252,16 +252,16 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-    for cu in cliff_norm_us {
-        u_params_half.push((cu - 0.001).max(0.0));
+        for cu in cliff_norm_us {
+        u_params_half.push((cu - 0.0001).max(0.0));
         u_params_half.push(cu);
-        u_params_half.push((cu + 0.001).min(1.0));
+        u_params_half.push((cu + 0.0001).min(1.0));
     }
 
     u_params_half.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let mut final_u = Vec::new();
     for u in u_params_half {
-        if final_u.is_empty() || u - final_u.last().unwrap() > 0.0005 {
+        if final_u.is_empty() || u - final_u.last().unwrap() > 0.00005 {
             final_u.push(u);
         }
     }

@@ -928,8 +928,8 @@ pub fn get_point_at_uv(
                 let mut best_u = 0.0;
                 let mut min_diff = f32::INFINITY;
 
-                for i in 0..=20 {
-                    let test_u = (i as f32 / 20.0) * t_apex;
+                                for i in 0..=50 {
+                    let test_u = (i as f32 / 50.0) * t_apex;
                     let test_pt = get_point_at_uv_base(model, test_u, v, z_inches, inner_x, 1.0);
                     let diff = (test_pt.x - chan_x).abs();
                     if diff < min_diff {
@@ -939,7 +939,7 @@ pub fn get_point_at_uv(
                 }
 
                 let mut u_search = best_u;
-                let mut step = t_apex / 20.0;
+                let mut step = t_apex / 50.0;
                 for _ in 0..10 {
                     step *= 0.5;
                     let u_l = 0.0_f32.max(u_search - step);
@@ -972,9 +972,11 @@ pub fn get_point_at_uv(
                     channel_applied = true;
                 }
 
-                if channel_applied {
+                                if channel_applied {
                     let normal = get_surface_normal_base_at_uvz(model, u, z_inches, side);
+                    final_pos.x *= side;
                     final_pos -= normal * (t * chan_depth);
+                    final_pos.x *= side;
                 }
             }
         }
