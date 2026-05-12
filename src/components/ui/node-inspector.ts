@@ -248,14 +248,14 @@ export class NodeInspector extends LitElement {
               ${(curveData.weights?.[sel.index] ?? 1.0).toFixed(2)}x
             </span>
           </div>
-          <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2">
             <input 
               type="range" min="0.1" max="10.0" step="0.1"
               .value=${(curveData.weights?.[sel.index] ?? 1.0).toString()}
               @input=${(e: Event) => this._handleWeightChange(parseFloat((e.target as HTMLInputElement).value))}
               class="w-full accent-emerald-500 cursor-pointer"
             />
-            <button 
+            <button type="button"
               @click=${() => this._handleWeightChange(1.0)}
               class="text-[10px] font-bold tracking-wider uppercase bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors"
               title="Reset to Standard Bezier (1.0)"
@@ -270,9 +270,9 @@ export class NodeInspector extends LitElement {
           <div class="flex justify-between items-center mb-2">
             <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Joint Continuity</h4>
           </div>
-          <div class="flex w-full bg-zinc-950 border border-zinc-800 rounded-md p-1 space-x-1">
+                    <div class="flex w-full bg-zinc-950 border border-zinc-800 rounded-md p-1 space-x-1">
             ${['G0', 'G1', 'G2'].map(level => html`
-              <button 
+              <button type="button"
                 @click=${() => this._handleContinuityChange(level as 'G0' | 'G1' | 'G2')}
                 class="flex-1 text-center text-[10px] font-bold uppercase tracking-wider rounded py-1 transition-colors 
                   ${this.continuityLevel === level 

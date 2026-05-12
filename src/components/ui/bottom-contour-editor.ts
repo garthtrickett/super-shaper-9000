@@ -129,9 +129,9 @@ export class BottomContourEditor extends LitElement {
             <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
             Bottom Contour Editor
           </h3>
-          <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3">
             <span class="text-xs font-mono text-zinc-400 bg-zinc-800 px-2 py-1 rounded">Z: ${this.zPosition.toFixed(1)}"</span>
-            <button @click=${() => this.dispatchEvent(new CustomEvent('close-editor', { bubbles: true, composed: true }))} class="text-zinc-500 hover:text-white transition-colors">
+            <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('close-editor', { bubbles: true, composed: true }))} class="text-zinc-500 hover:text-white transition-colors">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>

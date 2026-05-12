@@ -188,9 +188,9 @@ export class BoardBuilderPage extends LitElement {
         <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg shadow-2xl w-[500px] max-w-full flex flex-col">
           <h2 class="text-xl font-bold text-zinc-100 mb-4">Export Design</h2>
           <textarea readonly .value=${jsonStr} class="w-full h-64 bg-zinc-950 border border-zinc-800 text-zinc-300 p-3 rounded text-xs font-mono mb-4 focus:outline-none focus:border-blue-500 custom-scrollbar"></textarea>
-          <div class="flex justify-end gap-3">
-            <button @click=${() => this.showExportModal = false} class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-sm font-bold text-zinc-300 rounded transition-colors cursor-pointer">Close</button>
-            <button @click=${() => { void navigator.clipboard.writeText(jsonStr); this.showExportModal = false; }} class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">Copy to Clipboard</button>
+                    <div class="flex justify-end gap-3">
+            <button type="button" @click=${() => this.showExportModal = false} class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-sm font-bold text-zinc-300 rounded transition-colors cursor-pointer">Close</button>
+            <button type="button" @click=${() => { void navigator.clipboard.writeText(jsonStr); this.showExportModal = false; }} class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">Copy to Clipboard</button>
           </div>
         </div>
       </div>
@@ -319,9 +319,9 @@ export class BoardBuilderPage extends LitElement {
             placeholder='{ "length": 70, ... }'
             class="w-full h-64 bg-zinc-950 border border-zinc-800 text-zinc-300 p-3 rounded text-xs font-mono mb-2 focus:outline-none focus:border-blue-500 custom-scrollbar"></textarea>
           ${this.importError ? html`<div class="text-red-400 text-xs mb-4">${this.importError}</div>` : html`<div class="mb-4"></div>`}
-          <div class="flex justify-end gap-3">
-            <button @click=${() => { this.showImportModal = false; this.importError = ""; this.importJson = ""; }} class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-sm font-bold text-zinc-300 rounded transition-colors cursor-pointer">Cancel</button>
-            <button @click=${() => this._handleImport()} class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">Apply Design</button>
+                    <div class="flex justify-end gap-3">
+            <button type="button" @click=${() => { this.showImportModal = false; this.importError = ""; this.importJson = ""; }} class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-sm font-bold text-zinc-300 rounded transition-colors cursor-pointer">Cancel</button>
+            <button type="button" @click=${() => this._handleImport()} class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">Apply Design</button>
           </div>
         </div>
       </div>
@@ -424,8 +424,8 @@ export class BoardBuilderPage extends LitElement {
           @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
         ></board-controls>
 
-                                <div class="absolute top-4 right-4 z-10 flex gap-2">
-          <button 
+                                                                <div class="absolute top-4 right-4 z-10 flex gap-2">
+          <button type="button"
             @click=${() => this._proposeAction({ type: "UNDO" })}
             ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex <= 0}
             class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"
@@ -433,7 +433,7 @@ export class BoardBuilderPage extends LitElement {
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>
           </button>
-                    <button 
+                    <button type="button"
             @click=${() => this._proposeAction({ type: "REDO" })}
             ?disabled=${!state.history || state.historyIndex === undefined || state.historyIndex >= (state.history?.length || 0) - 1}
             class="px-3 py-1.5 rounded text-xs font-bold transition-colors bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1"

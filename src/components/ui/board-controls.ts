@@ -162,13 +162,13 @@ export class BoardControls extends LitElement {
         </div>
         <!-- Import / Export Actions -->
                 <div class="grid grid-cols-2 gap-2 mb-2">
-          <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
-          <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export JSON</button>
+                    <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
+          <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export JSON</button>
         </div>
-                <div class="mb-2">
-          <button @click=${() => this.dispatchEvent(new CustomEvent('export-obj', { bubbles: true, composed: true }))} class="w-full bg-purple-600 hover:bg-purple-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export OBJ (3D Mesh)</button>
+                        <div class="mb-2">
+          <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('export-obj', { bubbles: true, composed: true }))} class="w-full bg-purple-600 hover:bg-purple-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export OBJ (3D Mesh)</button>
         </div>
-        <button @click=${() => this.dispatchEvent(new CustomEvent('export-s3dx', { bubbles: true, composed: true }))} class="w-full mb-5 mt-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white py-2.5 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
+        <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('export-s3dx', { bubbles: true, composed: true }))} class="w-full mb-5 mt-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white py-2.5 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
@@ -319,7 +319,7 @@ export class BoardControls extends LitElement {
           <div>
             <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Outline Layers</label>
-              <button 
+                            <button type="button"
                 @click=${() => this.dispatchEvent(new CustomEvent('add-outline-layer', { bubbles: true, composed: true }))} 
                 class="px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
                 title="Add Wing/Flyer"
@@ -336,11 +336,11 @@ export class BoardControls extends LitElement {
                     class="w-5 h-5 flex items-center justify-center text-[10px] ${layer.active !== false ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-zinc-600/50 hover:bg-zinc-600'} text-white font-bold rounded transition-colors"
                     title="Toggle Layer Active"
                   >A</button>
-                  <button 
-                    @click=${() => this.dispatchEvent(new CustomEvent('remove-outline-layer', { detail: { index }, bubbles: true, composed: true }))}
-                    class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
-                    title="Remove Layer ${index + 1}"
-                  >&times;</button>
+                                  <button type="button"
+                  @click=${() => this.dispatchEvent(new CustomEvent('remove-outline-layer', { detail: { index }, bubbles: true, composed: true }))}
+                  class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
+                  title="Remove Layer ${index + 1}"
+                >&times;</button>
                 </div>
               </div>
             `)}
@@ -351,13 +351,13 @@ export class BoardControls extends LitElement {
               <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Bottom Channels</label>
               <div class="flex items-center gap-2">
                 ${(this.bottomChannels ||[]).length > 0 ? html`
-                <button 
+                                <button type="button"
                   @click=${() => this.dispatchEvent(new CustomEvent('open-contour-editor', { bubbles: true, composed: true }))} 
                   class="px-2 py-0.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors"
                   title="Open 2D Contour Editor"
                 >EDIT 2D</button>
                 ` : ''}
-                <button 
+                <button type="button"
                   @click=${() => this.dispatchEvent(new CustomEvent('add-bottom-channel', { bubbles: true, composed: true }))} 
                   class="px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
                   title="Add Bottom Channel"
@@ -370,12 +370,12 @@ export class BoardControls extends LitElement {
               <div class="flex items-center justify-between mb-1 bg-zinc-800/50 p-1.5 rounded">
                 <span class="text-xs text-zinc-400">${channel.name}</span>
                 <div class="flex items-center gap-1">
-                  <button 
+                                    <button type="button"
                     @click=${() => this.dispatchEvent(new CustomEvent('toggle-channel-symmetry', { detail: { index }, bubbles: true, composed: true }))}
                     class="w-5 h-5 flex items-center justify-center text-[10px] ${channel.isSymmetric ? 'bg-blue-600/50 hover:bg-blue-600' : 'bg-zinc-600/50 hover:bg-zinc-600'} text-white font-bold rounded transition-colors"
                     title="Toggle Symmetry"
                   >S</button>
-                  <button 
+                  <button type="button"
                     @click=${() => this.dispatchEvent(new CustomEvent('remove-bottom-channel', { detail: { index }, bubbles: true, composed: true }))}
                     class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
                     title="Remove Channel ${index + 1}"
@@ -393,13 +393,13 @@ export class BoardControls extends LitElement {
           <div class="h-px bg-zinc-800 my-4"></div>
           <p class="text-xs text-zinc-500 mb-2 text-center">Relative Scaling</p>
           <div class="flex flex-col gap-2">
-            <div class="flex gap-2">
-              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_WIDTH', factor: 1.05 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Width +5%</button>
-              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_WIDTH', factor: 0.95 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Width -5%</button>
+                        <div class="flex gap-2">
+              <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_WIDTH', factor: 1.05 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Width +5%</button>
+              <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_WIDTH', factor: 0.95 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Width -5%</button>
             </div>
             <div class="flex gap-2">
-              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_THICKNESS', factor: 1.05 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Thick +5%</button>
-              <button @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_THICKNESS', factor: 0.95 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Thick -5%</button>
+              <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_THICKNESS', factor: 1.05 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Thick +5%</button>
+              <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('scale-action', { detail: { type: 'SCALE_THICKNESS', factor: 0.95 }, bubbles: true, composed: true }))} class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Thick -5%</button>
             </div>
           </div>
         `, true)}

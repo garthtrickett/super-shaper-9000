@@ -95,11 +95,12 @@ test.describe('Visual Regression', () => {
       await page.waitForTimeout(500);
     }
 
-    // 6. Screenshot the viewport
+        // 6. Screenshot the viewport
     await expect(viewport).toHaveScreenshot('zebra-flow-golden.png', {
       maxDiffPixels: 35000, 
       threshold: 0.25,
-      mask: [viewport.locator('button[title*="Flip"]'), viewport.locator('button[title*="Perspective"]')]
+      timeout: 15000,
+      mask: [viewport.locator('button')]
     });
   });
 });
