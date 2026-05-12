@@ -678,6 +678,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -688,41 +689,23 @@ mod tests {
         let content = fs::read_to_string(&path).unwrap();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        let mesh = crate::mesh::generate_mesh(&model);
-
-        // In FISH.s3dx, the nose is blunt/chopped (width > 0 at Z=nose_z).
-        // A blunt nose generates a flat front cap. The hull vertices at the rail
-        // should have normals pointing OUTWARD (+X), not FORWARD (-Z).
-        // If they point forward, it creates a terrible shading artifact where the rails join the nose.
-
         let bounds = crate::geometry::get_board_bounds(&model);
-        let scale = 1.0 / 12.0;
-        let nose_z = bounds.nose_z * scale;
 
-        let mut outward_normals_found = false;
+        let z_nose = bounds.nose_z;
+        let z_plus_half = bounds.nose_z + 0.5;
 
-        for i in 0..(mesh.vertices.len() / 3) {
-            let x = mesh.vertices[i * 3];
-            let z = mesh.vertices[i * 3 + 2];
+        let profile_at_nose = crate::geometry::get_board_profile_at_z(&model, z_nose, 0.0);
+        let profile_after_nose = crate::geometry::get_board_profile_at_z(&model, z_plus_half, 0.05);
 
-            if (z - nose_z).abs() < 1e-4 {
-                // Ignore the stringer (X=0) and look at the rail
-                if x > 0.05 * scale {
-                    let nx = mesh.normals[i * 3];
-                    let nz = mesh.normals[i * 3 + 2];
-
-                    // A proper hull normal at the rail should point predominantly outward (+X)
-                    // If nz is strongly negative (e.g. -0.9), it's pointing forward like a pole!
-                    if nx > 0.5 && nz > -0.5 {
-                        outward_normals_found = true;
-                    }
-                }
-            }
-        }
-
+        // For a blunt, flaring nose like on the FISH model, the rail width (apex_x)
+        // should be wider slightly back from the nose than AT the nose.
+        // The visual bug is caused by the rail tucking INWARDS before it flares out.
+        // This assertion will fail if that inversion occurs, proving the geometric bug.
         assert!(
-            outward_normals_found,
-            "BUG: Hull normals at the blunt nose of FISH.s3dx are pointing forward (-Z) instead of outward! This creates a shading artifact where the rails join the nose."
+            profile_after_nose.apex_x > profile_at_nose.apex_x,
+            "BUG: Rail outline inverts at the nose! Width should increase, but it went from {:.3}\" at the nose to {:.3}\" at Z+0.5\"",
+            profile_at_nose.apex_x,
+            profile_after_nose.apex_x
         );
     }
 
