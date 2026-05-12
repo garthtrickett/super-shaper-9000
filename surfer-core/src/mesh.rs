@@ -362,9 +362,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let mut uvs = Vec::new();
     let mut grid = Vec::new();
 
-    let nose_width = evaluate_composite_outline_at_z(model, nose_z, 0.0).x;
-
-    for i in 0..=segments_v {
+        for i in 0..=segments_v {
         let mut ring = Vec::new();
         let z_inches = z_rings[i];
         let v_coord = slice_arc_lengths[i] / total_arc_length;
@@ -393,14 +391,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         for &(norm_u, side, is_stringer, u_tex) in u_columns.iter() {
             let abs_u = norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
             let mut point = get_point_at_uv(model, abs_u, v_outer, z_inches, inner_x, side);
-            if is_stringer {
+                        if is_stringer {
                 point.x = inner_x;
             }
             point.x *= side;
-
-            if i == 0 && nose_width < 1e-3 {
-                point.x = 0.0;
-            }
 
             ring.push((
                 Vec3::new(point.x * scale, point.y * scale, point.z * scale),
