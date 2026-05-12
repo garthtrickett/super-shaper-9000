@@ -1748,10 +1748,161 @@ mod tests {
                 break;
             }
         }
-        assert!(
+                assert!(
             found_cliff,
             "Topology should duplicate Z-rings around the wing cliff"
         );
         println!("✅ test_wing_z_ring_duplication passed.");
+    }
+
+    #[test]
+    fn test_mesh_follows_dynamic_apex() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 4.0, 0.0), Vec3::new(0.0, 4.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        
+        let cs0 = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 1.0, 0.0),
+                Vec3::new(5.0, 2.0, 0.0),
+                Vec3::new(2.5, 3.0, 0.0),
+                Vec3::new(0.0, 4.0, 0.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 5],
+            tangents2: vec![Vec3::ZERO; 5],
+            ..Default::default()
+        };
+        
+        let cs1 = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 100.0),
+                Vec3::new(2.5, 1.0, 100.0),
+                Vec3::new(5.0, 2.0, 100.0),
+                Vec3::new(10.0, 3.0, 100.0),
+                Vec3::new(0.0, 4.0, 100.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 5],
+            tangents2: vec![Vec3::ZERO; 5],
+            ..Default::default()
+        };
+        model.cross_sections = vec![cs0, cs1];
+
+        let mesh = super::generate_mesh(&model);
+        let scale = 1.0 / 12.0;
+        let target_z = 50.0 * scale;
+        let mut best_z_diff = f32::INFINITY;
+        let mut best_z = 0.0;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            let diff = (z - target_z).abs();
+            if diff < best_z_diff {
+                best_z_diff = diff;
+                best_z = z;
+            }
+        }
+
+        let mut max_x_at_50 = 0.0_f32;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - best_z).abs() < 1e-4 {
+                if x > max_x_at_50 {
+                    max_x_at_50 = x;
+                }
+            }
+        }
+
+        let expected_x = 10.0 * scale;
+        assert!(
+            (max_x_at_50 - expected_x).abs() < 5e-3,
+            "BUG: Mesh is inside the outline! Expected apex X at Z={} to be ~{}, but got {}",
+            best_z / scale, expected_x, max_x_at_50
+        );
+    }
+
+    #[test]
+    fn test_blunt_tail_cap_normals_are_flat() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        }];
+
+        let mesh = super::generate_mesh(&model);
+        let scale = 1.0 / 12.0;
+        let target_z = 100.0 * scale;
+
+        let mut cap_normals = Vec::new();
+
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - target_z).abs() < 1e-4 {
+                let nx = mesh.normals[i * 3];
+                let ny = mesh.normals[i * 3 + 1];
+                let nz = mesh.normals[i * 3 + 2];
+                
+                if nz > 0.1 {
+                    cap_normals.push(Vec3::new(nx, ny, nz));
+                }
+            }
+        }
+
+        assert!(!cap_normals.is_empty(), "Should have found cap normals at the tail");
+
+        for n in &cap_normals {
+            assert!(
+                n.y.abs() < 1e-2,
+                "BUG: Cap normal on a blunt tail should not have a Y component! It is being slerped. Normal: {:?}",
+                n
+            );
+            assert!(
+                (n.z - 1.0).abs() < 1e-2,
+                "BUG: Cap normal on a blunt tail should point strictly in +Z! Normal: {:?}",
+                n
+            );
+        }
     }
 }

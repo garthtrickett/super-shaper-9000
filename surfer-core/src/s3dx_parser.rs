@@ -859,11 +859,85 @@ mod tests {
             "Mid-rail is outside the apex!"
         );
 
-        let pt_bot = crate::geometry::get_point_at_uv(&model, 0.0, 1.0, z_test, 0.0, 1.0);
+                let pt_bot = crate::geometry::get_point_at_uv(&model, 0.0, 1.0, z_test, 0.0, 1.0);
         let pt_top = crate::geometry::get_point_at_uv(&model, 1.0, 1.0, z_test, 0.0, 1.0);
         assert!(
             pt_top.y - pt_bot.y > 0.0,
             "Tail thickness should not collapse to zero"
+        );
+    }
+
+    #[test]
+    fn test_tomolike_mesh_integrity() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/TomoLike.s3dx");
+        if !path.exists() {
+            println!("TomoLike.s3dx not found, skipping integrity test");
+            return;
+        }
+        let content = fs::read_to_string(&path).unwrap();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = crate::mesh::generate_mesh(&model);
+        
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        
+        // BUG 1: Nose Cap Normals (Slerped instead of Flat)
+        let nose_z = bounds.nose_z * scale;
+        let mut has_slerped_nose = false;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - nose_z).abs() < 1e-4 {
+                let ny = mesh.normals[i * 3 + 1];
+                let nz = mesh.normals[i * 3 + 2];
+                // Nose cap points towards -Z.
+                if nz < -0.1 {
+                    if ny.abs() > 0.1 {
+                        has_slerped_nose = true;
+                    }
+                }
+            }
+        }
+        assert!(
+            !has_slerped_nose,
+            "BUG: TomoLike blunt nose cap has slerped normals instead of flat (-Z) normals!"
+        );
+
+        // BUG 2: Mesh inside outline
+        let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+        let mid_z_scaled = mid_z * scale;
+        
+        // Find mesh apex at mid_z
+        let mut max_x_at_mid = 0.0_f32;
+        let mut best_z_diff = f32::INFINITY;
+        let mut best_z = 0.0;
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            let diff = (z - mid_z_scaled).abs();
+            if diff < best_z_diff {
+                best_z_diff = diff;
+                best_z = z;
+            }
+        }
+        
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - best_z).abs() < 1e-4 {
+                if x > max_x_at_mid {
+                    max_x_at_mid = x;
+                }
+            }
+        }
+        
+        // Evaluate outline at the exact Z of the mesh ring
+        let outline_x = crate::geometry::evaluate_composite_outline_at_z(&model, best_z / scale, 0.5).x * scale;
+        
+        assert!(
+            (max_x_at_mid - outline_x).abs() < 5e-3,
+            "BUG: Mesh is inside the outline! Mesh Apex X: {}, Outline X: {}",
+            max_x_at_mid, outline_x
         );
     }
 }
