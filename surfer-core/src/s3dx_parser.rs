@@ -605,34 +605,23 @@ mod tests {
     }
 
     #[test]
-    fn test_s3dx_extracts_3d_layers() {
+        #[test]
+    fn test_s3dx_promotes_swallow_tail_layer() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
         if !path.exists() {
-            println!("FISH.s3dx not found, skipping layer test");
+            println!("FISH.s3dx not found, skipping tail promotion test");
             return;
         }
         let content = fs::read_to_string(&path).unwrap();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        assert!(
-            model.outline_layers.is_some(),
-            "Should dynamically parse 3D layers into outline_layers"
-        );
-        let layers = model.outline_layers.unwrap();
-        assert!(layers.len() >= 1, "Should have at least 1 outline layer");
-        let tail_layer = layers
-            .iter()
-            .find(|l| l.name == "SWALLOW TAIL")
-            .expect("Should find SWALLOW TAIL layer");
-        assert!(
-            !tail_layer.otl_ext.control_points.is_empty(),
-            "otl_ext should be populated"
-        );
-        assert!(
-            !tail_layer.otl_int.control_points.is_empty(),
-            "otl_int should be populated"
-        );
+        // The SWALLOW TAIL layer should be intercepted and semantically promoted.
+        assert_eq!(model.tail_type, "swallow");
+        assert!(model.swallow_depth > 0.0, "Swallow depth should be populated from the layer's data");
+        
+        // Since it was the only layer in FISH.s3dx, outline_layers should be consumed and left as None
+        assert!(model.outline_layers.is_none(), "Swallow layer should have been consumed, leaving no leftover outline layers");
     }
 
     #[test]
