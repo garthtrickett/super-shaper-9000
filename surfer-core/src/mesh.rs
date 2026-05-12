@@ -179,8 +179,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     }
     let mut u_params_half = final_base_u;
 
-    // --- NEW: Channel U-parameter injection ---
-    let mut cliff_us = Vec::new();
+        // --- NEW: Channel U-parameter injection ---
+    let mut cliff_norm_us: Vec<f32> = Vec::new();
     if let Some(channels) = &model.bottom_channels {
         for channel in channels {
             let outlines = [&channel.left_outline, &channel.right_outline];
