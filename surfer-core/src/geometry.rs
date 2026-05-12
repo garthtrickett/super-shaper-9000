@@ -642,10 +642,10 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         outline_normal = Vec3::new(1.0, 0.0, 0.0);
     }
 
-    let bounds = get_board_bounds(model);
+        let bounds = get_board_bounds(model);
     let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
     let dist = z_inches - mid_z;
-    let v_concave_add = if dist > 0.0 {
+    let v_concave_raw = if dist > 0.0 {
         let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
         let ease_t = t * t * (3.0 - 2.0 * t);
         model.v_concave_tail * ease_t
@@ -655,14 +655,20 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         model.v_concave_nose * ease_t
     };
 
-    let actual_bot_y = bot_pt.y - v_concave_add;
+    let half_width = outline_pt.x.max(0.0);
+    let max_half_width = (model.width / 2.0).max(0.001);
+    let width_ratio = (half_width / max_half_width).clamp(0.0, 1.0);
+    let v_concave_add = v_concave_raw * width_ratio;
+
+    let actual_bot_y = bot_pt.y;
     let mut top_y = top_pt.y;
     if top_y < actual_bot_y {
         top_y = actual_bot_y;
     }
 
-    let mut apex_x = outline_pt.x.max(0.0);
-    let mut apex_y = bot_pt.y + (top_y - bot_pt.y) * 0.3;
+    let mut apex_x = half_width;
+    let rail_base_y = actual_bot_y + v_concave_add;
+    let mut apex_y = rail_base_y + (top_y - rail_base_y) * 0.3;
 
     if let Some(ao) = &model.apex_outline {
         if !ao.control_points.is_empty() {
@@ -679,15 +685,15 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         let p_top = b.evaluate(1.0);
         let p_apex = b.evaluate(b.t_apex);
         let slice_thick = p_top.y - p_bot.y;
-        let world_thick = top_y - bot_pt.y;
+        let world_thick = top_y - actual_bot_y;
         if slice_thick.abs() > 1e-5 {
-            apex_y = bot_pt.y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
+            apex_y = rail_base_y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
         }
     }
-    apex_y = apex_y.max(bot_pt.y - 2.0);
+    apex_y = apex_y.max(rail_base_y - 2.0);
 
-    let mut tuck_y = bot_pt.y;
-    let mut shoulder_y = bot_pt.y + (top_y - bot_pt.y) * 0.8;
+    let mut tuck_y = rail_base_y;
+    let mut shoulder_y = rail_base_y + (top_y - rail_base_y) * 0.8;
 
     if let Some(b) = &blend {
         let p_bot = b.evaluate(0.0);
@@ -697,10 +703,10 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
         let p_shoulder = b.evaluate(t_shoulder);
         let slice_thick = p_top.y - p_bot.y;
-        let world_thick = top_y - bot_pt.y;
+        let world_thick = top_y - actual_bot_y;
         if slice_thick.abs() > 1e-5 {
-            tuck_y = bot_pt.y + world_thick * ((p_tuck.y - p_bot.y) / slice_thick);
-            shoulder_y = bot_pt.y + world_thick * ((p_shoulder.y - p_bot.y) / slice_thick);
+            tuck_y = rail_base_y + world_thick * ((p_tuck.y - p_bot.y) / slice_thick);
+            shoulder_y = rail_base_y + world_thick * ((p_shoulder.y - p_bot.y) / slice_thick);
         }
     }
 
@@ -2173,13 +2179,13 @@ mod tests {
         let profile_base_tail = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
         let profile_mod_tail = super::get_board_profile_at_z(&model_mod_v, z_tail, 0.5);
 
-        assert!(
-            profile_mod_tail.bot_y > profile_base_tail.bot_y,
-            "V-Concave < 0 should physically raise the stringer (Vee)"
+                assert!(
+            (profile_mod_tail.bot_y - profile_base_tail.bot_y).abs() < 1e-4,
+            "V-Concave should not alter the stringer rocker height"
         );
         assert!(
-            (profile_mod_tail.apex_y - profile_base_tail.apex_y).abs() < 1e-4,
-            "V-Concave should not alter the rail rocker height"
+            profile_mod_tail.tuck_y < profile_base_tail.tuck_y,
+            "V-Concave < 0 (Concave) should physically lower the rails relative to the stringer"
         );
 
         // Test Rail Coefficient (Thinning the deck shoulder)
