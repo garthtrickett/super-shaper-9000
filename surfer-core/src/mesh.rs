@@ -362,7 +362,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let mut uvs = Vec::new();
     let mut grid = Vec::new();
 
-        for i in 0..=segments_v {
+    for i in 0..=segments_v {
         let mut ring = Vec::new();
         let z_inches = z_rings[i];
         let v_coord = slice_arc_lengths[i] / total_arc_length;
@@ -391,7 +391,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         for &(norm_u, side, is_stringer, u_tex) in u_columns.iter() {
             let abs_u = norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
             let mut point = get_point_at_uv(model, abs_u, v_outer, z_inches, inner_x, side);
-                        if is_stringer {
+            if is_stringer {
                 point.x = inner_x;
             }
             point.x *= side;
@@ -441,7 +441,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 continue;
             }
 
-                        let a = (i * num_cols + j) as u32;
+            let a = (i * num_cols + j) as u32;
             let b = a + 1;
             let c = ((i + 1) * num_cols + j) as u32;
             let d = c + 1;
@@ -451,7 +451,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             let pos_c = grid[i + 1][j].0;
             let pos_d = grid[i + 1][j + 1].0;
 
-                        // Only push valid triangles. If a ring collapses to a point at the poles,
+            // Only push valid triangles. If a ring collapses to a point at the poles,
             // we dynamically drop the degenerate zero-area triangles.
             if pos_a.distance_squared(pos_b) > 1e-16 {
                 indices.push(a);
@@ -615,7 +615,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         };
 
-        let generate_cap = |ring_index: usize,
+    let generate_cap = |ring_index: usize,
                         _z_inches: f32,
                         _n_top: Vec3,
                         _n_bot: Vec3,
@@ -655,7 +655,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     let (pos, color, u_tex, v_coord, _abs_u) = ring[j];
                     let side = u_columns[j].1;
 
-                                        let target_x = if side > 0.0 {
+                    let target_x = if side > 0.0 {
                         right_target_x
                     } else {
                         left_target_x
@@ -671,9 +671,17 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         ring[num_cols - 1].0.y + f * (ring[half + 1].0.y - ring[num_cols - 1].0.y)
                     };
 
-                                        // To ensure a perfect watertight seal with the hull, step 0 must copy the exact float bits
-                    let new_x = if step == 0 { pos.x } else { target_x + (pos.x - target_x) * fraction };
-                    let new_y = if step == 0 { pos.y } else { target_y + (pos.y - target_y) * fraction };
+                    // To ensure a perfect watertight seal with the hull, step 0 must copy the exact float bits
+                    let new_x = if step == 0 {
+                        pos.x
+                    } else {
+                        target_x + (pos.x - target_x) * fraction
+                    };
+                    let new_y = if step == 0 {
+                        pos.y
+                    } else {
+                        target_y + (pos.y - target_y) * fraction
+                    };
 
                     vertices.push(new_x);
                     vertices.push(new_y);
@@ -728,7 +736,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[d as usize * 3 + 2],
                     );
 
-                                                            if is_nose {
+                    if is_nose {
                         if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-16 {
                             indices.push(a);
                             indices.push(d);
@@ -1941,7 +1949,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_witcherdaily_tail_holes() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1960,16 +1968,20 @@ mod tests {
 
         let get_vertex = |idx: u32| -> Vec3 {
             let i = idx as usize * 3;
-            Vec3::new(mesh.vertices[i], mesh.vertices[i+1], mesh.vertices[i+2])
+            Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
         };
 
         for i in (0..mesh.indices.len()).step_by(3) {
             let i1 = mesh.indices[i];
-            let i2 = mesh.indices[i+1];
-            let i3 = mesh.indices[i+2];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
 
             let hash_pt = |v: Vec3| -> (i32, i32, i32) {
-                ((v.x * 10000.0).round() as i32, (v.y * 10000.0).round() as i32, (v.z * 10000.0).round() as i32)
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
             };
 
             let v1 = hash_pt(get_vertex(i1));
@@ -1997,21 +2009,33 @@ mod tests {
             if *count == 1 {
                 let z1 = (edge.0).2 as f32 / 10000.0;
                 let z2 = (edge.1).2 as f32 / 10000.0;
-                
+
                 // If an edge is only used by 1 triangle, it's a boundary (hole).
                 if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
                     tail_holes += 1;
-                    let v1 = Vec3::new((edge.0).0 as f32 / 10000.0, (edge.0).1 as f32 / 10000.0, (edge.0).2 as f32 / 10000.0);
-                    let v2 = Vec3::new((edge.1).0 as f32 / 10000.0, (edge.1).1 as f32 / 10000.0, (edge.1).2 as f32 / 10000.0);
+                    let v1 = Vec3::new(
+                        (edge.0).0 as f32 / 10000.0,
+                        (edge.0).1 as f32 / 10000.0,
+                        (edge.0).2 as f32 / 10000.0,
+                    );
+                    let v2 = Vec3::new(
+                        (edge.1).0 as f32 / 10000.0,
+                        (edge.1).1 as f32 / 10000.0,
+                        (edge.1).2 as f32 / 10000.0,
+                    );
                     log::error!("Hole at edge from {:?} to {:?}", v1, v2);
                 }
             }
         }
 
-        assert_eq!(tail_holes, 0, "Found {} boundary edges at the tail! This means there's a visible topological hole.", tail_holes);
+        assert_eq!(
+            tail_holes, 0,
+            "Found {} boundary edges at the tail! This means there's a visible topological hole.",
+            tail_holes
+        );
     }
 
-        #[test]
+    #[test]
     fn test_witcherdaily_tail_holes() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2030,16 +2054,20 @@ mod tests {
 
         let get_vertex = |idx: u32| -> Vec3 {
             let i = idx as usize * 3;
-            Vec3::new(mesh.vertices[i], mesh.vertices[i+1], mesh.vertices[i+2])
+            Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
         };
 
         for i in (0..mesh.indices.len()).step_by(3) {
             let i1 = mesh.indices[i];
-            let i2 = mesh.indices[i+1];
-            let i3 = mesh.indices[i+2];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
 
             let hash_pt = |v: Vec3| -> (i32, i32, i32) {
-                ((v.x * 10000.0).round() as i32, (v.y * 10000.0).round() as i32, (v.z * 10000.0).round() as i32)
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
             };
 
             let v1 = hash_pt(get_vertex(i1));
@@ -2066,14 +2094,18 @@ mod tests {
             if *count == 1 {
                 let z1 = (edge.0).2 as f32 / 10000.0;
                 let z2 = (edge.1).2 as f32 / 10000.0;
-                
+
                 if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
                     tail_holes += 1;
                 }
             }
         }
 
-        assert_eq!(tail_holes, 0, "Found {} boundary edges at the tail! This means there's a visible topological hole.", tail_holes);
+        assert_eq!(
+            tail_holes, 0,
+            "Found {} boundary edges at the tail! This means there's a visible topological hole.",
+            tail_holes
+        );
     }
 
     #[test]
@@ -2125,7 +2157,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_micro_cap_leak_at_nose() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2186,15 +2218,27 @@ mod tests {
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            let v1 = Vec3::new(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2]);
-            let v2 = Vec3::new(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2]);
-            let v3 = Vec3::new(mesh.vertices[i3 * 3], mesh.vertices[i3 * 3 + 1], mesh.vertices[i3 * 3 + 2]);
+            let v1 = Vec3::new(
+                mesh.vertices[i1 * 3],
+                mesh.vertices[i1 * 3 + 1],
+                mesh.vertices[i1 * 3 + 2],
+            );
+            let v2 = Vec3::new(
+                mesh.vertices[i2 * 3],
+                mesh.vertices[i2 * 3 + 1],
+                mesh.vertices[i2 * 3 + 2],
+            );
+            let v3 = Vec3::new(
+                mesh.vertices[i3 * 3],
+                mesh.vertices[i3 * 3 + 1],
+                mesh.vertices[i3 * 3 + 2],
+            );
 
             // Only check triangles that touch the exact nose tip
-            if (v1.z - nose_z_scaled).abs() < 1e-4 || 
-               (v2.z - nose_z_scaled).abs() < 1e-4 || 
-               (v3.z - nose_z_scaled).abs() < 1e-4 {
-               
+            if (v1.z - nose_z_scaled).abs() < 1e-4
+                || (v2.z - nose_z_scaled).abs() < 1e-4
+                || (v3.z - nose_z_scaled).abs() < 1e-4
+            {
                 let area = (v2 - v1).cross(v3 - v1).length();
                 if area < 1e-10 {
                     degenerate_triangles += 1;
@@ -2218,14 +2262,15 @@ mod tests {
 
         let content = std::fs::read_to_string(&path).unwrap();
         let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        
+
         let bounds = crate::geometry::get_board_bounds(&model);
         let u_stringer = 0.0;
         let u_tuck = 0.05; // Slightly off the stringer
-        
-        let n_stringer = crate::geometry::get_surface_normal_at_uvz(&model, u_stringer, bounds.nose_z, 1.0);
+
+        let n_stringer =
+            crate::geometry::get_surface_normal_at_uvz(&model, u_stringer, bounds.nose_z, 1.0);
         let n_tuck = crate::geometry::get_surface_normal_at_uvz(&model, u_tuck, bounds.nose_z, 1.0);
-        
+
         let dot = n_stringer.dot(n_tuck);
         assert!(
             dot > 0.8,

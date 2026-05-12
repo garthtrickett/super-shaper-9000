@@ -50,7 +50,7 @@ pub struct S3dxBoard {
     pub curve_def_side0: Option<S3dxBezierDefContainer>,
     #[serde(rename = "curveDefSide2")]
     pub curve_def_side2: Option<S3dxBezierDefContainer>,
-        #[serde(rename = "curveDefSide4")]
+    #[serde(rename = "curveDefSide4")]
     pub curve_def_side4: Option<S3dxBezierDefContainer>,
 
     #[serde(rename = "ProfilTopDef")]
@@ -267,7 +267,23 @@ fn convert_s3dx_couples(
 }
 
 pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
-    let mut sanitized = xml
+    // S3DX files often contain unescaped ampersands in text fields which breaks standard XML parsers.
+    let mut sanitized = String::with_capacity(xml.len() + 100);
+    let mut chars = xml.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '&' {
+            let peek: String = chars.clone().take(6).collect();
+            if peek.starts_with("amp;") || peek.starts_with("lt;") || peek.starts_with("gt;") || peek.starts_with("quot;") || peek.starts_with("apos;") || peek.starts_with("#") {
+                sanitized.push('&');
+            } else {
+                sanitized.push_str("&amp;");
+            }
+        } else {
+            sanitized.push(c);
+        }
+    }
+
+    sanitized = sanitized
         .replace("<Ref. point>", "<Ref_point>")
         .replace("</Ref. point>", "</Ref_point>");
 
@@ -321,8 +337,8 @@ impl From<S3dxBoard> for BoardModel {
 
         model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, scale);
         model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
-                model.deck_shoulder = convert_s3dx_bezier_def(&s3dx.curve_def_top3, bl, scale);
-        
+        model.deck_shoulder = convert_s3dx_bezier_def(&s3dx.curve_def_top3, bl, scale);
+
         log::info!("[S3DX Parser] Assigning Apex Rocker...");
         model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, scale)
             .or_else(|| convert_s3dx_bezier_def(&s3dx.profil_top_def, bl, scale));
@@ -350,12 +366,16 @@ impl From<S3dxBoard> for BoardModel {
         if let Some(calques) = s3dx.calques {
             for c in calques {
                 if let Some(calque) = c.calque3d {
-                                        let name = calque.nom.clone().unwrap_or_else(|| "Layer".to_string());
+                    let name = calque.nom.clone().unwrap_or_else(|| "Layer".to_string());
                     let type_calque = calque.type_calque.unwrap_or(0);
                     let x_max = calque.x_max.unwrap_or(0.0);
 
                     if type_calque == 8 || type_calque == 4 {
-                        log::info!("[S3DX Parser] Ignoring non-structural Calque (Type {}): {}", type_calque, name);
+                        log::info!(
+                            "[S3DX Parser] Ignoring non-structural Calque (Type {}): {}",
+                            type_calque,
+                            name
+                        );
                         continue;
                     }
 
@@ -957,16 +977,20 @@ mod tests {
 
         let get_vertex = |idx: u32| -> Vec3 {
             let i = idx as usize * 3;
-            Vec3::new(mesh.vertices[i], mesh.vertices[i+1], mesh.vertices[i+2])
+            Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
         };
 
         for i in (0..mesh.indices.len()).step_by(3) {
             let i1 = mesh.indices[i];
-            let i2 = mesh.indices[i+1];
-            let i3 = mesh.indices[i+2];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
 
             let hash_pt = |v: Vec3| -> (i32, i32, i32) {
-                ((v.x * 10000.0).round() as i32, (v.y * 10000.0).round() as i32, (v.z * 10000.0).round() as i32)
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
             };
 
             let v1 = hash_pt(get_vertex(i1));
@@ -994,17 +1018,29 @@ mod tests {
             if *count == 1 {
                 let z1 = (edge.0).2 as f32 / 10000.0;
                 let z2 = (edge.1).2 as f32 / 10000.0;
-                
+
                 if (z1 - nose_z).abs() < 1.0 && (z2 - nose_z).abs() < 1.0 {
                     nose_holes += 1;
-                    let v1 = Vec3::new((edge.0).0 as f32 / 10000.0, (edge.0).1 as f32 / 10000.0, (edge.0).2 as f32 / 10000.0);
-                    let v2 = Vec3::new((edge.1).0 as f32 / 10000.0, (edge.1).1 as f32 / 10000.0, (edge.1).2 as f32 / 10000.0);
+                    let v1 = Vec3::new(
+                        (edge.0).0 as f32 / 10000.0,
+                        (edge.0).1 as f32 / 10000.0,
+                        (edge.0).2 as f32 / 10000.0,
+                    );
+                    let v2 = Vec3::new(
+                        (edge.1).0 as f32 / 10000.0,
+                        (edge.1).1 as f32 / 10000.0,
+                        (edge.1).2 as f32 / 10000.0,
+                    );
                     log::error!("Hole at edge from {:?} to {:?}", v1, v2);
                 }
             }
         }
 
-        assert_eq!(nose_holes, 0, "Found {} boundary edges at the nose!", nose_holes);
+        assert_eq!(
+            nose_holes, 0,
+            "Found {} boundary edges at the nose!",
+            nose_holes
+        );
     }
 
     #[test]
@@ -1060,8 +1096,6 @@ mod tests {
         }
     }
 
-
-
     #[test]
     fn test_no_interior_symmetry_plane_triangles() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1072,7 +1106,7 @@ mod tests {
         let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = super::generate_mesh(&model);
 
-                let mut interior_triangles = 0;
+        let mut interior_triangles = 0;
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
         let nose_z = bounds.nose_z * scale;
@@ -1091,9 +1125,12 @@ mod tests {
             let z2 = mesh.vertices[i2 + 2];
             let z3 = mesh.vertices[i3 + 2];
 
-            let is_at_pole = (z1 - nose_z).abs() < 1e-2 || (z1 - tail_z).abs() < 1e-2 ||
-                             (z2 - nose_z).abs() < 1e-2 || (z2 - tail_z).abs() < 1e-2 ||
-                             (z3 - nose_z).abs() < 1e-2 || (z3 - tail_z).abs() < 1e-2;
+            let is_at_pole = (z1 - nose_z).abs() < 1e-2
+                || (z1 - tail_z).abs() < 1e-2
+                || (z2 - nose_z).abs() < 1e-2
+                || (z2 - tail_z).abs() < 1e-2
+                || (z3 - nose_z).abs() < 1e-2
+                || (z3 - tail_z).abs() < 1e-2;
 
             // If all three vertices of a triangle lie exactly on the X=0 symmetry plane,
             // it is an interior face. Because the normal of this face points directly sideways,

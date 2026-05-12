@@ -642,7 +642,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         outline_normal = Vec3::new(1.0, 0.0, 0.0);
     }
 
-        let bounds = get_board_bounds(model);
+    let bounds = get_board_bounds(model);
     let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
     let dist = z_inches - mid_z;
     let v_concave_raw = if dist > 0.0 {
@@ -921,7 +921,6 @@ pub fn get_point_at_uv_base(
 
     final_pos
 }
-    
 
 pub fn get_point_at_uv(
     model: &BoardModel,
@@ -1120,7 +1119,6 @@ pub fn get_surface_normal_base_at_uvz(
 
     n
 }
-    
 
 pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side: f32) -> Vec3 {
     let bounds = get_board_bounds(model);
@@ -2179,7 +2177,7 @@ mod tests {
         let profile_base_tail = super::get_board_profile_at_z(&model_base, z_tail, 0.5);
         let profile_mod_tail = super::get_board_profile_at_z(&model_mod_v, z_tail, 0.5);
 
-                assert!(
+        assert!(
             (profile_mod_tail.bot_y - profile_base_tail.bot_y).abs() < 1e-4,
             "V-Concave should not alter the stringer rocker height"
         );

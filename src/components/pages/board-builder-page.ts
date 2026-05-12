@@ -110,13 +110,17 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    private _handleS3dxUpload = async (e: Event) => {
+      private _handleS3dxUpload = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
     try {
-      const text = await file.text();
+      // S3DX files are often ISO-8859-1 encoded.
+      // Read as ArrayBuffer and decode explicitly to prevent replacement characters ().
+      const buffer = await file.arrayBuffer();
+      const decoder = new TextDecoder('iso-8859-1');
+      const text = decoder.decode(buffer);
       
       this.wasmCtrl.propose({
         type: "IMPORT_S3DX",
