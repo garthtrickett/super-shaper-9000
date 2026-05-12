@@ -909,7 +909,7 @@ pub fn get_point_at_uv_base(
     let is_nose_pole = (z_inches - bounds.nose_z).abs() < 1e-4;
     let is_tail_pole = (z_inches - bounds.tip_z).abs() < 1e-4;
 
-        if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.5 {
+    if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.5 {
         final_pos.x = 0.0;
     }
 
@@ -1105,7 +1105,7 @@ pub fn get_surface_normal_base_at_uvz(
         n = -n;
     }
 
-        let pt = get_point_at_uv_base(model, u, v_outer, z_inches, inner_x, side);
+    let pt = get_point_at_uv_base(model, u, v_outer, z_inches, inner_x, side);
     if pt.x.abs() < 1e-4 && inner_x < 1e-4 {
         n.x = 0.0;
         n = n.normalize();

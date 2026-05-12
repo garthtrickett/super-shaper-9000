@@ -468,7 +468,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
     let generate_swallow_notch_wall =
-                |vertices: &mut Vec<f32>,
+        |vertices: &mut Vec<f32>,
          uvs: &mut Vec<f32>,
          colors: &mut Vec<f32>,
          normals: &mut Vec<f32>,
@@ -490,8 +490,6 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 return;
             }
 
-                        let num_y_steps = half;
-
             // Right Wall
             let start_v_idx = (vertices.len() / 3) as u32;
             for i in notch_start_idx..=segments_v {
@@ -511,8 +509,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     }
                 }
 
-                for step in 0..=half {
-                    let hull_pt = &grid[i][step];
+                                for hull_pt in grid[i].iter().take(half + 1) {
                     let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
                     let color = hull_pt.1;
                     let u = hull_pt.2;
@@ -568,9 +565,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     }
                 }
 
-                for step in 0..=half {
-                    let j = half + 1 + step;
-                    let hull_pt = &grid[i][j];
+                                for hull_pt in grid[i].iter().skip(half + 1).take(half + 1) {
                     let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
                     let color = hull_pt.1;
                     let u = hull_pt.2;
@@ -627,7 +622,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             right_min_x = right_min_x.min(x);
             right_max_x = right_max_x.max(x);
         }
-                let ring_width = right_max_x - right_min_x;
+        let ring_width = right_max_x - right_min_x;
         let is_sharp = ring_width < 0.05;
         let start_vertex_index = (vertices.len() / 3) as u32;
 
