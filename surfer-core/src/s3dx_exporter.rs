@@ -5,7 +5,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
     xml.push_str("<Version>9</Version>\n<VersionNumber>9.1.0.4</VersionNumber>\n");
-        xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.6}</Length>\n<Width>{:.6}</Width>\n<Thickness>{:.6}</Thickness>\n", model.length, model.width, model.thickness));
+    xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.6}</Length>\n<Width>{:.6}</Width>\n<Thickness>{:.6}</Thickness>\n", model.length, model.width, model.thickness));
     let mesh = crate::mesh::generate_mesh(model);
     xml.push_str(&format!("<Volume>{:.6}</Volume>\n", mesh.volume_liters));
 
@@ -311,7 +311,7 @@ mod tests {
         assert!(xml.contains("<Shape3d_design>"));
         assert!(xml.contains("<Board>"));
 
-                // Verify numerical formatting (should be to 6 decimal places)
+        // Verify numerical formatting (should be to 6 decimal places)
         assert!(xml.contains("<Length>72.500000</Length>"));
         assert!(xml.contains("<Width>20.250000</Width>"));
         assert!(xml.contains("<Thickness>2.625000</Thickness>"));
@@ -322,7 +322,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_s3dx_round_trip() {
         use std::fs;
         use std::path::PathBuf;
@@ -331,17 +330,22 @@ mod tests {
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
 
         let content = fs::read_to_string(&path).unwrap_or_else(|_| {
-            panic!("Should be able to read the golden S3DX file from {:?}", path)
+            panic!(
+                "Should be able to read the golden S3DX file from {:?}",
+                path
+            )
         });
 
         // 1. Parse Ground Truth
-        let model_a = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse golden S3DX");
+        let model_a =
+            crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse golden S3DX");
 
         // 2. Export to XML
         let exported_xml = crate::s3dx_exporter::export_s3dx(&model_a);
 
         // 3. Re-Parse
-        let model_b = crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
+        let model_b =
+            crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
 
         // 4. Assert Losslessness
         // epsilon = 1e-4 provides enough leniency for float -> string -> float serialization noise

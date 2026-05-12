@@ -517,6 +517,55 @@ mod tests {
         assert!((outline.control_points[0].x).abs() < 1.0); // Nose Width should be close to 0
     }
 
+        #[test]
+    fn test_imported_fish_tail_mesh_integrity() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
+        if !path.exists() {
+            println!("FISH.s3dx not found, skipping tail integrity test");
+            return;
+        }
+        let content = fs::read_to_string(&path).unwrap();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_start_z = bounds.tip_z - 20.0;
+        
+        let mut last_apex_x = None;
+        let steps = 200; // High resolution to catch sudden cliffs
+        
+        for i in 0..=steps {
+            let z = tail_start_z + (20.0 * (i as f32 / steps as f32));
+            let profile = crate::geometry::get_board_profile_at_z(&model, z, 0.5);
+            
+            let inner_x = if z > bounds.notch_z {
+                crate::geometry::evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z)
+            } else {
+                0.0
+            };
+
+            // BUG 1: Prong collapse/inversion
+            // If inner_x > apex_x, the inner stringer crosses the outer rail, creating a black hole/gap!
+            assert!(
+                profile.apex_x >= inner_x, 
+                "Prong collapsed/inverted at z={:.2}! apex_x ({:.2}) < inner_x ({:.2})", 
+                z, profile.apex_x, inner_x
+            );
+
+            // BUG 2: Massive mesh cliffs (Tears)
+            // The layer abruptly overrides the outline with incompatible absolute coordinates
+            if let Some(last_x) = last_apex_x {
+                let diff = (profile.apex_x - last_x).abs();
+                assert!(
+                    diff < 2.0, 
+                    "Massive cliff/tear detected in mesh outline at z={:.2}! Width jumped by {:.2} inches instantly.", 
+                    z, diff
+                );
+            }
+            last_apex_x = Some(profile.apex_x);
+        }
+    }
+
     #[test]
     fn test_s3dx_extracts_3d_layers() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
