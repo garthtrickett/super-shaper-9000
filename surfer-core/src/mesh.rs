@@ -128,7 +128,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             } else {
                 0.5
             }
-                } else if 1.0 > t_shoulder {
+        } else if 1.0 > t_shoulder {
             0.75 + ((abs_u - t_shoulder) / (1.0 - t_shoulder)) * 0.25
         } else {
             0.75
@@ -631,7 +631,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let start_vertex_index = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
 
-                if is_sharp {
+        if is_sharp {
             // The hull naturally closes at sharp poles and already possesses
             // the correct slerp normals. Generating a cap here only creates
             // zero-area degenerate triangles that cause shading artifacts.

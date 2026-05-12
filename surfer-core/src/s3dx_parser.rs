@@ -879,6 +879,59 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_gh60_winged_swallow_tail_mesh_integrity() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
+        if !path.exists() {
+            println!("gh-60-winged-swallow.s3dx not found, skipping tail integrity test");
+            return;
+        }
+        let content = fs::read_to_string(&path).unwrap();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_start_z = bounds.tip_z - 30.0;
+
+        let mut last_apex_x: Option<f32> = None;
+        let steps = 300;
+
+        for i in 0..=steps {
+            let z = tail_start_z + (30.0 * (i as f32 / steps as f32));
+            let profile = crate::geometry::get_board_profile_at_z(&model, z, 0.5);
+
+            let inner_x = if z > bounds.notch_z {
+                crate::geometry::evaluate_notch_inner_x(
+                    model.outline.as_ref().unwrap(),
+                    bounds.tip_t,
+                    z,
+                )
+            } else {
+                0.0
+            };
+
+            // BUG 1: Prong collapse/inversion
+            assert!(
+                profile.apex_x >= inner_x,
+                "Prong collapsed/inverted at z={:.2}! apex_x ({:.2}) < inner_x ({:.2})",
+                z,
+                profile.apex_x,
+                inner_x
+            );
+
+            // BUG 2: Massive mesh cliffs (Tears)
+            if let Some(last_x) = last_apex_x {
+                let diff = (profile.apex_x - last_x).abs();
+                assert!(
+                    diff < 1.0,
+                    "Massive cliff/tear detected in mesh outline at z={:.2}! Width jumped by {:.2} inches instantly.", 
+                    z, diff
+                );
+            }
+            last_apex_x = Some(profile.apex_x);
+        }
+    }
+
     #[test]
     fn test_tomolike_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
