@@ -346,7 +346,7 @@ impl From<S3dxBoard> for BoardModel {
                     let type_calque = calque.type_calque.unwrap_or(0);
                     let x_max = calque.x_max.unwrap_or(0.0);
 
-                                        let otl_ext =
+                    let otl_ext =
                         convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
                     let otl_int =
                         convert_s3dx_curve(&calque.otl_int, bl, scale).unwrap_or_default();
@@ -355,7 +355,10 @@ impl From<S3dxBoard> for BoardModel {
                     let mut swallow_depth_calc = 0.0;
                     if !otl_ext.control_points.is_empty() {
                         let tail_z = bl / 2.0 * scale;
-                        let has_prong = otl_ext.control_points.iter().any(|p| (p.z - tail_z).abs() < 1e-2 && p.x > 1e-2);
+                        let has_prong = otl_ext
+                            .control_points
+                            .iter()
+                            .any(|p| (p.z - tail_z).abs() < 1e-2 && p.x > 1e-2);
                         let notch_point = otl_ext.control_points.iter().find(|p| p.x < 1e-2);
                         if has_prong {
                             if let Some(np) = notch_point {
@@ -366,7 +369,10 @@ impl From<S3dxBoard> for BoardModel {
                     }
 
                     // Intercept messy Shape3D Swallow Tail hacks and promote them to clean semantic native properties
-                    if type_calque == 32 || name.to_uppercase().contains("SWALLOW") || is_swallow_geom {
+                    if type_calque == 32
+                        || name.to_uppercase().contains("SWALLOW")
+                        || is_swallow_geom
+                    {
                         model.tail_type = "swallow".to_string();
                         let mut depth_s3dx = x_max * scale;
                         if depth_s3dx == 0.0 {
@@ -627,7 +633,7 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn test_fish_nose_rail_spikes() {
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -641,23 +647,28 @@ mod tests {
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
-        
+
         // We look for massive explosions in the X coordinate near the nose.
         let start_z = bounds.nose_z * scale;
         let end_z = (bounds.nose_z + 10.0) * scale; // First 10 inches
-        
+
         let mut max_spike = 0.0_f32;
         let mut spike_z = 0.0;
 
         for i in 0..(mesh.vertices.len() / 3) {
             let x = mesh.vertices[i * 3];
             let z = mesh.vertices[i * 3 + 2];
-            
+
             if z >= start_z && z <= end_z {
                 let z_inches = z / scale;
-                let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
+                let v_outer = crate::geometry::find_v_at_z(
+                    model.outline.as_ref().unwrap(),
+                    z_inches,
+                    0.0,
+                    bounds.tip_t,
+                );
                 let profile = crate::geometry::get_board_profile_at_z(&model, z_inches, v_outer);
-                
+
                 // Allow up to 2 inches of "puff" over the apex.
                 // The bug causes spikes of 100+ inches, so 2 inches is a safe tolerance.
                 let theoretical_max_x = profile.apex_x * scale;
@@ -669,7 +680,7 @@ mod tests {
             }
         }
 
-        let tolerance = 2.0 * scale; 
+        let tolerance = 2.0 * scale;
         assert!(
             max_spike < tolerance,
             "BUG: Severe mesh spikes detected at the nose! Rail geometry puffed out by {:.2} inches past the outline at Z={:.2}",
@@ -678,7 +689,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -929,7 +939,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_gh60_winged_swallow_tail_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");

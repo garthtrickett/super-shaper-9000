@@ -687,20 +687,36 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     let c = ring_b_start + j as u32;
                     let d = c + 1;
 
+                                        let pt_a = Vec3::new(vertices[a as usize * 3], vertices[a as usize * 3 + 1], vertices[a as usize * 3 + 2]);
+                    let pt_b = Vec3::new(vertices[b as usize * 3], vertices[b as usize * 3 + 1], vertices[b as usize * 3 + 2]);
+                    let pt_c = Vec3::new(vertices[c as usize * 3], vertices[c as usize * 3 + 1], vertices[c as usize * 3 + 2]);
+                    let pt_d = Vec3::new(vertices[d as usize * 3], vertices[d as usize * 3 + 1], vertices[d as usize * 3 + 2]);
+
+                    let dist_ac = pt_a.distance_squared(pt_c);
+                    let dist_bd = pt_b.distance_squared(pt_d);
+
                     if is_nose {
-                        indices.push(a);
-                        indices.push(d);
-                        indices.push(b);
-                        indices.push(a);
-                        indices.push(c);
-                        indices.push(d);
+                        if dist_bd > 1e-6 {
+                            indices.push(a);
+                            indices.push(d);
+                            indices.push(b);
+                        }
+                        if dist_ac > 1e-6 {
+                            indices.push(a);
+                            indices.push(c);
+                            indices.push(d);
+                        }
                     } else {
-                        indices.push(a);
-                        indices.push(b);
-                        indices.push(d);
-                        indices.push(a);
-                        indices.push(d);
-                        indices.push(c);
+                        if dist_bd > 1e-6 {
+                            indices.push(a);
+                            indices.push(b);
+                            indices.push(d);
+                        }
+                        if dist_ac > 1e-6 {
+                            indices.push(a);
+                            indices.push(d);
+                            indices.push(c);
+                        }
                     }
                 }
             }
@@ -1890,6 +1906,37 @@ mod tests {
             expected_x,
             max_x_at_50
         );
+    }
+
+        #[test]
+    fn test_cap_degenerate_triangles() {
+        // WitcherDaily.s3dx has a blunt tail, so it generates a patch cap.
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(&model);
+
+        // Find degenerate triangles in the cap
+        let mut degenerate_count = 0;
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+
+            let v1 = Vec3::new(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2]);
+            let v2 = Vec3::new(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2]);
+            let v3 = Vec3::new(mesh.vertices[i3 * 3], mesh.vertices[i3 * 3 + 1], mesh.vertices[i3 * 3 + 2]);
+
+            // Area of triangle is 0.5 * |(v2 - v1) x (v3 - v1)|
+            let area = (v2 - v1).cross(v3 - v1).length();
+            if area < 1e-6 {
+                degenerate_count += 1;
+            }
+        }
+
+        assert_eq!(degenerate_count, 0, "Found degenerate triangles in the mesh! This causes dark square rendering artifacts.");
     }
 
     #[test]
