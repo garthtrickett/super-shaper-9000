@@ -109,29 +109,58 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let segments_v = z_rings.len() - 1;
 
+        let abs_u_to_norm_u = |abs_u: f32, t_tuck: f32, t_apex: f32, t_shoulder: f32| -> f32 {
+        if abs_u <= t_tuck {
+            if t_tuck > 0.0 { (abs_u / t_tuck) * 0.25 } else { 0.0 }
+        } else if abs_u <= t_apex {
+            if t_apex > t_tuck { 0.25 + ((abs_u - t_tuck) / (t_apex - t_tuck)) * 0.25 } else { 0.25 }
+        } else if abs_u <= t_shoulder {
+            if t_shoulder > t_apex { 0.5 + ((abs_u - t_apex) / (t_shoulder - t_apex)) * 0.25 } else { 0.5 }
+        } else {
+            if 1.0 > t_shoulder { 0.75 + ((abs_u - t_shoulder) / (1.0 - t_shoulder)) * 0.25 } else { 0.75 }
+        }
+    };
+
+    let norm_u_to_abs_u = |norm_u: f32, t_tuck: f32, t_apex: f32, t_shoulder: f32| -> f32 {
+        if norm_u <= 0.25 {
+            t_tuck * (norm_u / 0.25)
+        } else if norm_u <= 0.5 {
+            t_tuck + (t_apex - t_tuck) * ((norm_u - 0.25) / 0.25)
+        } else if norm_u <= 0.75 {
+            t_apex + (t_shoulder - t_apex) * ((norm_u - 0.5) / 0.25)
+        } else {
+            t_shoulder + (1.0 - t_shoulder) * ((norm_u - 0.75) / 0.25)
+        }
+    };
+
     // Adaptive Crosswise (U) Columns
-    let mut critical_us = vec![0.0, 1.0];
-    let mut adaptive_us = Vec::new();
+    let critical_norm_us = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+    let mut adaptive_norm_us = Vec::new();
     let tolerance_degrees_u = 3.0;
     let min_dist_u = 0.05;
-    for cs in &model.cross_sections {
-        adaptive_us.extend(crate::bezier::adaptive_sample_t(
-            cs,
-            tolerance_degrees_u,
-            min_dist_u,
-        ));
-        let t_apex = crate::geometry::find_apex_t(cs);
-        critical_us.push(t_apex);
-        critical_us.push(0.01_f32.max(t_apex * 0.5)); // t_tuck
-    }
-    critical_us.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    critical_us.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
 
-    let mut u_params_half = critical_us.clone();
-    for u in adaptive_us {
-        // Only add adaptive sample if it's safely distant from ALL critical points
-        if !critical_us.iter().any(|&cu| (u - cu).abs() < 0.01) {
-            u_params_half.push(u);
+    let mut primary_cs = model.cross_sections.first().unwrap_or(&crate::model::BezierCurveData::default());
+    let mut max_width = 0.0;
+    for cs in &model.cross_sections {
+        let w = cs.control_points.iter().fold(0.0_f32, |m, p| m.max(p.x));
+        if w > max_width {
+            max_width = w;
+            primary_cs = cs;
+        }
+    }
+
+    let prim_t_apex = crate::geometry::find_apex_t(primary_cs);
+    let prim_t_tuck = 0.01_f32.max(prim_t_apex * 0.5);
+    let prim_t_shoulder = prim_t_apex + (1.0 - prim_t_apex) * 0.5;
+
+    for u in crate::bezier::adaptive_sample_t(primary_cs, tolerance_degrees_u, min_dist_u) {
+        adaptive_norm_us.push(abs_u_to_norm_u(u, prim_t_tuck, prim_t_apex, prim_t_shoulder));
+    }
+
+    let mut u_params_half = critical_norm_us.clone();
+    for norm_u in adaptive_norm_us {
+        if !critical_norm_us.iter().any(|&cu| (norm_u - cu).abs() < 0.01) {
+            u_params_half.push(norm_u);
         }
     }
     u_params_half.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -142,7 +171,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             final_base_u.push(u);
         } else {
             let last = *final_base_u.last().unwrap();
-            let is_critical = critical_us.iter().any(|&cu| (u - cu).abs() < 1e-5);
+            let is_critical = critical_norm_us.iter().any(|&cu| (u - cu).abs() < 1e-5);
             if is_critical || u - last > 0.01 {
                 final_base_u.push(u);
             }
@@ -190,7 +219,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                                     best_u = test_u;
                                 }
                             }
-                            let mut u_search = best_u;
+                                                        let mut u_search = best_u;
                             let mut step = b.t_apex / 50.0;
                             for _ in 0..10 {
                                 step *= 0.5;
@@ -210,7 +239,11 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                                     u_search = u_right;
                                 }
                             }
-                            cliff_us.push(u_search);
+                            
+                            let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+                            let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
+                            let norm_u = abs_u_to_norm_u(u_search, t_tuck, b.t_apex, t_shoulder);
+                            cliff_norm_us.push(norm_u);
                         }
                     }
                 }
@@ -218,7 +251,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-    for cu in cliff_us {
+    for cu in cliff_norm_us {
         u_params_half.push((cu - 0.001).max(0.0));
         u_params_half.push(cu);
         u_params_half.push((cu + 0.001).min(1.0));
@@ -234,17 +267,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     u_params_half = final_u;
     // --- END NEW ---
 
-    // Compute Arc Length mapping from the primary cross section to prevent UV stretching
+        // Compute Arc Length mapping from the primary cross section to prevent UV stretching
     let cs_arc_table = if !model.cross_sections.is_empty() {
-        let mut primary_cs = &model.cross_sections[0];
-        let mut max_width = 0.0;
-        for cs in &model.cross_sections {
-            let w = cs.control_points.iter().fold(0.0_f32, |m, p| m.max(p.x));
-            if w > max_width {
-                max_width = w;
-                primary_cs = cs;
-            }
-        }
         crate::bezier::build_arc_length_table(primary_cs, 200)
     } else {
         Vec::new()
@@ -252,7 +276,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let total_cs_len = cs_arc_table.last().map(|(_, l)| *l).unwrap_or(0.0);
 
-    let get_u_tex = |t_val: f32| -> f32 {
+    let get_u_tex = |norm_u: f32| -> f32 {
+        let t_val = norm_u_to_abs_u(norm_u, prim_t_tuck, prim_t_apex, prim_t_shoulder);
         if total_cs_len <= 1e-5 || cs_arc_table.is_empty() {
             return t_val;
         }
@@ -337,8 +362,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
         let heat_color = color_heatmap(normalized_foil);
 
-        for &(u_val, side, is_stringer, u_tex) in u_columns.iter() {
-            let mut point = get_point_at_uv(model, u_val, v_outer, z_inches, inner_x, side);
+                let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+        let t_apex = if let Some(b) = &blend { b.t_apex } else { 0.5 };
+        let t_tuck = 0.01_f32.max(t_apex * 0.5);
+        let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
+
+        for &(norm_u, side, is_stringer, u_tex) in u_columns.iter() {
+            let abs_u = norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
+            let mut point = get_point_at_uv(model, abs_u, v_outer, z_inches, inner_x, side);
             if is_stringer {
                 point.x = inner_x;
             }
@@ -353,6 +384,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 heat_color,
                 u_tex,
                 v_coord,
+                abs_u,
             ));
         }
         grid.push(ring);
@@ -365,19 +397,18 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     for i in 0..=segments_v {
         let z_inches = z_rings[i];
         for j in 0..num_cols {
-            let (pos, color, u, v) = grid[i][j];
+            let (pos, color, u_tex, v_coord, abs_u) = grid[i][j];
             vertices.push(pos.x);
             vertices.push(pos.y);
             vertices.push(pos.z);
             colors.push(color.x);
             colors.push(color.y);
             colors.push(color.z);
-            uvs.push(u);
-            uvs.push(v);
+            uvs.push(u_tex);
+            uvs.push(v_coord);
 
             let side = u_columns[j].1;
-            let u_val = u_columns[j].0;
-            let n = crate::geometry::get_surface_normal_at_uvz(model, u_val, z_inches, side);
+            let n = crate::geometry::get_surface_normal_at_uvz(model, abs_u, z_inches, side);
 
             normals.push(n.x);
             normals.push(n.y);
@@ -588,10 +619,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             let right_target_x = ring[0].0.x;
             let left_target_x = ring[num_cols - 1].0.x;
 
-            for step in 0..=num_x_steps {
+                        for step in 0..=num_x_steps {
                 let fraction = 1.0 - (step as f32 / num_x_steps as f32);
                 for j in 0..num_cols {
-                    let (pos, color, u, v) = ring[j];
+                    let (pos, color, u_tex, v_coord, _abs_u) = ring[j];
                     let side = u_columns[j].1;
 
                     let target_x = if side > 0.0 {
@@ -606,15 +637,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     vertices.push(pos.y);
                     vertices.push(pos.z);
 
-                    uvs.push(u);
-                    uvs.push(v);
+                    uvs.push(u_tex);
+                    uvs.push(v_coord);
 
                     colors.push(color.x);
                     colors.push(color.y);
                     colors.push(color.z);
 
-                    let blended_normal =
-                        crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
+                    let blended_normal = fallback_mid;
                     normals.push(blended_normal.x);
                     normals.push(blended_normal.y);
                     normals.push(blended_normal.z);
