@@ -269,8 +269,11 @@ export class BoardViewport extends LitElement {
           projectY("railOutline", p),
         )
       : null;
-    const activeApexRocker = this.boardState?.apexRocker
-            ? this.sampleBezierCurve(this.boardState.apexRocker, 100)
+        const activeApexRocker = this.boardState?.apexRocker
+            ? this.sampleBezierCurve(this.boardState.apexRocker, 100).map((p) => {
+                const profile = mathEngine.get_profile_at_z(p[2]) as { apexX: number };
+                return [profile.apexX, p[1], p[2]] as Point3D;
+              })
       : null;
         const activeDeckShoulder = this.boardState?.deckShoulder
       ? this.sampleBezierCurve(this.boardState.deckShoulder, 100).map((p) =>
@@ -296,8 +299,9 @@ export class BoardViewport extends LitElement {
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false));
     if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false));
 
-                if (activeApexRocker && this.boardState?.showApexRocker !== false) {
+                                if (activeApexRocker && this.boardState?.showApexRocker !== false) {
       this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, false));
+      this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, true));
     }
 
     if (activeDeckShoulder && this.boardState?.showDeckShoulder !== false) {
@@ -508,22 +512,33 @@ export class BoardViewport extends LitElement {
       }
     });
 
+                const getXOffset = (curveName: string, xInches: number, zInches: number) => {
+            if (curveName === 'apexRocker') {
+                const profile = mathEngine.get_profile_at_z(zInches) as { apexX: number };
+                return profile.apexX;
+            }
+            return xInches;
+        };
+
         const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
       if (!curveData) return;
       curveData.controlPoints.forEach((cp, i) => {
         const cpY = this.getZHeight(curveName, cp[1], cp[2], mathEngine);
-        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cp[0] * scale, cpY * scale, cp[2] * scale);
+        const cpX = getXOffset(curveName, cp[0], cp[2]);
+        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cpX * scale, cpY * scale, cp[2] * scale);
         
         const t1 = curveData.tangents1[i]; 
         if (t1) {
           const t1Y = this.getZHeight(curveName, t1[1], t1[2], mathEngine);
-          gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1[0] * scale, t1Y * scale, t1[2] * scale);
+          const t1X = getXOffset(curveName, t1[0], t1[2]);
+          gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1X * scale, t1Y * scale, t1[2] * scale);
         }
         
         const t2 = curveData.tangents2[i]; 
         if (t2) {
           const t2Y = this.getZHeight(curveName, t2[1], t2[2], mathEngine);
-          gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2[0] * scale, t2Y * scale, t2[2] * scale);
+          const t2X = getXOffset(curveName, t2[0], t2[2]);
+          gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2X * scale, t2Y * scale, t2[2] * scale);
         }
       });
     };

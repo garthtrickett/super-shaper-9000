@@ -61,6 +61,14 @@ export class GizmoBuilder {
         return yInches;
     };
 
+                const getXOffset = (curveName: string, xInches: number, zInches: number) => {
+            if (curveName === 'apexRocker') {
+                const profile = mathEngine.get_profile_at_z(zInches) as { apexX: number };
+                return profile.apexX;
+            }
+            return xInches;
+        };
+
         const matLayerAnchor = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false });
     const matLayerHandle = new THREE.MeshBasicMaterial({ color: 0xfcd34d, depthTest: false });
 
@@ -74,9 +82,10 @@ export class GizmoBuilder {
             const t2 = curve.tangents2[i];
             
             const cpY = getZHeight(curveName, cp[1], cp[2]);
+            const cpX = getXOffset(curveName, cp[0], cp[2]);
 
                         const anchorMesh = new THREE.Mesh(anchorGeo, aMat);
-            anchorMesh.position.set(cp[0] * scale, cpY * scale, cp[2] * scale);
+            anchorMesh.position.set(cpX * scale, cpY * scale, cp[2] * scale);
             anchorMesh.renderOrder = 999;
             anchorMesh.layers.set(layerIndex);
             anchorMesh.userData = { 
@@ -89,12 +98,13 @@ export class GizmoBuilder {
             };
             group.add(anchorMesh);
 
-            const drawHandle = (t:[number, number, number], handleType: string) => {
+                        const drawHandle = (t:[number, number, number], handleType: string) => {
                 if (Math.abs(t[0]-cp[0]) < 0.001 && Math.abs(t[1]-cp[1]) < 0.001 && Math.abs(t[2]-cp[2]) < 0.001) return;
 
                 const tY = getZHeight(curveName, t[1], t[2]);
+                const tX = getXOffset(curveName, t[0], t[2]);
                                 const handleMesh = new THREE.Mesh(handleGeo, hMat);
-                handleMesh.position.set(t[0] * scale, tY * scale, t[2] * scale);
+                handleMesh.position.set(tX * scale, tY * scale, t[2] * scale);
                 handleMesh.renderOrder = 999;
                 handleMesh.layers.set(layerIndex);
                 handleMesh.userData = { 
@@ -108,8 +118,8 @@ export class GizmoBuilder {
                 group.add(handleMesh);
 
                 const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(cp[0] * scale, cpY * scale, cp[2] * scale),
-                    new THREE.Vector3(t[0] * scale, tY * scale, t[2] * scale)
+                    new THREE.Vector3(cpX * scale, cpY * scale, cp[2] * scale),
+                    new THREE.Vector3(tX * scale, tY * scale, t[2] * scale)
                 ]);
                 const line = new THREE.Line(lineGeo, lineMat);
                 line.computeLineDistances();

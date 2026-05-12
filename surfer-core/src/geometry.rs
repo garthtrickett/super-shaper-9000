@@ -911,12 +911,10 @@ pub fn get_point_at_uv_base(
 
     if is_nose_pole {
         if profile.apex_x < 0.25 {
-            log::info!("[Geometry] Pinching nose pole to 0.0 (apex_x = {:.3})", profile.apex_x);
             final_pos.x = 0.0;
         }
     } else if is_tail_pole {
         if profile.apex_x < 0.25 {
-            log::info!("[Geometry] Pinching tail pole to 0.0 (apex_x = {:.3})", profile.apex_x);
             final_pos.x = 0.0;
         }
     }
@@ -1046,7 +1044,6 @@ pub fn get_surface_normal_base_at_uvz(
     if (z_inches - bounds.nose_z).abs() < 1e-4 {
         let profile_nose = get_board_profile_at_z(model, bounds.nose_z, 0.0);
         if profile_nose.apex_x < 0.25 {
-            log::info!("[Geometry] Using slerped normal for pinched nose pole (Base)");
             let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
             if side < 0.0 {
@@ -1058,7 +1055,6 @@ pub fn get_surface_normal_base_at_uvz(
     if (z_inches - bounds.tip_z).abs() < 1e-4 {
         let profile_tail = get_board_profile_at_z(model, bounds.tip_z, 1.0);
         if profile_tail.apex_x < 0.25 {
-            log::info!("[Geometry] Using slerped normal for pinched tail pole (Base)");
             let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
             if side < 0.0 {
@@ -1132,7 +1128,6 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
     if (z_inches - bounds.nose_z).abs() < 1e-4 {
         let profile_nose = get_board_profile_at_z(model, bounds.nose_z, 0.0);
         if profile_nose.apex_x < 0.25 {
-            log::info!("[Geometry] Using slerped normal for pinched nose pole");
             let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
             if side < 0.0 {
@@ -1144,7 +1139,6 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
     if (z_inches - bounds.tip_z).abs() < 1e-4 {
         let profile_tail = get_board_profile_at_z(model, bounds.tip_z, 1.0);
         if profile_tail.apex_x < 0.25 {
-            log::info!("[Geometry] Using slerped normal for pinched tail pole");
             let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
             if side < 0.0 {

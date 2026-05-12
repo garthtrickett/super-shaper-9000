@@ -215,6 +215,10 @@ fn apply_node_position(
     node_type: &str,
     mut pos: Vec3,
 ) {
+    if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" {
+        pos.x = 0.0;
+    }
+
     let is_cross_section = curve_name.starts_with("crossSection_");
     let is_outline_type = curve_name == "outline"
         || curve_name == "apexOutline"
@@ -302,9 +306,12 @@ fn apply_node_exact(
         || curve_name.starts_with("outlineLayer_")
         || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
 
-    if let Some(target) = get_curve_mut(model, curve_name) {
+        if let Some(target) = get_curve_mut(model, curve_name) {
         if let Some(a) = anchor {
             let mut pos = a;
+            if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" {
+                pos.x = 0.0;
+            }
             let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
             let is_layer = curve_name.starts_with("outlineLayer_");
             let is_channel = curve_name.starts_with("channel_");
@@ -320,10 +327,16 @@ fn apply_node_exact(
             }
             target.control_points[index] = pos;
         }
-        if let Some(t1) = tangent1 {
+                if let Some(mut t1) = tangent1 {
+            if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" {
+                t1.x = 0.0;
+            }
             target.tangents1[index] = t1;
         }
-        if let Some(t2) = tangent2 {
+        if let Some(mut t2) = tangent2 {
+            if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" {
+                t2.x = 0.0;
+            }
             target.tangents2[index] = t2;
         }
         if let Some(w) = weight {

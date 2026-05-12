@@ -183,8 +183,8 @@ export class NodeInspector extends LitElement {
     const t1Polar = this._getPolar(sel.curve, t1, anc);
     const t2Polar = this._getPolar(sel.curve, t2, anc);
 
-    const isOutline = sel.curve === 'outline' || sel.curve === 'deckShoulder';
-    const isRocker = sel.curve.startsWith('rocker');
+        const isOutline = sel.curve === 'outline' || sel.curve === 'deckShoulder';
+    const isRocker = sel.curve.startsWith('rocker') || sel.curve === 'apexRocker';
     const isSlice = sel.curve.startsWith('crossSection');
     const isEndNode = sel.index === 0 || sel.index === curveData.controlPoints.length - 1;
 
