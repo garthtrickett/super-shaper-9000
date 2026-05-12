@@ -239,6 +239,18 @@ pub fn evaluate_curvature_quill(
 /// The required coordinate for `t_target` to ensure the target segment has the exact
 /// same curvature (rate of bend) as the source segment at the anchor point.
 #[inline]
+/// Computes the exact position of a target tangent handle to achieve G2 (Curvature) continuity.
+///
+/// # Arguments
+/// * `anchor` - The knot coordinate ($K$) shared by both curve segments.
+/// * `t_source` - The tangent handle of the master segment at $K$.
+/// * `f_source` - The *far* tangent handle of the master segment.
+/// * `f_target` - The *far* tangent handle of the target segment.
+///
+/// # Returns
+/// The required coordinate for `t_target` to ensure the target segment has the exact
+/// same curvature (rate of bend) as the source segment at the anchor point.
+#[inline]
 pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: Vec3) -> Vec3 {
     let v = t_source - anchor;
     let v_len_sq = v.length_squared();
@@ -249,13 +261,26 @@ pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: 
         return anchor;
     }
 
+    // Check for collinearity (straight lines) to prevent cross-product division by zero.
+    // If the angle between the tangent vector and the far vector is ~0 or ~180 degrees,
+    // the curvature is essentially flat.
+    let v_norm = v.normalize();
+    let dir_source = (f_source - anchor).normalize_or_zero();
+    let dir_target = (f_target - anchor).normalize_or_zero();
+
+    let dot_src = v_norm.dot(dir_source).abs();
+    let dot_tgt = v_norm.dot(dir_target).abs();
+
+    if dot_src > 0.999 || dot_tgt > 0.999 {
+        // Fall back to standard G1 (mirrored tangent of equal length)
+        // because we cannot accurately compute ratio of bend when flat.
+        return anchor - v;
+    }
+
     let cross_src = v.cross(f_source - anchor).length();
     let cross_tgt = v.cross(f_target - anchor).length();
 
-    // If source curvature is ~0 (a straight line or collinear handles)
     if cross_src < 1e-6 {
-        // Fall back to standard G1 (mirrored tangent of equal length)
-        // because we cannot achieve 0 curvature unless the target is also straight
         return anchor - v;
     }
 
@@ -264,7 +289,7 @@ pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: 
     let c = (cross_tgt / cross_src).sqrt();
 
     // Clamp multiplier to prevent exploding handles on extreme CAD distortions
-    let c_clamped = c.clamp(0.01, 100.0);
+    let c_clamped = c.clamp(0.01, 10.0);
 
     anchor - (v * c_clamped)
 }
@@ -672,6 +697,25 @@ mod tests {
         assert_eq!(samples[1].x, 5.0);
         assert_eq!(samples[2].x, 10.0);
         println!("✅ sample_curve passed and generated expected vertex distribution.");
+    }
+
+        #[test]
+    fn test_solve_g2_tangent_collinear_safety() {
+        let anchor = Vec3::new(0.0, 0.0, 0.0);
+
+        // Create perfectly flat source and target segments along the X-axis
+        let f_source = Vec3::new(-10.0, 0.0, 0.0);
+        let t_source = Vec3::new(-5.0, 0.0, 0.0);
+        let f_target = Vec3::new(10.0, 0.0, 0.0);
+
+        let t_target = solve_g2_tangent(anchor, t_source, f_source, f_target);
+
+        // G2 solver should intercept the collinearity and fallback to smooth G1
+        // rather than outputting NaN/Infinity.
+        assert!(!t_target.x.is_nan(), "G2 solver exploded to NaN on flat geometry!");
+        assert_eq!(t_target.x, 5.0, "G2 solver should return mirrored G1 vector for collinear inputs");
+        assert_eq!(t_target.y, 0.0);
+        assert_eq!(t_target.z, 0.0);
     }
 
     #[test]
