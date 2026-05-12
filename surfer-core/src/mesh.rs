@@ -727,7 +727,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[d as usize * 3 + 2],
                     );
 
-                    let mut push_tri = |i1: u32, i2: u32, i3: u32, p1: Vec3, p2: Vec3, p3: Vec3, idxs: &mut Vec<u32>| {
+                                        let push_tri = |i1: u32, i2: u32, i3: u32, p1: Vec3, p2: Vec3, p3: Vec3, idxs: &mut Vec<u32>| {
                         // A triangle is only degenerate if two of its vertices share the exact same point in space.
                         // We check distance squared instead of cross-product to avoid accidentally culling valid micro-slivers.
                         if p1.distance_squared(p2) > 1e-12 && p2.distance_squared(p3) > 1e-12 && p3.distance_squared(p1) > 1e-12 {
@@ -738,11 +738,11 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     };
 
                     if is_nose {
-                        push_tri(a, d, b, pt_a, pt_d, pt_b, &mut indices);
-                        push_tri(a, c, d, pt_a, pt_c, pt_d, &mut indices);
+                        push_tri(a, d, b, pt_a, pt_d, pt_b, indices);
+                        push_tri(a, c, d, pt_a, pt_c, pt_d, indices);
                     } else {
-                        push_tri(a, b, d, pt_a, pt_b, pt_d, &mut indices);
-                        push_tri(a, d, c, pt_a, pt_d, pt_c, &mut indices);
+                        push_tri(a, b, d, pt_a, pt_b, pt_d, indices);
+                        push_tri(a, d, c, pt_a, pt_d, pt_c, indices);
                     }
                 }
             }
