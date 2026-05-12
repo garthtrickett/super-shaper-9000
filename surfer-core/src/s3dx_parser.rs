@@ -1109,8 +1109,8 @@ mod tests {
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
         let content = std::fs::read_to_string(&path).unwrap();
-        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = super::generate_mesh(&model);
+                let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = crate::mesh::generate_mesh(&model);
 
         let mut interior_triangles = 0;
         let scale = 1.0 / 12.0;
