@@ -51,8 +51,13 @@ pub struct S3dxBoard {
     pub curve_def_side0: Option<S3dxBezierDefContainer>,
     #[serde(rename = "curveDefSide2")]
     pub curve_def_side2: Option<S3dxBezierDefContainer>,
-    #[serde(rename = "curveDefSide4")]
+        #[serde(rename = "curveDefSide4")]
     pub curve_def_side4: Option<S3dxBezierDefContainer>,
+
+    #[serde(rename = "ProfilTopDef")]
+    pub profil_top_def: Option<S3dxBezierDefContainer>,
+    #[serde(rename = "ProfilBotDef")]
+    pub profil_bot_def: Option<S3dxBezierDefContainer>,
 
     #[serde(rename = "Number_of_slices")]
     pub number_of_slices: Option<usize>,
@@ -317,8 +322,11 @@ impl From<S3dxBoard> for BoardModel {
 
         model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, scale);
         model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
-        model.deck_shoulder = convert_s3dx_bezier_def(&s3dx.curve_def_top3, bl, scale);
-        model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, scale);
+                model.deck_shoulder = convert_s3dx_bezier_def(&s3dx.curve_def_top3, bl, scale);
+        
+        log::info!("[S3DX Parser] Assigning Apex Rocker...");
+        model.apex_rocker = convert_s3dx_bezier_def(&s3dx.curve_def_side2, bl, scale)
+            .or_else(|| convert_s3dx_bezier_def(&s3dx.profil_top_def, bl, scale));
 
         let mut cross_sections = Vec::new();
         if let Some(couples) = s3dx.couples {
@@ -343,9 +351,14 @@ impl From<S3dxBoard> for BoardModel {
         if let Some(calques) = s3dx.calques {
             for c in calques {
                 if let Some(calque) = c.calque3d {
-                    let name = calque.nom.clone().unwrap_or_else(|| "Layer".to_string());
+                                        let name = calque.nom.clone().unwrap_or_else(|| "Layer".to_string());
                     let type_calque = calque.type_calque.unwrap_or(0);
                     let x_max = calque.x_max.unwrap_or(0.0);
+
+                    if type_calque == 8 || type_calque == 4 {
+                        log::info!("[S3DX Parser] Ignoring non-structural Calque (Type {}): {}", type_calque, name);
+                        continue;
+                    }
 
                     let otl_ext =
                         convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
