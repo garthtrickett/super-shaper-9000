@@ -622,8 +622,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             right_min_x = right_min_x.min(x);
             right_max_x = right_max_x.max(x);
         }
-        let ring_width = right_max_x - right_min_x;
-        let is_sharp = ring_width < 0.05;
+                let ring_width = right_max_x - right_min_x;
+        let is_sharp = ring_width < 0.005;
         let start_vertex_index = (vertices.len() / 3) as u32;
 
         if is_sharp {
