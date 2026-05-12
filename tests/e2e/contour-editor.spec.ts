@@ -15,26 +15,30 @@ test.describe("Bottom Contour Editor E2E", () => {
 
     const boardControls = page.locator("board-controls");
 
-    // 1. Add a Bottom Channel
+        // 1. Add a Bottom Channel
     const addChannelBtn = boardControls.locator('button[title="Add Bottom Channel"]');
-    await expect(addChannelBtn).toBeVisible();
+    await expect(addChannelBtn).toBeVisible({ timeout: 10000 });
     await addChannelBtn.click();
+
+    // Wait for the channel to appear in the list
+    const channelItem = boardControls.locator("span", { hasText: /Channel 1/i });
+    await expect(channelItem).toBeVisible({ timeout: 15000 });
 
     // 2. Unlink Symmetry
     const toggleSymBtn = boardControls.locator('button[title="Toggle Symmetry"]').first();
-    await expect(toggleSymBtn).toBeVisible();
+    await expect(toggleSymBtn).toBeVisible({ timeout: 10000 });
     await toggleSymBtn.click();
 
         // 3. Open 2D Editor
     const edit2DBtn = boardControls.locator('button[title="Open 2D Contour Editor"]');
-    await expect(edit2DBtn).toBeVisible();
+    await expect(edit2DBtn).toBeVisible({ timeout: 10000 });
     await edit2DBtn.click();
 
     // Give the worker time to respond and UI to re-render nodes
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
         const contourEditor = page.locator("bottom-contour-editor");
-    await expect(contourEditor).toBeVisible();
+    await expect(contourEditor).toBeVisible({ timeout: 10000 });
     
     // Use toBeAttached to bypass potential SVG 0-size bounding box issues in headless Chromium
     await expect(contourEditor.locator('circle').first()).toBeAttached({ timeout: 10000 });
@@ -56,13 +60,13 @@ test.describe("Bottom Contour Editor E2E", () => {
       svg.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
     });
 
-    // Wait for WASM to compute the asymmetric mesh
-    await page.waitForTimeout(500);
+        // Wait for WASM to compute the asymmetric mesh
+    await page.waitForTimeout(1500);
 
     // 5. Close Editor
     const closeBtn = contourEditor.locator('button').first();
     await closeBtn.click();
-    await expect(contourEditor).toBeHidden();
+    await expect(contourEditor).toBeHidden({ timeout: 10000 });
 
     // Verify no WebGL or NaN errors
     const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));

@@ -640,7 +640,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             for step in 0..=num_x_steps {
                 let fraction = 1.0 - (step as f32 / num_x_steps as f32);
                 for j in 0..num_cols {
-                    let (pos, color, u_tex, v_coord, _abs_u) = ring[j];
+                    let (pos, color, _u_tex, _v_coord, _abs_u) = ring[j];
                     let side = u_columns[j].1;
 
                     let target_x = if side > 0.0 {
@@ -725,7 +725,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[d as usize * 3 + 2],
                     );
 
-                                        if is_nose {
+                    if is_nose {
                         if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-9 {
                             indices.push(a);
                             indices.push(d);
