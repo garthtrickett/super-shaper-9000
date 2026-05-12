@@ -133,13 +133,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     };
 
-    // Adaptive Crosswise (U) Columns
+        // Adaptive Crosswise (U) Columns
     let critical_norm_us = vec![0.0, 0.25, 0.5, 0.75, 1.0];
     let mut adaptive_norm_us = Vec::new();
     let tolerance_degrees_u = 3.0;
     let min_dist_u = 0.05;
 
-    let mut primary_cs = model.cross_sections.first().unwrap_or(&crate::model::BezierCurveData::default());
+    let default_cs = crate::model::BezierCurveData::default();
+    let mut primary_cs = model.cross_sections.first().unwrap_or(&default_cs);
     let mut max_width = 0.0;
     for cs in &model.cross_sections {
         let w = cs.control_points.iter().fold(0.0_f32, |m, p| m.max(p.x));
@@ -587,10 +588,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         };
 
-    let generate_cap = |ring_index: usize,
+        let generate_cap = |ring_index: usize,
                         z_inches: f32,
-                        n_top: Vec3,
-                        n_bot: Vec3,
+                        _n_top: Vec3,
+                        _n_bot: Vec3,
                         fallback_mid: Vec3,
                         is_nose: bool,
                         vertices: &mut Vec<f32>,
