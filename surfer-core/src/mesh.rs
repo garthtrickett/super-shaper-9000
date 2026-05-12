@@ -468,12 +468,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     // Prepare Centerline Arrays and Stitch Caps for B-Rep Surface Patches
     let generate_swallow_notch_wall =
-        |vertices: &mut Vec<f32>,
+                |vertices: &mut Vec<f32>,
          uvs: &mut Vec<f32>,
          colors: &mut Vec<f32>,
          normals: &mut Vec<f32>,
          indices: &mut Vec<u32>| {
-            if (tip_z - notch_z) < 1e-3 {
+            if v_tip >= 0.999 || (tip_z - notch_z) < 1e-3 {
                 return;
             }
 
@@ -627,8 +627,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             right_min_x = right_min_x.min(x);
             right_max_x = right_max_x.max(x);
         }
-        let ring_width = right_max_x - right_min_x;
-        let is_sharp = ring_width < 1e-4;
+                let ring_width = right_max_x - right_min_x;
+        let is_sharp = ring_width < 0.05;
         let start_vertex_index = (vertices.len() / 3) as u32;
 
         if is_sharp {
