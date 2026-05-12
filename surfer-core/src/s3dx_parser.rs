@@ -627,6 +627,56 @@ mod tests {
         }
     }
 
+        #[test]
+    fn test_fish_nose_rail_spikes() {
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
+        if !path.exists() {
+            println!("FISH.s3dx not found, skipping rail spike test");
+            return;
+        }
+        let content = std::fs::read_to_string(&path).unwrap();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = crate::mesh::generate_mesh(&model);
+
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        
+        // We look for massive explosions in the X coordinate near the nose.
+        let start_z = bounds.nose_z * scale;
+        let end_z = (bounds.nose_z + 10.0) * scale; // First 10 inches
+        
+        let mut max_spike = 0.0_f32;
+        let mut spike_z = 0.0;
+
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
+            
+            if z >= start_z && z <= end_z {
+                let z_inches = z / scale;
+                let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
+                let profile = crate::geometry::get_board_profile_at_z(&model, z_inches, v_outer);
+                
+                // Allow up to 2 inches of "puff" over the apex.
+                // The bug causes spikes of 100+ inches, so 2 inches is a safe tolerance.
+                let theoretical_max_x = profile.apex_x * scale;
+                let overage = x.abs() - theoretical_max_x;
+                if overage > max_spike {
+                    max_spike = overage;
+                    spike_z = z_inches;
+                }
+            }
+        }
+
+        let tolerance = 2.0 * scale; 
+        assert!(
+            max_spike < tolerance,
+            "BUG: Severe mesh spikes detected at the nose! Rail geometry puffed out by {:.2} inches past the outline at Z={:.2}",
+            max_spike / scale, spike_z
+        );
+    }
+
     #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
