@@ -389,52 +389,7 @@ fn apply_continuity(
         }
     }
 }
-    model: &mut BoardModel,
-    curve_name: &str,
-    index: usize,
-    level: &str,
-    master: &str,
-) {
-    if let Some(target) = get_curve_mut(model, curve_name) {
-        if index > 0 && index < target.control_points.len().saturating_sub(1) {
-            let anchor = target.control_points[index];
-            let is_t1_master = master == "tangent1";
-
-            let (t_src, mut t_tgt, f_src, f_tgt) = if is_t1_master {
-                (
-                    target.tangents1[index],
-                    target.tangents2[index],
-                    target.tangents2[index - 1],
-                    target.tangents1[index + 1],
-                )
-            } else {
-                (
-                    target.tangents2[index],
-                    target.tangents1[index],
-                    target.tangents1[index + 1],
-                    target.tangents2[index - 1],
-                )
-            };
-
-            let dir = anchor - t_src;
-            let dist_tgt = (t_tgt - anchor).length();
-
-            if (level == "G1" || level == "G2") && dir.length_squared() > 1e-6 {
-                t_tgt = anchor + dir.normalize() * dist_tgt;
-            }
-
-            if level == "G2" {
-                t_tgt = crate::bezier::solve_g2_tangent(anchor, t_src, f_src, f_tgt);
-            }
-
-            if is_t1_master {
-                target.tangents2[index] = t_tgt;
-            } else {
-                target.tangents1[index] = t_tgt;
-            }
-        }
-    }
-}
+    
 
 pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();

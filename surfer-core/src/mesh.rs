@@ -573,60 +573,15 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             if is_nose { 0.0 } else { 1.0 },
         )
         .x;
-        let is_sharp = width < 1e-3;
+                let is_sharp = width < 1e-3;
         let start_vertex_index = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
 
         if is_sharp {
-            // Degenerate Quad Logic for Singularities (Poles)
-            for &(pos, color, u, v) in ring {
-                // For a sharp tip, all vertices converge to X=0.0
-                vertices.push(0.0);
-                vertices.push(pos.y);
-                vertices.push(pos.z);
-
-                uvs.push(u);
-                uvs.push(v);
-
-                colors.push(color.x);
-                colors.push(color.y);
-                colors.push(color.z);
-
-                let blended_normal = crate::geometry::slerp_normals(n_bot, n_top, u, fallback_mid);
-                normals.push(blended_normal.x);
-                normals.push(blended_normal.y);
-                normals.push(blended_normal.z);
-            }
-
-            let hull_ring_start = (ring_index * num_cols) as u32;
-            let cap_ring_start = start_vertex_index;
-
-            for j in 0..num_cols - 1 {
-                if j == right_half_cols - 1 {
-                    continue; // Do not bridge the right and left halves on the caps!
-                }
-
-                let a = hull_ring_start + j as u32;
-                let b = a + 1;
-                let c = cap_ring_start + j as u32;
-                let d = c + 1;
-
-                if is_nose {
-                    indices.push(a);
-                    indices.push(d);
-                    indices.push(b);
-                    indices.push(a);
-                    indices.push(c);
-                    indices.push(d);
-                } else {
-                    indices.push(a);
-                    indices.push(b);
-                    indices.push(d);
-                    indices.push(a);
-                    indices.push(d);
-                    indices.push(c);
-                }
-            }
+            // The hull naturally closes at sharp poles and already possesses
+            // the correct slerp normals. Generating a cap here only creates 
+            // zero-area degenerate triangles that cause shading artifacts.
+            return;
         } else {
             // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
             let num_x_steps = (width / 0.5).ceil().max(1.0) as u32;
