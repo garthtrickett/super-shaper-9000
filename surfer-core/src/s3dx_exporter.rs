@@ -326,7 +326,7 @@ mod tests {
         assert!(xml.contains("</Shape3d_design>"));
     }
 
-    #[test]
+        #[test]
     fn test_s3dx_round_trip() {
         use std::fs;
         use std::path::PathBuf;
@@ -334,12 +334,13 @@ mod tests {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
 
-        let content = fs::read_to_string(&path).unwrap_or_else(|_| {
+        let bytes = fs::read(&path).unwrap_or_else(|_| {
             panic!(
                 "Should be able to read the golden S3DX file from {:?}",
                 path
             )
         });
+        let content = String::from_utf8_lossy(&bytes).into_owned();
 
         // 1. Parse Ground Truth
         let model_a =

@@ -906,10 +906,10 @@ pub fn get_point_at_uv_base(
     }
     final_pos.y = final_pos.y.max(profile.bot_y - 5.0);
 
-    let is_nose_pole = (z_inches - bounds.nose_z).abs() < 1e-4;
+        let is_nose_pole = (z_inches - bounds.nose_z).abs() < 1e-4;
     let is_tail_pole = (z_inches - bounds.tip_z).abs() < 1e-4;
 
-    if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.25 {
+    if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.05 {
         final_pos.x = 0.0;
     }
 
@@ -1034,9 +1034,9 @@ pub fn get_surface_normal_base_at_uvz(
 ) -> Vec3 {
     let bounds = get_board_bounds(model);
 
-    if (z_inches - bounds.nose_z).abs() < 1e-4 {
+        if (z_inches - bounds.nose_z).abs() < 1e-4 {
         let profile_nose = get_board_profile_at_z(model, bounds.nose_z, 0.0);
-        if profile_nose.apex_x < 0.25 {
+        if profile_nose.apex_x < 0.05 {
             let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
             if side < 0.0 {
@@ -1047,7 +1047,7 @@ pub fn get_surface_normal_base_at_uvz(
     }
     if (z_inches - bounds.tip_z).abs() < 1e-4 {
         let profile_tail = get_board_profile_at_z(model, bounds.tip_z, 1.0);
-        if profile_tail.apex_x < 0.25 {
+        if profile_tail.apex_x < 0.05 {
             let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
             if side < 0.0 {
@@ -1117,9 +1117,9 @@ pub fn get_surface_normal_base_at_uvz(
 pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side: f32) -> Vec3 {
     let bounds = get_board_bounds(model);
 
-    if (z_inches - bounds.nose_z).abs() < 1e-4 {
+        if (z_inches - bounds.nose_z).abs() < 1e-4 {
         let profile_nose = get_board_profile_at_z(model, bounds.nose_z, 0.0);
-        if profile_nose.apex_x < 0.25 {
+        if profile_nose.apex_x < 0.05 {
             let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
             if side < 0.0 {
@@ -1130,7 +1130,7 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
     }
     if (z_inches - bounds.tip_z).abs() < 1e-4 {
         let profile_tail = get_board_profile_at_z(model, bounds.tip_z, 1.0);
-        if profile_tail.apex_x < 0.25 {
+        if profile_tail.apex_x < 0.05 {
             let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
             if side < 0.0 {

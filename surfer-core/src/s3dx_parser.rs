@@ -573,17 +573,18 @@ mod tests {
         assert_relative_eq!(profile.half_width * 2.0, 10.0, epsilon = 1e-4);
     }
 
-    #[test]
+        #[test]
     fn can_convert_s3dx_to_board_model() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
-        let content = fs::read_to_string(&path).unwrap_or_else(|_| {
+        let bytes = fs::read(&path).unwrap_or_else(|_| {
             panic!(
                 "Should be able to read the golden S3DX file from {:?}",
                 path
             )
         });
+        let content = String::from_utf8_lossy(&bytes).into_owned();
 
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
@@ -617,7 +618,7 @@ mod tests {
         assert!((outline.control_points[0].x).abs() < 1.0); // Nose Width should be close to 0
     }
 
-    #[test]
+        #[test]
     fn test_imported_fish_tail_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -625,7 +626,8 @@ mod tests {
             println!("FISH.s3dx not found, skipping tail integrity test");
             return;
         }
-        let content = fs::read_to_string(&path).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -672,7 +674,7 @@ mod tests {
         }
     }
 
-    #[test]
+        #[test]
     fn test_fish_nose_rail_spikes() {
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -680,7 +682,8 @@ mod tests {
             println!("FISH.s3dx not found, skipping rail spike test");
             return;
         }
-        let content = std::fs::read_to_string(&path).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = crate::mesh::generate_mesh(&model);
 
@@ -727,7 +730,7 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -735,7 +738,8 @@ mod tests {
             println!("FISH.s3dx not found, skipping nose integrity test");
             return;
         }
-        let content = fs::read_to_string(&path).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -758,7 +762,7 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_s3dx_promotes_swallow_tail_layer() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -766,7 +770,8 @@ mod tests {
             println!("FISH.s3dx not found, skipping tail promotion test");
             return;
         }
-        let content = fs::read_to_string(&path).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
         // The SWALLOW TAIL layer should be intercepted and semantically promoted.
@@ -783,11 +788,12 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_s3dx_extracts_all_couples_and_weights() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
-        let content = fs::read_to_string(&path).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
         assert_eq!(
@@ -818,12 +824,13 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_mesh_intersects_spatial_splines() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
-        let content = fs::read_to_string(&path).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = crate::mesh::generate_mesh(&model);
         let scale = 1.0 / 12.0;
@@ -913,18 +920,19 @@ mod tests {
         }
     }
 
-    #[test]
+        #[test]
     fn test_golden_file_rounded_pin_mesh_generation() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
-        let content = fs::read_to_string(&path).unwrap_or_else(|_| {
+        let bytes = fs::read(&path).unwrap_or_else(|_| {
             panic!(
                 "Should be able to read the golden S3DX file from {:?}",
                 path
             )
         });
+        let content = String::from_utf8_lossy(&bytes).into_owned();
 
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
@@ -1049,7 +1057,7 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_gh60_winged_swallow_tail_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
@@ -1057,7 +1065,8 @@ mod tests {
             println!("gh-60-winged-swallow.s3dx not found, skipping tail integrity test");
             return;
         }
-        let content = fs::read_to_string(&path).unwrap();
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -1102,14 +1111,15 @@ mod tests {
         }
     }
 
-    #[test]
+        #[test]
     fn test_no_interior_symmetry_plane_triangles() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
-        let content = std::fs::read_to_string(&path).unwrap();
-                let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let bytes = std::fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = crate::mesh::generate_mesh(&model);
 
         let mut interior_triangles = 0;
@@ -1161,7 +1171,7 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_tomolike_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/TomoLike.s3dx");
@@ -1169,7 +1179,8 @@ mod tests {
             println!("TomoLike.s3dx not found, skipping integrity test");
             return;
         }
-        let content = fs::read_to_string(&path).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = crate::mesh::generate_mesh(&model);
 
