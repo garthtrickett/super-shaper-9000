@@ -1060,7 +1060,11 @@ mod tests {
         let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = super::generate_mesh(&model);
 
-        let mut interior_triangles = 0;
+                let mut interior_triangles = 0;
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let nose_z = bounds.nose_z * scale;
+        let tail_z = bounds.tip_z * scale;
 
         for i in (0..mesh.indices.len()).step_by(3) {
             let i1 = mesh.indices[i] as usize * 3;
@@ -1071,13 +1075,21 @@ mod tests {
             let x2 = mesh.vertices[i2];
             let x3 = mesh.vertices[i3];
 
+            let z1 = mesh.vertices[i1 + 2];
+            let z2 = mesh.vertices[i2 + 2];
+            let z3 = mesh.vertices[i3 + 2];
+
+            let is_at_pole = (z1 - nose_z).abs() < 1e-2 || (z1 - tail_z).abs() < 1e-2 ||
+                             (z2 - nose_z).abs() < 1e-2 || (z2 - tail_z).abs() < 1e-2 ||
+                             (z3 - nose_z).abs() < 1e-2 || (z3 - tail_z).abs() < 1e-2;
+
             // If all three vertices of a triangle lie exactly on the X=0 symmetry plane,
             // it is an interior face. Because the normal of this face points directly sideways,
             // it creates harsh shading artifacts and visually looks like a "hole" painted with the interior backface color.
-            if x1.abs() < 1e-4 && x2.abs() < 1e-4 && x3.abs() < 1e-4 {
+            // We ignore triangles at the absolute poles because the mesh correctly pinches to X=0 there.
+            if x1.abs() < 1e-4 && x2.abs() < 1e-4 && x3.abs() < 1e-4 && !is_at_pole {
                 interior_triangles += 1;
                 let y1 = mesh.vertices[i1 + 1];
-                let z1 = mesh.vertices[i1 + 2];
                 let y2 = mesh.vertices[i2 + 1];
                 let z2 = mesh.vertices[i2 + 2];
                 let y3 = mesh.vertices[i3 + 1];
