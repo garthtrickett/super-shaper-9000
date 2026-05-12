@@ -1909,6 +1909,7 @@ mod tests {
     }
 
         #[test]
+        #[test]
     fn test_cap_degenerate_triangles() {
         // WitcherDaily.s3dx has a blunt tail, so it generates a patch cap.
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1933,6 +1934,11 @@ mod tests {
             let area = (v2 - v1).cross(v3 - v1).length();
             if area < 1e-6 {
                 degenerate_count += 1;
+                println!("Degenerate Triangle {}: Indices({}, {}, {})", degenerate_count, i1, i2, i3);
+                println!("  v1: {:?}", v1);
+                println!("  v2: {:?}", v2);
+                println!("  v3: {:?}", v3);
+                println!("  Area: {}\n", area);
             }
         }
 
