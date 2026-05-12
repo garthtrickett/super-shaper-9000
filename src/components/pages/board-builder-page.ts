@@ -227,12 +227,16 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-    protected override willUpdate(changedProperties: PropertyValues) {
+      private _lastSyncedModel?: BoardModel;
+
+  protected override willUpdate(changedProperties: PropertyValues) {
     super.willUpdate(changedProperties);
     // Sync the main-thread mathEngine with the controller's model before every render.
-    if (this.mathEngine) {
-                try {
-            const cleanState = JSON.parse(JSON.stringify(this.wasmCtrl.model || INITIAL_STATE)) as BoardModel;
+    const modelToSync = this.wasmCtrl.model || INITIAL_STATE;
+    if (this.mathEngine && modelToSync !== this._lastSyncedModel) {
+        try {
+            this._lastSyncedModel = modelToSync;
+            const cleanState = JSON.parse(JSON.stringify(modelToSync)) as BoardModel;
             this.mathEngine.propose({ type: "LOAD_DESIGN", state: cleanState });
         } catch (err) {
             console.error("Failed to sync main thread mathEngine:", err);
