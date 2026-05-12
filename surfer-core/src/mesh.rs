@@ -671,8 +671,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         ring[num_cols - 1].0.y + f * (ring[half + 1].0.y - ring[num_cols - 1].0.y)
                     };
 
-                    let new_x = target_x + (pos.x - target_x) * fraction;
-                    let new_y = target_y + (pos.y - target_y) * fraction;
+                                        // To ensure a perfect watertight seal with the hull, step 0 must copy the exact float bits
+                    let new_x = if step == 0 { pos.x } else { target_x + (pos.x - target_x) * fraction };
+                    let new_y = if step == 0 { pos.y } else { target_y + (pos.y - target_y) * fraction };
 
                     vertices.push(new_x);
                     vertices.push(new_y);
