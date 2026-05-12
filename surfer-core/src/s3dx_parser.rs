@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use crate::mesh::generate_mesh;
 
 #[derive(Debug, Deserialize)]
 pub struct Shape3dDesign {
@@ -875,7 +876,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_golden_file_rounded_pin_mesh_generation() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1049,6 +1049,8 @@ mod tests {
     }
 
 
+
+    #[test]
     fn test_no_interior_symmetry_plane_triangles() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));

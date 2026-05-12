@@ -1973,6 +1973,115 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_micro_cap_leak_at_nose() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(&model);
+
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let nose_z_scaled = bounds.nose_z * scale;
+
+        let mut blunt_cap_normals = 0;
+
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            // Check vertices exactly at the nose
+            if (z - nose_z_scaled).abs() < 1e-4 {
+                let nx = mesh.normals[i * 3];
+                let ny = mesh.normals[i * 3 + 1];
+                let nz = mesh.normals[i * 3 + 2];
+
+                // If the normal points exactly forward (-Z), it's a blunt cap normal!
+                // A rounded pin should have normals pointing out, up, or down (slerped), NOT a flat blunt patch.
+                if nz < -0.99 && ny.abs() < 0.01 && nx.abs() < 0.01 {
+                    blunt_cap_normals += 1;
+                }
+            }
+        }
+
+        assert_eq!(
+            blunt_cap_normals,
+            0,
+            "BUG: Found {} blunt cap normals at a rounded pin nose! The is_sharp threshold leaked and generated a flat cap.",
+            blunt_cap_normals
+        );
+    }
+
+    #[test]
+    fn test_zero_area_triangles_at_nose() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(&model);
+
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let nose_z_scaled = bounds.nose_z * scale;
+
+        let mut degenerate_triangles = 0;
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+
+            let v1 = Vec3::new(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2]);
+            let v2 = Vec3::new(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2]);
+            let v3 = Vec3::new(mesh.vertices[i3 * 3], mesh.vertices[i3 * 3 + 1], mesh.vertices[i3 * 3 + 2]);
+
+            // Only check triangles that touch the exact nose tip
+            if (v1.z - nose_z_scaled).abs() < 1e-4 || 
+               (v2.z - nose_z_scaled).abs() < 1e-4 || 
+               (v3.z - nose_z_scaled).abs() < 1e-4 {
+               
+                let area = (v2 - v1).cross(v3 - v1).length();
+                if area < 1e-10 {
+                    degenerate_triangles += 1;
+                }
+            }
+        }
+
+        assert_eq!(
+            degenerate_triangles,
+            0,
+            "BUG: Found {} zero-area degenerate triangles at the nose tip! These cause NaN normal shading artifacts.",
+            degenerate_triangles
+        );
+    }
+
+    #[test]
+    fn test_nose_stringer_normal_divergence() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let u_stringer = 0.0;
+        let u_tuck = 0.05; // Slightly off the stringer
+        
+        let n_stringer = crate::geometry::get_surface_normal_at_uvz(&model, u_stringer, bounds.nose_z, 1.0);
+        let n_tuck = crate::geometry::get_surface_normal_at_uvz(&model, u_tuck, bounds.nose_z, 1.0);
+        
+        let dot = n_stringer.dot(n_tuck);
+        assert!(
+            dot > 0.8,
+            "BUG: Severe normal divergence at the nose! Stringer normal {:?} diverges too sharply from adjacent rail normal {:?} (dot: {})",
+            n_stringer, n_tuck, dot
+        );
+    }
+
     #[test]
     fn test_blunt_tail_cap_normals_are_flat() {
         let mut model = BoardModel::default();
