@@ -528,10 +528,10 @@ mod tests {
         let content = fs::read_to_string(&path).unwrap();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        let bounds = crate::geometry::get_board_bounds(&model);
+                let bounds = crate::geometry::get_board_bounds(&model);
         let tail_start_z = bounds.tip_z - 20.0;
         
-        let mut last_apex_x = None;
+        let mut last_apex_x: Option<f32> = None;
         let steps = 200; // High resolution to catch sudden cliffs
         
         for i in 0..=steps {
