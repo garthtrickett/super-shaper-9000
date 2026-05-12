@@ -629,8 +629,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let ring = &grid[ring_index];
         let mut right_min_x = f32::INFINITY;
         let mut right_max_x = f32::NEG_INFINITY;
-        for j in 0..=half {
-            let x = ring[j].0.x;
+                for item in ring.iter().take(half + 1) {
+            let x = item.0.x;
             right_min_x = right_min_x.min(x);
             right_max_x = right_max_x.max(x);
         }

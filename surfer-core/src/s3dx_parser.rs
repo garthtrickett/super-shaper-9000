@@ -273,7 +273,13 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
     while let Some(c) = chars.next() {
         if c == '&' {
             let peek: String = chars.clone().take(6).collect();
-            if peek.starts_with("amp;") || peek.starts_with("lt;") || peek.starts_with("gt;") || peek.starts_with("quot;") || peek.starts_with("apos;") || peek.starts_with("#") {
+            if peek.starts_with("amp;")
+                || peek.starts_with("lt;")
+                || peek.starts_with("gt;")
+                || peek.starts_with("quot;")
+                || peek.starts_with("apos;")
+                || peek.starts_with("#")
+            {
                 sanitized.push('&');
             } else {
                 sanitized.push_str("&amp;");
