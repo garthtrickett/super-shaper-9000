@@ -605,7 +605,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_s3dx_promotes_swallow_tail_layer() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");

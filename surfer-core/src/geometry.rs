@@ -2316,6 +2316,69 @@ mod tests {
         assert!(!n.is_nan(), "Normal should not be NaN at swallow tail rail");
     }
 
+        #[test]
+    fn test_concave_zero_crossing_artifact() {
+        let mut model = BoardModel::default();
+        // Flat outline, 10" wide
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        // Flat rockers
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        
+        // Cross section with a deep concave, but the tuck returns to stringer height!
+        // P0 (stringer) = 0.0
+        // P1 (mid-bottom) = -1.0 (Deep concave)
+        // P2 (tuck) = 0.0 (Crosses zero!)
+        let cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(2.5, -1.0, 0.0), 
+                Vec3::new(5.0, 0.0, 0.0),  
+                Vec3::new(7.5, 1.0, 0.0),
+                Vec3::new(10.0, 2.0, 0.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 5],
+            tangents2: vec![Vec3::ZERO; 5],
+            ..Default::default()
+        };
+        model.cross_sections = vec![cs];
+
+        // Evaluate at Z=50 (middle of the board)
+        let blend = get_cross_section_blend_at_z(&model.cross_sections, 50.0).unwrap();
+        let t_apex = blend.t_apex;
+        let t_tuck = t_apex * 0.5;
+
+        // Verify the slice geometry actually has a concave
+        let u_test = t_tuck / 2.0; // t = 0.25 (P1)
+        let slice_pt = blend.evaluate(u_test);
+        assert!(slice_pt.y < -0.1, "Slice should have a concave at u=0.25. y={}", slice_pt.y);
+
+        // Evaluate the 3D mapped point
+        let pt = get_point_at_uv(&model, u_test, 0.5, 50.0, 0.0, 1.0);
+
+        // If the bug exists, pt.y will snap to 0.0 instead of reflecting the -1.0 concave!
+        assert!(
+            pt.y < -0.1,
+            "BUG: The concave disappeared! The bottom snapped to flat because tuck crossed zero. pt.y = {}",
+            pt.y
+        );
+    }
+
     #[test]
     fn test_channel_projection_on_v_tail() {
         use crate::model::ChannelLayer;
