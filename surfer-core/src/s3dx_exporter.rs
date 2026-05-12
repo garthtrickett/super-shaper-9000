@@ -25,9 +25,17 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         "<RailCoefficientNose>{:.6}</RailCoefficientNose>\n",
         model.rail_coefficient_nose
     ));
-    xml.push_str(&format!(
+        xml.push_str(&format!(
         "<ThicknessZStretch>{:.6}</ThicknessZStretch>\n",
         model.thickness_z_stretch
+    ));
+    xml.push_str(&format!(
+        "<TailType>{}</TailType>\n",
+        model.tail_type
+    ));
+    xml.push_str(&format!(
+        "<SwallowDepth>{:.6}</SwallowDepth>\n",
+        model.swallow_depth
     ));
 
     let format_bezier = |name: &str,

@@ -25,8 +25,12 @@ pub struct S3dxBoard {
     pub rail_coefficient_tail: Option<f32>,
     #[serde(rename = "RailCoefficientNose")]
     pub rail_coefficient_nose: Option<f32>,
-    #[serde(rename = "ThicknessZStretch")]
+        #[serde(rename = "ThicknessZStretch")]
     pub thickness_z_stretch: Option<f32>,
+    #[serde(rename = "TailType")]
+    pub tail_type: Option<String>,
+    #[serde(rename = "SwallowDepth")]
+    pub swallow_depth: Option<f32>,
 
     #[serde(rename = "Otl")]
     pub otl: Option<S3dxCurveContainer>,
@@ -87,6 +91,10 @@ pub struct S3dxCalqueContainer {
 pub struct S3dxCalque3d {
     #[serde(rename = "Nom")]
     pub nom: Option<String>,
+    #[serde(rename = "TypeCalque")]
+    pub type_calque: Option<u32>,
+    #[serde(rename = "XMax")]
+    pub x_max: Option<f32>,
     #[serde(rename = "OtlExt")]
     pub otl_ext: Option<S3dxCurveContainer>,
     #[serde(rename = "OtlInt")]
@@ -297,8 +305,10 @@ impl From<S3dxBoard> for BoardModel {
         model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0) * scale;
         model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0) * scale;
         model.rail_coefficient_tail = s3dx.rail_coefficient_tail.unwrap_or(1.0);
-        model.rail_coefficient_nose = s3dx.rail_coefficient_nose.unwrap_or(1.0);
+                model.rail_coefficient_nose = s3dx.rail_coefficient_nose.unwrap_or(1.0);
         model.thickness_z_stretch = s3dx.thickness_z_stretch.unwrap_or(1.0);
+        model.tail_type = s3dx.tail_type.unwrap_or_else(|| "squash".to_string());
+        model.swallow_depth = s3dx.swallow_depth.unwrap_or(0.0) * scale;
 
         model.outline = convert_s3dx_curve(&s3dx.otl, bl, scale);
         model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, scale);
@@ -329,10 +339,38 @@ impl From<S3dxBoard> for BoardModel {
         let mut outline_layers = Vec::new();
         let mut bottom_channels = Vec::new();
 
-        if let Some(calques) = s3dx.calques {
+                if let Some(calques) = s3dx.calques {
             for c in calques {
                 if let Some(calque) = c.calque3d {
-                    let name = calque.nom.unwrap_or_else(|| "Layer".to_string());
+                    let name = calque.nom.clone().unwrap_or_else(|| "Layer".to_string());
+                    let type_calque = calque.type_calque.unwrap_or(0);
+                    let x_max = calque.x_max.unwrap_or(0.0);
+
+                    // Intercept messy Shape3D Swallow Tail hacks and promote them to clean semantic native properties
+                    if type_calque == 32 || name.to_uppercase().contains("SWALLOW") {
+                        model.tail_type = "swallow".to_string();
+                        let mut depth_s3dx = x_max;
+                        if depth_s3dx == 0.0 {
+                            if let Some(otl_ext) = &calque.otl_ext {
+                                if let Some(b) = &otl_ext.bezier3d {
+                                    if let Some(cp) = &b.control_points {
+                                        if let Some(poly) = &cp.polygone3d {
+                                            if let Some(pts) = &poly.point3d {
+                                                for p in pts {
+                                                    if p.x > depth_s3dx {
+                                                        depth_s3dx = p.x;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        model.swallow_depth = depth_s3dx * scale;
+                        continue;
+                    }
+
                     let otl_ext =
                         convert_s3dx_curve(&calque.otl_ext, bl, scale).unwrap_or_default();
                     let otl_int =
