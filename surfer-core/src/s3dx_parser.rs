@@ -1048,6 +1048,50 @@ mod tests {
         }
     }
 
+
+    fn test_no_interior_symmetry_plane_triangles() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(&model);
+
+        let mut interior_triangles = 0;
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize * 3;
+            let i2 = mesh.indices[i + 1] as usize * 3;
+            let i3 = mesh.indices[i + 2] as usize * 3;
+
+            let x1 = mesh.vertices[i1];
+            let x2 = mesh.vertices[i2];
+            let x3 = mesh.vertices[i3];
+
+            // If all three vertices of a triangle lie exactly on the X=0 symmetry plane,
+            // it is an interior face. Because the normal of this face points directly sideways,
+            // it creates harsh shading artifacts and visually looks like a "hole" painted with the interior backface color.
+            if x1.abs() < 1e-4 && x2.abs() < 1e-4 && x3.abs() < 1e-4 {
+                interior_triangles += 1;
+                let y1 = mesh.vertices[i1 + 1];
+                let z1 = mesh.vertices[i1 + 2];
+                let y2 = mesh.vertices[i2 + 1];
+                let z2 = mesh.vertices[i2 + 2];
+                let y3 = mesh.vertices[i3 + 1];
+                let z3 = mesh.vertices[i3 + 2];
+                log::error!("Interior triangle found! V1: ({:.3}, {:.3}), V2: ({:.3}, {:.3}), V3: ({:.3}, {:.3})", y1, z1, y2, z2, y3, z3);
+            }
+        }
+
+        assert_eq!(
+            interior_triangles,
+            0,
+            "Found {} triangles lying entirely on the symmetry plane (X=0)! This causes visible internal faces/holes.",
+            interior_triangles
+        );
+    }
+
     #[test]
     fn test_tomolike_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
