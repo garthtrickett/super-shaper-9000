@@ -902,7 +902,6 @@ pub fn get_point_at_uv_base(
 
     final_pos
 }
-    
 
 pub fn get_point_at_uv(
     model: &BoardModel,
@@ -928,7 +927,7 @@ pub fn get_point_at_uv(
                 let mut best_u = 0.0;
                 let mut min_diff = f32::INFINITY;
 
-                                for i in 0..=50 {
+                for i in 0..=50 {
                     let test_u = (i as f32 / 50.0) * t_apex;
                     let test_pt = get_point_at_uv_base(model, test_u, v, z_inches, inner_x, 1.0);
                     let diff = (test_pt.x - chan_x).abs();
@@ -972,7 +971,7 @@ pub fn get_point_at_uv(
                     channel_applied = true;
                 }
 
-                                if channel_applied {
+                if channel_applied {
                     let normal = get_surface_normal_base_at_uvz(model, u, z_inches, side);
                     final_pos.x *= side;
                     final_pos -= normal * (t * chan_depth);
@@ -2335,7 +2334,7 @@ mod tests {
         assert!(!n.is_nan(), "Normal should not be NaN at swallow tail rail");
     }
 
-        #[test]
+    #[test]
     fn test_concave_zero_crossing_artifact() {
         let mut model = BoardModel::default();
         // Flat outline, 10" wide
@@ -2358,7 +2357,7 @@ mod tests {
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
             ..Default::default()
         });
-        
+
         // Cross section with a deep concave, but the tuck returns to stringer height!
         // P0 (stringer) = 0.0
         // P1 (mid-bottom) = -1.0 (Deep concave)
@@ -2366,8 +2365,8 @@ mod tests {
         let cs = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(2.5, -1.0, 0.0), 
-                Vec3::new(5.0, 0.0, 0.0),  
+                Vec3::new(2.5, -1.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
                 Vec3::new(7.5, 1.0, 0.0),
                 Vec3::new(10.0, 2.0, 0.0),
             ],
@@ -2385,7 +2384,11 @@ mod tests {
         // Verify the slice geometry actually has a concave
         let u_test = t_tuck / 2.0; // t = 0.25 (P1)
         let slice_pt = blend.evaluate(u_test);
-        assert!(slice_pt.y < -0.1, "Slice should have a concave at u=0.25. y={}", slice_pt.y);
+        assert!(
+            slice_pt.y < -0.1,
+            "Slice should have a concave at u=0.25. y={}",
+            slice_pt.y
+        );
 
         // Evaluate the 3D mapped point
         let pt = get_point_at_uv(&model, u_test, 0.5, 50.0, 0.0, 1.0);

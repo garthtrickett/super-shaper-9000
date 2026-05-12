@@ -389,7 +389,6 @@ fn apply_continuity(
         }
     }
 }
-    
 
 pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();

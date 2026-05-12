@@ -109,15 +109,29 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
     let segments_v = z_rings.len() - 1;
 
-        let abs_u_to_norm_u = |abs_u: f32, t_tuck: f32, t_apex: f32, t_shoulder: f32| -> f32 {
+    let abs_u_to_norm_u = |abs_u: f32, t_tuck: f32, t_apex: f32, t_shoulder: f32| -> f32 {
         if abs_u <= t_tuck {
-            if t_tuck > 0.0 { (abs_u / t_tuck) * 0.25 } else { 0.0 }
+            if t_tuck > 0.0 {
+                (abs_u / t_tuck) * 0.25
+            } else {
+                0.0
+            }
         } else if abs_u <= t_apex {
-            if t_apex > t_tuck { 0.25 + ((abs_u - t_tuck) / (t_apex - t_tuck)) * 0.25 } else { 0.25 }
+            if t_apex > t_tuck {
+                0.25 + ((abs_u - t_tuck) / (t_apex - t_tuck)) * 0.25
+            } else {
+                0.25
+            }
         } else if abs_u <= t_shoulder {
-            if t_shoulder > t_apex { 0.5 + ((abs_u - t_apex) / (t_shoulder - t_apex)) * 0.25 } else { 0.5 }
+            if t_shoulder > t_apex {
+                0.5 + ((abs_u - t_apex) / (t_shoulder - t_apex)) * 0.25
+            } else {
+                0.5
+            }
+                } else if 1.0 > t_shoulder {
+            0.75 + ((abs_u - t_shoulder) / (1.0 - t_shoulder)) * 0.25
         } else {
-            if 1.0 > t_shoulder { 0.75 + ((abs_u - t_shoulder) / (1.0 - t_shoulder)) * 0.25 } else { 0.75 }
+            0.75
         }
     };
 
@@ -133,7 +147,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     };
 
-        // Adaptive Crosswise (U) Columns
+    // Adaptive Crosswise (U) Columns
     let critical_norm_us = vec![0.0, 0.25, 0.5, 0.75, 1.0];
     let mut adaptive_norm_us = Vec::new();
     let tolerance_degrees_u = 3.0;
@@ -155,12 +169,20 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let prim_t_shoulder = prim_t_apex + (1.0 - prim_t_apex) * 0.5;
 
     for u in crate::bezier::adaptive_sample_t(primary_cs, tolerance_degrees_u, min_dist_u) {
-        adaptive_norm_us.push(abs_u_to_norm_u(u, prim_t_tuck, prim_t_apex, prim_t_shoulder));
+        adaptive_norm_us.push(abs_u_to_norm_u(
+            u,
+            prim_t_tuck,
+            prim_t_apex,
+            prim_t_shoulder,
+        ));
     }
 
     let mut u_params_half = critical_norm_us.clone();
     for norm_u in adaptive_norm_us {
-        if !critical_norm_us.iter().any(|&cu| (norm_u - cu).abs() < 0.01) {
+        if !critical_norm_us
+            .iter()
+            .any(|&cu| (norm_u - cu).abs() < 0.01)
+        {
             u_params_half.push(norm_u);
         }
     }
@@ -180,7 +202,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     }
     let mut u_params_half = final_base_u;
 
-        // --- NEW: Channel U-parameter injection ---
+    // --- NEW: Channel U-parameter injection ---
     let mut cliff_norm_us: Vec<f32> = Vec::new();
     if let Some(channels) = &model.bottom_channels {
         for channel in channels {
@@ -220,7 +242,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                                     best_u = test_u;
                                 }
                             }
-                                                        let mut u_search = best_u;
+                            let mut u_search = best_u;
                             let mut step = b.t_apex / 50.0;
                             for _ in 0..10 {
                                 step *= 0.5;
@@ -240,7 +262,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                                     u_search = u_right;
                                 }
                             }
-                            
+
                             let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
                             let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
                             let norm_u = abs_u_to_norm_u(u_search, t_tuck, b.t_apex, t_shoulder);
@@ -252,7 +274,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         }
     }
 
-        for cu in cliff_norm_us {
+    for cu in cliff_norm_us {
         u_params_half.push((cu - 0.0001).max(0.0));
         u_params_half.push(cu);
         u_params_half.push((cu + 0.0001).min(1.0));
@@ -268,7 +290,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     u_params_half = final_u;
     // --- END NEW ---
 
-        // Compute Arc Length mapping from the primary cross section to prevent UV stretching
+    // Compute Arc Length mapping from the primary cross section to prevent UV stretching
     let cs_arc_table = if !model.cross_sections.is_empty() {
         crate::bezier::build_arc_length_table(primary_cs, 200)
     } else {
@@ -363,7 +385,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
         let heat_color = color_heatmap(normalized_foil);
 
-                let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+        let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_inches);
         let t_apex = if let Some(b) = &blend { b.t_apex } else { 0.5 };
         let t_tuck = 0.01_f32.max(t_apex * 0.5);
         let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
@@ -588,7 +610,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             }
         };
 
-        let generate_cap = |ring_index: usize,
+    let generate_cap = |ring_index: usize,
                         z_inches: f32,
                         _n_top: Vec3,
                         _n_bot: Vec3,
@@ -605,22 +627,21 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             if is_nose { 0.0 } else { 1.0 },
         )
         .x;
-                let is_sharp = width < 1e-3;
+        let is_sharp = width < 1e-3;
         let start_vertex_index = (vertices.len() / 3) as u32;
         let ring = &grid[ring_index];
 
-        if is_sharp {
+                if is_sharp {
             // The hull naturally closes at sharp poles and already possesses
-            // the correct slerp normals. Generating a cap here only creates 
+            // the correct slerp normals. Generating a cap here only creates
             // zero-area degenerate triangles that cause shading artifacts.
-            return;
         } else {
             // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
             let num_x_steps = (width / 0.5).ceil().max(1.0) as u32;
             let right_target_x = ring[0].0.x;
             let left_target_x = ring[num_cols - 1].0.x;
 
-                        for step in 0..=num_x_steps {
+            for step in 0..=num_x_steps {
                 let fraction = 1.0 - (step as f32 / num_x_steps as f32);
                 for j in 0..num_cols {
                     let (pos, color, u_tex, v_coord, _abs_u) = ring[j];
@@ -1779,7 +1800,7 @@ mod tests {
                 break;
             }
         }
-                assert!(
+        assert!(
             found_cliff,
             "Topology should duplicate Z-rings around the wing cliff"
         );
@@ -1808,7 +1829,7 @@ mod tests {
             tangents2: vec![Vec3::ZERO; 2],
             ..Default::default()
         });
-        
+
         let cs0 = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, 0.0, 0.0),
@@ -1821,7 +1842,7 @@ mod tests {
             tangents2: vec![Vec3::ZERO; 5],
             ..Default::default()
         };
-        
+
         let cs1 = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, 0.0, 100.0),
@@ -1865,7 +1886,9 @@ mod tests {
         assert!(
             (max_x_at_50 - expected_x).abs() < 5e-3,
             "BUG: Mesh is inside the outline! Expected apex X at Z={} to be ~{}, but got {}",
-            best_z / scale, expected_x, max_x_at_50
+            best_z / scale,
+            expected_x,
+            max_x_at_50
         );
     }
 
@@ -1914,14 +1937,17 @@ mod tests {
                 let nx = mesh.normals[i * 3];
                 let ny = mesh.normals[i * 3 + 1];
                 let nz = mesh.normals[i * 3 + 2];
-                
+
                 if nz > 0.1 {
                     cap_normals.push(Vec3::new(nx, ny, nz));
                 }
             }
         }
 
-        assert!(!cap_normals.is_empty(), "Should have found cap normals at the tail");
+        assert!(
+            !cap_normals.is_empty(),
+            "Should have found cap normals at the tail"
+        );
 
         for n in &cap_normals {
             assert!(

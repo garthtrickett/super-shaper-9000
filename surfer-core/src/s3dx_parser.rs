@@ -25,7 +25,7 @@ pub struct S3dxBoard {
     pub rail_coefficient_tail: Option<f32>,
     #[serde(rename = "RailCoefficientNose")]
     pub rail_coefficient_nose: Option<f32>,
-        #[serde(rename = "ThicknessZStretch")]
+    #[serde(rename = "ThicknessZStretch")]
     pub thickness_z_stretch: Option<f32>,
     #[serde(rename = "TailType")]
     pub tail_type: Option<String>,
@@ -305,7 +305,7 @@ impl From<S3dxBoard> for BoardModel {
         model.v_concave_tail = s3dx.v_concave_tail.unwrap_or(0.0) * scale;
         model.v_concave_nose = s3dx.v_concave_nose.unwrap_or(0.0) * scale;
         model.rail_coefficient_tail = s3dx.rail_coefficient_tail.unwrap_or(1.0);
-                model.rail_coefficient_nose = s3dx.rail_coefficient_nose.unwrap_or(1.0);
+        model.rail_coefficient_nose = s3dx.rail_coefficient_nose.unwrap_or(1.0);
         model.thickness_z_stretch = s3dx.thickness_z_stretch.unwrap_or(1.0);
         model.tail_type = s3dx.tail_type.unwrap_or_else(|| "squash".to_string());
         model.swallow_depth = s3dx.swallow_depth.unwrap_or(0.0) * scale;
@@ -339,7 +339,7 @@ impl From<S3dxBoard> for BoardModel {
         let mut outline_layers = Vec::new();
         let mut bottom_channels = Vec::new();
 
-                if let Some(calques) = s3dx.calques {
+        if let Some(calques) = s3dx.calques {
             for c in calques {
                 if let Some(calque) = c.calque3d {
                     let name = calque.nom.clone().unwrap_or_else(|| "Layer".to_string());
@@ -550,12 +550,12 @@ mod tests {
 
         let outline = model.outline.unwrap();
         assert_eq!(outline.control_points.len(), 4);
-                assert!((outline.control_points[0].z - (-73.0 / 2.0)).abs() < 0.1); // Nose Z (Negative)
+        assert!((outline.control_points[0].z - (-73.0 / 2.0)).abs() < 0.1); // Nose Z (Negative)
         assert!((outline.control_points[3].z - (73.0 / 2.0)).abs() < 0.1); // Tail Z (Positive)
         assert!((outline.control_points[0].x).abs() < 1.0); // Nose Width should be close to 0
     }
 
-        #[test]
+    #[test]
     fn test_imported_fish_tail_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -566,18 +566,22 @@ mod tests {
         let content = fs::read_to_string(&path).unwrap();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-                let bounds = crate::geometry::get_board_bounds(&model);
+        let bounds = crate::geometry::get_board_bounds(&model);
         let tail_start_z = bounds.tip_z - 20.0;
-        
+
         let mut last_apex_x: Option<f32> = None;
         let steps = 200; // High resolution to catch sudden cliffs
-        
+
         for i in 0..=steps {
             let z = tail_start_z + (20.0 * (i as f32 / steps as f32));
             let profile = crate::geometry::get_board_profile_at_z(&model, z, 0.5);
-            
+
             let inner_x = if z > bounds.notch_z {
-                crate::geometry::evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z)
+                crate::geometry::evaluate_notch_inner_x(
+                    model.outline.as_ref().unwrap(),
+                    bounds.tip_t,
+                    z,
+                )
             } else {
                 0.0
             };
@@ -585,9 +589,11 @@ mod tests {
             // BUG 1: Prong collapse/inversion
             // If inner_x > apex_x, the inner stringer crosses the outer rail, creating a black hole/gap!
             assert!(
-                profile.apex_x >= inner_x, 
-                "Prong collapsed/inverted at z={:.2}! apex_x ({:.2}) < inner_x ({:.2})", 
-                z, profile.apex_x, inner_x
+                profile.apex_x >= inner_x,
+                "Prong collapsed/inverted at z={:.2}! apex_x ({:.2}) < inner_x ({:.2})",
+                z,
+                profile.apex_x,
+                inner_x
             );
 
             // BUG 2: Massive mesh cliffs (Tears)
@@ -595,7 +601,7 @@ mod tests {
             if let Some(last_x) = last_apex_x {
                 let diff = (profile.apex_x - last_x).abs();
                 assert!(
-                    diff < 2.0, 
+                    diff < 2.0,
                     "Massive cliff/tear detected in mesh outline at z={:.2}! Width jumped by {:.2} inches instantly.", 
                     z, diff
                 );
@@ -604,7 +610,7 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -618,26 +624,26 @@ mod tests {
         let mesh = crate::mesh::generate_mesh(&model);
 
         // In FISH.s3dx, the nose is blunt/chopped (width > 0 at Z=nose_z).
-        // A blunt nose generates a flat front cap. The hull vertices at the rail 
+        // A blunt nose generates a flat front cap. The hull vertices at the rail
         // should have normals pointing OUTWARD (+X), not FORWARD (-Z).
         // If they point forward, it creates a terrible shading artifact where the rails join the nose.
-        
+
         let bounds = crate::geometry::get_board_bounds(&model);
         let scale = 1.0 / 12.0;
         let nose_z = bounds.nose_z * scale;
-        
+
         let mut outward_normals_found = false;
-        
+
         for i in 0..(mesh.vertices.len() / 3) {
             let x = mesh.vertices[i * 3];
             let z = mesh.vertices[i * 3 + 2];
-            
+
             if (z - nose_z).abs() < 1e-4 {
                 // Ignore the stringer (X=0) and look at the rail
                 if x > 0.05 * scale {
                     let nx = mesh.normals[i * 3];
                     let nz = mesh.normals[i * 3 + 2];
-                    
+
                     // A proper hull normal at the rail should point predominantly outward (+X)
                     // If nz is strongly negative (e.g. -0.9), it's pointing forward like a pole!
                     if nx > 0.5 && nz > -0.5 {
@@ -646,7 +652,7 @@ mod tests {
                 }
             }
         }
-        
+
         assert!(
             outward_normals_found,
             "BUG: Hull normals at the blunt nose of FISH.s3dx are pointing forward (-Z) instead of outward! This creates a shading artifact where the rails join the nose."
@@ -666,10 +672,16 @@ mod tests {
 
         // The SWALLOW TAIL layer should be intercepted and semantically promoted.
         assert_eq!(model.tail_type, "swallow");
-        assert!(model.swallow_depth > 0.0, "Swallow depth should be populated from the layer's data");
-        
+        assert!(
+            model.swallow_depth > 0.0,
+            "Swallow depth should be populated from the layer's data"
+        );
+
         // Since it was the only layer in FISH.s3dx, outline_layers should be consumed and left as None
-        assert!(model.outline_layers.is_none(), "Swallow layer should have been consumed, leaving no leftover outline layers");
+        assert!(
+            model.outline_layers.is_none(),
+            "Swallow layer should have been consumed, leaving no leftover outline layers"
+        );
     }
 
     #[test]
@@ -859,7 +871,7 @@ mod tests {
             "Mid-rail is outside the apex!"
         );
 
-                let pt_bot = crate::geometry::get_point_at_uv(&model, 0.0, 1.0, z_test, 0.0, 1.0);
+        let pt_bot = crate::geometry::get_point_at_uv(&model, 0.0, 1.0, z_test, 0.0, 1.0);
         let pt_top = crate::geometry::get_point_at_uv(&model, 1.0, 1.0, z_test, 0.0, 1.0);
         assert!(
             pt_top.y - pt_bot.y > 0.0,
@@ -878,11 +890,11 @@ mod tests {
         let content = fs::read_to_string(&path).unwrap();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = crate::mesh::generate_mesh(&model);
-        
+
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
-        
-                // BUG 1: Nose Cap Normals (Slerped instead of Flat)
+
+        // BUG 1: Nose Cap Normals (Slerped instead of Flat)
         let nose_z = bounds.nose_z * scale;
         let mut flat_cap_found = false;
         for i in 0..(mesh.vertices.len() / 3) {
@@ -891,7 +903,7 @@ mod tests {
                 let nx = mesh.normals[i * 3];
                 let ny = mesh.normals[i * 3 + 1];
                 let nz = mesh.normals[i * 3 + 2];
-                
+
                 // Nose cap on a blunt board should point exactly in -Z
                 if nx.abs() < 1e-2 && ny.abs() < 1e-2 && (nz - (-1.0)).abs() < 1e-2 {
                     flat_cap_found = true;
@@ -907,12 +919,12 @@ mod tests {
         // BUG 2: Mesh inside outline
         let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
         let mid_z_scaled = mid_z * scale;
-        
+
         // Find mesh apex at mid_z
         let mut max_x_at_mid = 0.0_f32;
         let mut best_z_diff = f32::INFINITY;
         let mut best_z = 0.0;
-        
+
         for i in 0..(mesh.vertices.len() / 3) {
             let z = mesh.vertices[i * 3 + 2];
             let diff = (z - mid_z_scaled).abs();
@@ -921,7 +933,7 @@ mod tests {
                 best_z = z;
             }
         }
-        
+
         for i in 0..(mesh.vertices.len() / 3) {
             let x = mesh.vertices[i * 3];
             let z = mesh.vertices[i * 3 + 2];
@@ -931,14 +943,16 @@ mod tests {
                 }
             }
         }
-        
+
         // Evaluate outline at the exact Z of the mesh ring
-        let outline_x = crate::geometry::evaluate_composite_outline_at_z(&model, best_z / scale, 0.5).x * scale;
-        
+        let outline_x =
+            crate::geometry::evaluate_composite_outline_at_z(&model, best_z / scale, 0.5).x * scale;
+
         assert!(
             (max_x_at_mid - outline_x).abs() < 5e-3,
             "BUG: Mesh is inside the outline! Mesh Apex X: {}, Outline X: {}",
-            max_x_at_mid, outline_x
+            max_x_at_mid,
+            outline_x
         );
     }
 }
