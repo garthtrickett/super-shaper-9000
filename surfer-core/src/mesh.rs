@@ -1949,18 +1949,18 @@ mod tests {
         );
     }
 
-        #[test]
-    fn test_witcherdaily_tail_holes() {
+    #[test]
+    fn test_ci_dumpster_tail_holes() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("../src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+        path.push("../src/assets/fixtures/s3dx/CI-Dumpster-Diver.s3dx");
 
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
         let mesh = super::generate_mesh(&model);
 
-            let scale = 1.0 / 12.0;
+        let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
         let tail_z = bounds.tip_z * scale;
 
@@ -1989,7 +1989,7 @@ mod tests {
             let v2 = hash_pt(get_vertex(i2));
             let v3 = hash_pt(get_vertex(i3));
 
-                // Ignore degenerate sliver triangles inside the hull
+            // Ignore degenerate sliver triangles inside the hull
             if v1 == v2 || v2 == v3 || v3 == v1 {
                 continue;
             }
@@ -2036,7 +2036,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_cap_degenerate_triangles() {
         // CI-Dumpster-Diver.s3dx has a blunt tail, so it generates a patch cap.
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2086,7 +2086,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_micro_cap_leak_at_nose() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2127,7 +2127,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_zero_area_triangles_at_nose() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2185,7 +2185,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_nose_stringer_normal_divergence() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));

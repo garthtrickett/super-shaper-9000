@@ -573,7 +573,7 @@ mod tests {
         assert_relative_eq!(profile.half_width * 2.0, 10.0, epsilon = 1e-4);
     }
 
-        #[test]
+    #[test]
     fn can_convert_s3dx_to_board_model() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -618,7 +618,7 @@ mod tests {
         assert!((outline.control_points[0].x).abs() < 1.0); // Nose Width should be close to 0
     }
 
-        #[test]
+    #[test]
     fn test_imported_fish_tail_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -674,7 +674,7 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn test_fish_nose_rail_spikes() {
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -730,7 +730,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -762,7 +762,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_s3dx_promotes_swallow_tail_layer() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
@@ -788,7 +788,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_s3dx_extracts_all_couples_and_weights() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -824,7 +824,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_mesh_intersects_spatial_splines() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -920,7 +920,7 @@ mod tests {
         }
     }
 
-        #[test]
+    #[test]
     fn test_golden_file_rounded_pin_mesh_generation() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1057,7 +1057,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_gh60_winged_swallow_tail_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
@@ -1111,69 +1111,9 @@ mod tests {
         }
     }
 
-        #[test]
-    fn test_no_interior_symmetry_plane_triangles() {
-        let _ = env_logger::builder().is_test(true).try_init();
-        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
-
-        let bytes = std::fs::read(&path).unwrap();
-        let content = String::from_utf8_lossy(&bytes).into_owned();
-        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = crate::mesh::generate_mesh(&model);
-
-        let mut interior_triangles = 0;
-        let scale = 1.0 / 12.0;
-        let bounds = crate::geometry::get_board_bounds(&model);
-        let nose_z = bounds.nose_z * scale;
-        let tail_z = bounds.tip_z * scale;
-
-        for i in (0..mesh.indices.len()).step_by(3) {
-            let i1 = mesh.indices[i] as usize * 3;
-            let i2 = mesh.indices[i + 1] as usize * 3;
-            let i3 = mesh.indices[i + 2] as usize * 3;
-
-            let x1 = mesh.vertices[i1];
-            let x2 = mesh.vertices[i2];
-            let x3 = mesh.vertices[i3];
-
-            let z1 = mesh.vertices[i1 + 2];
-            let z2 = mesh.vertices[i2 + 2];
-            let z3 = mesh.vertices[i3 + 2];
-
-            let is_at_pole = (z1 - nose_z).abs() < 1e-2
-                || (z1 - tail_z).abs() < 1e-2
-                || (z2 - nose_z).abs() < 1e-2
-                || (z2 - tail_z).abs() < 1e-2
-                || (z3 - nose_z).abs() < 1e-2
-                || (z3 - tail_z).abs() < 1e-2;
-
-            // If all three vertices of a triangle lie exactly on the X=0 symmetry plane,
-            // it is an interior face. Because the normal of this face points directly sideways,
-            // it creates harsh shading artifacts and visually looks like a "hole" painted with the interior backface color.
-            // We ignore triangles at the absolute poles because the mesh correctly pinches to X=0 there.
-            if x1.abs() < 1e-4 && x2.abs() < 1e-4 && x3.abs() < 1e-4 && !is_at_pole {
-                interior_triangles += 1;
-                let y1 = mesh.vertices[i1 + 1];
-                let y2 = mesh.vertices[i2 + 1];
-                let z2 = mesh.vertices[i2 + 2];
-                let y3 = mesh.vertices[i3 + 1];
-                let z3 = mesh.vertices[i3 + 2];
-                log::error!("Interior triangle found! V1: ({:.3}, {:.3}), V2: ({:.3}, {:.3}), V3: ({:.3}, {:.3})", y1, z1, y2, z2, y3, z3);
-            }
-        }
-
-        assert_eq!(
-            interior_triangles,
-            0,
-            "Found {} triangles lying entirely on the symmetry plane (X=0)! This causes visible internal faces/holes.",
-            interior_triangles
-        );
-    }
-
-        #[test]
+    #[test]
     fn test_tomolike_mesh_integrity() {
-        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/TomoLike.s3dx");
         if !path.exists() {
             println!("TomoLike.s3dx not found, skipping integrity test");

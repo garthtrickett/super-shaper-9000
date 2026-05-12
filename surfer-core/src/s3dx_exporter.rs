@@ -326,7 +326,7 @@ mod tests {
         assert!(xml.contains("</Shape3d_design>"));
     }
 
-        #[test]
+    #[test]
     fn test_s3dx_round_trip() {
         use std::fs;
         use std::path::PathBuf;
