@@ -622,9 +622,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         normals: &mut Vec<f32>,
                         indices: &mut Vec<u32>| {
         let ring = &grid[ring_index];
-        let right_target_x = ring[0].0.x;
-        let right_rail_x = ring[half].0.x;
-        let ring_width = (right_rail_x - right_target_x).abs();
+        let mut right_min_x = f32::INFINITY;
+        let mut right_max_x = f32::NEG_INFINITY;
+        for j in 0..=half {
+            let x = ring[j].0.x;
+            right_min_x = right_min_x.min(x);
+            right_max_x = right_max_x.max(x);
+        }
+        let ring_width = right_max_x - right_min_x;
         let is_sharp = ring_width < 1e-4;
         let start_vertex_index = (vertices.len() / 3) as u32;
 
@@ -633,9 +638,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             // the correct slerp normals. Generating a cap here only creates
             // zero-area degenerate triangles that cause shading artifacts.
         } else {
-                        // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
+            // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
             let width_inches = ring_width / scale;
             let num_x_steps = (width_inches / 0.5).ceil().max(1.0) as u32;
+            let right_target_x = ring[0].0.x;
             let left_target_x = ring[num_cols - 1].0.x;
 
             for step in 0..=num_x_steps {
@@ -705,7 +711,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[d as usize * 3 + 2],
                     );
 
-                                        let dist_ac = pt_a.distance_squared(pt_c);
+                    let dist_ac = pt_a.distance_squared(pt_c);
                     let dist_bd = pt_b.distance_squared(pt_d);
 
                     if is_nose {
@@ -1922,7 +1928,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_cap_degenerate_triangles() {
         // WitcherDaily.s3dx has a blunt tail, so it generates a patch cap.
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1939,13 +1944,25 @@ mod tests {
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            let v1 = Vec3::new(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2]);
-            let v2 = Vec3::new(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2]);
-            let v3 = Vec3::new(mesh.vertices[i3 * 3], mesh.vertices[i3 * 3 + 1], mesh.vertices[i3 * 3 + 2]);
+            let v1 = Vec3::new(
+                mesh.vertices[i1 * 3],
+                mesh.vertices[i1 * 3 + 1],
+                mesh.vertices[i1 * 3 + 2],
+            );
+            let v2 = Vec3::new(
+                mesh.vertices[i2 * 3],
+                mesh.vertices[i2 * 3 + 1],
+                mesh.vertices[i2 * 3 + 2],
+            );
+            let v3 = Vec3::new(
+                mesh.vertices[i3 * 3],
+                mesh.vertices[i3 * 3 + 1],
+                mesh.vertices[i3 * 3 + 2],
+            );
 
             // Area of triangle is 0.5 * |(v2 - v1) x (v3 - v1)|
             let area = (v2 - v1).cross(v3 - v1).length();
-            
+
             // Mathematical singularities at poles can create valid sliver triangles (area ~1e-7).
             // Physically defective degenerate triangles created by extruding lines will have exactly 0.0 area.
             if area < 1e-10 {
@@ -1953,7 +1970,10 @@ mod tests {
             }
         }
 
-        assert_eq!(degenerate_count, 0, "Found degenerate triangles in the mesh! This causes dark square rendering artifacts.");
+        assert_eq!(
+            degenerate_count, 0,
+            "Found degenerate triangles in the mesh! This causes dark square rendering artifacts."
+        );
     }
 
     #[test]
