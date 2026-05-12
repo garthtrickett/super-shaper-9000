@@ -703,49 +703,24 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     let c = ring_b_start + j as u32;
                     let d = c + 1;
 
-                    let pt_a = Vec3::new(
-                        vertices[a as usize * 3],
-                        vertices[a as usize * 3 + 1],
-                        vertices[a as usize * 3 + 2],
-                    );
-                    let pt_b = Vec3::new(
-                        vertices[b as usize * 3],
-                        vertices[b as usize * 3 + 1],
-                        vertices[b as usize * 3 + 2],
-                    );
-                    let pt_c = Vec3::new(
-                        vertices[c as usize * 3],
-                        vertices[c as usize * 3 + 1],
-                        vertices[c as usize * 3 + 2],
-                    );
-                    let pt_d = Vec3::new(
-                        vertices[d as usize * 3],
-                        vertices[d as usize * 3 + 1],
-                        vertices[d as usize * 3 + 2],
-                    );
-
+                                        // Rely on WebGL's native degenerate triangle culling instead of aggressive cross-product filters
+                    // which can accidentally cull valid micro-slivers on extremely thin blunt tails.
                     if is_nose {
-                        if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-16 {
-                            indices.push(a);
-                            indices.push(d);
-                            indices.push(b);
-                        }
-                        if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-16 {
-                            indices.push(a);
-                            indices.push(c);
-                            indices.push(d);
-                        }
+                        indices.push(a);
+                        indices.push(d);
+                        indices.push(b);
+
+                        indices.push(a);
+                        indices.push(c);
+                        indices.push(d);
                     } else {
-                        if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-16 {
-                            indices.push(a);
-                            indices.push(b);
-                            indices.push(d);
-                        }
-                        if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-16 {
-                            indices.push(a);
-                            indices.push(d);
-                            indices.push(c);
-                        }
+                        indices.push(a);
+                        indices.push(b);
+                        indices.push(d);
+
+                        indices.push(a);
+                        indices.push(d);
+                        indices.push(c);
                     }
                 }
             }
