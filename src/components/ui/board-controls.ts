@@ -165,21 +165,10 @@ export class BoardControls extends LitElement {
           <button @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
           <button @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export JSON</button>
         </div>
-        <div class="mb-2">
+                <div class="mb-2">
           <button @click=${() => this.dispatchEvent(new CustomEvent('export-obj', { bubbles: true, composed: true }))} class="w-full bg-purple-600 hover:bg-purple-500 text-[10px] font-bold text-white py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export OBJ (3D Mesh)</button>
         </div>
-        <div class="grid grid-cols-2 gap-2 mb-2">
-          <label class="col-span-2 flex items-center justify-between mt-2 bg-zinc-800 p-2 rounded cursor-pointer hover:bg-zinc-700 transition">
-            <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Show Control Points</span>
-            <input 
-              type="checkbox" 
-              .checked=${this.showGizmos} 
-              @change=${(e: Event) => this._dispatchBoolean('showGizmos', (e.target as HTMLInputElement).checked)} 
-              class="w-4 h-4 accent-blue-500 rounded bg-zinc-900 border-zinc-700" 
-            />
-          </label>
-        </div>
-        <button @click=${() => this.dispatchEvent(new CustomEvent('export-s3dx', { bubbles: true, composed: true }))} class="w-full mb-5 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white py-2.5 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
+        <button @click=${() => this.dispatchEvent(new CustomEvent('export-s3dx', { bubbles: true, composed: true }))} class="w-full mb-5 mt-2 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white py-2.5 rounded transition-colors uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
