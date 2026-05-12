@@ -451,14 +451,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             let pos_c = grid[i + 1][j].0;
             let pos_d = grid[i + 1][j + 1].0;
 
-            // Only push valid triangles. If a ring collapses to a point at the poles,
+                        // Only push valid triangles. If a ring collapses to a point at the poles,
             // we dynamically drop the degenerate zero-area triangles.
-            if pos_a.distance_squared(pos_b) > 1e-10 {
+            if pos_a.distance_squared(pos_b) > 1e-16 {
                 indices.push(a);
                 indices.push(b);
                 indices.push(d);
             }
-            if pos_c.distance_squared(pos_d) > 1e-10 {
+            if pos_c.distance_squared(pos_d) > 1e-16 {
                 indices.push(a);
                 indices.push(d);
                 indices.push(c);
@@ -727,24 +727,24 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[d as usize * 3 + 2],
                     );
 
-                                        if is_nose {
-                        if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-10 {
+                                                            if is_nose {
+                        if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-16 {
                             indices.push(a);
                             indices.push(d);
                             indices.push(b);
                         }
-                        if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-10 {
+                        if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-16 {
                             indices.push(a);
                             indices.push(c);
                             indices.push(d);
                         }
                     } else {
-                        if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-10 {
+                        if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-16 {
                             indices.push(a);
                             indices.push(b);
                             indices.push(d);
                         }
-                        if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-10 {
+                        if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-16 {
                             indices.push(a);
                             indices.push(d);
                             indices.push(c);
@@ -2003,6 +2003,71 @@ mod tests {
                     let v1 = Vec3::new((edge.0).0 as f32 / 10000.0, (edge.0).1 as f32 / 10000.0, (edge.0).2 as f32 / 10000.0);
                     let v2 = Vec3::new((edge.1).0 as f32 / 10000.0, (edge.1).1 as f32 / 10000.0, (edge.1).2 as f32 / 10000.0);
                     log::error!("Hole at edge from {:?} to {:?}", v1, v2);
+                }
+            }
+        }
+
+        assert_eq!(tail_holes, 0, "Found {} boundary edges at the tail! This means there's a visible topological hole.", tail_holes);
+    }
+
+        #[test]
+    fn test_witcherdaily_tail_holes() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/WitcherDaily.s3dx");
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(&model);
+
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        use std::collections::HashMap;
+        let mut edge_counts = HashMap::new();
+
+        let get_vertex = |idx: u32| -> Vec3 {
+            let i = idx as usize * 3;
+            Vec3::new(mesh.vertices[i], mesh.vertices[i+1], mesh.vertices[i+2])
+        };
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i];
+            let i2 = mesh.indices[i+1];
+            let i3 = mesh.indices[i+2];
+
+            let hash_pt = |v: Vec3| -> (i32, i32, i32) {
+                ((v.x * 10000.0).round() as i32, (v.y * 10000.0).round() as i32, (v.z * 10000.0).round() as i32)
+            };
+
+            let v1 = hash_pt(get_vertex(i1));
+            let v2 = hash_pt(get_vertex(i2));
+            let v3 = hash_pt(get_vertex(i3));
+
+            if v1 == v2 || v2 == v3 || v3 == v1 {
+                continue;
+            }
+
+            let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_counts.entry(key).or_insert(0) += 1;
+            };
+
+            add_edge(v1, v2);
+            add_edge(v2, v3);
+            add_edge(v3, v1);
+        }
+
+        let mut tail_holes = 0;
+
+        for (edge, count) in &edge_counts {
+            if *count == 1 {
+                let z1 = (edge.0).2 as f32 / 10000.0;
+                let z2 = (edge.1).2 as f32 / 10000.0;
+                
+                if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
+                    tail_holes += 1;
                 }
             }
         }

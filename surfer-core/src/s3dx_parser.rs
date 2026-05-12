@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use crate::mesh::generate_mesh;
 
 #[derive(Debug, Deserialize)]
 pub struct Shape3dDesign {
