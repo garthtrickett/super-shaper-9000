@@ -875,6 +875,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_golden_file_rounded_pin_mesh_generation() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -937,6 +938,61 @@ mod tests {
             pt_top.y - pt_bot.y > 0.0,
             "Tail thickness should not collapse to zero"
         );
+
+        // Verify the nose is completely watertight
+        use std::collections::HashMap;
+        let mut edge_counts = HashMap::new();
+
+        let get_vertex = |idx: u32| -> Vec3 {
+            let i = idx as usize * 3;
+            Vec3::new(mesh.vertices[i], mesh.vertices[i+1], mesh.vertices[i+2])
+        };
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i];
+            let i2 = mesh.indices[i+1];
+            let i3 = mesh.indices[i+2];
+
+            let hash_pt = |v: Vec3| -> (i32, i32, i32) {
+                ((v.x * 10000.0).round() as i32, (v.y * 10000.0).round() as i32, (v.z * 10000.0).round() as i32)
+            };
+
+            let v1 = hash_pt(get_vertex(i1));
+            let v2 = hash_pt(get_vertex(i2));
+            let v3 = hash_pt(get_vertex(i3));
+
+            if v1 == v2 || v2 == v3 || v3 == v1 {
+                continue;
+            }
+
+            let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_counts.entry(key).or_insert(0) += 1;
+            };
+
+            add_edge(v1, v2);
+            add_edge(v2, v3);
+            add_edge(v3, v1);
+        }
+
+        let mut nose_holes = 0;
+        let nose_z = -model.length / 2.0 * scale;
+
+        for (edge, count) in &edge_counts {
+            if *count == 1 {
+                let z1 = (edge.0).2 as f32 / 10000.0;
+                let z2 = (edge.1).2 as f32 / 10000.0;
+                
+                if (z1 - nose_z).abs() < 1.0 && (z2 - nose_z).abs() < 1.0 {
+                    nose_holes += 1;
+                    let v1 = Vec3::new((edge.0).0 as f32 / 10000.0, (edge.0).1 as f32 / 10000.0, (edge.0).2 as f32 / 10000.0);
+                    let v2 = Vec3::new((edge.1).0 as f32 / 10000.0, (edge.1).1 as f32 / 10000.0, (edge.1).2 as f32 / 10000.0);
+                    log::error!("Hole at edge from {:?} to {:?}", v1, v2);
+                }
+            }
+        }
+
+        assert_eq!(nose_holes, 0, "Found {} boundary edges at the nose!", nose_holes);
     }
 
     #[test]

@@ -711,27 +711,24 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         vertices[d as usize * 3 + 2],
                     );
 
-                    let dist_ac = pt_a.distance_squared(pt_c);
-                    let dist_bd = pt_b.distance_squared(pt_d);
-
-                    if is_nose {
-                        if dist_bd > 1e-8 {
+                                        if is_nose {
+                        if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-10 {
                             indices.push(a);
                             indices.push(d);
                             indices.push(b);
                         }
-                        if dist_ac > 1e-8 {
+                        if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-10 {
                             indices.push(a);
                             indices.push(c);
                             indices.push(d);
                         }
                     } else {
-                        if dist_bd > 1e-8 {
+                        if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-10 {
                             indices.push(a);
                             indices.push(b);
                             indices.push(d);
                         }
-                        if dist_ac > 1e-8 {
+                        if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-10 {
                             indices.push(a);
                             indices.push(d);
                             indices.push(c);
