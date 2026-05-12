@@ -50,9 +50,9 @@ export class BoardBuilderPage extends LitElement {
       this.contourSliceData = data.profile;
       this.isProcessing = false;
     }
-    if (data.type === "STATE_UPDATED" || data.type === "EXPORT_OBJ_RESULT" || data.type === "EXPORT_S3DX_RESULT" || data.type === "ERROR") {
-      const currentSeq = (this.wasmCtrl as any).currentSequence;
-      if (data.seq === undefined || data.seq === currentSeq) {
+        if (data.type === "STATE_UPDATED" || data.type === "EXPORT_OBJ_RESULT" || data.type === "EXPORT_S3DX_RESULT" || data.type === "ERROR") {
+      const ctrl = this.wasmCtrl as unknown as { currentSequence?: number };
+      if (data.seq === undefined || data.seq === ctrl.currentSequence) {
         this.isProcessing = false;
       }
     }
