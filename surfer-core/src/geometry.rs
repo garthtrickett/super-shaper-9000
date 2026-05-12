@@ -2009,8 +2009,9 @@ mod tests {
             ],
             ..Default::default()
         };
-        model.outline_layers = Some(vec![OutlineLayer {
+                model.outline_layers = Some(vec![OutlineLayer {
             name: "Wing".to_string(),
+            active: true,
             otl_ext: wing_ext,
             otl_int: BezierCurveData::default(),
         }]);

@@ -265,9 +265,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 4. Verify 3D Gizmo selection for the new wing
     // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
     const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { 
+            type BoardViewportElement = HTMLElement & { 
         boardState?: {
-          outlineLayers?: { otlExt: { controlPoints:[number, number, number][] } }[]
+          outlineLayers?: { active?: boolean, otlExt: { controlPoints:[number, number, number][] } }[]
         }
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
@@ -323,9 +323,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
     const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { 
+            type BoardViewportElement = HTMLElement & { 
         boardState?: {
-          outlineLayers?: { otlExt: { controlPoints: [number, number, number][] } }[]
+          outlineLayers?: { active?: boolean, otlExt: { controlPoints: [number, number, number][] } }[]
         }
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
@@ -455,9 +455,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { 
+            type BoardViewportElement = HTMLElement & { 
         boardState?: {
-          outlineLayers?: { otlInt: { controlPoints: [number, number, number][] } }[]
+          outlineLayers?: { active?: boolean, otlInt: { controlPoints: [number, number, number][] } }[]
         }
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
