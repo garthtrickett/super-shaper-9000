@@ -113,6 +113,7 @@ impl WasmEngine {
         Ok(obj.into())
     }
 
+        #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn find_closest_t(
         &self,

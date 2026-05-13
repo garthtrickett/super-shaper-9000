@@ -337,7 +337,7 @@ pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) {
     if segment_idx >= num_segments {
         segment_idx = num_segments - 1;
     }
-        let local_t = scaled_t - segment_idx as f32;
+    let local_t = scaled_t - segment_idx as f32;
 
     if !(1e-4..=1.0 - 1e-4).contains(&local_t) {
         return;
