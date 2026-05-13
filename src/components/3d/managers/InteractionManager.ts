@@ -40,13 +40,18 @@ export class InteractionManager {
     private wireframeGroup: THREE.Group
   ) {}
 
-      public initialize() {
+        private onContextMenu = (e: Event) => {
+    e.preventDefault();
+  }
+
+  public initialize() {
     this.canvas.addEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.addEventListener("pointermove", this.onPointerMove);
     this.canvas.addEventListener("pointerup", this.onPointerUp);
     this.canvas.addEventListener("pointercancel", this.onPointerUp);
     this.canvas.addEventListener("pointerleave", this.onPointerUp);
     this.canvas.addEventListener("wheel", this.onWheel, { passive: false });
+    this.canvas.addEventListener("contextmenu", this.onContextMenu);
     window.addEventListener("keyup", this.onKeyUp);
   }
 
@@ -54,13 +59,14 @@ export class InteractionManager {
     return this.draggedGizmo !== null;
   }
 
-    public dispose() {
+  public dispose() {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointercancel", this.onPointerUp);
     this.canvas.removeEventListener("pointerleave", this.onPointerUp);
     this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("contextmenu", this.onContextMenu);
     window.removeEventListener("keyup", this.onKeyUp);
   }
 
@@ -146,11 +152,46 @@ export class InteractionManager {
         localY = -(y / h) * 2 + 1;
     }
 
-    return { camera, mouse: new THREE.Vector2(localX, localY) };
+        return { camera, mouse: new THREE.Vector2(localX, localY) };
   }
 
-    private onPointerDown = (e: PointerEvent) => {
-        if (e.altKey && this.hoveredCurve && this.hoveredT !== null) {
+  private findCurveAtPointer(e: PointerEvent): { curveName: string, t: number, mirrorX: boolean } | null {
+    const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+    this.mouse.copy(mouse);
+    this.raycaster.setFromCamera(this.mouse, camera);
+    this.raycaster.layers.mask = camera.layers.mask;
+    this.raycaster.params.Line = { threshold: 0.2 }; 
+
+    const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
+    const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isCurveLine);
+
+    if (hit) {
+        const curveName = hit.object.userData.curve as string;
+        const mirrorX = hit.object.userData.mirrorX as boolean;
+        const ro = this.raycaster.ray.origin.clone();
+        const rd = this.raycaster.ray.direction.clone();
+        if (mirrorX) {
+            ro.x *= -1;
+            rd.x *= -1;
+        }
+        ro.multiplyScalar(12);
+
+        const mathEngine = this.host.mathEngine;
+        if (mathEngine && typeof mathEngine.find_closest_t === 'function') {
+            const t = mathEngine.find_closest_t(curveName, ro.x, ro.y, ro.z, rd.x, rd.y, rd.z);
+            if (t >= 0 && t <= 1) {
+                return { curveName, t, mirrorX };
+            }
+        }
+    }
+    return null;
+  }
+
+  private onPointerDown = (e: PointerEvent) => {
+    const isRightClick = e.button === 2;
+    const isAltClick = e.altKey && e.button === 0;
+
+    if (isAltClick && this.hoveredCurve && this.hoveredT !== null) {
         this.host.dispatchEvent(new CustomEvent('insert-node', {
             detail: { curve: this.hoveredCurve, t: this.hoveredT },
             bubbles: true, composed: true
@@ -158,7 +199,20 @@ export class InteractionManager {
         this.hoveredCurve = null;
         this.hoveredT = null;
         this.host.setHoverPreview(null);
+        e.stopPropagation();
         return;
+    }
+
+    if (isRightClick) {
+        const hit = this.findCurveAtPointer(e);
+        if (hit) {
+            this.host.dispatchEvent(new CustomEvent('insert-node', {
+                detail: { curve: hit.curveName, t: hit.t },
+                bubbles: true, composed: true
+            }));
+            e.stopPropagation();
+            return;
+        }
     }
 
     this.dragStartPos.set(e.clientX, e.clientY);
@@ -226,37 +280,13 @@ export class InteractionManager {
       return;
     }
 
-    if (!this.draggedGizmo && e.altKey) {
-        const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
-        this.mouse.copy(mouse);
-        this.raycaster.setFromCamera(this.mouse, camera);
-        this.raycaster.layers.mask = camera.layers.mask;
-        this.raycaster.params.Line = { threshold: 0.2 }; 
-
-        const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
-        const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isCurveLine);
-
-                if (hit) {
-            const curveName = hit.object.userData.curve as string;
-            const mirrorX = hit.object.userData.mirrorX as boolean;
-            const ro = this.raycaster.ray.origin.clone();
-            const rd = this.raycaster.ray.direction.clone();
-            if (mirrorX) {
-                ro.x *= -1;
-                rd.x *= -1;
-            }
-            ro.multiplyScalar(12);
-
-            const mathEngine = this.host.mathEngine;
-            if (mathEngine && typeof mathEngine.find_closest_t === 'function') {
-                const t = mathEngine.find_closest_t(curveName, ro.x, ro.y, ro.z, rd.x, rd.y, rd.z);
-                if (t >= 0 && t <= 1) {
-                    this.hoveredCurve = curveName;
-                    this.hoveredT = t;
-                    this.host.setHoverPreview({ curve: curveName, t, mirrorX });
-                    return;
-                }
-            }
+        if (!this.draggedGizmo && e.altKey) {
+        const hit = this.findCurveAtPointer(e);
+        if (hit) {
+            this.hoveredCurve = hit.curveName;
+            this.hoveredT = hit.t;
+            this.host.setHoverPreview({ curve: hit.curveName, t: hit.t, mirrorX: hit.mirrorX });
+            return;
         }
     }
 
