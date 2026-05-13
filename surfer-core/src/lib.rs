@@ -150,10 +150,19 @@ impl SurferEngine {
         stats
     }
 
-        pub fn find_closest_t(&self, curve_name: &str, ray_origin: [f32; 3], ray_dir: [f32; 3]) -> Option<f32> {
+    pub fn find_closest_t(
+        &self,
+        curve_name: &str,
+        ray_origin: [f32; 3],
+        ray_dir: [f32; 3],
+    ) -> Option<f32> {
         let curve = crate::geometry::get_curve(&self.model, curve_name)?;
         use glam::Vec3;
-        Some(crate::geometry::find_closest_t_to_ray(curve, Vec3::from_array(ray_origin), Vec3::from_array(ray_dir)))
+        Some(crate::geometry::find_closest_t_to_ray(
+            curve,
+            Vec3::from_array(ray_origin),
+            Vec3::from_array(ray_dir),
+        ))
     }
 
     pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {

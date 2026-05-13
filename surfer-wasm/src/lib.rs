@@ -113,9 +113,20 @@ impl WasmEngine {
         Ok(obj.into())
     }
 
-        #[wasm_bindgen]
-    pub fn find_closest_t(&self, curve_name: &str, rx: f32, ry: f32, rz: f32, dx: f32, dy: f32, dz: f32) -> f32 {
-        self.engine.find_closest_t(curve_name, [rx, ry, rz], [dx, dy, dz]).unwrap_or(-1.0)
+    #[wasm_bindgen]
+    pub fn find_closest_t(
+        &self,
+        curve_name: &str,
+        rx: f32,
+        ry: f32,
+        rz: f32,
+        dx: f32,
+        dy: f32,
+        dz: f32,
+    ) -> f32 {
+        self.engine
+            .find_closest_t(curve_name, [rx, ry, rz], [dx, dy, dz])
+            .unwrap_or(-1.0)
     }
 
     #[wasm_bindgen]

@@ -2508,7 +2508,7 @@ mod tests {
             "Channel on V-Tail must project along the normal, moving the X coordinate. dx = {}",
             dx
         );
-                assert!(
+        assert!(
             dy > 0.05,
             "Channel on V-Tail must project along the normal, moving the Y coordinate. dy = {}",
             dy
