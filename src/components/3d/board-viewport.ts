@@ -536,12 +536,56 @@ export class BoardViewport extends LitElement {
 
     const clonedCurve: BezierCurveData = JSON.parse(JSON.stringify(curveData));
 
-    if (userData.type === 'anchor') {
-      clonedCurve.controlPoints[userData.index] = position;
-    } else if (userData.type === 'tangent1') {
-      clonedCurve.tangents1[userData.index] = position;
-    } else if (userData.type === 'tangent2') {
-      clonedCurve.tangents2[userData.index] = position;
+        if (userData.type === 'anchor') {
+      const oldA = clonedCurve.controlPoints[userData.index];
+      if (oldA) {
+        const dx = position[0] - oldA[0];
+        const dy = position[1] - oldA[1];
+        const dz = position[2] - oldA[2];
+        clonedCurve.controlPoints[userData.index] = position;
+        
+        if (clonedCurve.tangents1[userData.index]) {
+          const t1 = clonedCurve.tangents1[userData.index]!;
+          clonedCurve.tangents1[userData.index] = [t1[0] + dx, t1[1] + dy, t1[2] + dz];
+        }
+        if (clonedCurve.tangents2[userData.index]) {
+          const t2 = clonedCurve.tangents2[userData.index]!;
+          clonedCurve.tangents2[userData.index] = [t2[0] + dx, t2[1] + dy, t2[2] + dz];
+        }
+      }
+    } else if (userData.type === 'tangent1' || userData.type === 'tangent2') {
+      const isT1 = userData.type === 'tangent1';
+      if (isT1) clonedCurve.tangents1[userData.index] = position;
+      else clonedCurve.tangents2[userData.index] = position;
+
+      if (this._selectedNodeContinuity !== 'G0') {
+        const anchor = clonedCurve.controlPoints[userData.index];
+        const tSrc = position;
+        const tTgt = isT1 ? clonedCurve.tangents2[userData.index] : clonedCurve.tangents1[userData.index];
+        
+        if (anchor && tSrc && tTgt) {
+          const dx = anchor[0] - tSrc[0];
+          const dy = anchor[1] - tSrc[1];
+          const dz = anchor[2] - tSrc[2];
+          const lenSrc = Math.hypot(dx, dy, dz);
+          
+          if (lenSrc > 1e-6) {
+            const tgtDx = tTgt[0] - anchor[0];
+            const tgtDy = tTgt[1] - anchor[1];
+            const tgtDz = tTgt[2] - anchor[2];
+            const lenTgt = Math.hypot(tgtDx, tgtDy, tgtDz);
+            
+            const newTgt: Point3D = [
+              anchor[0] + (dx / lenSrc) * lenTgt,
+              anchor[1] + (dy / lenSrc) * lenTgt,
+              anchor[2] + (dz / lenSrc) * lenTgt
+            ];
+            
+            if (isT1) clonedCurve.tangents2[userData.index] = newTgt;
+            else clonedCurve.tangents1[userData.index] = newTgt;
+          }
+        }
+      }
     }
 
     let steps = 100;
