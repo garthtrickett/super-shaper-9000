@@ -651,8 +651,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
 
-      const worldX = pt[0] / 12;
-      const worldZ = pt[2] / 12;
+            const worldX = pt[0]! / 12;
+      const worldZ = pt[2]! / 12;
 
       const orthoRight = 5 * aspect;
       const orthoTop = 5;

@@ -347,7 +347,7 @@ export class BoardViewport extends LitElement {
       });
     }
 
-    if (this.boardState?.showOutline !== false && this.boardState.outlineLayers) {
+        if (this.boardState && this.boardState.showOutline !== false && this.boardState.outlineLayers) {
       this.boardState.outlineLayers.forEach((layer, idx) => {
         if (layer.active === false) return;
         if (layer.otlExt?.controlPoints?.length > 0) {
