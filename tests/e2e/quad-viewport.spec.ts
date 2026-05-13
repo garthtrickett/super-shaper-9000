@@ -143,11 +143,30 @@ test.describe('Quad Viewport CAD Interface', () => {
     const xInput = page.locator('node-inspector input').first();
     const initialX = await xInput.inputValue();
 
-    // 2. Perform your drag securely on the precisely located gizmo
+        // 2. Perform your drag securely on the precisely located gizmo
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.mouse.down();
+
+    // Capture the wireframe vertex before moving
+    const initialOutlineX = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      const line = vp.wireframeGroup.children.find((c: any) => c.userData.curve === 'outline' && !c.userData.mirrorX);
+      return line.geometry.attributes.position.array[50 * 3]; // X coord near middle
+    });
+
     // Drag it inwards to dramatically narrow the board (use fewer steps to save time in headless WebGL)
     await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 2 });
+
+    // Verify the real-time preview modified the wireframe buffer BEFORE mouseup
+    const previewOutlineX = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      const line = vp.wireframeGroup.children.find((c: any) => c.userData.curve === 'outline' && !c.userData.mirrorX);
+      return line.geometry.attributes.position.array[50 * 3];
+    });
+
+    expect(previewOutlineX).not.toEqual(initialOutlineX);
+    expect(previewOutlineX).toBeLessThan(initialOutlineX);
+
     await page.mouse.up();
 
     // 3. WAIT for the DOM to reflect the new coordinates (this doesn't stall the GPU)

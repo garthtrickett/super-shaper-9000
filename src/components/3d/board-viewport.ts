@@ -484,15 +484,23 @@ export class BoardViewport extends LitElement {
     }
   }
   
-            override connectedCallback() {
+              override connectedCallback() {
     super.connectedCallback();
     this.addEventListener('gizmo-dragging', this._handleGizmoDragging as EventListener);
+    this.addEventListener('gizmo-drag-ended', this._handleGizmoDragEnded as EventListener);
   }
 
   override disconnectedCallback() {
     this.removeEventListener('gizmo-dragging', this._handleGizmoDragging as EventListener);
+    this.removeEventListener('gizmo-drag-ended', this._handleGizmoDragEnded as EventListener);
     super.disconnectedCallback();
   }
+
+  private _handleGizmoDragEnded = () => {
+    // Clear debounce and force a clean rebuild of geometry to ensure preview artifacts are removed
+    clearTimeout(this.geometryUpdateDebounceId);
+    this._updateGeometry();
+  };
 
   private _getCurveData(curveName: string): BezierCurveData | undefined {
     if (!this.boardState) return undefined;
