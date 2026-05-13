@@ -44,7 +44,7 @@ export class InteractionManager {
     e.preventDefault();
   }
 
-  public initialize() {
+    public initialize() {
     this.canvas.addEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.addEventListener("pointermove", this.onPointerMove);
     this.canvas.addEventListener("pointerup", this.onPointerUp);
@@ -52,7 +52,6 @@ export class InteractionManager {
     this.canvas.addEventListener("pointerleave", this.onPointerUp);
     this.canvas.addEventListener("wheel", this.onWheel, { passive: false });
     this.canvas.addEventListener("contextmenu", this.onContextMenu);
-    window.addEventListener("keyup", this.onKeyUp);
   }
 
   public isDragging(): boolean {
@@ -67,18 +66,9 @@ export class InteractionManager {
     this.canvas.removeEventListener("pointerleave", this.onPointerUp);
     this.canvas.removeEventListener("wheel", this.onWheel);
     this.canvas.removeEventListener("contextmenu", this.onContextMenu);
-    window.removeEventListener("keyup", this.onKeyUp);
   }
 
-      private onKeyUp = (e: KeyboardEvent) => {
-    if (e.key === 'Alt' && this.hoveredCurve) {
-        this.hoveredCurve = null;
-        this.hoveredT = null;
-        this.host.setHoverPreview(null);
-    }
-  }
-
-  private onWheel = (e: WheelEvent) => {
+        private onWheel = (e: WheelEvent) => {
     const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
     
     if (camera !== this.cameras.perspective) {
@@ -187,11 +177,11 @@ export class InteractionManager {
     return null;
   }
 
-  private onPointerDown = (e: PointerEvent) => {
+    private onPointerDown = (e: PointerEvent) => {
     const isRightClick = e.button === 2;
     const isAltClick = e.altKey && e.button === 0;
 
-    if (isAltClick && this.hoveredCurve && this.hoveredT !== null) {
+    if ((isRightClick || isAltClick) && this.hoveredCurve && this.hoveredT !== null) {
         this.host.dispatchEvent(new CustomEvent('insert-node', {
             detail: { curve: this.hoveredCurve, t: this.hoveredT },
             bubbles: true, composed: true
@@ -201,18 +191,6 @@ export class InteractionManager {
         this.host.setHoverPreview(null);
         e.stopPropagation();
         return;
-    }
-
-    if (isRightClick) {
-        const hit = this.findCurveAtPointer(e);
-        if (hit) {
-            this.host.dispatchEvent(new CustomEvent('insert-node', {
-                detail: { curve: hit.curveName, t: hit.t },
-                bubbles: true, composed: true
-            }));
-            e.stopPropagation();
-            return;
-        }
     }
 
     this.dragStartPos.set(e.clientX, e.clientY);
@@ -260,8 +238,9 @@ export class InteractionManager {
     }
   }
 
-  private onPointerMove = (e: PointerEvent) => {
+    private onPointerMove = (e: PointerEvent) => {
     if (this.isPanning && this.activePanCamera) {
+      this.canvas.style.cursor = 'move';
       const dx = e.clientX - this.panStartPixel.x;
       const dy = e.clientY - this.panStartPixel.y;
       this.panStartPixel.set(e.clientX, e.clientY);
@@ -269,7 +248,7 @@ export class InteractionManager {
       const vpWidth = this.maximizedView ? this.canvas.clientWidth : this.canvas.clientWidth / 2;
       const vpHeight = this.maximizedView ? this.canvas.clientHeight : this.canvas.clientHeight / 2;
 
-            const worldWidth = (this.activePanCamera.right - this.activePanCamera.left) / this.activePanCamera.zoom;
+      const worldWidth = (this.activePanCamera.right - this.activePanCamera.left) / this.activePanCamera.zoom;
       const worldHeight = (this.activePanCamera.top - this.activePanCamera.bottom) / this.activePanCamera.zoom;
 
       const deltaXWorld = -(dx / vpWidth) * worldWidth;
@@ -280,76 +259,96 @@ export class InteractionManager {
       return;
     }
 
-        if (!this.draggedGizmo && e.altKey) {
-        const hit = this.findCurveAtPointer(e);
-        if (hit) {
-            this.hoveredCurve = hit.curveName;
-            this.hoveredT = hit.t;
-            this.host.setHoverPreview({ curve: hit.curveName, t: hit.t, mirrorX: hit.mirrorX });
-            return;
+    if (this.draggedGizmo && this.activeDragCamera) {
+      this.canvas.style.cursor = 'grabbing';
+      const rect = this.canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (this.maximizedView) {
+        this.mouse.set((x / rect.width) * 2 - 1, -(y / rect.height) * 2 + 1);
+      } else {
+        const w = rect.width / 2;
+        const h = rect.height / 2;
+        
+        if (this.activeDragCamera === this.cameras.top) this.mouse.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
+        else if (this.activeDragCamera === this.cameras.perspective) this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -(y / h) * 2 + 1);
+        else if (this.activeDragCamera === this.cameras.side) this.mouse.set((x / w) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+        else this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
+      }
+
+      this.raycaster.setFromCamera(this.mouse, this.activeDragCamera);
+      const target = new THREE.Vector3();
+      
+      if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
+        target.sub(this.dragOffset);
+        
+        this.draggedGizmo.parent!.worldToLocal(target);
+        
+        const rawInches = target.clone().multiplyScalar(12);
+        const stateInches = rawInches.clone();
+
+        const userData = this.draggedGizmo.userData as { type: 'anchor' | 'tangent1' | 'tangent2'; curve: string; index: number; maxIndex: number; origZ: number; };
+        const curveName = userData.curve;
+        const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
+
+        if (isEndNode && userData.type === "anchor") {
+          if (curveName.startsWith('crossSection_') || curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
+            stateInches.x = 0;
+          }
         }
+        if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_') || curveName.startsWith('outlineLayer_'))) {
+          if (stateInches.x < 0) stateInches.x = 0;
+        }
+
+        target.copy(stateInches).multiplyScalar(1/12);
+        
+        this.draggedGizmo.position.copy(target);
+      }
+      return;
     }
 
-        if (!this.draggedGizmo && this.hoveredCurve) {
+    // Hover logic (not panning, not dragging)
+    const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+    this.mouse.copy(mouse);
+    this.raycaster.setFromCamera(this.mouse, camera);
+    this.raycaster.layers.mask = camera.layers.mask;
+
+    const gizmoHits = this.raycaster.intersectObjects(this.gizmoGroup.children, false);
+    const gizmoHit = gizmoHits.find((i: THREE.Intersection) => i.object.userData?.isGizmo);
+
+    if (gizmoHit) {
+      this.canvas.style.cursor = 'grab';
+      if (this.hoveredCurve) {
         this.hoveredCurve = null;
         this.hoveredT = null;
         this.host.setHoverPreview(null);
-    }
-
-    if (!this.draggedGizmo || !this.activeDragCamera) return;
-    
-    const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    if (this.maximizedView) {
-      this.mouse.set((x / rect.width) * 2 - 1, -(y / rect.height) * 2 + 1);
+      }
     } else {
-      const w = rect.width / 2;
-      const h = rect.height / 2;
-      
-      if (this.activeDragCamera === this.cameras.top) this.mouse.set((x / w) * 2 - 1, -(y / h) * 2 + 1);
-      else if (this.activeDragCamera === this.cameras.perspective) this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -(y / h) * 2 + 1);
-      else if (this.activeDragCamera === this.cameras.side) this.mouse.set((x / w) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
-      else this.mouse.set(((x - w) / (rect.width - w)) * 2 - 1, -((y - h) / (rect.height - h)) * 2 + 1);
-    }
-
-    this.raycaster.setFromCamera(this.mouse, this.activeDragCamera);
-    const target = new THREE.Vector3();
-    
-    if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
-      target.sub(this.dragOffset);
-      
-      this.draggedGizmo.parent!.worldToLocal(target);
-      
-      const rawInches = target.clone().multiplyScalar(12);
-      const stateInches = rawInches.clone();
-
-      const userData = this.draggedGizmo.userData as { type: 'anchor' | 'tangent1' | 'tangent2'; curve: string; index: number; maxIndex: number; origZ: number; };
-      const curveName = userData.curve;
-      const isEndNode = userData.index === 0 || userData.index === userData.maxIndex;
-
-      if (isEndNode && userData.type === "anchor") {
-        if (curveName.startsWith('crossSection_') || curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline') {
-          stateInches.x = 0;
+      const hit = this.findCurveAtPointer(e);
+      if (hit) {
+        this.canvas.style.cursor = 'copy'; // 'copy' cursor indicates "add" or "insert"
+        this.hoveredCurve = hit.curveName;
+        this.hoveredT = hit.t;
+        this.host.setHoverPreview({ curve: hit.curveName, t: hit.t, mirrorX: hit.mirrorX });
+      } else {
+        this.canvas.style.cursor = 'default';
+        if (this.hoveredCurve) {
+          this.hoveredCurve = null;
+          this.hoveredT = null;
+          this.host.setHoverPreview(null);
         }
       }
-      if (userData.type === "anchor" && (curveName === 'outline' || curveName === 'apexOutline' || curveName === 'railOutline' || curveName.startsWith('crossSection_') || curveName.startsWith('outlineLayer_'))) {
-        if (stateInches.x < 0) stateInches.x = 0;
-      }
-
-      target.copy(stateInches).multiplyScalar(1/12);
-      
-      this.draggedGizmo.position.copy(target);
     }
   }
 
-  private onPointerUp = (e: PointerEvent) => {
+    private onPointerUp = (e: PointerEvent) => {
     const dist = Math.hypot(e.clientX - this.dragStartPos.x, e.clientY - this.dragStartPos.y);
 
     if (this.isPanning) {
       this.isPanning = false;
       this.activePanCamera = null;
+      this.canvas.style.cursor = 'default';
     }
 
     if (this.draggedGizmo) {
@@ -366,6 +365,7 @@ export class InteractionManager {
       }
       this.draggedGizmo = null;
       this.activeDragCamera = null;
+      this.canvas.style.cursor = 'default';
     }
     
     if (dist < 5) {
