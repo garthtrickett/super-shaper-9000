@@ -876,6 +876,40 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
+                BoardAction::ImportBrd { bytes } => {
+            match crate::brd_parser::parse_brd(&bytes) {
+                Ok(mut parsed_model) => {
+                    // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
+                    parsed_model.show_gizmos = model.show_gizmos;
+                    parsed_model.show_solid_mesh = model.show_solid_mesh;
+                    parsed_model.show_heatmap = model.show_heatmap;
+                    parsed_model.show_zebra = model.show_zebra;
+                    parsed_model.show_apex_line = model.show_apex_line;
+                    parsed_model.show_outline = model.show_outline;
+                    parsed_model.show_rocker_top = model.show_rocker_top;
+                    parsed_model.show_rocker_bottom = model.show_rocker_bottom;
+                    parsed_model.show_apex_outline = model.show_apex_outline;
+                    parsed_model.show_rail_outline = model.show_rail_outline;
+                    parsed_model.show_apex_rocker = model.show_apex_rocker;
+                    parsed_model.show_deck_shoulder = model.show_deck_shoulder;
+                    parsed_model.show_cross_sections = model.show_cross_sections;
+                    parsed_model.show_curvature = model.show_curvature;
+                    parsed_model.show_mri_view = model.show_mri_view;
+                    parsed_model.mri_slice_position = model.mri_slice_position;
+
+                    *model = parsed_model;
+                    push_history(model);
+                    effects.push(Effect::LogInfo {
+                        message: "Rust Engine: BRD file imported successfully.".to_string(),
+                    });
+                }
+                Err(e) => {
+                    effects.push(Effect::LogInfo {
+                        message: format!("Rust Engine Error: Failed to parse BRD: {}", e),
+                    });
+                }
+            }
+        }
         BoardAction::ImportS3dx { xml } => {
             match crate::s3dx_parser::parse_s3dx(&xml) {
                 Ok(mut parsed_model) => {
