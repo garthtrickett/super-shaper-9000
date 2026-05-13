@@ -1,8 +1,8 @@
 use crate::model::{BezierCurveData, BoardModel};
+use cbc::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
 use flate2::read::{DeflateDecoder, GzDecoder, ZlibDecoder};
 use glam::Vec3;
-use md5::{Md5, Digest};
-use cbc::cipher::{KeyIvInit, block_padding::Pkcs7, BlockDecryptMut};
+use md5::{Digest, Md5};
 
 type DesCbcDec = cbc::Decryptor<des::Des>;
 use serde::Deserialize;
@@ -231,9 +231,9 @@ fn decrypt_aku_shaper(bytes: &[u8]) -> Result<String, String> {
     let iv = &hash[8..16];
 
     // 2. Decrypt (DES-CBC with PKCS5 padding, which is mathematically identical to PKCS7)
-    let mut cipher = DesCbcDec::new(key.into(), iv.into());
+    let cipher = DesCbcDec::new(key.into(), iv.into());
     let mut plaintext = bytes[12..].to_vec();
-    
+
     let decrypted = cipher
         .decrypt_padded_mut::<Pkcs7>(&mut plaintext)
         .map_err(|e| format!("Decryption failed: {:?}", e))?;
@@ -241,7 +241,169 @@ fn decrypt_aku_shaper(bytes: &[u8]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(decrypted).to_string())
 }
 
-fn parse_aku_curve(lines: &mut std::str::Lines, board_length: f32, scale: f32, is_thickness: bool) -> Option<BezierCurveData> {
+fn parse_aku_slice_curve(lines: &mut std::str::Lines, slice_z: f32, scale: f32) -> Option<BezierCurveData> {
+    let mut control_points = Vec::new();
+    let mut tangents1 = Vec::new();
+    let mut tangents2 = Vec::new();
+
+    while let Some(line) = lines.next() {
+        let line = line.trim();
+        if line.starts_with(')') {
+            break;
+        }
+        if line.starts_with("gps") {
+            continue; 
+        }
+        if line.contains('[') {
+            let start = line.find('[').unwrap_or(0) + 1;
+            let end = line.find(']').unwrap_or(line.len());
+            let content = &line[start..end];
+            let floats: Vec<f32> = content.split(|c| c == ',' || c == ' ')
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| s.trim().parse::<f32>().unwrap_or(0.0))
+                .collect();
+            
+            if floats.len() >= 6 {
+                let px = floats[0] * scale;
+                let py = floats[1] * scale;
+                let t1x = floats[2] * scale;
+                let t1y = floats[3] * scale;
+                let t2x = floats[4] * scale;
+                let t2y = floats[5] * scale;
+
+                control_points.push(Vec3::new(px, py, slice_z));
+                tangents1.push(Vec3::new(t1x, t1y, slice_z));
+                tangents2.push(Vec3::new(t2x, t2y, slice_z));
+            }
+        }
+    }
+
+    if control_points.is_empty() {
+        None
+    } else {
+        Some(BezierCurveData {
+            control_points,
+            tangents1,
+            tangents2,
+            weights: None,
+        })
+    }
+}
+
+fn parse_aku_slices(lines: &mut std::str::Lines, board_length: f32, scale: f32) -> Vec<BezierCurveData> {
+    let mut slices = Vec::new();
+    
+    while let Some(line) = lines.next() {
+        let line = line.trim();
+        if line == ")" {
+            break;
+        }
+        if line.starts_with("(p36") || line.starts_with("p36") {
+            let clean = line.replace('(', "").replace(')', "");
+            let parts: Vec<&str> = clean.split(|c| c == ' ' || c == '\t').filter(|s| !s.is_empty()).collect();
+            if parts.len() >= 2 {
+                let px = parts[1].parse::<f32>().unwrap_or(0.0);
+                let slice_z = (board_length / 2.0 - px) * scale;
+                
+                if let Some(curve) = parse_aku_slice_curve(lines, slice_z, scale) {
+                    slices.push(curve);
+                }
+            }
+        }
+    }
+    
+    // Sort slices from nose (negative Z) to tail (positive Z)
+    slices.sort_by(|a, b| {
+        let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
+        let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
+        za.partial_cmp(&zb).unwrap()
+    });
+
+    slices
+}
+
+fn parse_aku_curve(
+    lines: &mut std::str::Lines,
+    board_length: f32,
+    scale: f32,
+    is_thickness: bool,
+) -> Option<BezierCurveData> {
+    let mut control_points = Vec::new();
+    let mut tangents1 = Vec::new();
+    let mut tangents2 = Vec::new();
+
+    while let Some(line) = lines.next() {
+        let line = line.trim();
+        if line.starts_with(')') {
+            break;
+        }
+        if line.starts_with("gps") {
+            continue;
+        }
+        if line.contains('[') {
+            let start = line.find('[').unwrap_or(0) + 1;
+            let end = line.find(']').unwrap_or(line.len());
+            let content = &line[start..end];
+            let floats: Vec<f32> = content
+                .split(|c| c == ',' || c == ' ')
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| s.trim().parse::<f32>().unwrap_or(0.0))
+                .collect();
+
+            if floats.len() >= 6 {
+                let px = floats[0];
+                let py = floats[1];
+                let t1x = floats[2];
+                let t1y = floats[3];
+                let t2x = floats[4];
+                let t2y = floats[5];
+
+                let z = (board_length / 2.0 - px) * scale;
+
+                let mut cp = Vec3::new(0.0, 0.0, z);
+                let mut t1 = Vec3::new(0.0, 0.0, (board_length / 2.0 - t1x) * scale);
+                let mut t2 = Vec3::new(0.0, 0.0, (board_length / 2.0 - t2x) * scale);
+
+                if is_thickness {
+                    cp.y = py * scale;
+                    t1.y = t1y * scale;
+                    t2.y = t2y * scale;
+                } else {
+                    cp.x = py * scale;
+                    t1.x = t1y * scale;
+                    t2.x = t2y * scale;
+                }
+
+                control_points.push(cp);
+                tangents1.push(t1);
+                tangents2.push(t2);
+            }
+        }
+    }
+
+    if control_points.is_empty() {
+        None
+    } else {
+        // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
+        control_points.reverse();
+        let old_t1 = tangents1.clone();
+        let old_t2 = tangents2.clone();
+        tangents1 = old_t2.into_iter().rev().collect();
+        tangents2 = old_t1.into_iter().rev().collect();
+
+        Some(BezierCurveData {
+            control_points,
+            tangents1,
+            tangents2,
+            weights: None,
+        })
+    }
+}
+    lines: &mut std::str::Lines,
+    board_length: f32,
+    scale: f32,
+    is_thickness: bool,
+) -> Option<BezierCurveData> {
     let mut control_points = Vec::new();
     let mut tangents1 = Vec::new();
     let mut tangents2 = Vec::new();
@@ -252,16 +414,17 @@ fn parse_aku_curve(lines: &mut std::str::Lines, board_length: f32, scale: f32, i
             break;
         }
         if line.starts_with("gps") {
-            continue; 
+            continue;
         }
         if line.starts_with('[') {
             let start = line.find('[').unwrap_or(0) + 1;
             let end = line.find(']').unwrap_or(line.len());
             let content = &line[start..end];
-            let floats: Vec<f32> = content.split(',')
+            let floats: Vec<f32> = content
+                .split(',')
                 .map(|s| s.trim().parse::<f32>().unwrap_or(0.0))
                 .collect();
-            
+
             if floats.len() >= 6 {
                 let px = floats[0];
                 let py = floats[1];
@@ -271,7 +434,7 @@ fn parse_aku_curve(lines: &mut std::str::Lines, board_length: f32, scale: f32, i
                 let t2y = floats[5];
 
                 let z = (board_length / 2.0 - px) * scale;
-                
+
                 let mut cp = Vec3::new(0.0, 0.0, z);
                 let mut t1 = Vec3::new(0.0, 0.0, (board_length / 2.0 - t1x) * scale);
                 let mut t2 = Vec3::new(0.0, 0.0, (board_length / 2.0 - t2x) * scale);
@@ -320,28 +483,47 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
 
     while let Some(line) = lines.next() {
         let line = line.trim();
-        if line.is_empty() { continue; }
-        
+        if line.is_empty() {
+            continue;
+        }
+
         if let Some((key, value)) = line.split_once(':') {
             let key = key.trim();
             let value = value.trim();
-            
+
             match key {
-                "p01" => { 
+                "p01" => {
                     unscaled_length = value.parse().unwrap_or(0.0);
-                    scale = if unscaled_length > 130.0 { 1.0 / 2.54 } else { 1.0 };
+                    scale = if unscaled_length > 130.0 {
+                        1.0 / 2.54
+                    } else {
+                        1.0
+                    };
                     model.length = unscaled_length * scale;
                 }
-                "p04" => { model.width = value.parse::<f32>().unwrap_or(0.0) * scale; }
-                "p03" => { model.thickness = value.parse::<f32>().unwrap_or(0.0) * scale; }
-                "p32" => { model.outline = parse_aku_curve(&mut lines, unscaled_length, scale, false); }
-                "p33" => { model.rocker_bottom = parse_aku_curve(&mut lines, unscaled_length, scale, true); }
-                "p34" => { model.rocker_top = parse_aku_curve(&mut lines, unscaled_length, scale, true); }
+                "p04" => {
+                    model.width = value.parse::<f32>().unwrap_or(0.0) * scale;
+                }
+                "p03" => {
+                    model.thickness = value.parse::<f32>().unwrap_or(0.0) * scale;
+                }
+                                "p32" => {
+                    model.outline = parse_aku_curve(&mut lines, unscaled_length, scale, false);
+                }
+                "p33" => {
+                    model.rocker_bottom = parse_aku_curve(&mut lines, unscaled_length, scale, true);
+                }
+                "p34" => {
+                    model.rocker_top = parse_aku_curve(&mut lines, unscaled_length, scale, true);
+                }
+                "p35" => {
+                    model.cross_sections = parse_aku_slices(&mut lines, unscaled_length, scale);
+                }
                 _ => {}
             }
         }
     }
-    
+
     Ok(model)
 }
 
@@ -350,7 +532,9 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
 
     // 1. Is it an AkuShaper proprietary encrypted format?
     if bytes.starts_with(b"%BRD") {
-        log::info!("[Rust Engine] Detected AkuShaper encrypted format. Beginning PKCS#5 decryption...");
+        log::info!(
+            "[Rust Engine] Detected AkuShaper encrypted format. Beginning PKCS#5 decryption..."
+        );
         let decrypted_text = decrypt_aku_shaper(bytes)?;
         log::debug!("[Rust Engine] AkuShaper decrypted successfully.");
         return parse_aku_shaper(&decrypted_text);
@@ -390,7 +574,6 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-        #[test]
     fn test_brd_decompression_and_parsing() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
