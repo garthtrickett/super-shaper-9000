@@ -484,7 +484,124 @@ export class BoardViewport extends LitElement {
     }
   }
   
-          private getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
+            override connectedCallback() {
+    super.connectedCallback();
+    this.addEventListener('gizmo-dragging', this._handleGizmoDragging as EventListener);
+  }
+
+  override disconnectedCallback() {
+    this.removeEventListener('gizmo-dragging', this._handleGizmoDragging as EventListener);
+    super.disconnectedCallback();
+  }
+
+  private _getCurveData(curveName: string): BezierCurveData | undefined {
+    if (!this.boardState) return undefined;
+    if (curveName === 'outline') return this.boardState.outline;
+    if (curveName === 'rockerTop') return this.boardState.rockerTop;
+    if (curveName === 'rockerBottom') return this.boardState.rockerBottom;
+    if (curveName === 'apexOutline') return this.boardState.apexOutline;
+    if (curveName === 'railOutline') return this.boardState.railOutline;
+    if (curveName === 'apexRocker') return this.boardState.apexRocker;
+    if (curveName === 'deckShoulder') return this.boardState.deckShoulder;
+    if (curveName.startsWith('crossSection_')) {
+      const idx = parseInt(curveName.split('_')[1] || "0", 10);
+      return this.boardState.crossSections?.[idx];
+    }
+    if (curveName.startsWith('outlineLayer_')) {
+      const parts = curveName.split('_');
+      const idx = parseInt(parts[1] || "0", 10);
+      const layer = this.boardState.outlineLayers?.[idx];
+      if (layer) return parts[2] === 'ext' ? layer.otlExt : layer.otlInt;
+    }
+    if (curveName.startsWith('channel_')) {
+      const parts = curveName.split('_');
+      const idx = parseInt(parts[1] || "0", 10);
+      const side = parts[2];
+      const type = parts[3];
+      const channel = this.boardState.bottomChannels?.[idx];
+      if (channel) {
+        if (side === 'left') return type === 'outline' ? channel.leftOutline : channel.leftDepth;
+        if (side === 'right') return type === 'outline' ? channel.rightOutline : channel.rightDepth;
+      }
+    }
+    return undefined;
+  }
+
+  private _handleGizmoDragging = (e: Event) => {
+    const customEvent = e as CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>;
+    if (!this.boardState || !this.mathEngine) return;
+    const { userData, position } = customEvent.detail;
+    const curveData = this._getCurveData(userData.curve);
+    if (!curveData) return;
+
+    const clonedCurve: BezierCurveData = JSON.parse(JSON.stringify(curveData));
+
+    if (userData.type === 'anchor') {
+      clonedCurve.controlPoints[userData.index] = position;
+    } else if (userData.type === 'tangent1') {
+      clonedCurve.tangents1[userData.index] = position;
+    } else if (userData.type === 'tangent2') {
+      clonedCurve.tangents2[userData.index] = position;
+    }
+
+    let steps = 100;
+    if (userData.curve.startsWith('channel_') || userData.curve.startsWith('outlineLayer_')) {
+        steps = 50;
+    } else if (userData.curve.startsWith('crossSection_')) {
+        steps = 40;
+    }
+    
+    const sampled = this.sampleBezierCurve(clonedCurve, steps);
+    const projected = sampled.map(p => {
+       let x = this.getXOffset(userData.curve, p[0], p[2], this.mathEngine!);
+       let y = p[1];
+       
+       const profile = this.mathEngine!.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
+       if (["outline", "apexOutline"].includes(userData.curve)) y = profile.apexY;
+       else if (userData.curve === "railOutline") y = profile.tuckY;
+       else if (userData.curve === "deckShoulder") y = profile.shoulderY;
+       else if (userData.curve.startsWith('channel_') && userData.curve.endsWith('_outline')) y = profile.botY;
+       else if (userData.curve.startsWith('channel_') && userData.curve.endsWith('_depth')) y = profile.botY - 2.0 + p[1];
+       else if (userData.curve.startsWith('crossSection_')) y = this.getZHeight(userData.curve, p[1], p[2], this.mathEngine!);
+       
+       return [x, y, p[2]] as Point3D;
+    });
+
+    const scale = 1/12;
+    const groups = [this.wireframeGroup, this.sliceLinesGroup];
+    
+    for (const group of groups) {
+      group.children.forEach(child => {
+        if (child.userData?.curve === userData.curve) {
+          const line = child as THREE.Line;
+          const mirrorX = line.userData.mirrorX as boolean;
+          const positions = line.geometry.attributes.position.array as Float32Array;
+          
+          if (positions.length === projected.length * 3) {
+             for (let i = 0; i < projected.length; i++) {
+               positions[i * 3] = (mirrorX ? -projected[i][0] : projected[i][0]) * scale;
+               positions[i * 3 + 1] = projected[i][1] * scale;
+               positions[i * 3 + 2] = projected[i][2] * scale;
+             }
+             line.geometry.attributes.position.needsUpdate = true;
+          } else if (userData.curve.startsWith('crossSection_') && positions.length === (projected.length - 1) * 3 && mirrorX) {
+             for (let i = 0; i < projected.length - 1; i++) {
+               const p = projected[projected.length - 1 - i]; // Reverse order
+               positions[i * 3] = -p[0] * scale;
+               positions[i * 3 + 1] = p[1] * scale;
+               positions[i * 3 + 2] = p[2] * scale;
+             }
+             line.geometry.attributes.position.needsUpdate = true;
+          }
+          if (line.material instanceof THREE.LineDashedMaterial) {
+              line.computeLineDistances();
+          }
+        }
+      });
+    }
+  };
+
+  private getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
     if (!this.boardState) return yInches;
     const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number };
     if (['outline', 'apexOutline'].includes(curveName)) {
