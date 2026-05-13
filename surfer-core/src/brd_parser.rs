@@ -166,3 +166,37 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
     
     Ok(model)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use approx::assert_relative_eq;
+
+    #[test]
+    fn test_brd_decompression_and_parsing() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        
+        let xml = decompress_brd(&bytes).expect("Failed to decompress BRD");
+        assert!(xml.contains("<board>"));
+        assert!(xml.contains("<length>"));
+
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        // A 6'4\" board should be exactly 76.0 inches
+        assert_relative_eq!(model.length, 76.0, epsilon = 0.1);
+        
+        assert!(model.outline.is_some());
+        assert!(model.rocker_bottom.is_some());
+        assert!(model.rocker_top.is_some());
+        
+        let outline = model.outline.unwrap();
+        assert!(outline.control_points.len() > 5);
+    }
+}
+
