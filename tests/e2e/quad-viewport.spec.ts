@@ -148,7 +148,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     await page.mouse.down();
 
             // Capture the wireframe vertex before moving
-    const initialOutlineX = await page.evaluate<number>(() => {
+        const initialOutlineX = await page.evaluate<number>(() => {
       type ViewportElement = HTMLElement & {
         wireframeGroup: {
           children: Array<{
@@ -157,7 +157,7 @@ test.describe('Quad Viewport CAD Interface', () => {
           }>;
         };
       };
-      const vp = document.querySelector('board-viewport') as ViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as ViewportElement | null;
       if (!vp) return 0;
       const line = vp.wireframeGroup.children.find((c) => c.userData.curve === 'outline' && !c.userData.mirrorX);
       return line ? (line.geometry.attributes.position.array[50 * 3] as number || 0) : 0;
@@ -167,7 +167,7 @@ test.describe('Quad Viewport CAD Interface', () => {
     await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 2 });
 
     // Verify the real-time preview modified the wireframe buffer BEFORE mouseup
-    const previewOutlineX = await page.evaluate<number>(() => {
+        const previewOutlineX = await page.evaluate<number>(() => {
       type ViewportElement = HTMLElement & {
         wireframeGroup: {
           children: Array<{
@@ -176,7 +176,7 @@ test.describe('Quad Viewport CAD Interface', () => {
           }>;
         };
       };
-      const vp = document.querySelector('board-viewport') as ViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as ViewportElement | null;
       if (!vp) return 0;
       const line = vp.wireframeGroup.children.find((c) => c.userData.curve === 'outline' && !c.userData.mirrorX);
       return line ? (line.geometry.attributes.position.array[50 * 3] as number || 0) : 0;

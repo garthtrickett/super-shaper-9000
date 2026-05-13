@@ -212,9 +212,9 @@ export class BoardViewport extends LitElement {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
 
-            const projectY = (curveName: string, p: Point3D): Point3D => {
+                const projectY = (curveName: string, p: Point3D): Point3D => {
       if (!this.boardState) return p;
-      const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
+      const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
 
       let finalY = p[1];
       if (["outline", "apexOutline"].includes(curveName)) finalY = profile.apexY;
@@ -273,9 +273,9 @@ export class BoardViewport extends LitElement {
           projectY("railOutline", p),
         )
       : null;
-        const activeApexRocker = this.boardState?.apexRocker
+                const activeApexRocker = this.boardState?.apexRocker
             ? this.sampleBezierCurve(this.boardState.apexRocker, 100).map((p) => {
-                const profile = mathEngine.get_profile_at_z(p[2]) as { apexX: number };
+                const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { apexX: number };
                 return [profile.apexX, p[1], p[2]] as Point3D;
               })
       : null;
@@ -321,8 +321,8 @@ export class BoardViewport extends LitElement {
       this.boardState.bottomChannels.forEach((channel, idx) => {
                 const drawOutline = (curveData: BezierCurveData, curveName: string) => {
            if (curveData && curveData.controlPoints.length > 0) {
-              const sampledOutline = this.sampleBezierCurve(curveData, 50).map(p => {
-                 const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
+                            const sampledOutline = this.sampleBezierCurve(curveData, 50).map(p => {
+                 const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { topY: number, botY: number, apexY: number, tuckY: number };
                  return[p[0], profile.botY, p[2]] as Point3D;
               });
               const line = buildLine(sampledOutline, matChannelOutline, 1, false, curveName);
@@ -332,8 +332,8 @@ export class BoardViewport extends LitElement {
         };
         const drawDepth = (curveData: BezierCurveData, curveName: string) => {
            if (curveData && curveData.controlPoints.length > 0) {
-              const sampledDepth = this.sampleBezierCurve(curveData, 50).map(p => {
-                 const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
+                            const sampledDepth = this.sampleBezierCurve(curveData, 50).map(p => {
+                 const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { topY: number, botY: number, apexY: number, tuckY: number };
                  return[p[0], profile.botY - 2.0 + p[1], p[2]] as Point3D;
               });
               this.wireframeGroup.add(buildLine(sampledDepth, matChannelDepth, 2, false, curveName));
@@ -604,11 +604,11 @@ export class BoardViewport extends LitElement {
     }
     
     const sampled = this.sampleBezierCurve(clonedCurve, steps);
-    const projected = sampled.map(p => {
+        const projected = sampled.map(p => {
        const x = this.getXOffset(userData.curve, p[0], p[2], this.mathEngine!);
        let y = p[1];
        
-       const profile = this.mathEngine!.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
+       const profile = this.mathEngine!.get_profile_at_z(p[2]) as unknown as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
        if (["outline", "apexOutline"].includes(userData.curve)) y = profile.apexY;
        else if (userData.curve === "railOutline") y = profile.tuckY;
        else if (userData.curve === "deckShoulder") y = profile.shoulderY;
@@ -687,10 +687,10 @@ export class BoardViewport extends LitElement {
 
 
   
-        private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40): [number, number, number][] {
+          private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40): [number, number, number][] {
         if (!this.mathEngine) return[];
          
-        const flat = this.mathEngine.sample_curve(bezier, steps) as Float32Array;
+        const flat = this.mathEngine.sample_curve(bezier, steps) as unknown as Float32Array;
         const pts: [number, number, number][] =[];
         for (let i = 0; i < flat.length; i += 3) {
             pts.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]);
