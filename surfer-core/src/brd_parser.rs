@@ -65,37 +65,37 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     for offset in 0..max_offset {
         let compressed_data = &bytes[offset..];
 
-        // 1. Try ZLIB (Standard Java DeflaterOutputStream)
+                // 1. Try ZLIB (Standard Java DeflaterOutputStream)
         let mut z_decoder = ZlibDecoder::new(compressed_data);
         let mut out = Vec::new();
         if z_decoder.read_to_end(&mut out).is_ok() {
-            log::info!(
-                "[Rust Engine] Successfully decoded ZLIB at offset {}",
-                offset
-            );
-            return Ok(String::from_utf8_lossy(&out).to_string());
+            let text = String::from_utf8_lossy(&out);
+            if text.contains("<?xml") || text.to_lowercase().contains("<board") {
+                log::info!("[Rust Engine] Successfully decoded ZLIB at offset {}", offset);
+                return Ok(text.to_string());
+            }
         }
 
         // 2. Try RAW DEFLATE (No wrapper)
         let mut raw_decoder = DeflateDecoder::new(compressed_data);
         let mut out = Vec::new();
         if raw_decoder.read_to_end(&mut out).is_ok() {
-            log::info!(
-                "[Rust Engine] Successfully decoded RAW DEFLATE at offset {}",
-                offset
-            );
-            return Ok(String::from_utf8_lossy(&out).to_string());
+            let text = String::from_utf8_lossy(&out);
+            if text.contains("<?xml") || text.to_lowercase().contains("<board") {
+                log::info!("[Rust Engine] Successfully decoded RAW DEFLATE at offset {}", offset);
+                return Ok(text.to_string());
+            }
         }
 
         // 3. Try GZIP
         let mut gz_decoder = GzDecoder::new(compressed_data);
         let mut out = Vec::new();
         if gz_decoder.read_to_end(&mut out).is_ok() {
-            log::info!(
-                "[Rust Engine] Successfully decoded GZIP at offset {}",
-                offset
-            );
-            return Ok(String::from_utf8_lossy(&out).to_string());
+            let text = String::from_utf8_lossy(&out);
+            if text.contains("<?xml") || text.to_lowercase().contains("<board") {
+                log::info!("[Rust Engine] Successfully decoded GZIP at offset {}", offset);
+                return Ok(text.to_string());
+            }
         }
     }
 

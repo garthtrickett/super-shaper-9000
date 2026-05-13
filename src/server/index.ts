@@ -1,6 +1,3 @@
-// File: src/server/index.ts
-// ===================================
-
 import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
@@ -8,6 +5,8 @@ import { computeBoardMesh } from "./services/rhino-compute";
 
 export const app = new Elysia()
   .use(cors())
+  // Simple health check for keep-alive pings
+  .get("/health", () => ({ status: "ok" }))
   // Connects to Rhino.Compute to generate the 3D board mesh
   .post("/api/compute/board", async ({ body, set }) => {
       console.info("[Server] Received compute request:", body);
@@ -46,6 +45,17 @@ export const app = new Elysia()
 
 const PORT = process.env.PORT || 42069;
 app.listen(PORT);
+
+// --- RENDER KEEP-ALIVE HACK ---
+// Render spins down free tier apps after 15m of inactivity.
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+if (RENDER_URL) {
+  console.info(`[Keep-Alive] Monitoring ${RENDER_URL} every 10 minutes.`);
+  setInterval(() => {
+    fetch(`${RENDER_URL}/health`)
+      .catch((err) => console.error("[Keep-Alive] Self-ping failed:", err));
+  }, 1000 * 60 * 10); // 10 minute interval
+}
 
 console.info(`\n🏄‍♂️ Super Shaper API running in ${process.env.NODE_ENV || 'development'} mode`);
 console.info(`🔗 URL: http://${app.server?.hostname}:${app.server?.port}\n`);

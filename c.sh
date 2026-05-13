@@ -278,25 +278,6 @@ fi
 # FINALIZE
 # ==========================================
 
-# ==========================================
-# PASS: BRD ASSETS (LAST)
-# ==========================================
-log "Gathering binary BRD assets for the bottom..."
-echo -e "\n------------------------------------------" >>"$TEMP_FILE"
-echo "BRD BINARY ASSETS" >>"$TEMP_FILE"
-echo "------------------------------------------" >>"$TEMP_FILE"
-
-# We find .brd files specifically, respecting the same basic excludes
-find . -name "*.brd" -not -path "*/target/*" -not -path "*/node_modules/*" -type f -print0 | while IFS= read -r -d '' file; do
-    echo -e "${GREEN}Binary BRD:${NC} $file" >&2
-    {
-        echo "File: $file"
-        echo "------------------------"
-        cat "$file"
-        echo -e "\n\n"
-    } >>"$TEMP_FILE"
-done
-
 mv "$TEMP_FILE" "$OUTPUT_FILE"
 trap - EXIT
 
