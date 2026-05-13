@@ -22,8 +22,8 @@ test.describe('Visual Regression', () => {
     const modalHeading = page.getByRole('heading', { name: "Import Design" });
     await expect(modalHeading).toBeVisible();
 
-    const fileChooserPromise = page.waitForEvent('filechooser');
-    await page.getByText('Upload Shape3D (.s3dx) or BoardCAD (.brd)').click();
+        const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByText('Select File').click();
     const fileChooser = await fileChooserPromise;
     
     // Ensure we use the correct path relative to the test runner
