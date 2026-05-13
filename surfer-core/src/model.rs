@@ -472,7 +472,7 @@ pub enum BoardAction {
     RemoveBottomChannel { index: usize },
     #[serde(rename = "TOGGLE_CHANNEL_SYMMETRY")]
     ToggleChannelSymmetry { index: usize },
-        #[serde(rename = "IMPORT_S3DX")]
+    #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
     ImportS3dx { xml: String },
     #[serde(rename = "IMPORT_BRD")]

@@ -1,7 +1,7 @@
-use serde::Deserialize;
 use crate::model::{BezierCurveData, BoardModel};
-use glam::Vec3;
 use flate2::read::ZlibDecoder;
+use glam::Vec3;
+use serde::Deserialize;
 use std::io::Read;
 
 #[derive(Debug, Deserialize)]
@@ -58,28 +58,43 @@ pub struct BrdPoint {
 }
 
 /// Strips the %BRD text header and decompresses the zlib binary payload.
+/// Strips the %BRD text header and decompresses the binary payload.
 pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     log::info!("[Rust Engine] decompress_brd: Received {} bytes for decompression", bytes.len());
-    let mut start_idx = 0;
     
-    // Hunt for the Zlib magic header (0x78 followed by compression level byte)
-    for i in 0..bytes.len().saturating_sub(1) {
-        if bytes[i] == 0x78 && (bytes[i+1] == 0x9c || bytes[i+1] == 0xda || bytes[i+1] == 0x01 || bytes[i+1] == 0x5e) {
-            start_idx = i;
-            break;
+    // The text header is usually small (e.g. `%BRD-1.02s00` = 12 bytes).
+    // We scan the first 128 bytes to gracefully bypass any padding or header structures.
+    let max_offset = bytes.len().min(128);
+
+    for offset in 0..max_offset {
+        let compressed_data = &bytes[offset..];
+        
+        // 1. Try ZLIB (Standard Java DeflaterOutputStream)
+        let mut z_decoder = ZlibDecoder::new(compressed_data);
+        let mut out = Vec::new();
+        if z_decoder.read_to_end(&mut out).is_ok() {
+            log::info!("[Rust Engine] Successfully decoded ZLIB at offset {}", offset);
+            return Ok(String::from_utf8_lossy(&out).to_string());
+        }
+
+        // 2. Try RAW DEFLATE (No wrapper)
+        let mut raw_decoder = DeflateDecoder::new(compressed_data);
+        let mut out = Vec::new();
+        if raw_decoder.read_to_end(&mut out).is_ok() {
+            log::info!("[Rust Engine] Successfully decoded RAW DEFLATE at offset {}", offset);
+            return Ok(String::from_utf8_lossy(&out).to_string());
+        }
+
+        // 3. Try GZIP
+        let mut gz_decoder = GzDecoder::new(compressed_data);
+        let mut out = Vec::new();
+        if gz_decoder.read_to_end(&mut out).is_ok() {
+            log::info!("[Rust Engine] Successfully decoded GZIP at offset {}", offset);
+            return Ok(String::from_utf8_lossy(&out).to_string());
         }
     }
-    
-    if start_idx == 0 && bytes[0] != 0x78 {
-        return Err("Could not find zlib magic header in BRD file".into());
-    }
 
-    let compressed_data = &bytes[start_idx..];
-    let mut decoder = ZlibDecoder::new(compressed_data);
-    let mut xml_string = String::new();
-    decoder.read_to_string(&mut xml_string).map_err(|e| format!("Failed to decompress BRD: {}", e))?;
-    
-    Ok(xml_string)
+    Err("Could not find a valid Zlib, Gzip, or Raw Deflate stream in the first 128 bytes of the BRD file".into())
 }
 
 fn convert_brd_curve(
@@ -87,10 +102,19 @@ fn convert_brd_curve(
     board_length: f32,
     scale: f32,
     is_thickness: bool,
-    is_reversed: bool
+    is_reversed: bool,
 ) -> Option<BezierCurveData> {
-    let pts = container.as_ref()?.bezier.as_ref()?.control_points.as_ref()?.points.as_ref()?;
-    if pts.is_empty() { return None; }
+    let pts = container
+        .as_ref()?
+        .bezier
+        .as_ref()?
+        .control_points
+        .as_ref()?
+        .points
+        .as_ref()?;
+    if pts.is_empty() {
+        return None;
+    }
 
     let mut control_points = Vec::new();
     let mut tangents1 = Vec::new();
@@ -100,7 +124,7 @@ fn convert_brd_curve(
         // BRD typically maps X as length. We map length to Z.
         let z = (board_length / 2.0 - p.x) * scale;
         let mut v3 = Vec3::new(0.0, 0.0, z);
-        
+
         if is_thickness {
             v3.y = p.y * scale;
         } else {
@@ -111,14 +135,22 @@ fn convert_brd_curve(
         let mut t1 = v3;
         if let (Some(tx), Some(ty)) = (p.t1x, p.t1y) {
             t1.z = (board_length / 2.0 - tx) * scale;
-            if is_thickness { t1.y = ty * scale; } else { t1.x = ty * scale; }
+            if is_thickness {
+                t1.y = ty * scale;
+            } else {
+                t1.x = ty * scale;
+            }
         }
         tangents1.push(t1);
 
         let mut t2 = v3;
         if let (Some(tx), Some(ty)) = (p.t2x, p.t2y) {
             t2.z = (board_length / 2.0 - tx) * scale;
-            if is_thickness { t2.y = ty * scale; } else { t2.x = ty * scale; }
+            if is_thickness {
+                t2.y = ty * scale;
+            } else {
+                t2.x = ty * scale;
+            }
         }
         tangents2.push(t2);
     }
@@ -144,17 +176,20 @@ fn convert_brd_curve(
 pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
     log::info!("[Rust Engine] parse_brd: Beginning BRD parsing pipeline");
     let xml = decompress_brd(bytes)?;
-    
+
     // Like S3DX, strip out incompatible unescaped characters before AST serialization
-    let sanitized = xml.replace("<Ref. point>", "<Ref_point>").replace("</Ref. point>", "</Ref_point>");
-    
-    let brd: BrdBoard = quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
+    let sanitized = xml
+        .replace("<Ref. point>", "<Ref_point>")
+        .replace("</Ref. point>", "</Ref_point>");
+
+    let brd: BrdBoard =
+        quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
 
     let mut model = BoardModel::default();
     let bl = brd.length.unwrap_or(0.0);
-    
+
     // Auto-detect unit metric via heuristic (over 130 means they're likely using Centimeters)
-    let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 }; 
+    let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
 
     model.length = bl * scale;
     model.width = brd.width.unwrap_or(0.0) * scale;
@@ -163,16 +198,16 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
     model.outline = convert_brd_curve(&brd.outline, bl, scale, false, true);
     model.rocker_bottom = convert_brd_curve(&brd.bottom, bl, scale, true, true);
     model.rocker_top = convert_brd_curve(&brd.deck, bl, scale, true, true);
-    
+
     Ok(model)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
     use std::fs;
     use std::path::PathBuf;
-    use approx::assert_relative_eq;
 
     #[test]
     fn test_brd_decompression_and_parsing() {
@@ -181,7 +216,7 @@ mod tests {
         path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
 
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
-        
+
         let xml = decompress_brd(&bytes).expect("Failed to decompress BRD");
         assert!(xml.contains("<board>"));
         assert!(xml.contains("<length>"));
@@ -190,13 +225,12 @@ mod tests {
 
         // A 6'4\" board should be exactly 76.0 inches
         assert_relative_eq!(model.length, 76.0, epsilon = 0.1);
-        
+
         assert!(model.outline.is_some());
         assert!(model.rocker_bottom.is_some());
         assert!(model.rocker_top.is_some());
-        
+
         let outline = model.outline.unwrap();
         assert!(outline.control_points.len() > 5);
     }
 }
-

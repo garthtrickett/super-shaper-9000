@@ -876,7 +876,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-                BoardAction::ImportBrd { bytes } => {
+        BoardAction::ImportBrd { bytes } => {
             match crate::brd_parser::parse_brd(&bytes) {
                 Ok(mut parsed_model) => {
                     // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
