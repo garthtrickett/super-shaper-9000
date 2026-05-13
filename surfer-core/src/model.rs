@@ -425,7 +425,7 @@ pub enum BoardAction {
     },
     #[serde(rename = "SELECT_NODE")]
     SelectNode { node: Option<SelectedNode> },
-    #[serde(rename = "UPDATE_NODE_EXACT")]
+        #[serde(rename = "UPDATE_NODE_EXACT")]
     #[serde(rename_all = "camelCase")]
     UpdateNodeExact {
         curve: String,
@@ -434,6 +434,12 @@ pub enum BoardAction {
         tangent1: Option<[f32; 3]>,
         tangent2: Option<[f32; 3]>,
         weight: Option<f32>,
+    },
+    #[serde(rename = "INSERT_NODE")]
+    #[serde(rename_all = "camelCase")]
+    InsertNode {
+        curve: String,
+        t: f32,
     },
     #[serde(rename = "APPLY_CONTINUITY")]
     #[serde(rename_all = "camelCase")]
