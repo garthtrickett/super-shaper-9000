@@ -1,6 +1,10 @@
 use crate::model::{BezierCurveData, BoardModel};
 use flate2::read::{DeflateDecoder, GzDecoder, ZlibDecoder};
 use glam::Vec3;
+use md5::{Md5, Digest};
+use cbc::cipher::{KeyIvInit, block_padding::Pkcs7, BlockDecryptMut};
+
+type DesCbcDec = cbc::Decryptor<des::Des>;
 use serde::Deserialize;
 use std::io::Read;
 
@@ -196,14 +200,166 @@ fn convert_brd_curve(
 }
 
 /// Deserializes the decompressed XML and translates the 2D coordinate space into our 3D parametric BoardModel.
+fn decrypt_aku_shaper(bytes: &[u8]) -> Result<String, String> {
+    if bytes.len() < 12 {
+        return Err("File too short to be AkuShaper format".into());
+    }
+
+    let header = String::from_utf8_lossy(&bytes[0..12]);
+    let password = if header.starts_with("%BRD-1.01") {
+        "deltaXTail"
+    } else {
+        "deltaXTaildeltaXMiddle"
+    };
+
+    // PBEWithMD5AndDES parameters explicitly coded in AkuShaper's Java Source
+    let salt: [u8; 8] = [0xC7, 0x73, 0x21, 0x8C, 0x7E, 0xC8, 0xEE, 0x99];
+
+    // 1. Derive key and IV via MD5 (PKCS#5 PBKDF1 with 20 iterations)
+    let mut hasher = Md5::new();
+    hasher.update(password.as_bytes());
+    hasher.update(&salt);
+    let mut hash = hasher.finalize();
+
+    for _ in 1..20 {
+        let mut next_hasher = Md5::new();
+        next_hasher.update(&hash);
+        hash = next_hasher.finalize();
+    }
+
+    let key = &hash[0..8];
+    let iv = &hash[8..16];
+
+    // 2. Decrypt (DES-CBC with PKCS5 padding, which is mathematically identical to PKCS7)
+    let mut cipher = DesCbcDec::new(key.into(), iv.into());
+    let mut plaintext = bytes[12..].to_vec();
+    
+    let decrypted = cipher
+        .decrypt_padded_mut::<Pkcs7>(&mut plaintext)
+        .map_err(|e| format!("Decryption failed: {:?}", e))?;
+
+    Ok(String::from_utf8_lossy(decrypted).to_string())
+}
+
+fn parse_aku_curve(lines: &mut std::str::Lines, board_length: f32, scale: f32, is_thickness: bool) -> Option<BezierCurveData> {
+    let mut control_points = Vec::new();
+    let mut tangents1 = Vec::new();
+    let mut tangents2 = Vec::new();
+
+    for line in lines {
+        let line = line.trim();
+        if line.starts_with(')') {
+            break;
+        }
+        if line.starts_with("gps") {
+            continue; 
+        }
+        if line.starts_with('[') {
+            let start = line.find('[').unwrap_or(0) + 1;
+            let end = line.find(']').unwrap_or(line.len());
+            let content = &line[start..end];
+            let floats: Vec<f32> = content.split(',')
+                .map(|s| s.trim().parse::<f32>().unwrap_or(0.0))
+                .collect();
+            
+            if floats.len() >= 6 {
+                let px = floats[0];
+                let py = floats[1];
+                let t1x = floats[2];
+                let t1y = floats[3];
+                let t2x = floats[4];
+                let t2y = floats[5];
+
+                let z = (board_length / 2.0 - px) * scale;
+                
+                let mut cp = Vec3::new(0.0, 0.0, z);
+                let mut t1 = Vec3::new(0.0, 0.0, (board_length / 2.0 - t1x) * scale);
+                let mut t2 = Vec3::new(0.0, 0.0, (board_length / 2.0 - t2x) * scale);
+
+                if is_thickness {
+                    cp.y = py * scale;
+                    t1.y = t1y * scale;
+                    t2.y = t2y * scale;
+                } else {
+                    cp.x = py * scale;
+                    t1.x = t1y * scale;
+                    t2.x = t2y * scale;
+                }
+
+                control_points.push(cp);
+                tangents1.push(t1);
+                tangents2.push(t2);
+            }
+        }
+    }
+
+    if control_points.is_empty() {
+        None
+    } else {
+        // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
+        control_points.reverse();
+        let old_t1 = tangents1.clone();
+        let old_t2 = tangents2.clone();
+        tangents1 = old_t2.into_iter().rev().collect();
+        tangents2 = old_t1.into_iter().rev().collect();
+
+        Some(BezierCurveData {
+            control_points,
+            tangents1,
+            tangents2,
+            weights: None,
+        })
+    }
+}
+
+fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
+    let mut model = BoardModel::default();
+    let mut lines = text.lines();
+    let mut unscaled_length = 0.0;
+    let mut scale = 1.0;
+
+    while let Some(line) = lines.next() {
+        let line = line.trim();
+        if line.is_empty() { continue; }
+        
+        if let Some((key, value)) = line.split_once(':') {
+            let key = key.trim();
+            let value = value.trim();
+            
+            match key {
+                "p01" => { 
+                    unscaled_length = value.parse().unwrap_or(0.0);
+                    scale = if unscaled_length > 130.0 { 1.0 / 2.54 } else { 1.0 };
+                    model.length = unscaled_length * scale;
+                }
+                "p04" => { model.width = value.parse::<f32>().unwrap_or(0.0) * scale; }
+                "p03" => { model.thickness = value.parse::<f32>().unwrap_or(0.0) * scale; }
+                "p32" => { model.outline = parse_aku_curve(&mut lines, unscaled_length, scale, false); }
+                "p33" => { model.rocker_bottom = parse_aku_curve(&mut lines, unscaled_length, scale, true); }
+                "p34" => { model.rocker_top = parse_aku_curve(&mut lines, unscaled_length, scale, true); }
+                _ => {}
+            }
+        }
+    }
+    
+    Ok(model)
+}
+
 pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
     log::info!("[Rust Engine] parse_brd: Beginning BRD parsing pipeline");
-    let xml = decompress_brd(bytes)?;
 
+    // 1. Is it an AkuShaper proprietary encrypted format?
+    if bytes.starts_with(b"%BRD") {
+        log::info!("[Rust Engine] Detected AkuShaper encrypted format. Beginning PKCS#5 decryption...");
+        let decrypted_text = decrypt_aku_shaper(bytes)?;
+        log::debug!("[Rust Engine] AkuShaper decrypted successfully.");
+        return parse_aku_shaper(&decrypted_text);
+    }
+
+    // 2. Otherwise, fall back to BoardCAD ZLIB/XML format
+    let xml = decompress_brd(bytes)?;
     let start_idx = xml.find('<').unwrap_or(0);
     let xml_slice = &xml[start_idx..];
-
-    // Like S3DX, strip out incompatible unescaped characters before AST serialization
     let sanitized = xml_slice
         .replace("<Ref. point>", "<Ref_point>")
         .replace("</Ref. point>", "</Ref_point>");
@@ -213,8 +369,6 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
 
     let mut model = BoardModel::default();
     let bl = brd.length.unwrap_or(0.0);
-
-    // Auto-detect unit metric via heuristic (over 130 means they're likely using Centimeters)
     let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
 
     model.length = bl * scale;
@@ -236,6 +390,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
+        #[test]
     fn test_brd_decompression_and_parsing() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -243,33 +398,9 @@ mod tests {
 
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
 
-        // DIAGNOSTIC DUMP for Reverse Engineering the legacy binary format
-        if bytes.starts_with(b"%BRD") {
-            let hex_dump: Vec<String> = bytes
-                .iter()
-                .take(256)
-                .map(|b| format!("{:02X}", b))
-                .collect();
-            panic!(
-                "\n\n=== BRD BINARY HEX DUMP ===\n{}\n===========================\n\n",
-                hex_dump.join(" ")
-            );
-        }
-
-        let xml = decompress_brd(&bytes).expect("Failed to decompress BRD");
-
-        // Grug-brain debug: see the actual XML content
-        println!(
-            "--- XML HEAD ---\n{}\n---------------",
-            &xml[..xml.len().min(500)]
-        );
-
-        assert!(xml.to_lowercase().contains("<board>"));
-        assert!(xml.contains("<length>"));
-
+        // This will now seamlessly decrypt the AkuShaper binary blob and parse it!
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-        // A 6'4\" board should be exactly 76.0 inches
         assert_relative_eq!(model.length, 76.0, epsilon = 0.1);
 
         assert!(model.outline.is_some());
