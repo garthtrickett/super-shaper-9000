@@ -529,8 +529,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const boardControls = page.locator("board-controls");
 
     // 1. Capture initial volume from the HUD to compare later
-    const volumeDisplay = boardControls.locator('div.text-2xl.font-black.text-blue-500');
-    const initialVolume = await volumeDisplay.textContent();
+        const volumeDisplay = boardControls.locator('div.text-2xl.font-black.text-blue-500');
+    const rawVolume = await volumeDisplay.textContent();
+    const initialVolume = rawVolume?.trim();
     expect(initialVolume).toBeTruthy();
 
     // 2. Open the Import Modal
@@ -549,11 +550,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await fileChooser.setFiles('./src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx');
 
     // 4. The modal should automatically close upon successful Rust parsing and state update
-    await expect(modalHeading).toBeHidden();
+        await expect(modalHeading).toBeHidden();
 
     // 5. Verify the WASM Worker processed the file by checking if the volume updated
-    // (The imported board should have a different volume than the default 70" squash tail)
-    await expect(volumeDisplay).not.toHaveText(initialVolume as string);
+    // We use a Regex to be whitespace-insensitive to avoid Lit template indentation issues.
+    await expect(volumeDisplay).not.toHaveText(new RegExp(initialVolume!.replace('.', '\\.')));
     
     // Wait briefly for debounce and geometry to build
     await page.waitForTimeout(500);
@@ -578,8 +579,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     const boardControls = page.locator("board-controls");
 
-    const volumeDisplay = boardControls.locator('div.text-2xl.font-black.text-blue-500');
-    const initialVolume = await volumeDisplay.textContent();
+        const volumeDisplay = boardControls.locator('div.text-2xl.font-black.text-blue-500');
+    const rawVolume = await volumeDisplay.textContent();
+    const initialVolume = rawVolume?.trim();
     expect(initialVolume).toBeTruthy();
 
     const importBtn = boardControls.getByRole('button', { name: /Import Design/i });
@@ -595,10 +597,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Upload the golden BRD fixture
     await fileChooser.setFiles('./src/assets/fixtures/brd/6\'4-Bump-Squash-Full-Nose.brd');
 
-    await expect(modalHeading).toBeHidden();
+        await expect(modalHeading).toBeHidden();
 
     // Verify volume changed
-    await expect(volumeDisplay).not.toHaveText(initialVolume as string);
+    await expect(volumeDisplay).not.toHaveText(new RegExp(initialVolume!.replace('.', '\\.')));
     
     // Let geometry settle
     await page.waitForTimeout(500);

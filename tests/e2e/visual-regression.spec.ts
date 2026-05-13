@@ -23,7 +23,7 @@ test.describe('Visual Regression', () => {
     await expect(modalHeading).toBeVisible();
 
     const fileChooserPromise = page.waitForEvent('filechooser');
-    await page.getByText('Select .s3dx File').click();
+    await page.getByText('Upload Shape3D (.s3dx) or BoardCAD (.brd)').click();
     const fileChooser = await fileChooserPromise;
     
     // Ensure we use the correct path relative to the test runner

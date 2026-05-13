@@ -543,9 +543,10 @@ export class BoardViewport extends LitElement {
     const curveData = this._getCurveData(userData.curve);
     if (!curveData) return;
 
-    const clonedCurve: BezierCurveData = JSON.parse(JSON.stringify(curveData));
+    // FIX: Cast the JSON.parse result to unknown first to satisfy ESLint
+    const clonedCurve = JSON.parse(JSON.stringify(curveData)) as unknown as BezierCurveData;
 
-        if (userData.type === 'anchor') {
+    if (userData.type === 'anchor') {
       const oldA = clonedCurve.controlPoints[userData.index];
       if (oldA) {
         const dx = position[0] - oldA[0];
@@ -564,7 +565,7 @@ export class BoardViewport extends LitElement {
       }
     } else if (userData.type === 'tangent1' || userData.type === 'tangent2') {
       const isT1 = userData.type === 'tangent1';
-            if (isT1) clonedCurve.tangents1[userData.index] = position;
+      if (isT1) clonedCurve.tangents1[userData.index] = position;
       else clonedCurve.tangents2[userData.index] = position;
 
       if (this.selectedNodeContinuity !== 'G0') {
@@ -605,7 +606,7 @@ export class BoardViewport extends LitElement {
     }
     
     const sampled = this.sampleBezierCurve(clonedCurve, steps);
-        const projected = sampled.map(p => {
+    const projected = sampled.map(p => {
        const x = this.getXOffset(userData.curve, p[0], p[2], this.mathEngine!);
        let y = p[1];
        
@@ -628,9 +629,9 @@ export class BoardViewport extends LitElement {
         if (child.userData?.curve === userData.curve) {
           const line = child as THREE.Line;
           const mirrorX = line.userData.mirrorX as boolean;
-          const positions = line.geometry.attributes.position.array as Float32Array;
+          const positions = line.geometry.attributes.position?.array as Float32Array;
           
-                    if (positions.length === projected.length * 3) {
+          if (positions.length === projected.length * 3) {
              for (let i = 0; i < projected.length; i++) {
                const p = projected[i];
                if (!p) continue;
