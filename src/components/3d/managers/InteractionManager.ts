@@ -3,6 +3,11 @@ import * as THREE from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { BoardModel } from "../../pages/board-builder-page.logic";
 
+export interface HostWithPreview extends HTMLElement {
+  setHoverPreview(preview: { curve: string, t: number, mirrorX: boolean } | null): void;
+  mathEngine?: import("../../../lib/client/wasm/surfer_wasm.js").WasmEngine;
+}
+
 export class InteractionManager {
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
@@ -19,8 +24,8 @@ export class InteractionManager {
   public hoveredCurve: string | null = null;
   public hoveredT: number | null = null;
 
-  constructor(
-    private host: HTMLElement,
+    constructor(
+    private host: HostWithPreview,
     private canvas: HTMLCanvasElement,
         private cameras: {
       perspective: THREE.PerspectiveCamera | THREE.OrthographicCamera;
@@ -57,11 +62,11 @@ export class InteractionManager {
     window.removeEventListener("keyup", this.onKeyUp);
   }
 
-  private onKeyUp = (e: KeyboardEvent) => {
+    private onKeyUp = (e: KeyboardEvent) => {
     if (e.key === 'Alt' && this.hoveredCurve) {
         this.hoveredCurve = null;
         this.hoveredT = null;
-        (this.host as any).setHoverPreview(null);
+        this.host.setHoverPreview(null);
     }
   }
 
@@ -117,14 +122,14 @@ export class InteractionManager {
   }
 
     private onPointerDown = (e: PointerEvent) => {
-    if (e.altKey && this.hoveredCurve && this.hoveredT !== null) {
+        if (e.altKey && this.hoveredCurve && this.hoveredT !== null) {
         this.host.dispatchEvent(new CustomEvent('insert-node', {
             detail: { curve: this.hoveredCurve, t: this.hoveredT },
             bubbles: true, composed: true
         }));
         this.hoveredCurve = null;
         this.hoveredT = null;
-        (this.host as any).setHoverPreview(null);
+        this.host.setHoverPreview(null);
         return;
     }
 
@@ -203,9 +208,9 @@ export class InteractionManager {
         const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
         const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isCurveLine);
 
-        if (hit) {
-            const curveName = hit.object.userData.curve;
-            const mirrorX = hit.object.userData.mirrorX;
+                if (hit) {
+            const curveName = hit.object.userData.curve as string;
+            const mirrorX = hit.object.userData.mirrorX as boolean;
             const ro = this.raycaster.ray.origin.clone();
             const rd = this.raycaster.ray.direction.clone();
             if (mirrorX) {
@@ -214,23 +219,23 @@ export class InteractionManager {
             }
             ro.multiplyScalar(12);
 
-            const mathEngine = (this.host as any).mathEngine;
-            if (mathEngine && mathEngine.find_closest_t) {
+            const mathEngine = this.host.mathEngine;
+            if (mathEngine && typeof mathEngine.find_closest_t === 'function') {
                 const t = mathEngine.find_closest_t(curveName, ro.x, ro.y, ro.z, rd.x, rd.y, rd.z);
                 if (t >= 0 && t <= 1) {
                     this.hoveredCurve = curveName;
                     this.hoveredT = t;
-                    (this.host as any).setHoverPreview({ curve: curveName, t, mirrorX });
+                    this.host.setHoverPreview({ curve: curveName, t, mirrorX });
                     return;
                 }
             }
         }
     }
 
-    if (!this.draggedGizmo && this.hoveredCurve) {
+        if (!this.draggedGizmo && this.hoveredCurve) {
         this.hoveredCurve = null;
         this.hoveredT = null;
-        (this.host as any).setHoverPreview(null);
+        this.host.setHoverPreview(null);
     }
 
     if (!this.draggedGizmo || !this.activeDragCamera) return;

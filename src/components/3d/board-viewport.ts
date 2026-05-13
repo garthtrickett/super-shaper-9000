@@ -547,13 +547,13 @@ export class BoardViewport extends LitElement {
       }
       if (!this.hoverPreview || !this.mathEngine) return;
 
-      const { curve, t, mirrorX } = this.hoverPreview;
-      const ptRaw = (this.mathEngine as any).get_point_on_curve(curve, t);
+            const { curve, t, mirrorX } = this.hoverPreview;
+      const ptRaw = this.mathEngine.get_point_on_curve(curve, t) as Float32Array | undefined;
       if (!ptRaw) return;
 
-      let x = ptRaw[0];
-      let y = ptRaw[1];
-      let z = ptRaw[2];
+      let x = ptRaw[0] as number;
+      let y = ptRaw[1] as number;
+      const z = ptRaw[2] as number;
 
       y = this.getZHeight(curve, y, z, this.mathEngine);
       x = this.getXOffset(curve, x, z, this.mathEngine);
