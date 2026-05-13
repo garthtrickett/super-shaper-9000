@@ -31,8 +31,9 @@ export interface RustMesh {
 export class BoardViewport extends LitElement {
     @property({ type: Object }) boardState?: BoardModel;
   @property({ type: Object }) meshData?: RustMesh;
-    @property({ type: Object }) curvatureCombs?: Float32Array;
+      @property({ type: Object }) curvatureCombs?: Float32Array;
   @property({ attribute: false }) mathEngine?: WasmEngine;
+  @property({ type: String }) selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
   
   protected override createRenderRoot() { return this; }
 
@@ -563,10 +564,10 @@ export class BoardViewport extends LitElement {
       }
     } else if (userData.type === 'tangent1' || userData.type === 'tangent2') {
       const isT1 = userData.type === 'tangent1';
-      if (isT1) clonedCurve.tangents1[userData.index] = position;
+            if (isT1) clonedCurve.tangents1[userData.index] = position;
       else clonedCurve.tangents2[userData.index] = position;
 
-      if (this._selectedNodeContinuity !== 'G0') {
+      if (this.selectedNodeContinuity !== 'G0') {
         const anchor = clonedCurve.controlPoints[userData.index];
         const tSrc = position;
         const tTgt = isT1 ? clonedCurve.tangents2[userData.index] : clonedCurve.tangents1[userData.index];
@@ -629,21 +630,26 @@ export class BoardViewport extends LitElement {
           const mirrorX = line.userData.mirrorX as boolean;
           const positions = line.geometry.attributes.position.array as Float32Array;
           
-          if (positions.length === projected.length * 3) {
+                    if (positions.length === projected.length * 3) {
              for (let i = 0; i < projected.length; i++) {
-               positions[i * 3] = (mirrorX ? -projected[i][0] : projected[i][0]) * scale;
-               positions[i * 3 + 1] = projected[i][1] * scale;
-               positions[i * 3 + 2] = projected[i][2] * scale;
+               const p = projected[i];
+               if (!p) continue;
+               positions[i * 3] = (mirrorX ? -p[0] : p[0]) * scale;
+               positions[i * 3 + 1] = p[1] * scale;
+               positions[i * 3 + 2] = p[2] * scale;
              }
-             line.geometry.attributes.position.needsUpdate = true;
+             const posAttr = line.geometry.attributes.position as THREE.BufferAttribute | undefined;
+             if (posAttr) posAttr.needsUpdate = true;
           } else if (userData.curve.startsWith('crossSection_') && positions.length === (projected.length - 1) * 3 && mirrorX) {
              for (let i = 0; i < projected.length - 1; i++) {
                const p = projected[projected.length - 1 - i]; // Reverse order
+               if (!p) continue;
                positions[i * 3] = -p[0] * scale;
                positions[i * 3 + 1] = p[1] * scale;
                positions[i * 3 + 2] = p[2] * scale;
              }
-             line.geometry.attributes.position.needsUpdate = true;
+             const posAttr = line.geometry.attributes.position as THREE.BufferAttribute | undefined;
+             if (posAttr) posAttr.needsUpdate = true;
           }
           if (line.material instanceof THREE.LineDashedMaterial) {
               line.computeLineDistances();

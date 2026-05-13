@@ -457,7 +457,8 @@ export class BoardBuilderPage extends LitElement {
           .boardState=${state}
           .meshData=${mesh}
           .curvatureCombs=${curvatureCombs}
-                    .mathEngine=${this.mathEngine}
+                              .mathEngine=${this.mathEngine}
+          .selectedNodeContinuity=${this._selectedNodeContinuity}
                             @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this._proposeAction({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected

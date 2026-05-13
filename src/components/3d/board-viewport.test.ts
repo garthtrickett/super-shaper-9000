@@ -75,8 +75,8 @@ describe("BoardViewport (3D Component)", () => {
         }
       }));
 
-      // Verify the buffer was marked for update
-      expect(line.geometry.attributes.position.needsUpdate).to.be.true;
+            // Verify the buffer was marked for update
+      expect((line.geometry.attributes.position as THREE.BufferAttribute | undefined)?.needsUpdate).to.be.true;
       
       // _updateGeometry should NOT have been called (no full rebuild)
       expect(updateSpy.called).to.be.false;
