@@ -1,0 +1,1315 @@
+--- AKUSHAPER TARGETED HUI/SURF LOGIC DUMP ---
+Generated on: Wed May 13 06:39:55 PM AEST 2026
+--- START OF FILE: ./hui/surf/board/BoardIO.java ---
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  hui.surf.board.BadBoardException
+ *  hui.surf.board.BadMaxSurfFileException
+ *  hui.surf.board.BoardIO$BufferedReaderWithHead
+ *  hui.surf.board.BoardIO$KeyPair
+ *  hui.surf.board.BoardShape
+ *  hui.surf.board.BoardShapeField
+ *  hui.surf.board.Fins
+ *  hui.surf.board.geom.Slice
+ *  hui.surf.board.geom.TailNoseCurve
+ *  hui.surf.core.Aku
+ *  hui.surf.core.UnitType
+ *  hui.surf.geom.CurvePoint
+ *  hui.surf.geom.GuidePoint
+ *  hui.surf.geom.GuidePointSet
+ *  hui.surf.geom.ICurve
+ *  hui.surf.io.ExtFileFilter
+ *  hui.surf.io.readers.shape3d.BadS3dFileException
+ *  hui.surf.util.ArrayString
+ */
+package hui.surf.board;
+
+import hui.surf.board.BadBoardException;
+import hui.surf.board.BadMaxSurfFileException;
+import hui.surf.board.BoardIO;
+import hui.surf.board.BoardShape;
+import hui.surf.board.BoardShapeField;
+import hui.surf.board.Fins;
+import hui.surf.board.geom.Slice;
+import hui.surf.board.geom.TailNoseCurve;
+import hui.surf.core.Aku;
+import hui.surf.core.UnitType;
+import hui.surf.geom.CurvePoint;
+import hui.surf.geom.GuidePoint;
+import hui.surf.geom.GuidePointSet;
+import hui.surf.geom.ICurve;
+import hui.surf.io.ExtFileFilter;
+import hui.surf.io.readers.shape3d.BadS3dFileException;
+import hui.surf.util.ArrayString;
+import java.awt.geom.Point2D;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.math.BigInteger;
+import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.PBEParameterSpec;
+
+public class BoardIO {
+    private static final String MAX_X_SLOW_SPEED_ANGEL_WING = "maxXSlowSpeedAngelWing";
+    private static final String HARD_RAIL_SLICE_AT_NOSE = "hardRailSliceAtNose";
+    private static final String TAIL_WING_SPEED = "tailWingSpeed";
+    public static final Pattern SEPARATOR = Pattern.compile("[: ]+");
+    public static final Pattern ARRAY_INSIDE = Pattern.compile("\\[(.*)\\]+");
+    public static final Pattern COMMA = Pattern.compile("[, ]+");
+    public static final Pattern SPACE = Pattern.compile("[ ]+");
+    public static final Pattern STRING_VALUE = Pattern.compile("[^:]*:\\s*(.*)");
+    public static final Pattern BLANK_LINE = Pattern.compile("^\\s*$");
+    private static final HashMap<String, String> nameToKeyMap = new HashMap();
+    private static final HashMap<String, String> keyToNameMap = new HashMap();
+    private static PBEParameterSpec pbeParamSpec = new PBEParameterSpec(new byte[]{-57, 115, 33, -116, 126, -56, -18, -103}, 20);
+    private static SecretKey pbeKey;
+    private static Cipher cipher;
+    private static String fileVersion;
+    private static List<KeyPair> keyPairs;
+    private static boolean newFormat;
+    private static long version;
+    private static long nextVersion;
+
+    private static void map(String string, String string2) {
+        keyToNameMap.put(string, string2);
+        nameToKeyMap.put(string2, string);
+    }
+
+    public static String nameToKey(String string) {
+        String string2 = nameToKeyMap.get(string);
+        if (string2 != null) return string2;
+        return string;
+    }
+
+    public static String keyToName(String string) {
+        String string2 = keyToNameMap.get(string);
+        if (string2 != null) return string2;
+        return string;
+    }
+
+    private static void println(String string, PrintWriter printWriter, Cipher cipher) {
+        if (cipher != null) {
+            try {
+                byte[] byArray = string.getBytes();
+                byte[] byArray2 = cipher.doFinal(byArray);
+                string = new String(byArray2);
+            }
+            catch (GeneralSecurityException generalSecurityException) {
+                Aku.trace((Exception)generalSecurityException);
+                generalSecurityException.printStackTrace();
+            }
+        }
+        printWriter.println(string);
+    }
+
+    private static KeyPair getKeyPair(String string) {
+        Object object2;
+        Cipher cipher = null;
+        for (Object object2 : keyPairs) {
+            if (!string.equals(object2.getVersionString())) continue;
+            return object2;
+        }
+        Object object3 = BoardIO.keyToName("p22");
+        if (!string.startsWith("%BRD-1.01")) {
+            object3 = BoardIO.keyToName("p22") + BoardIO.keyToName("p23");
+        }
+        if (string.endsWith("ukadrib")) {
+            object3 = string;
+        }
+        object2 = new char[((String)object3).length()];
+        ((String)object3).getChars(0, ((String)object3).length(), (char[])object2, 0);
+        try {
+            PBEKeySpec pBEKeySpec = new PBEKeySpec((char[])object2);
+            SecretKeyFactory secretKeyFactory = SecretKeyFactory.getInstance("PBEWithMD5AndDES");
+            SecretKey secretKey = secretKeyFactory.generateSecret(pBEKeySpec);
+            cipher = Cipher.getInstance("PBEWithMD5AndDES");
+            KeyPair keyPair = new KeyPair(cipher, secretKey, string);
+            keyPairs.add(keyPair);
+            return keyPair;
+        }
+        catch (NoSuchAlgorithmException noSuchAlgorithmException) {
+            Aku.trace((Exception)noSuchAlgorithmException);
+        }
+        catch (InvalidKeySpecException invalidKeySpecException) {
+            Aku.trace((Exception)invalidKeySpecException);
+        }
+        catch (NoSuchPaddingException noSuchPaddingException) {
+            Aku.trace((Exception)noSuchPaddingException);
+        }
+        return null;
+    }
+
+    public static void initCipher(KeyPair keyPair, boolean bl) {
+        Cipher cipher = keyPair.getCipher();
+        SecretKey secretKey = keyPair.getKey();
+        try {
+            if (bl) {
+                cipher.init(2, (Key)secretKey, pbeParamSpec);
+            } else {
+                cipher.init(1, (Key)secretKey, pbeParamSpec);
+            }
+        }
+        catch (InvalidKeyException invalidKeyException) {
+            Aku.trace((Exception)invalidKeyException);
+        }
+        catch (InvalidAlgorithmParameterException invalidAlgorithmParameterException) {
+            Aku.trace((Exception)invalidAlgorithmParameterException);
+        }
+    }
+
+    public static boolean isOldFormat(char[] cArray) {
+        if (cArray[0] != '%') return true;
+        if (cArray[4] != '-') return true;
+        if (cArray[6] != '.') return true;
+        return false;
+    }
+
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    public static boolean isOldFormat(File file) throws IOException {
+        try (FileInputStream fileInputStream = null;){
+            fileInputStream = new FileInputStream(file);
+            InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream);
+            char[] cArray = new char[7];
+            inputStreamReader.read(cArray, 0, 7);
+            boolean bl = BoardIO.isOldFormat(cArray);
+            return bl;
+        }
+    }
+
+    public static void brd2Brx(File file) throws IOException, BadBoardException {
+        String string = file.getCanonicalPath();
+        String string2 = ExtFileFilter.getExtension((File)file);
+        if (string2 != null && string2.equals(ExtFileFilter.BOARD_EXT)) {
+            File file2 = new File(string.substring(0, string.length() - 4) + "." + ExtFileFilter.BRX_EXT);
+            BoardIO.brd2Brx(file, file2);
+            return;
+        }
+        Aku.log.info(file.getName() + " must end in \"brd\"");
+    }
+
+    public static void brd2Brx(File file, File file2) throws IOException, BadBoardException {
+        BoardIO.brd2Brx(new FileInputStream(file), new FileOutputStream(file2));
+    }
+
+    public static void brd2Brx(InputStream inputStream, OutputStream outputStream) throws IOException, BadBoardException {
+        BoardShape boardShape = BoardIO.readBoardFile(inputStream);
+        boardShape.setSecurityLevel(4);
+        BoardIO.writeBoardFile(boardShape, outputStream);
+    }
+
+    private static PrintWriter getPrintWriter(OutputStream outputStream) throws IOException {
+        return BoardIO.getPrintWriter(fileVersion, outputStream);
+    }
+
+    private static PrintWriter getPrintWriter(File file) throws IOException {
+        return BoardIO.getPrintWriter(fileVersion, file);
+    }
+
+    private static PrintWriter getPrintWriter(String string, File file) throws IOException {
+        return BoardIO.getPrintWriter(string, new FileOutputStream(file));
+    }
+
+    private static PrintWriter getPrintWriter(String string, OutputStream outputStream) throws IOException {
+        return BoardIO.getPrintWriter(string, outputStream, false);
+    }
+
+    private static PrintWriter getPrintWriter(String string, OutputStream outputStream, boolean bl) throws IOException {
+        PrintWriter printWriter = null;
+        if (bl) {
+            printWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(outputStream)));
+        } else {
+            KeyPair keyPair = BoardIO.getKeyPair(string);
+            BoardIO.initCipher(keyPair, false);
+            if (string.endsWith("ukadrib")) {
+                string = fileVersion;
+            }
+            for (int i = 0; i < string.length(); ++i) {
+                outputStream.write(string.charAt(i));
+            }
+            CipherOutputStream cipherOutputStream = new CipherOutputStream(outputStream, keyPair.getCipher());
+            printWriter = new PrintWriter(cipherOutputStream);
+        }
+        return printWriter;
+    }
+
+    public static void writeBoardFileOldFormat(BoardShape boardShape, File file) throws IOException {
+        BoardIO.writeBoardFile(boardShape, BoardIO.getPrintWriter(null, new FileOutputStream(file), true));
+    }
+
+    public static void writeBoardFileOldFormat(BoardShape boardShape, OutputStream outputStream) throws IOException {
+        BoardIO.writeBoardFile(boardShape, BoardIO.getPrintWriter(null, outputStream, true));
+    }
+
+    public static void writeBoardFile(BoardShape boardShape, OutputStream outputStream, String string) throws IOException {
+        BoardIO.writeBoardFile(boardShape, BoardIO.getPrintWriter(string, outputStream));
+    }
+
+    public static void writeBoardFile(BoardShape boardShape, OutputStream outputStream) throws IOException {
+        BoardIO.writeBoardFile(boardShape, BoardIO.getPrintWriter(outputStream));
+    }
+
+    public static void writeBoardFile(BoardShape boardShape, File file, String string) throws IOException {
+        BoardIO.writeBoardFile(boardShape, BoardIO.getPrintWriter(string, file));
+    }
+
+    public static void writeBoardFile(BoardShape boardShape, File file) throws IOException {
+        BoardIO.writeBoardFile(boardShape, BoardIO.getPrintWriter(file));
+    }
+
+    public static void writeBoardFile(BoardShape boardShape, PrintWriter printWriter) throws IOException {
+        try {
+            printWriter.println(BoardIO.nameToKey("length") + " : " + boardShape.getLength());
+            printWriter.println(BoardIO.nameToKey("curvLength") + " : " + boardShape.curvLength);
+            printWriter.println(BoardIO.nameToKey("thickness") + " : " + boardShape.thickness);
+            printWriter.println(BoardIO.nameToKey("width") + " : " + boardShape.width);
+            if (newFormat) {
+                printWriter.println(BoardIO.nameToKey("version") + " : v4.4");
+            } else {
+                printWriter.println(BoardIO.nameToKey("version") + " : V4.4");
+            }
+            if (boardShape.getName() != null) {
+                printWriter.println(BoardIO.nameToKey("name") + " : " + boardShape.getName());
+            }
+            if (boardShape.getAuthor() != null) {
+                printWriter.println(BoardIO.nameToKey("author") + " : " + boardShape.getAuthor());
+            }
+            if (boardShape.description != null) {
+                printWriter.println(BoardIO.nameToKey("description") + " : " + boardShape.description);
+            }
+            if (boardShape.getModelName() != null) {
+                printWriter.println(BoardIO.nameToKey("modelName") + " : " + boardShape.getModelName());
+            }
+            printWriter.println(BoardIO.nameToKey("akubirdBoardID") + " : " + boardShape.getAkubirdBoardID());
+            printWriter.println(BoardIO.nameToKey("akubirdModelID") + " : " + boardShape.getAkubirdModelID());
+            printWriter.println(BoardIO.nameToKey("akubirdLastUpdate") + " : " + boardShape.getAkubirdLastUpdate());
+            if (boardShape.getBlankFileName() != null) {
+                printWriter.println(BoardIO.nameToKey("blankFile") + " : " + boardShape.getBlankFileName());
+            }
+            if (boardShape.machOutputFolder != null) {
+                printWriter.println(BoardIO.nameToKey("machOutputFolder") + " : " + boardShape.machOutputFolder);
+            }
+            printWriter.println(BoardIO.nameToKey("topCuts") + " : " + boardShape.topCuts);
+            printWriter.println(BoardIO.nameToKey("bottomCuts") + " : " + boardShape.bottomCuts);
+            printWriter.println(BoardIO.nameToKey("railCuts") + " : " + boardShape.railCuts);
+            printWriter.println(BoardIO.nameToKey("cutterDiam") + " : " + boardShape.cutterDiam);
+            printWriter.println(BoardIO.nameToKey("cutterThickness") + " : " + boardShape.cutterThickness);
+            printWriter.println(BoardIO.nameToKey("blankPivot") + " : " + boardShape.getBlankPivot());
+            printWriter.println(BoardIO.nameToKey("boardPivot") + " : " + boardShape.getBoardPivot());
+            printWriter.println(BoardIO.nameToKey("maxAngle") + " : " + boardShape.maxAngle);
+            printWriter.println(BoardIO.nameToKey("noseMargin") + " : " + boardShape.noseMargin);
+            printWriter.println(BoardIO.nameToKey("tailMargin") + " : " + boardShape.tailMargin);
+            printWriter.println(BoardIO.nameToKey("noseLength") + " : " + boardShape.noseLength);
+            printWriter.println(BoardIO.nameToKey("tailLength") + " : " + boardShape.tailLength);
+            printWriter.println(BoardIO.nameToKey("deltaXNose") + " : " + boardShape.deltaXNose);
+            printWriter.println(BoardIO.nameToKey("deltaXTail") + " : " + boardShape.deltaXTail);
+            printWriter.println(BoardIO.nameToKey("deltaXMiddle") + " : " + boardShape.deltaXMiddle);
+            printWriter.println(BoardIO.nameToKey("toTailSpeed") + " : " + boardShape.toTailSpeed);
+            printWriter.println(BoardIO.nameToKey("stringerSpeed") + " : " + boardShape.stringerSpeed);
+            printWriter.println(BoardIO.nameToKey("stringerSpeedBot") + " : " + boardShape.stringerSpeedBot);
+            printWriter.println(BoardIO.nameToKey("regularSpeed") + " : " + boardShape.regularSpeed);
+            printWriter.println(BoardIO.nameToKey("railSpeed") + " : " + boardShape.getRailSpeed());
+            printWriter.println(BoardIO.nameToKey("topShoulderAngle") + " : " + boardShape.topShoulderAngle);
+            printWriter.println(BoardIO.nameToKey("botRailAngle") + " : " + boardShape.botRailAngle);
+            printWriter.println(BoardIO.nameToKey("railStartAngle") + " : " + boardShape.railStartAngle);
+            printWriter.println(BoardIO.nameToKey("topShoulderCuts") + " : " + boardShape.topShoulderCuts);
+            printWriter.println(BoardIO.nameToKey("botRailCuts") + " : " + boardShape.botRailCuts);
+            printWriter.println(BoardIO.nameToKey("noseAngelWings") + " : " + boardShape.getNoseAngelWings());
+            printWriter.println(BoardIO.nameToKey("tailAngelWings") + " : " + boardShape.getTailAngelWings());
+            printWriter.println(BoardIO.nameToKey("firstActuatorX") + " : " + boardShape.getFirstActuatorX());
+            printWriter.println(BoardIO.nameToKey("secondActuatorX") + " : " + boardShape.getSecondActuatorX());
+            printWriter.println(BoardIO.nameToKey("thirdActuatorX") + " : " + boardShape.getThirdActuatorX());
+            printWriter.println(BoardIO.nameToKey("doubleCutStringer") + " : " + boardShape.isDoubleCutStringer());
+            printWriter.println(BoardIO.nameToKey("dblCutTopY") + " : " + boardShape.getDblCutTopY());
+            printWriter.println(BoardIO.nameToKey("dblCutTopZ") + " : " + boardShape.getDblCutTopZ());
+            printWriter.println(BoardIO.nameToKey("dblCutBotY") + " : " + boardShape.getDblCutBotY());
+            printWriter.println(BoardIO.nameToKey("dblCutBotZ") + " : " + boardShape.getDblCutBotZ());
+            printWriter.println(BoardIO.nameToKey("awAngle") + " : " + boardShape.getAWAngle());
+            printWriter.println(BoardIO.nameToKey("awDist") + " : " + boardShape.getAWDist());
+            printWriter.println(BoardIO.nameToKey("botStringerExtraZ") + " : " + boardShape.getBotStringerExtraZ());
+            printWriter.println(BoardIO.nameToKey("safetyAngle") + " : " + boardShape.getSafetyAngle());
+            printWriter.println(BoardIO.nameToKey(HARD_RAIL_SLICE_AT_NOSE) + " : " + boardShape.getHardRail());
+            printWriter.println(BoardIO.nameToKey(MAX_X_SLOW_SPEED_ANGEL_WING) + " : " + boardShape.getTailWingMaxX());
+            printWriter.println(BoardIO.nameToKey(TAIL_WING_SPEED) + " : " + boardShape.getTailWingSpeed());
+            printWriter.println(BoardIO.nameToKey(BoardShapeField.BOT_RAIL_SPEED.board_id()) + " : " + boardShape.getRailSpeedBottom());
+            printWriter.println(BoardIO.nameToKey("currentUnits") + " : " + boardShape.currentUnits.ordinal());
+            printWriter.println(BoardIO.nameToKey("securityLevel") + " : " + boardShape.getSecurityLevel());
+            printWriter.println(BoardIO.nameToKey("showOriginalBoard") + " : " + boardShape.showOriginalBoard);
+            printWriter.println(BoardIO.nameToKey("checkSum") + " : " + BoardIO.getCheckSum(boardShape));
+            if (boardShape.rider != null) {
+                printWriter.println(BoardIO.nameToKey("rider") + " : " + boardShape.rider);
+            }
+            if (boardShape.comments != null) {
+                printWriter.println(BoardIO.nameToKey("comments") + " : " + boardShape.comments.replaceAll("\n", "\\\\n"));
+            }
+            if (boardShape.getFinType() != null) {
+                printWriter.println(BoardIO.nameToKey("finType") + " : " + boardShape.getFinType());
+            }
+            if (boardShape.getFins() != null) {
+                BoardIO.writeFins(boardShape.getFins(), printWriter);
+            }
+            if (boardShape.getStrut1() != null) {
+                printWriter.println(BoardIO.nameToKey("strut1") + " : " + ArrayString.toString((Object)boardShape.getStrut1()));
+            }
+            if (boardShape.getStrut2() != null) {
+                printWriter.println(BoardIO.nameToKey("strut2") + " : " + ArrayString.toString((Object)boardShape.getStrut2()));
+            }
+            if (boardShape.cutterStartPos != null) {
+                printWriter.println(BoardIO.nameToKey("cutterStartPos") + " : " + ArrayString.toString((Object)boardShape.cutterStartPos));
+            }
+            if (boardShape.getBlankTailPos() != null) {
+                printWriter.println(BoardIO.nameToKey("blankTailPos") + " : " + ArrayString.toString((Object)boardShape.getBlankTailPos()));
+            }
+            if (boardShape.getBoardStartPos() != null) {
+                printWriter.println(BoardIO.nameToKey("boardStartPos") + " : " + ArrayString.toString((Object)boardShape.getBoardStartPos()));
+            }
+            BoardIO.writeCurve("outline", (ICurve)boardShape.outline, printWriter);
+            BoardIO.writeCurve("bottomProfile", (ICurve)boardShape.bottomProfile, printWriter);
+            BoardIO.writeCurve("topProfile", (ICurve)boardShape.topProfile, printWriter);
+            BoardIO.writeSlices(boardShape.getSlices(), printWriter);
+        }
+        finally {
+            if (printWriter != null) {
+                printWriter.close();
+            }
+        }
+    }
+
+    public static String getCheckSum(BoardShape boardShape) {
+        int[] nArray = new int[70];
+        Random random = new Random();
+        for (int i = 0; i < nArray.length; ++i) {
+            nArray[i] = random.nextInt(10);
+        }
+        if (nArray[0] == 0) {
+            nArray[0] = 1;
+        }
+        nArray[11] = 3;
+        nArray[22] = 2;
+        nArray[33] = 4;
+        nArray[44] = 1;
+        nArray[55] = 9;
+        StringBuffer stringBuffer = new StringBuffer();
+        int n = 0;
+        while (n < nArray.length) {
+            stringBuffer.append(nArray[n]);
+            ++n;
+        }
+        return stringBuffer.toString();
+    }
+
+    public static void writeOutlineFile(ICurve iCurve, File file) throws IOException {
+        try (PrintWriter printWriter = BoardIO.getPrintWriter(file);){
+            BoardIO.writeCurve("outline", iCurve, printWriter);
+        }
+    }
+
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    public static void writeProfileFile(ICurve iCurve, ICurve iCurve2, File file) throws IOException {
+        try (PrintWriter printWriter = BoardIO.getPrintWriter(file);){
+            BoardIO.writeCurve("topProfile", iCurve, printWriter);
+            BoardIO.writeCurve("bottomProfile", iCurve2, printWriter);
+        }
+    }
+
+    public static void writeSliceFile(Slice slice, File file) throws IOException {
+        try (PrintWriter printWriter = BoardIO.getPrintWriter(file);){
+            BoardIO.writeSlice(slice, printWriter);
+        }
+    }
+
+    public static void writeCurve(String string, ICurve iCurve, PrintWriter printWriter) throws IOException {
+        printWriter.println(BoardIO.nameToKey(string) + " : (");
+        for (CurvePoint curvePoint : iCurve.getPoints()) {
+            printWriter.println(curvePoint.toString());
+        }
+        GuidePointSet guidePointSet = iCurve.getGuidePointSet();
+        if (guidePointSet != null) {
+            BoardIO.writeGuidePoints(guidePointSet, printWriter);
+        }
+        printWriter.println(")");
+    }
+
+    public static void writeFins(Fins fins, PrintWriter printWriter) throws IOException {
+        printWriter.println(BoardIO.nameToKey("fins") + " : " + fins.toString());
+    }
+
+    public static void writeGuidePoints(GuidePointSet guidePointSet, PrintWriter printWriter) throws IOException {
+        List list = guidePointSet.getPoints();
+        if (list == null) return;
+        if (list.size() == 0) {
+            return;
+        }
+        printWriter.println("gps : (");
+        Iterator iterator = list.iterator();
+        while (true) {
+            if (!iterator.hasNext()) {
+                printWriter.println(")");
+                return;
+            }
+            GuidePoint guidePoint = (GuidePoint)iterator.next();
+            printWriter.println(guidePoint.toString());
+        }
+    }
+
+    public static void writeSlices(List list, PrintWriter printWriter) throws IOException {
+        printWriter.println(BoardIO.nameToKey("slices") + " : (");
+        Iterator iterator = list.iterator();
+        while (true) {
+            if (!iterator.hasNext()) {
+                printWriter.println(")");
+                return;
+            }
+            Slice slice = (Slice)iterator.next();
+            BoardIO.writeSlice(slice, printWriter);
+        }
+    }
+
+    public static void writeSlice(Slice slice, PrintWriter printWriter) throws IOException {
+        printWriter.println("(" + BoardIO.nameToKey("slice") + " " + slice.getX() + " " + slice.railDividerPercentage + " " + slice.railLinePercentage);
+        for (CurvePoint curvePoint : slice.getPoints()) {
+            printWriter.println(curvePoint.toString());
+        }
+        GuidePointSet guidePointSet = slice.getGuidePointSet();
+        if (guidePointSet != null) {
+            BoardIO.writeGuidePoints(guidePointSet, printWriter);
+        }
+        printWriter.println(")");
+    }
+
+    public static String[] split(String string) {
+        return SEPARATOR.split(string.trim());
+    }
+
+    public static double[] readDoubleArray(String string) {
+        double[] dArray = null;
+        Matcher matcher = ARRAY_INSIDE.matcher(string);
+        if (!matcher.find()) return dArray;
+        String[] stringArray = COMMA.split(matcher.group(1));
+        dArray = new double[stringArray.length];
+        int n = 0;
+        while (n < stringArray.length) {
+            dArray[n] = Double.parseDouble(stringArray[n]);
+            ++n;
+        }
+        return dArray;
+    }
+
+    public static Fins readFins(String string, BoardShape boardShape) {
+        double[] dArray = BoardIO.readDoubleArray(string);
+        return new Fins(dArray, boardShape);
+    }
+
+    public static CurvePoint readCurvePoint(String string) throws BadBoardException {
+        double[] dArray = BoardIO.readDoubleArray(string);
+        if (dArray == null) {
+            throw new BadBoardException("bad formatting of a curve point");
+        }
+        String[] stringArray = SPACE.split(string);
+        int n = stringArray.length;
+        return new CurvePoint(dArray[0], dArray[1], dArray[2], dArray[3], dArray[4], dArray[5], stringArray[n - 2].equals("true"), stringArray[n - 1].equals("true"));
+    }
+
+    public static void readPointsList(BufferedReader bufferedReader, List list, List list2) throws IOException, BadBoardException {
+        String string = bufferedReader.readLine();
+        while (string != null) {
+            if (!BLANK_LINE.matcher(string).matches()) {
+                if (string.charAt(0) == ')') {
+                    return;
+                }
+                String[] stringArray = BoardIO.split(string);
+                if (stringArray[0].equals("gps")) {
+                    BoardIO.readGuidePointsList(bufferedReader, list2);
+                } else {
+                    list.add(BoardIO.readCurvePoint(string));
+                }
+            }
+            string = bufferedReader.readLine();
+        }
+    }
+
+    public static void readGuidePointsList(BufferedReader bufferedReader, List list) throws IOException {
+        String string = bufferedReader.readLine();
+        while (string != null) {
+            if (!BLANK_LINE.matcher(string).matches()) {
+                if (string.charAt(0) == ')') {
+                    return;
+                }
+                list.add(BoardIO.readGuidePoint(string));
+            }
+            string = bufferedReader.readLine();
+        }
+    }
+
+    public static GuidePointSet readGuidePoints(BufferedReader bufferedReader) throws IOException {
+        ArrayList<GuidePoint> arrayList = new ArrayList<GuidePoint>();
+        String string = bufferedReader.readLine();
+        while (string != null) {
+            if (!BLANK_LINE.matcher(string).matches()) {
+                if (string.charAt(0) == ')') {
+                    return new GuidePointSet(arrayList);
+                }
+                arrayList.add(BoardIO.readGuidePoint(string));
+            }
+            string = bufferedReader.readLine();
+        }
+        return new GuidePointSet(arrayList);
+    }
+
+    public static GuidePoint readGuidePoint(String string) {
+        double[] dArray = BoardIO.readDoubleArray(string);
+        return new GuidePoint(new Point2D.Double(dArray[0], dArray[1]));
+    }
+
+    public static List<Slice> readSlices(BufferedReader bufferedReader) throws IOException, BadBoardException {
+        boolean bl = false;
+        ArrayList<Slice> arrayList = new ArrayList<Slice>();
+        String string = bufferedReader.readLine();
+        while (string != null) {
+            if (!BLANK_LINE.matcher(string).matches()) {
+                if (string.charAt(0) == ')') {
+                    return arrayList;
+                }
+                arrayList.add(BoardIO.readSlice(string, bufferedReader));
+            }
+            string = bufferedReader.readLine();
+        }
+        return arrayList;
+    }
+
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    public static TailNoseCurve readOutlineFile(File file, double d) throws IOException, BadBoardException {
+        try (BufferedReader bufferedReader = null;){
+            BufferedReaderWithHead bufferedReaderWithHead = BoardIO.getBufferedReaderWithHead(new FileInputStream(file));
+            bufferedReader = bufferedReaderWithHead.getBufferedReader();
+            String string = bufferedReaderWithHead.getFirstLine();
+            while (string != null) {
+                String[] stringArray = BoardIO.split(string);
+                if (stringArray.length >= 2 && "outline".equals(BoardIO.keyToName(stringArray[0]))) {
+                    ArrayList arrayList = new ArrayList();
+                    ArrayList arrayList2 = new ArrayList();
+                    BoardIO.readPointsList(bufferedReader, arrayList, arrayList2);
+                    if (arrayList2.size() != 0) {
+                        TailNoseCurve tailNoseCurve = new TailNoseCurve(d, arrayList, 0, arrayList2);
+                        return tailNoseCurve;
+                    }
+                    TailNoseCurve tailNoseCurve = new TailNoseCurve(d, arrayList, 0);
+                    return tailNoseCurve;
+                }
+                string = bufferedReader.readLine();
+            }
+            string = null;
+            return string;
+        }
+    }
+
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    public static TailNoseCurve readOutlineFile(File file) throws IOException, BadBoardException {
+        BufferedReader bufferedReader = null;
+        double d = 0.0;
+        ArrayList arrayList = new ArrayList();
+        ArrayList arrayList2 = new ArrayList();
+        try {
+            BufferedReaderWithHead bufferedReaderWithHead = BoardIO.getBufferedReaderWithHead(new FileInputStream(file));
+            bufferedReader = bufferedReaderWithHead.getBufferedReader();
+            String string = bufferedReaderWithHead.getFirstLine();
+            while (string != null) {
+                String[] stringArray = BoardIO.split(string);
+                if (stringArray.length >= 2) {
+                    if (BoardShapeField.OUTlINE.board_id().equals(BoardIO.keyToName(stringArray[0]))) {
+                        BoardIO.readPointsList(bufferedReader, arrayList, arrayList2);
+                    } else if (BoardShapeField.LENGTH.board_id().equals(BoardIO.keyToName(stringArray[0]))) {
+                        d = Double.parseDouble(stringArray[1]);
+                    }
+                }
+                string = bufferedReader.readLine();
+            }
+        }
+        finally {
+            if (bufferedReader != null) {
+                bufferedReader.close();
+            }
+        }
+        assert (d > 0.0);
+        if (arrayList2.size() == 0) return new TailNoseCurve(d, arrayList, 0);
+        return new TailNoseCurve(d, arrayList, 0, arrayList2);
+    }
+
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    public static TailNoseCurve[] readProfileFile(File file, double d) throws IOException, BadBoardException {
+        TailNoseCurve[] tailNoseCurveArray = new TailNoseCurve[2];
+        try (BufferedReader bufferedReader = null;){
+            BufferedReaderWithHead bufferedReaderWithHead = BoardIO.getBufferedReaderWithHead(new FileInputStream(file));
+            bufferedReader = bufferedReaderWithHead.getBufferedReader();
+            Object object = bufferedReaderWithHead.getFirstLine();
+            while (object != null) {
+                String[] stringArray = BoardIO.split((String)object);
+                if (stringArray.length >= 2) {
+                    if ("topProfile".equals(BoardIO.keyToName(stringArray[0]))) {
+                        var8_7 = new ArrayList();
+                        var9_8 = new ArrayList();
+                        BoardIO.readPointsList(bufferedReader, var8_7, var9_8);
+                        tailNoseCurveArray[0] = var9_8.size() != 0 ? new TailNoseCurve(d, var8_7, 1, var9_8) : new TailNoseCurve(d, var8_7, 1);
+                    } else if ("bottomProfile".equals(BoardIO.keyToName(stringArray[0]))) {
+                        var8_7 = new ArrayList();
+                        var9_8 = new ArrayList();
+                        BoardIO.readPointsList(bufferedReader, var8_7, var9_8);
+                        tailNoseCurveArray[1] = var9_8.size() != 0 ? new TailNoseCurve(d, var8_7, 1, var9_8) : new TailNoseCurve(d, var8_7, 1);
+                    }
+                }
+                object = bufferedReader.readLine();
+            }
+            object = tailNoseCurveArray;
+            return object;
+        }
+    }
+
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    public static Slice readSliceFile(File file) throws IOException, BadBoardException {
+        try (BufferedReader bufferedReader = null;){
+            BufferedReaderWithHead bufferedReaderWithHead = BoardIO.getBufferedReaderWithHead(new FileInputStream(file));
+            bufferedReader = bufferedReaderWithHead.getBufferedReader();
+            Slice slice = BoardIO.readSlice(bufferedReaderWithHead.getFirstLine(), bufferedReader);
+            return slice;
+        }
+    }
+
+    public static Slice readSlice(String string, BufferedReader bufferedReader) throws IOException, BadBoardException {
+        String[] stringArray = SPACE.split(string);
+        double d = Double.parseDouble(stringArray[1]);
+        ArrayList arrayList = new ArrayList();
+        ArrayList arrayList2 = new ArrayList();
+        BoardIO.readPointsList(bufferedReader, arrayList, arrayList2);
+        Slice slice = arrayList2.size() != 0 ? new Slice(d, arrayList, arrayList2) : new Slice(d, arrayList);
+        if (stringArray.length != 4) return slice;
+        slice.railDividerPercentage = Double.parseDouble(stringArray[2]);
+        slice.railLinePercentage = Double.parseDouble(stringArray[3]);
+        return slice;
+    }
+
+    public static BoardShape readBoardFile(InputStream inputStream) throws IOException, BadBoardException {
+        return BoardIO.readBoardFileAux(inputStream);
+    }
+
+    public static BoardShape readBoardFile(InputStream inputStream, String string) throws IOException, BadBoardException {
+        return BoardIO.readBoardFileAux(inputStream, string);
+    }
+
+    public static BoardShape readBoardFile(String string) throws IOException, BadBoardException {
+        return BoardIO.readBoardFile(new File(string));
+    }
+
+    public static BoardShape safeReadBoardFile(File file) {
+        BoardShape boardShape = null;
+        try {
+            boardShape = BoardIO.readBoardFile(file);
+        }
+        catch (Exception exception) {
+            Aku.trace((Exception)exception);
+            exception.printStackTrace();
+        }
+        return boardShape;
+    }
+
+    /*
+     * WARNING - Removed try catching itself - possible behaviour change.
+     */
+    public static BoardShape readBoardFile(File file) throws IOException, BadBoardException {
+        try (FileInputStream fileInputStream = null;){
+            fileInputStream = new FileInputStream(file);
+            BoardShape boardShape = BoardIO.readBoardFileAux(fileInputStream);
+            boardShape.insureEndSlicesAreOK();
+            BoardShape boardShape2 = boardShape;
+            return boardShape2;
+        }
+    }
+
+    private static BufferedReaderWithHead getBufferedReaderWithHead(InputStream inputStream) throws IOException {
+        return BoardIO.getBufferedReaderWithHead(inputStream, null);
+    }
+
+    private static BufferedReaderWithHead getBufferedReaderWithHead(InputStream inputStream, String string) throws IOException {
+        int n;
+        boolean bl;
+        char[] cArray = new char[7];
+        for (bl = false; bl < 7 != 0; bl += 1) {
+            cArray[bl] = (char)inputStream.read();
+        }
+        bl = BoardIO.isOldFormat(cArray);
+        if (bl) {
+            return new BufferedReaderWithHead(cArray, new BufferedReader(new InputStreamReader(inputStream)), bl);
+        }
+        char[] cArray2 = new char[9];
+        for (n = 0; n < 7; ++n) {
+            cArray2[n] = cArray[n];
+        }
+        cArray2[7] = (char)inputStream.read();
+        cArray2[8] = (char)inputStream.read();
+        for (n = 0; n < 3; ++n) {
+            inputStream.read();
+        }
+        String string2 = new String(cArray2);
+        if (string != null) {
+            string2 = string;
+        }
+        KeyPair keyPair = BoardIO.getKeyPair(string2);
+        BoardIO.initCipher(keyPair, true);
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new CipherInputStream(inputStream, keyPair.getCipher())));
+        return new BufferedReaderWithHead(cArray, bufferedReader, bl);
+    }
+
+    private static BoardShape readBoardFileAux(InputStream inputStream) throws IOException, BadBoardException {
+        return BoardIO.readBoardFileAux(inputStream, null);
+    }
+
+    private static synchronized BoardShape readBoardFileAux(InputStream inputStream, String string) throws IOException, BadBoardException {
+        try (BufferedReader bufferedReader = null;){
+            String string2;
+            Fins fins;
+            double d = 0.0;
+            double d2 = 0.0;
+            double[] dArray = null;
+            double[] dArray2 = null;
+            BufferedReaderWithHead bufferedReaderWithHead = string == null ? BoardIO.getBufferedReaderWithHead(inputStream) : BoardIO.getBufferedReaderWithHead(inputStream, string);
+            bufferedReader = bufferedReaderWithHead.getBufferedReader();
+            BoardShape boardShape = new BoardShape();
+            double[] dArray3 = new double[]{};
+            if (string != null) {
+                boardShape.setPassword(string);
+            }
+            String string3 = bufferedReaderWithHead.getFirstLine();
+            while (string3 != null) {
+                fins = BoardIO.split(string3);
+                if (((String[])fins).length >= 2) {
+                    string2 = BoardIO.keyToName((String)fins[0]);
+                    if ("checkSum".equals(string2)) {
+                        boardShape.setCheckSum((String)fins[1]);
+                    } else if ("fins".equals(string2)) {
+                        dArray3 = BoardIO.readDoubleArray((String)fins[1]);
+                    } else if ("length".equals(string2)) {
+                        boardShape.setLength(Double.parseDouble((String)fins[1]));
+                    } else if ("curvLength".equals(string2)) {
+                        boardShape.curvLength = Double.parseDouble((String)fins[1]);
+                    } else if ("thickness".equals(string2)) {
+                        boardShape.thickness = Double.parseDouble((String)fins[1]);
+                    } else if ("width".equals(string2)) {
+                        boardShape.width = Double.parseDouble((String)fins[1]);
+                    } else if ("noseRocker".equals(string2)) {
+                        boardShape.noseRocker = Double.parseDouble((String)fins[1]);
+                    } else if ("noseRockerOneFoot".equals(string2)) {
+                        boardShape.noseRockerOneFoot = Double.parseDouble((String)fins[1]);
+                    } else if ("length".equals(string2)) {
+                        boardShape.setLength(Double.parseDouble((String)fins[1]));
+                    } else if ("tailRocker".equals(string2)) {
+                        boardShape.tailRocker = Double.parseDouble((String)fins[1]);
+                    } else if (!"tailRockerOneFoot".equals(string2)) {
+                        if ("version".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.version = matcher.group(1);
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("name".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.setName(matcher.group(1));
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("author".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.setAuthor(matcher.group(1));
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("description".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.description = matcher.group(1);
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("rider".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.rider = matcher.group(1);
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("modelName".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.setModelName(matcher.group(1));
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("finType".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.setFinType(matcher.group(1));
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("comments".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.comments = matcher.group(1).replaceAll("\\\\n", "\n");
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("blankFile".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.setBlankFileName(matcher.group(1));
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("machVersion".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.machVersion = matcher.group(1);
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("machOutputFolder".equals(string2)) {
+                            Matcher matcher = STRING_VALUE.matcher(string3);
+                            if (matcher.matches()) {
+                                boardShape.machOutputFolder = matcher.group(1);
+                            } else {
+                                Aku.log.warning("match failed!!!");
+                            }
+                        } else if ("akubirdBoardID".equals(string2)) {
+                            boardShape.setAkubirdBoardID(Integer.parseInt((String)fins[1]));
+                        } else if ("akubirdModelID".equals(string2)) {
+                            boardShape.setAkubirdModelID(Integer.parseInt((String)fins[1]));
+                        } else if ("akubirdLastUpdate".equals(string2)) {
+                            boardShape.setAkubirdLastUpdate(Long.parseLong((String)fins[1]));
+                        } else if ("topCuts".equals(string2)) {
+                            boardShape.topCuts = Integer.parseInt((String)fins[1]);
+                        } else if ("bottomCuts".equals(string2)) {
+                            boardShape.bottomCuts = Integer.parseInt((String)fins[1]);
+                        } else if ("railCuts".equals(string2)) {
+                            boardShape.railCuts = Integer.parseInt((String)fins[1]);
+                        } else if ("cutterDiam".equals(string2)) {
+                            boardShape.cutterDiam = Double.parseDouble((String)fins[1]);
+                        } else if ("cutterThickness".equals(string2)) {
+                            boardShape.cutterThickness = Double.parseDouble((String)fins[1]);
+                        } else if ("blankPivot".equals(string2)) {
+                            d = Double.parseDouble((String)fins[1]);
+                        } else if ("boardPivot".equals(string2)) {
+                            d2 = Double.parseDouble((String)fins[1]);
+                        } else if ("maxAngle".equals(string2)) {
+                            boardShape.maxAngle = Double.parseDouble((String)fins[1]);
+                        } else if ("noseMargin".equals(string2)) {
+                            boardShape.noseMargin = Double.parseDouble((String)fins[1]);
+                        } else if ("tailMargin".equals(string2)) {
+                            boardShape.tailMargin = Double.parseDouble((String)fins[1]);
+                        } else if ("noseLength".equals(string2)) {
+                            boardShape.noseLength = Double.parseDouble((String)fins[1]);
+                        } else if ("tailLength".equals(string2)) {
+                            boardShape.tailLength = Double.parseDouble((String)fins[1]);
+                        } else if ("deltaXNose".equals(string2)) {
+                            boardShape.deltaXNose = Double.parseDouble((String)fins[1]);
+                        } else if ("deltaXTail".equals(string2)) {
+                            boardShape.deltaXTail = Double.parseDouble((String)fins[1]);
+                        } else if ("deltaXMiddle".equals(string2)) {
+                            boardShape.deltaXMiddle = Double.parseDouble((String)fins[1]);
+                        } else if ("toTailSpeed".equals(string2)) {
+                            boardShape.toTailSpeed = Integer.parseInt((String)fins[1]);
+                        } else if ("stringerSpeed".equals(string2)) {
+                            boardShape.stringerSpeed = Integer.parseInt((String)fins[1]);
+                        } else if ("stringerSpeedBot".equals(string2)) {
+                            boardShape.stringerSpeedBot = Integer.parseInt((String)fins[1]);
+                        } else if ("regularSpeed".equals(string2)) {
+                            boardShape.regularSpeed = Integer.parseInt((String)fins[1]);
+                        } else if ("railSpeed".equals(string2)) {
+                            boardShape.setRailSpeed(Integer.parseInt((String)fins[1]));
+                        } else if ("topShoulderAngle".equals(string2)) {
+                            boardShape.topShoulderAngle = Double.parseDouble((String)fins[1]);
+                        } else if ("botRailAngle".equals(string2)) {
+                            boardShape.botRailAngle = Double.parseDouble((String)fins[1]);
+                        } else if ("railStartAngle".equals(string2)) {
+                            boardShape.railStartAngle = Double.parseDouble((String)fins[1]);
+                        } else if ("topShoulderCuts".equals(string2)) {
+                            boardShape.topShoulderCuts = Integer.parseInt((String)fins[1]);
+                        } else if ("botRailCuts".equals(string2)) {
+                            boardShape.botRailCuts = Integer.parseInt((String)fins[1]);
+                        } else if ("strut1".equals(string2)) {
+                            boardShape.setStrut1(BoardIO.readDoubleArray((String)fins[1]));
+                        } else if ("strut2".equals(string2)) {
+                            double[] dArray4 = BoardIO.readDoubleArray((String)fins[1]);
+                            boardShape.setStrut2(dArray4);
+                        } else if ("cutterStartPos".equals(string2)) {
+                            boardShape.cutterStartPos = BoardIO.readDoubleArray((String)fins[1]);
+                        } else if ("blankTailPos".equals(string2)) {
+                            dArray2 = BoardIO.readDoubleArray((String)fins[1]);
+                        } else if ("boardStartPos".equals(string2)) {
+                            dArray = BoardIO.readDoubleArray((String)fins[1]);
+                        } else if ("showOriginalBoard".equals(string2)) {
+                            boardShape.showOriginalBoard = Boolean.valueOf((String)fins[1]);
+                        } else if ("noseAngelWings".equals(string2)) {
+                            boardShape.setNoseAngelWings(Boolean.valueOf((String)fins[1]).booleanValue());
+                        } else if ("tailAngelWings".equals(string2)) {
+                            boardShape.setTailAngelWings(Boolean.valueOf((String)fins[1]).booleanValue());
+                        } else if ("firstActuatorX".equals(string2)) {
+                            boardShape.setFirstActuatorX(Double.parseDouble((String)fins[1]));
+                        } else if ("secondActuatorX".equals(string2)) {
+                            boardShape.setSecondActuatorX(Double.parseDouble((String)fins[1]));
+                        } else if ("thirdActuatorX".equals(string2)) {
+                            boardShape.setThirdActuatorX(Double.parseDouble((String)fins[1]));
+                        } else if ("doubleCutStringer".equals(string2)) {
+                            boardShape.setDoubleCutStringer(Boolean.parseBoolean((String)fins[1]));
+                        } else if ("dblCutTopY".equals(string2)) {
+                            boardShape.setDblCutTopY(Double.parseDouble((String)fins[1]));
+                        } else if ("dblCutTopZ".equals(string2)) {
+                            boardShape.setDblCutTopZ(Double.parseDouble((String)fins[1]));
+                        } else if ("dblCutBotY".equals(string2)) {
+                            boardShape.setDblCutBotY(Double.parseDouble((String)fins[1]));
+                        } else if ("dblCutBotZ".equals(string2)) {
+                            boardShape.setDblCutBotZ(Double.parseDouble((String)fins[1]));
+                        } else if (BoardShapeField.AW_ANGLE.board_id().equals(string2)) {
+                            boardShape.setAWAngle(Double.parseDouble((String)fins[1]));
+                        } else if (BoardShapeField.AW_DIST.board_id().equals(string2)) {
+                            boardShape.setAWDist(Double.parseDouble((String)fins[1]));
+                        } else if ("botStringerExtraZ".equals(string2)) {
+                            boardShape.setBotStringerExtraZ(Double.parseDouble((String)fins[1]));
+                        } else if ("safetyAngle".equals(string2)) {
+                            boardShape.setSafetyAngle(Double.parseDouble((String)fins[1]));
+                        } else if (!"useOldController".equals(string2)) {
+                            if (HARD_RAIL_SLICE_AT_NOSE.equals(string2)) {
+                                boardShape.setHardRail(Boolean.parseBoolean((String)fins[1]));
+                            } else if (MAX_X_SLOW_SPEED_ANGEL_WING.equals(string2)) {
+                                boardShape.setTailWingMaxX(Double.parseDouble((String)fins[1]));
+                            } else if (TAIL_WING_SPEED.equals(string2)) {
+                                boardShape.setTailWingSpeed(Integer.parseInt((String)fins[1]));
+                            } else if (BoardShapeField.BOT_RAIL_SPEED.board_id().equals(string2)) {
+                                boardShape.setRailSpeedBottom(Integer.parseInt((String)fins[1]));
+                            } else if ("outline".equals(string2)) {
+                                ArrayList arrayList = new ArrayList();
+                                var16_30 = new ArrayList();
+                                BoardIO.readPointsList(bufferedReader, arrayList, var16_30);
+                                boardShape.outline = var16_30.size() != 0 ? new TailNoseCurve(boardShape.getLength(), arrayList, 0, var16_30) : new TailNoseCurve(boardShape.getLength(), arrayList, 0);
+                            } else if ("bottomProfile".equals(string2)) {
+                                ArrayList arrayList = new ArrayList();
+                                var16_30 = new ArrayList();
+                                BoardIO.readPointsList(bufferedReader, arrayList, var16_30);
+                                boardShape.bottomProfile = var16_30.size() != 0 ? new TailNoseCurve(boardShape.getLength(), arrayList, 1, var16_30) : new TailNoseCurve(boardShape.getLength(), arrayList, 1);
+                            } else if ("topProfile".equals(string2)) {
+                                ArrayList arrayList = new ArrayList();
+                                var16_30 = new ArrayList();
+                                BoardIO.readPointsList(bufferedReader, arrayList, var16_30);
+                                boardShape.topProfile = var16_30.size() != 0 ? new TailNoseCurve(boardShape.getLength(), arrayList, 1, var16_30) : new TailNoseCurve(boardShape.getLength(), arrayList, 1);
+                            } else if ("slices".equals(string2)) {
+                                boardShape.slices = BoardIO.readSlices(bufferedReader);
+                            } else if ("securityLevel".equals(string2)) {
+                                boardShape.setSecurityLevel(Integer.parseInt((String)fins[1]));
+                            } else if ("currentUnits".equals(string2)) {
+                                int n = Integer.parseInt((String)fins[1]);
+                                switch (n) {
+                                    case 0: {
+                                        boardShape.currentUnits = UnitType.CM;
+                                        break;
+                                    }
+                                    case 1: {
+                                        boardShape.currentUnits = UnitType.MM;
+                                        break;
+                                    }
+                                    case 2: {
+                                        boardShape.currentUnits = UnitType.FT_IN;
+                                        break;
+                                    }
+                                    case 3: {
+                                        boardShape.currentUnits = UnitType.FT;
+                                        break;
+                                    }
+                                    case 4: {
+                                        boardShape.currentUnits = UnitType.IN;
+                                        break;
+                                    }
+                                    case 5: {
+                                        boardShape.currentUnits = UnitType.FT_IN_DEC;
+                                        break;
+                                    }
+                                    case 6: {
+                                        boardShape.currentUnits = UnitType.IN_DEC;
+                                        break;
+                                    }
+                                    case 7: {
+                                        boardShape.currentUnits = UnitType.FT_MM;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                Aku.log.warning("Unrecognized BoardIO property: " + string2);
+                            }
+                        }
+                    }
+                }
+                string3 = bufferedReader.readLine();
+            }
+            fins = new Fins(dArray3, boardShape);
+            boardShape.setFins(fins);
+            boardShape.setBlankPivot(d);
+            boardShape.setBlankTailPos(dArray2);
+            boardShape.setBoardPosPivot(dArray, d2);
+            if (!boardShape.isValid()) {
+                throw new BadBoardException("Invalid board");
+            }
+            if (!boardShape.validCheckSum()) {
+                throw new BadBoardException("Bad checksum");
+            }
+            boardShape.adjustSlices();
+            boardShape.syncProfiles((ICurve)boardShape.getBottomProfile(), (ICurve)boardShape.getTopProfile());
+            boardShape.adjustBottom();
+            boardShape.insureEndSlicesAreOK();
+            boardShape.validCheckSum();
+            string2 = boardShape;
+            return string2;
+        }
+    }
+
+    public static void main(String[] stringArray) throws Exception, IOException, BadBoardException, BadS3dFileException, BadMaxSurfFileException {
+        File file = null;
+        if (stringArray.length == 0) {
+            file = new File("/tmp/66tt.brd");
+        }
+        String string = file.getCanonicalPath();
+        File file2 = new File(string.substring(0, string.length() - 4) + "OldFormat.brd");
+        BoardShape boardShape = BoardIO.readBoardFile(file);
+        BoardIO.writeBoardFileOldFormat(boardShape, file2);
+    }
+
+    static {
+        fileVersion = "%BRD-1.02s00";
+        keyPairs = Collections.synchronizedList(new ArrayList());
+        newFormat = false;
+        version = 31L;
+        nextVersion = 32L;
+        double d = Math.random();
+        version = Math.round(100000.0 * d);
+        BigInteger bigInteger = BigInteger.valueOf(version);
+        BigInteger bigInteger2 = BigInteger.valueOf(52963L);
+        BigInteger bigInteger3 = BigInteger.valueOf(2098559914981L);
+        BigInteger bigInteger4 = bigInteger.modPow(bigInteger2, bigInteger3);
+        nextVersion = bigInteger4.longValue();
+        BoardIO.map("p01", "length");
+        BoardIO.map("p02", "curvLength");
+        BoardIO.map("p03", "thickness");
+        BoardIO.map("p04", "width");
+        BoardIO.map("p05", "noseRocker");
+        BoardIO.map("p06", "tailRocker");
+        BoardIO.map("p07", "version");
+        BoardIO.map("p08", "name");
+        BoardIO.map("p09", "author");
+        BoardIO.map("p10", "blankFile");
+        BoardIO.map("p11", "topCuts");
+        BoardIO.map("p12", "bottomCuts");
+        BoardIO.map("p13", "railCuts");
+        BoardIO.map("p14", "cutterDiam");
+        BoardIO.map("p15", "blankPivot");
+        BoardIO.map("p16", "boardPivot");
+        BoardIO.map("p17", "maxAngle");
+        BoardIO.map("p18", "noseMargin");
+        BoardIO.map("p99", "tailMargin");
+        BoardIO.map("p19", "noseLength");
+        BoardIO.map("p20", "tailLength");
+        BoardIO.map("p21", "deltaXNose");
+        BoardIO.map("p22", "deltaXTail");
+        BoardIO.map("p23", "deltaXMiddle");
+        BoardIO.map("p24", "toTailSpeed");
+        BoardIO.map("p25", "stringerSpeed");
+        BoardIO.map("p26", "regularSpeed");
+        BoardIO.map("p27", "strut1");
+        BoardIO.map("p28", "strut2");
+        BoardIO.map("p29", "cutterStartPos");
+        BoardIO.map("p30", "blankTailPos");
+        BoardIO.map("p31", "boardStartPos");
+        BoardIO.map("p32", "outline");
+        BoardIO.map("p33", "bottomProfile");
+        BoardIO.map("p34", "topProfile");
+        BoardIO.map("p35", "slices");
+        BoardIO.map("p36", "slice");
+        BoardIO.map("p37", "cp");
+        BoardIO.map("p38", "currentUnits");
+        BoardIO.map("p39", "noseRockerOneFoot");
+        BoardIO.map("p40", "tailRockerOneFoot");
+        BoardIO.map("p41", "showOriginalBoard");
+        BoardIO.map("p42", "stringerSpeedBot");
+        BoardIO.map("p43", "machOutputFolder");
+        BoardIO.map("p44", "topShoulderAngle");
+        BoardIO.map("p45", "author");
+        BoardIO.map("p46", "topShoulderCuts");
+        BoardIO.map("p47", "botRailCuts");
+        BoardIO.map("p48", "rider");
+        BoardIO.map("p49", "comments");
+        BoardIO.map("p50", "fins");
+        BoardIO.map("p51", "finType");
+        BoardIO.map("p52", "description");
+        BoardIO.map("p53", "securityLevel");
+        BoardIO.map("p54", "modelName");
+        BoardIO.map("p55", "akubirdBoardID");
+        BoardIO.map("p56", "akubirdModelID");
+        BoardIO.map("p57", "akubirdLastUpdate");
+        BoardIO.map("p58", "checkSum");
+        BoardIO.map("p59", "cutterThickness");
+        BoardIO.map("p60", "botRailAngle");
+        BoardIO.map("p61", "railStartAngle");
+        BoardIO.map("p62", "firstActuatorX");
+        BoardIO.map("p63", "secondActuatorX");
+        BoardIO.map("p64", "thirdActuatorX");
+        BoardIO.map("p65", "doubleCutStringer");
+        BoardIO.map("p66", "dblCutTopY");
+        BoardIO.map("p67", "dblCutTopZ");
+        BoardIO.map("p68", "dblCutBotY");
+        BoardIO.map("p69", "dblCutBotZ");
+        BoardIO.map("p70", "railSpeed");
+        BoardIO.map("p80", BoardShapeField.AW_ANGLE.board_id());
+        BoardIO.map("p81", BoardShapeField.AW_DIST.board_id());
+        BoardIO.map("p82", "botStringerExtraZ");
+        BoardIO.map("p83", "safetyAngle");
+        BoardIO.map("p84", "useOldController");
+        BoardIO.map("p85", HARD_RAIL_SLICE_AT_NOSE);
+        BoardIO.map("p86", MAX_X_SLOW_SPEED_ANGEL_WING);
+        BoardIO.map("p87", TAIL_WING_SPEED);
+        BoardIO.map("p88", BoardShapeField.BOT_RAIL_SPEED.board_id());
+        BoardIO.map("p100", "railDivider");
+        BoardIO.map("p101", "railLine");
+    }
+}
+
+--- END OF FILE: ./hui/surf/board/BoardIO.java ---
+
+--- START OF FILE: ./hui/surf/board/ConcurrentBoardIO.java ---
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  hui.surf.board.ConcurrentBoardIO$ReadManagedBoardThread
+ *  hui.surf.core.Aku
+ *  hui.surf.dm.core.ManagedBoard
+ */
+package hui.surf.board;
+
+import hui.surf.board.ConcurrentBoardIO;
+import hui.surf.core.Aku;
+import hui.surf.dm.core.ManagedBoard;
+import java.io.File;
+import java.util.Vector;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+public class ConcurrentBoardIO {
+    public static final int MAX_THREADS_DEFAULT = 4;
+    ExecutorService pool;
+    CountDownLatch doneSignal;
+    private long waitForThreadCompletion = 30000L;
+
+    public ConcurrentBoardIO() {
+        Runtime runtime = Runtime.getRuntime();
+        int n = runtime.availableProcessors();
+        int n2 = n > 2 ? n - 1 : n;
+        Aku.log.info("Creating concurrent board IO with " + n2 + " threads.");
+        this.pool = Executors.newFixedThreadPool(n2);
+    }
+
+    public Vector<ManagedBoard> readManagedBoards(File[] fileArray, boolean bl) {
+        int n = fileArray.length;
+        this.doneSignal = new CountDownLatch(n);
+        Vector<ManagedBoard> vector = new Vector<ManagedBoard>();
+        Runnable[] runnableArray = new Runnable[n];
+        for (int i = 0; i < n; ++i) {
+            ReadManagedBoardThread readManagedBoardThread = new ReadManagedBoardThread(this, fileArray[i], i, n, this.doneSignal, vector, bl);
+            runnableArray[i] = readManagedBoardThread;
+            this.pool.execute((Runnable)readManagedBoardThread);
+        }
+        try {
+            this.doneSignal.await(this.waitForThreadCompletion, TimeUnit.MILLISECONDS);
+        }
+        catch (InterruptedException interruptedException) {
+            Aku.log.warning("Unable to read ManagedBoards: " + interruptedException.getLocalizedMessage());
+        }
+        this.pool.shutdown();
+        return vector;
+    }
+}
+
+--- END OF FILE: ./hui/surf/board/ConcurrentBoardIO.java ---
+
+--- START OF FILE: ./hui/surf/io/readers/aku/BRDBoardReader.java ---
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  hui.surf.board.BadBoardException
+ *  hui.surf.board.BoardIO
+ *  hui.surf.board.BoardShape
+ *  hui.surf.io.readers.BoardReader
+ */
+package hui.surf.io.readers.aku;
+
+import hui.surf.board.BadBoardException;
+import hui.surf.board.BoardIO;
+import hui.surf.board.BoardShape;
+import hui.surf.io.readers.BoardReader;
+import java.io.IOException;
+import java.io.InputStream;
+
+public class BRDBoardReader
+extends BoardReader {
+    public BoardShape read(InputStream inputStream) throws BadBoardException, IOException {
+        return this.read(inputStream, null);
+    }
+
+    public BoardShape read(InputStream inputStream, String string) throws BadBoardException, IOException {
+        return BoardIO.readBoardFile((InputStream)inputStream);
+    }
+}
+
+--- END OF FILE: ./hui/surf/io/readers/aku/BRDBoardReader.java ---
+
+

@@ -894,10 +894,10 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     parsed_model.show_deck_shoulder = model.show_deck_shoulder;
                     parsed_model.show_cross_sections = model.show_cross_sections;
                     parsed_model.show_curvature = model.show_curvature;
-                                        parsed_model.show_mri_view = model.show_mri_view;
+                    parsed_model.show_mri_view = model.show_mri_view;
                     parsed_model.mri_slice_position = model.mri_slice_position;
 
-                    // BRD files do not contain 3D cross-sections. 
+                    // BRD files do not contain 3D cross-sections.
                     // We preserve the current cross-sections to allow 3D mesh generation.
                     if parsed_model.cross_sections.is_empty() {
                         parsed_model.cross_sections = model.cross_sections.clone();

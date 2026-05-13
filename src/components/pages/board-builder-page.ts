@@ -138,10 +138,10 @@ export class BoardBuilderPage extends LitElement {
     try {
       const buffer = await file.arrayBuffer();
       
-      if (file.name.toLowerCase().endsWith('.brd')) {
+            if (file.name.toLowerCase().endsWith('.brd')) {
         this._proposeAction({
           type: "IMPORT_BRD",
-          bytes: new Uint8Array(buffer)
+          bytes: Array.from(new Uint8Array(buffer))
         });
       } else {
         // S3DX files are often ISO-8859-1 encoded.
