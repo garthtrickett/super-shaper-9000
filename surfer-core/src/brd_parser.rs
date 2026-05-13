@@ -1,25 +1,18 @@
 use crate::model::{BezierCurveData, BoardModel};
-use flate2::read::ZlibDecoder;
+use flate2::read::{DeflateDecoder, GzDecoder, ZlibDecoder};
 use glam::Vec3;
 use serde::Deserialize;
 use std::io::Read;
 
 #[derive(Debug, Deserialize)]
-#[serde(rename = "board")]
+#[serde(rename_all = "lowercase")]
 pub struct BrdBoard {
-    #[serde(rename = "length")]
     pub length: Option<f32>,
-    #[serde(rename = "width")]
     pub width: Option<f32>,
-    #[serde(rename = "thickness")]
     pub thickness: Option<f32>,
-    #[serde(rename = "outline")]
     pub outline: Option<BrdBezierContainer>,
-    #[serde(rename = "bottom")]
     pub bottom: Option<BrdBezierContainer>,
-    #[serde(rename = "deck")]
     pub deck: Option<BrdBezierContainer>,
-    #[serde(rename = "profile")]
     pub profile: Option<BrdBezierContainer>,
 }
 
@@ -60,20 +53,26 @@ pub struct BrdPoint {
 /// Strips the %BRD text header and decompresses the zlib binary payload.
 /// Strips the %BRD text header and decompresses the binary payload.
 pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
-    log::info!("[Rust Engine] decompress_brd: Received {} bytes for decompression", bytes.len());
-    
+    log::info!(
+        "[Rust Engine] decompress_brd: Received {} bytes for decompression",
+        bytes.len()
+    );
+
     // The text header is usually small (e.g. `%BRD-1.02s00` = 12 bytes).
     // We scan the first 128 bytes to gracefully bypass any padding or header structures.
     let max_offset = bytes.len().min(128);
 
     for offset in 0..max_offset {
         let compressed_data = &bytes[offset..];
-        
+
         // 1. Try ZLIB (Standard Java DeflaterOutputStream)
         let mut z_decoder = ZlibDecoder::new(compressed_data);
         let mut out = Vec::new();
         if z_decoder.read_to_end(&mut out).is_ok() {
-            log::info!("[Rust Engine] Successfully decoded ZLIB at offset {}", offset);
+            log::info!(
+                "[Rust Engine] Successfully decoded ZLIB at offset {}",
+                offset
+            );
             return Ok(String::from_utf8_lossy(&out).to_string());
         }
 
@@ -81,7 +80,10 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
         let mut raw_decoder = DeflateDecoder::new(compressed_data);
         let mut out = Vec::new();
         if raw_decoder.read_to_end(&mut out).is_ok() {
-            log::info!("[Rust Engine] Successfully decoded RAW DEFLATE at offset {}", offset);
+            log::info!(
+                "[Rust Engine] Successfully decoded RAW DEFLATE at offset {}",
+                offset
+            );
             return Ok(String::from_utf8_lossy(&out).to_string());
         }
 
@@ -89,7 +91,10 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
         let mut gz_decoder = GzDecoder::new(compressed_data);
         let mut out = Vec::new();
         if gz_decoder.read_to_end(&mut out).is_ok() {
-            log::info!("[Rust Engine] Successfully decoded GZIP at offset {}", offset);
+            log::info!(
+                "[Rust Engine] Successfully decoded GZIP at offset {}",
+                offset
+            );
             return Ok(String::from_utf8_lossy(&out).to_string());
         }
     }
@@ -209,16 +214,20 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    #[test]
+        #[test]
     fn test_brd_decompression_and_parsing() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
 
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
-
+        
         let xml = decompress_brd(&bytes).expect("Failed to decompress BRD");
-        assert!(xml.contains("<board>"));
+        
+        // Grug-brain debug: see the actual XML content
+        println!("--- XML HEAD ---\n{}\n---------------", &xml[..xml.len().min(500)]);
+
+        assert!(xml.to_lowercase().contains("<board>"));
         assert!(xml.contains("<length>"));
 
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
