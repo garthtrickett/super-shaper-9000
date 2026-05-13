@@ -301,9 +301,17 @@ export class InteractionManager {
           if (stateInches.x < 0) stateInches.x = 0;
         }
 
-        target.copy(stateInches).multiplyScalar(1/12);
+                target.copy(stateInches).multiplyScalar(1/12);
         
         this.draggedGizmo.position.copy(target);
+
+        this.host.dispatchEvent(new CustomEvent('gizmo-dragging', {
+          detail: {
+            userData: this.draggedGizmo.userData,
+            position: [stateInches.x, stateInches.y, stateInches.z]
+          },
+          bubbles: true, composed: true
+        }));
       }
       return;
     }

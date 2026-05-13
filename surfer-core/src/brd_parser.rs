@@ -71,7 +71,7 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     for offset in 0..max_offset {
         let compressed_data = &bytes[offset..];
 
-                // 1. Try ZLIB (Standard Java DeflaterOutputStream)
+        // 1. Try ZLIB (Standard Java DeflaterOutputStream)
         let mut z_decoder = ZlibDecoder::new(compressed_data);
         let mut out = Vec::new();
         let _ = z_decoder.read_to_end(&mut out);
@@ -241,12 +241,19 @@ mod tests {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
 
-                let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
 
         // DIAGNOSTIC DUMP for Reverse Engineering the legacy binary format
         if bytes.starts_with(b"%BRD") {
-            let hex_dump: Vec<String> = bytes.iter().take(256).map(|b| format!("{:02X}", b)).collect();
-            panic!("\n\n=== BRD BINARY HEX DUMP ===\n{}\n===========================\n\n", hex_dump.join(" "));
+            let hex_dump: Vec<String> = bytes
+                .iter()
+                .take(256)
+                .map(|b| format!("{:02X}", b))
+                .collect();
+            panic!(
+                "\n\n=== BRD BINARY HEX DUMP ===\n{}\n===========================\n\n",
+                hex_dump.join(" ")
+            );
         }
 
         let xml = decompress_brd(&bytes).expect("Failed to decompress BRD");
