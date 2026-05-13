@@ -58,6 +58,12 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
         bytes.len()
     );
 
+    let text = String::from_utf8_lossy(bytes);
+    if text.contains("<?xml") || text.to_lowercase().contains("<board") {
+        log::info!("[Rust Engine] BRD file is already uncompressed text.");
+        return Ok(text.to_string());
+    }
+
     // The text header is usually small (e.g. `%BRD-1.02s00` = 12 bytes).
     // We scan the first 128 bytes to gracefully bypass any padding or header structures.
     let max_offset = bytes.len().min(128);
@@ -191,8 +197,11 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
     log::info!("[Rust Engine] parse_brd: Beginning BRD parsing pipeline");
     let xml = decompress_brd(bytes)?;
 
+    let start_idx = xml.find('<').unwrap_or(0);
+    let xml_slice = &xml[start_idx..];
+
     // Like S3DX, strip out incompatible unescaped characters before AST serialization
-    let sanitized = xml
+    let sanitized = xml_slice
         .replace("<Ref. point>", "<Ref_point>")
         .replace("</Ref. point>", "</Ref_point>");
 
