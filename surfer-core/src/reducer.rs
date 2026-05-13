@@ -412,6 +412,23 @@ fn apply_continuity(
     }
 }
 
+fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
+    if index > 0 && index < target.control_points.len().saturating_sub(1) && target.control_points.len() > 2 {
+        target.control_points.remove(index);
+        if index < target.tangents1.len() {
+            target.tangents1.remove(index);
+        }
+        if index < target.tangents2.len() {
+            target.tangents2.remove(index);
+        }
+        if let Some(weights) = &mut target.weights {
+            if index < weights.len() {
+                weights.remove(index);
+            }
+        }
+    }
+}
+
 pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();
 
@@ -636,6 +653,36 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         }
         BoardAction::SelectNode { node } => {
             model.selected_node = node;
+        }
+                BoardAction::RemoveNode { curve, index } => {
+            if let Some(target) = get_curve_mut(model, &curve) {
+                remove_curve_node(target, index);
+            }
+
+            if curve.starts_with("channel_") {
+                let parts: Vec<&str> = curve.split('_').collect();
+                if parts.len() == 4 {
+                    let idx: usize = parts[1].parse().unwrap_or(0);
+                    let side = parts[2];
+                    let c_type = parts[3];
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .is_some_and(|ch| ch.is_symmetric);
+
+                    if is_sym {
+                        let mirrored_side = if side == "left" { "right" } else { "left" };
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
+                            remove_curve_node(m_target, index);
+                        }
+                    }
+                }
+            }
+            model.selected_node = None;
+            push_history(model);
         }
         BoardAction::InsertNode { curve, t } => {
             if let Some(target) = get_curve_mut(model, &curve) {

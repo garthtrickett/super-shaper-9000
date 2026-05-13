@@ -255,7 +255,8 @@ export type BoardAction =
   | { type: "SELECT_NODE"; node: SelectedNode | null }
     | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D; weight?: number }
   | { type: "INSERT_NODE"; curve: string; t: number }
-  | { type: "APPLY_CONTINUITY"; curve: string; index: number; level: "G0" | "G1" | "G2"; master?: string }
+    | { type: "APPLY_CONTINUITY"; curve: string; index: number; level: "G0" | "G1" | "G2"; master?: string }
+  | { type: "REMOVE_NODE"; curve: string; index: number }
   | { type: "SAVE_HISTORY_SNAPSHOT" }
   | { type: "UNDO" }
   | { type: "REDO" }

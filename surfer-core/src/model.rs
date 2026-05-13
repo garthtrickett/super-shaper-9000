@@ -438,7 +438,7 @@ pub enum BoardAction {
     #[serde(rename = "INSERT_NODE")]
     #[serde(rename_all = "camelCase")]
     InsertNode { curve: String, t: f32 },
-    #[serde(rename = "APPLY_CONTINUITY")]
+        #[serde(rename = "APPLY_CONTINUITY")]
     #[serde(rename_all = "camelCase")]
     ApplyContinuity {
         curve: String,
@@ -447,6 +447,9 @@ pub enum BoardAction {
         #[serde(default)]
         master: Option<String>,
     },
+    #[serde(rename = "REMOVE_NODE")]
+    #[serde(rename_all = "camelCase")]
+    RemoveNode { curve: String, index: usize },
     #[serde(rename = "SAVE_HISTORY_SNAPSHOT")]
     SaveHistorySnapshot,
     #[serde(rename = "UNDO")]

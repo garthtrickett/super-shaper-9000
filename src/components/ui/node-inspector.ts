@@ -146,6 +146,14 @@ export class NodeInspector extends LitElement {
     }
   }
 
+    private _handleDeleteNode() {
+    const sel = this.boardState.selectedNode!;
+    this.dispatchEvent(new CustomEvent('remove-node', {
+      detail: { curve: sel.curve, index: sel.index },
+      bubbles: true, composed: true
+    }));
+  }
+
   private _handleContinuityChange(level: 'G0' | 'G1' | 'G2') {
     const sel = this.boardState.selectedNode!;
     if (!sel) return;
@@ -225,13 +233,20 @@ export class NodeInspector extends LitElement {
 
     return html`
       <div class="bg-zinc-900 border border-zinc-700 shadow-2xl rounded-lg p-4 font-mono">
-        <div class="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800">
           <h3 class="text-sm font-bold text-zinc-100 uppercase tracking-widest">
             ${title}
           </h3>
-          <span class="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
-            Node ${sel.index}
-          </span>
+          <div class="flex items-center gap-2">
+            ${!isEndNode ? html`
+              <button type="button" @click=${() => this._handleDeleteNode()} class="text-red-500 hover:text-red-400 hover:bg-red-500/10 p-1 rounded transition-colors cursor-pointer" title="Delete Node">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              </button>
+            ` : ''}
+            <span class="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
+              Node ${sel.index}
+            </span>
+          </div>
         </div>
 
         <div class="mb-4">
