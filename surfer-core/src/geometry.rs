@@ -245,7 +245,7 @@ pub fn evaluate_composite_outline_pos_and_tan_at_z(
     let (base_pt, mut final_tan) = evaluate_bezier_pos_and_tan_at_z(outline, z_inches, hint_t);
     let mut final_x = base_pt.x;
 
-        if let Some(layers) = &model.outline_layers {
+    if let Some(layers) = &model.outline_layers {
         for layer in layers {
             if !layer.active || layer.otl_ext.control_points.is_empty() {
                 continue;
@@ -752,7 +752,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         }
     }
 
-        if let Some(layers) = &model.outline_layers {
+    if let Some(layers) = &model.outline_layers {
         for layer in layers {
             if !layer.active || layer.otl_int.control_points.is_empty() {
                 continue;
@@ -2009,7 +2009,7 @@ mod tests {
             ],
             ..Default::default()
         };
-                model.outline_layers = Some(vec![OutlineLayer {
+        model.outline_layers = Some(vec![OutlineLayer {
             name: "Wing".to_string(),
             active: true,
             otl_ext: wing_ext,

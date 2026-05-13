@@ -43,10 +43,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         all_z.push(evaluate_curve(outline, t).z);
     }
 
-        let mut cliff_zs = Vec::new();
+    let mut cliff_zs = Vec::new();
     if let Some(layers) = &model.outline_layers {
         for layer in layers {
-            if !layer.active { continue; }
+            if !layer.active {
+                continue;
+            }
             if !layer.otl_ext.control_points.is_empty() {
                 for t in
                     crate::bezier::adaptive_sample_t(&layer.otl_ext, tolerance_degrees, min_dist)
@@ -1681,7 +1683,7 @@ mod tests {
             tangents2: vec![Vec3::new(8.0, 0.0, 75.0), Vec3::new(8.0, 0.0, 80.0)],
             ..Default::default()
         };
-                model.outline_layers = Some(vec![OutlineLayer {
+        model.outline_layers = Some(vec![OutlineLayer {
             name: "Wing".to_string(),
             active: true,
             otl_ext: wing_ext,
@@ -1791,7 +1793,7 @@ mod tests {
             tangents2: vec![Vec3::new(12.0, 0.0, 75.0), Vec3::new(12.0, 0.0, 80.0)],
             ..Default::default()
         };
-                model.outline_layers = Some(vec![OutlineLayer {
+        model.outline_layers = Some(vec![OutlineLayer {
             name: "Wing".to_string(),
             active: true,
             otl_ext: wing_ext,

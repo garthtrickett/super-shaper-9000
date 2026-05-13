@@ -869,7 +869,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     ..Default::default()
                 };
 
-                                layers.push(OutlineLayer {
+                layers.push(OutlineLayer {
                     name: format!("Wing {}", layers.len() + 1),
                     active: true,
                     otl_ext,
@@ -880,7 +880,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             model.outline_layers = Some(layers);
             push_history(model);
         }
-                BoardAction::RemoveOutlineLayer { index } => {
+        BoardAction::RemoveOutlineLayer { index } => {
             if let Some(mut layers) = model.outline_layers.take() {
                 if index < layers.len() {
                     layers.remove(index);

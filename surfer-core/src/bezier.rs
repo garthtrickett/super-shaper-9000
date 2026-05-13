@@ -250,6 +250,148 @@ pub fn evaluate_curvature_quill(
 /// The required coordinate for `t_target` to ensure the target segment has the exact
 /// same curvature (rate of bend) as the source segment at the anchor point.
 ///
+pub fn split_bezier_cubic(
+    p0: Vec3,
+    t0: Vec3,
+    t1: Vec3,
+    p1: Vec3,
+    t: f32,
+) -> ((Vec3, Vec3, Vec3, Vec3), (Vec3, Vec3, Vec3, Vec3)) {
+    let p01 = p0.lerp(t0, t);
+    let p12 = t0.lerp(t1, t);
+    let p23 = t1.lerp(p1, t);
+
+    let p012 = p01.lerp(p12, t);
+    let p123 = p12.lerp(p23, t);
+
+    let p0123 = p012.lerp(p123, t);
+
+    (
+        (p0, p01, p012, p0123),
+        (p0123, p123, p23, p1)
+    )
+}
+
+pub fn split_rational_bezier_cubic(
+    p0: Vec3,
+    t0: Vec3,
+    t1: Vec3,
+    p1: Vec3,
+    w0: f32,
+    w1: f32,
+    w2: f32,
+    w3: f32,
+    t: f32,
+) -> (
+    ((Vec3, Vec3, Vec3, Vec3), (f32, f32, f32, f32)),
+    ((Vec3, Vec3, Vec3, Vec3), (f32, f32, f32, f32)),
+) {
+    use glam::Vec4;
+    let h0 = Vec4::new(p0.x, p0.y, p0.z, 1.0) * w0;
+    let h1 = Vec4::new(t0.x, t0.y, t0.z, 1.0) * w1;
+    let h2 = Vec4::new(t1.x, t1.y, t1.z, 1.0) * w2;
+    let h3 = Vec4::new(p1.x, p1.y, p1.z, 1.0) * w3;
+
+    let h01 = h0.lerp(h1, t);
+    let h12 = h1.lerp(h2, t);
+    let h23 = h2.lerp(h3, t);
+
+    let h012 = h01.lerp(h12, t);
+    let h123 = h12.lerp(h23, t);
+
+    let h0123 = h012.lerp(h123, t);
+
+    let to_vec3_weight = |h: Vec4| -> (Vec3, f32) {
+        let w = h.w;
+        let v = if w.abs() > 1e-6 {
+            Vec3::new(h.x / w, h.y / w, h.z / w)
+        } else {
+            Vec3::ZERO
+        };
+        (v, w)
+    };
+
+    let (np0, nw0) = to_vec3_weight(h0);
+    let (np1, nw1) = to_vec3_weight(h01);
+    let (np2, nw2) = to_vec3_weight(h012);
+    let (np3, nw3) = to_vec3_weight(h0123);
+    
+    let (nq1, nqw1) = to_vec3_weight(h123);
+    let (nq2, nqw2) = to_vec3_weight(h23);
+    let (nq3, nqw3) = to_vec3_weight(h3);
+
+    (
+        ((np0, np1, np2, np3), (nw0, nw1, nw2, nw3)),
+        ((np3, nq1, nq2, nq3), (nw3, nqw1, nqw2, nqw3))
+    )
+}
+
+pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) {
+    let num_segments = curve.control_points.len().saturating_sub(1);
+    if num_segments == 0 {
+        return;
+    }
+
+    let num_segments_f = num_segments as f32;
+    let scaled_t = global_t * num_segments_f;
+    let mut segment_idx = scaled_t.floor() as usize;
+    if segment_idx >= num_segments {
+        segment_idx = num_segments - 1;
+    }
+    let local_t = scaled_t - segment_idx as f32;
+
+    if local_t < 1e-4 || local_t > 1.0 - 1e-4 {
+        return;
+    }
+
+    let p0 = curve.control_points[segment_idx];
+    let p1 = curve.control_points[segment_idx + 1];
+    let t0 = curve.tangents2.get(segment_idx).copied().unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
+    let t1 = curve.tangents1.get(segment_idx + 1).copied().unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
+
+    while curve.tangents1.len() < curve.control_points.len() {
+        let last_p = *curve.control_points.last().unwrap();
+        curve.tangents1.push(last_p);
+    }
+    while curve.tangents2.len() < curve.control_points.len() {
+        let last_p = *curve.control_points.last().unwrap();
+        curve.tangents2.push(last_p);
+    }
+
+    let has_weights = curve.weights.is_some();
+    if has_weights {
+        let mut weights = curve.weights.take().unwrap();
+        while weights.len() < curve.control_points.len() {
+            weights.push(1.0);
+        }
+        let w0 = weights[segment_idx];
+        let w3 = weights[segment_idx + 1];
+        
+        let (((_np0, np1, np2, np3), (_nw0, _nw1, _nw2, nw3)), ((_nq0, nq1, nq2, _nq3), _)) = 
+            split_rational_bezier_cubic(p0, t0, t1, p1, w0, 1.0, 1.0, w3, local_t);
+        
+        curve.control_points.insert(segment_idx + 1, np3);
+        
+        curve.tangents2[segment_idx] = np1;
+        curve.tangents1.insert(segment_idx + 1, np2);
+        curve.tangents2.insert(segment_idx + 1, nq1);
+        curve.tangents1[segment_idx + 2] = nq2;
+        
+        weights.insert(segment_idx + 1, nw3);
+        
+        curve.weights = Some(weights);
+    } else {
+        let ((_np0, np1, np2, np3), (_nq0, nq1, nq2, _nq3)) = split_bezier_cubic(p0, t0, t1, p1, local_t);
+        
+        curve.control_points.insert(segment_idx + 1, np3);
+        
+        curve.tangents2[segment_idx] = np1;
+        curve.tangents1.insert(segment_idx + 1, np2);
+        curve.tangents2.insert(segment_idx + 1, nq1);
+        curve.tangents1[segment_idx + 2] = nq2;
+    }
+}
+
 pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: Vec3) -> Vec3 {
     let v = t_source - anchor;
     let v_len_sq = v.length_squared();
@@ -678,6 +820,32 @@ mod tests {
         assert_eq!(mid.y, 0.0);
         assert_eq!(mid.z, 0.0);
         println!("✅ evaluate_bezier_cubic passed.");
+    }
+
+        #[test]
+    fn test_insert_node() {
+        let mut curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 5.0, 0.0)],
+            tangents2: vec![Vec3::new(5.0, -5.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            weights: None,
+        };
+
+        insert_node(&mut curve, 0.5);
+
+        assert_eq!(curve.control_points.len(), 3);
+        assert_eq!(curve.tangents1.len(), 3);
+        assert_eq!(curve.tangents2.len(), 3);
+
+        let expected_mid = evaluate_bezier_cubic(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(5.0, -5.0, 0.0),
+            Vec3::new(5.0, 5.0, 0.0),
+            Vec3::new(10.0, 0.0, 0.0),
+            0.5
+        );
+        assert_eq!(curve.control_points[1], expected_mid);
+        println!("✅ test_insert_node passed.");
     }
 
     #[test]
