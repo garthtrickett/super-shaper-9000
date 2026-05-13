@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y curl build-essential pkg-config libssl-
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup target add wasm32-unknown-unknown \
-    && cargo install wasm-bindgen-cli
+    && cargo install -f wasm-bindgen-cli --version 0.2.108
 
 # Build the Vite/Lit frontend for production
 RUN bun run build
