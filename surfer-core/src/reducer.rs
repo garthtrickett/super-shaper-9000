@@ -413,7 +413,10 @@ fn apply_continuity(
 }
 
 fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
-    if index > 0 && index < target.control_points.len().saturating_sub(1) && target.control_points.len() > 2 {
+    if index > 0
+        && index < target.control_points.len().saturating_sub(1)
+        && target.control_points.len() > 2
+    {
         target.control_points.remove(index);
         if index < target.tangents1.len() {
             target.tangents1.remove(index);
@@ -654,7 +657,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         BoardAction::SelectNode { node } => {
             model.selected_node = node;
         }
-                BoardAction::RemoveNode { curve, index } => {
+        BoardAction::RemoveNode { curve, index } => {
             if let Some(target) = get_curve_mut(model, &curve) {
                 remove_curve_node(target, index);
             }
@@ -1286,7 +1289,7 @@ mod tests {
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
     }
 
-        #[test]
+    #[test]
     fn test_insert_node_action() {
         let mut model = create_mock_model();
         assert_eq!(model.outline.as_ref().unwrap().control_points.len(), 3);

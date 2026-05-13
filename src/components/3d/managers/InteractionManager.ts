@@ -40,12 +40,13 @@ export class InteractionManager {
     private wireframeGroup: THREE.Group
   ) {}
 
-    public initialize() {
+      public initialize() {
     this.canvas.addEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.addEventListener("pointermove", this.onPointerMove);
     this.canvas.addEventListener("pointerup", this.onPointerUp);
     this.canvas.addEventListener("pointercancel", this.onPointerUp);
     this.canvas.addEventListener("pointerleave", this.onPointerUp);
+    this.canvas.addEventListener("wheel", this.onWheel, { passive: false });
     window.addEventListener("keyup", this.onKeyUp);
   }
 
@@ -53,20 +54,47 @@ export class InteractionManager {
     return this.draggedGizmo !== null;
   }
 
-  public dispose() {
+    public dispose() {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointercancel", this.onPointerUp);
     this.canvas.removeEventListener("pointerleave", this.onPointerUp);
+    this.canvas.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("keyup", this.onKeyUp);
   }
 
-    private onKeyUp = (e: KeyboardEvent) => {
+      private onKeyUp = (e: KeyboardEvent) => {
     if (e.key === 'Alt' && this.hoveredCurve) {
         this.hoveredCurve = null;
         this.hoveredT = null;
         this.host.setHoverPreview(null);
+    }
+  }
+
+  private onWheel = (e: WheelEvent) => {
+    const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+    
+    if (camera !== this.cameras.perspective) {
+      e.preventDefault();
+      const orthoCam = camera as THREE.OrthographicCamera;
+      
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, orthoCam);
+      const preZoomOrigin = raycaster.ray.origin.clone();
+
+      const zoomFactor = Math.pow(0.998, e.deltaY);
+      let newZoom = orthoCam.zoom * zoomFactor;
+      newZoom = Math.max(0.1, Math.min(newZoom, 50.0));
+      
+      orthoCam.zoom = newZoom;
+      orthoCam.updateProjectionMatrix();
+
+      raycaster.setFromCamera(mouse, orthoCam);
+      const postZoomOrigin = raycaster.ray.origin.clone();
+
+      const diff = preZoomOrigin.sub(postZoomOrigin);
+      orthoCam.position.add(diff);
     }
   }
 
@@ -81,7 +109,7 @@ export class InteractionManager {
     }
   }
 
-  private getQuadrantCameraAndMouse = (e: PointerEvent): { camera: THREE.Camera, mouse: THREE.Vector2 } => {
+    private getQuadrantCameraAndMouse = (e: PointerEvent | WheelEvent): { camera: THREE.Camera, mouse: THREE.Vector2 } => {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -187,13 +215,13 @@ export class InteractionManager {
       const vpWidth = this.maximizedView ? this.canvas.clientWidth : this.canvas.clientWidth / 2;
       const vpHeight = this.maximizedView ? this.canvas.clientHeight : this.canvas.clientHeight / 2;
 
-      const worldWidth = this.activePanCamera.right - this.activePanCamera.left;
-      const worldHeight = this.activePanCamera.top - this.activePanCamera.bottom;
+            const worldWidth = (this.activePanCamera.right - this.activePanCamera.left) / this.activePanCamera.zoom;
+      const worldHeight = (this.activePanCamera.top - this.activePanCamera.bottom) / this.activePanCamera.zoom;
 
       const deltaXWorld = -(dx / vpWidth) * worldWidth;
       const deltaYWorld = (dy / vpHeight) * worldHeight;
 
-            this.activePanCamera.translateX(deltaXWorld);
+      this.activePanCamera.translateX(deltaXWorld);
       this.activePanCamera.translateY(deltaYWorld);
       return;
     }

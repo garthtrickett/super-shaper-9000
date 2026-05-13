@@ -438,7 +438,7 @@ pub enum BoardAction {
     #[serde(rename = "INSERT_NODE")]
     #[serde(rename_all = "camelCase")]
     InsertNode { curve: String, t: f32 },
-        #[serde(rename = "APPLY_CONTINUITY")]
+    #[serde(rename = "APPLY_CONTINUITY")]
     #[serde(rename_all = "camelCase")]
     ApplyContinuity {
         curve: String,
