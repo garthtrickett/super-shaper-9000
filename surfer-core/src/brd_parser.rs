@@ -498,6 +498,28 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+        #[test]
+    fn test_egg_brd_import() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/7'0-Egg.brd");
+
+        if !path.exists() {
+            println!("7'0-Egg.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z - 0.5, 0.5);
+
+        println!("Tail Profile: top_y={}, bot_y={}", profile.top_y, profile.bot_y);
+        
+        assert!(profile.top_y - profile.bot_y > 0.05, "Tail pinched to zero! top: {}, bot: {}", profile.top_y, profile.bot_y);
+    }
+
     #[test]
     fn test_brd_decompression_and_parsing() {
         let _ = env_logger::builder().is_test(true).try_init();
