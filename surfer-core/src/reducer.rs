@@ -747,6 +747,35 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
+                BoardAction::InsertNode { curve, t } => {
+            if let Some(target) = get_curve_mut(model, &curve) {
+                crate::bezier::insert_node(target, t);
+            }
+
+            if curve.starts_with("channel_") {
+                let parts: Vec<&str> = curve.split('_').collect();
+                if parts.len() == 4 {
+                    let idx: usize = parts[1].parse().unwrap_or(0);
+                    let side = parts[2];
+                    let c_type = parts[3];
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .is_some_and(|ch| ch.is_symmetric);
+
+                    if is_sym {
+                        let mirrored_side = if side == "left" { "right" } else { "left" };
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
+                            crate::bezier::insert_node(m_target, t);
+                        }
+                    }
+                }
+            }
+            push_history(model);
+        }
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
@@ -1237,6 +1266,23 @@ mod tests {
 
         update(&mut model, BoardAction::RemoveBottomChannel { index: 0 });
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
+    }
+
+        #[test]
+    fn test_insert_node_action() {
+        let mut model = create_mock_model();
+        assert_eq!(model.outline.as_ref().unwrap().control_points.len(), 3);
+
+        let action = BoardAction::InsertNode {
+            curve: "outline".to_string(),
+            t: 0.5,
+        };
+        update(&mut model, action);
+
+        let outline = model.outline.as_ref().unwrap();
+        assert_eq!(outline.control_points.len(), 4);
+        assert_eq!(outline.tangents1.len(), 4);
+        assert_eq!(outline.tangents2.len(), 4);
     }
 
         #[test]

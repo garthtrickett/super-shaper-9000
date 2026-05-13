@@ -450,6 +450,12 @@ pub enum BoardAction {
         #[serde(default)]
         master: Option<String>,
     },
+        #[serde(rename = "INSERT_NODE")]
+    #[serde(rename_all = "camelCase")]
+    InsertNode {
+        curve: String,
+        t: f32,
+    },
     #[serde(rename = "SAVE_HISTORY_SNAPSHOT")]
     SaveHistorySnapshot,
     #[serde(rename = "UNDO")]
