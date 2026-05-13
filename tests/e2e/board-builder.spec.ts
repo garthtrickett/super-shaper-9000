@@ -622,7 +622,70 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 5. Test the reset button integration
     const resetBtn = tensionContainer.locator('button', { hasText: 'RST' });
     await resetBtn.click();
-    await expect(weightBadge).toContainText('1.00x');
+        await expect(weightBadge).toContainText('1.00x');
     await expect(weightSlider).toHaveValue('1');
+  });
+
+  test("Dynamic Node Insertion via Alt+Click", async ({ page }) => {
+    await page.goto('/');
+    const viewport = page.locator("board-viewport");
+    await expect(viewport).toBeVisible();
+    await expect(viewport.locator("canvas")).toBeVisible();
+    await page.waitForTimeout(1000);
+
+    const hitPosition = await page.evaluate(() => {
+      type BoardViewportElement = HTMLElement & {
+        mathEngine?: {
+          get_point_on_curve(curveName: string, t: number): Float32Array;
+        }
+      };
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      if (!vp || !vp.mathEngine) return null;
+
+      const pt = vp.mathEngine.get_point_on_curve('outline', 0.25);
+      if (!pt) return null;
+
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+
+      const worldX = pt[0] / 12;
+      const worldZ = pt[2] / 12;
+
+      const orthoRight = 5 * aspect;
+      const orthoTop = 5;
+
+      const ndcX = worldX / orthoRight;
+      const ndcY = -worldZ / orthoTop;
+
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+
+      const pixelX = rect.left + ((ndcX + 1) / 2 * w);
+      const pixelY = rect.top + ((1 - ndcY) / 2 * h);
+
+      return { x: pixelX, y: pixelY };
+    });
+
+    expect(hitPosition).toBeTruthy();
+
+    await page.keyboard.down('Alt');
+    await page.mouse.move(hitPosition!.x, hitPosition!.y);
+    await page.waitForTimeout(200);
+
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    await page.keyboard.up('Alt');
+
+    await page.waitForTimeout(500);
+
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    await page.waitForTimeout(200);
+
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText("Main Outline");
+    await expect(inspector).toContainText("Node 1");
   });
 });
