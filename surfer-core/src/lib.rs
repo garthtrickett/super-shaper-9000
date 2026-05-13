@@ -150,7 +150,19 @@ impl SurferEngine {
         stats
     }
 
-    /// Generates a flat Float32Array-compatible buffer of[x1, y1, z1, x2, y2, z2] segments for curvature combs.
+        pub fn find_closest_t(&self, curve_name: &str, ray_origin: [f32; 3], ray_dir: [f32; 3]) -> Option<f32> {
+        let curve = crate::geometry::get_curve(&self.model, curve_name)?;
+        use glam::Vec3;
+        Some(crate::geometry::find_closest_t_to_ray(curve, Vec3::from_array(ray_origin), Vec3::from_array(ray_dir)))
+    }
+
+    pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
+        let curve = crate::geometry::get_curve(&self.model, curve_name)?;
+        let pt = crate::geometry::evaluate_curve(curve, t);
+        Some([pt.x, pt.y, pt.z])
+    }
+
+    /// Generates a flat Float32Array-compatible buffer of [x1, y1, z1, x2, y2, z2] segments for curvature combs.
     pub fn compute_curvature_combs(&self) -> Vec<f32> {
         let mut combs = Vec::new();
         if !self.model.show_curvature.unwrap_or(false) {

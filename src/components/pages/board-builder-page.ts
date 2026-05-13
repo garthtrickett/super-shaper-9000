@@ -450,11 +450,12 @@ export class BoardBuilderPage extends LitElement {
           .meshData=${mesh}
           .curvatureCombs=${curvatureCombs}
                     .mathEngine=${this.mathEngine}
-                    @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
+                            @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this._proposeAction({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected
             this._selectedNodeContinuity = 'G1';
           }}
+          @insert-node=${(e: CustomEvent<{curve: string, t: number}>) => this._proposeAction({ type: "INSERT_NODE", curve: e.detail.curve, t: e.detail.t })}
           @gizmo-drag-ended=${() => this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" })}
                     @gizmo-dragged=${this._handleGizmoDrag}
         ></board-viewport>

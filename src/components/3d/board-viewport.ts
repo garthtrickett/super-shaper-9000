@@ -52,20 +52,22 @@ export class BoardViewport extends LitElement {
   private gizmoGroup = new THREE.Group();
   private annotationGroup = new THREE.Group();
     private sliceLinesGroup = new THREE.Group();
-  private apexLineGroup = new THREE.Group();
+    private apexLineGroup = new THREE.Group();
   private curvatureGroup = new THREE.Group();
+  private previewGroup = new THREE.Group();
     private zebraOffset = 0;
   
+  @state() private hoverPreview: { curve: string, t: number, mirrorX: boolean } | null = null;
   private mriClippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1000);
     
   private matAnchor = new THREE.MeshBasicMaterial({ color: 0x2563eb, depthTest: false });
   private matHandle = new THREE.MeshBasicMaterial({ color: 0x71717a, depthTest: false });
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false });
 
-    override firstUpdated() {
-    this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup, this.curvatureGroup);
+        override firstUpdated() {
+    this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup, this.curvatureGroup, this.previewGroup);
     this.sceneManager = new SceneManager(this.canvas,[this.boardContainer]);
-    this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup);
+    this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup, this.wireframeGroup);
     this.interactionManager.initialize();
     this.sceneManager.startRenderLoop(() => {
       if (this.boardState?.showZebra) {
@@ -235,11 +237,12 @@ export class BoardViewport extends LitElement {
       ? this.sampleBezierCurve(this.boardState.rockerBottom, 100)
       :[];
 
-        const buildLine = (
+                const buildLine = (
       pts: [number, number, number][],
       mat: THREE.Material,
       layerIndex: number,
       mirrorX = false,
+      curveName: string = ""
     ) => {
       const geometry = new THREE.BufferGeometry();
       const vertices = new Float32Array(pts.length * 3);
@@ -251,6 +254,7 @@ export class BoardViewport extends LitElement {
         geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
         const line = new THREE.Line(geometry, mat);
         line.layers.set(layerIndex);
+        line.userData = { isCurveLine: true, curve: curveName, mirrorX };
         return line;
     };
     
@@ -281,65 +285,81 @@ export class BoardViewport extends LitElement {
         )
       : null;
 
-    if (this.boardState?.showOutline !== false) {
-      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false));
-      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true));
+        if (this.boardState?.showOutline !== false) {
+      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, 'outline'));
+      this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, 'outline'));
     }
 
     if (activeApexOutline && this.boardState?.showApexOutline !== false) {
-      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, false));
-      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, true));
+      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, false, 'apexOutline'));
+      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, true, 'apexOutline'));
     }
 
     if (activeRailOutline && this.boardState?.showRailOutline !== false) {
-      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, false));
-      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, true));
+      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, false, 'railOutline'));
+      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, true, 'railOutline'));
     }
 
-    if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false));
-    if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false));
+    if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, 'rockerTop'));
+    if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false, 'rockerBottom'));
 
                                 if (activeApexRocker && this.boardState?.showApexRocker !== false) {
-      this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, false));
-      this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, true));
+      this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, false, 'apexRocker'));
+      this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, true, 'apexRocker'));
     }
 
     if (activeDeckShoulder && this.boardState?.showDeckShoulder !== false) {
-      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 1, false));
-      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 1, true));
-      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 2, false));
+      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 1, false, 'deckShoulder'));
+      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 1, true, 'deckShoulder'));
+      this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 2, false, 'deckShoulder'));
     }
 
         if (this.boardState?.bottomChannels) {
       const matChannelOutline = new THREE.LineDashedMaterial({ color: 0x10b981, dashSize: 0.5 * scale, gapSize: 0.25 * scale, transparent: true, opacity: 0.6 });
       const matChannelDepth = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.4 });
       
-      this.boardState.bottomChannels.forEach(channel => {
-                const drawOutline = (curveData: BezierCurveData) => {
+      this.boardState.bottomChannels.forEach((channel, idx) => {
+                const drawOutline = (curveData: BezierCurveData, curveName: string) => {
            if (curveData && curveData.controlPoints.length > 0) {
               const sampledOutline = this.sampleBezierCurve(curveData, 50).map(p => {
                  const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
                  return[p[0], profile.botY, p[2]] as Point3D;
               });
-              const line = buildLine(sampledOutline, matChannelOutline, 1, false);
+              const line = buildLine(sampledOutline, matChannelOutline, 1, false, curveName);
               (line as THREE.Line).computeLineDistances();
               this.wireframeGroup.add(line);
            }
         };
-        const drawDepth = (curveData: BezierCurveData) => {
+        const drawDepth = (curveData: BezierCurveData, curveName: string) => {
            if (curveData && curveData.controlPoints.length > 0) {
               const sampledDepth = this.sampleBezierCurve(curveData, 50).map(p => {
                  const profile = mathEngine.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number };
                  return[p[0], profile.botY - 2.0 + p[1], p[2]] as Point3D;
               });
-              this.wireframeGroup.add(buildLine(sampledDepth, matChannelDepth, 2, false));
+              this.wireframeGroup.add(buildLine(sampledDepth, matChannelDepth, 2, false, curveName));
            }
         };
 
-        drawOutline(channel.leftOutline);
-        drawOutline(channel.rightOutline);
-        drawDepth(channel.leftDepth);
-        drawDepth(channel.rightDepth);
+        drawOutline(channel.leftOutline, `channel_${idx}_left_outline`);
+        drawOutline(channel.rightOutline, `channel_${idx}_right_outline`);
+        drawDepth(channel.leftDepth, `channel_${idx}_left_depth`);
+        drawDepth(channel.rightDepth, `channel_${idx}_right_depth`);
+      });
+    }
+
+    if (this.boardState?.showOutline !== false && this.boardState.outlineLayers) {
+      this.boardState.outlineLayers.forEach((layer, idx) => {
+        if (layer.active === false) return;
+        if (layer.otlExt?.controlPoints?.length > 0) {
+          const sampled = this.sampleBezierCurve(layer.otlExt, 50).map((p) => projectY("outline", p));
+          this.wireframeGroup.add(buildLine(sampled, matOutline, 1, false, `outlineLayer_${idx}_ext`));
+          this.wireframeGroup.add(buildLine(sampled, matOutline, 1, true, `outlineLayer_${idx}_ext`));
+        }
+        if (layer.otlInt?.controlPoints?.length > 0) {
+          const sampled = this.sampleBezierCurve(layer.otlInt, 50).map((p) => projectY("outline", p));
+          this.wireframeGroup.add(buildLine(sampled, matOutline, 1, false, `outlineLayer_${idx}_int`));
+          this.wireframeGroup.add(buildLine(sampled, matOutline, 1, true, `outlineLayer_${idx}_int`));
+        }
       });
     }
   }
@@ -451,10 +471,15 @@ export class BoardViewport extends LitElement {
         if (fullPts[0]) fullPts.push(fullPts[0].clone());
                 const color = new THREE.Color(0x334155); // Darker Slate-700
         const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6, depthWrite: false });
-        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(fullPts), mat);
-        line.layers.set(3);
-        line.userData = { isSlice: true, curveName, defaultColor: color.getHex() };
-        this.sliceLinesGroup.add(line);
+                const lineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+        lineRight.layers.set(3);
+        lineRight.userData = { isSlice: true, curveName, defaultColor: color.getHex(), isCurveLine: true, curve: curveName, mirrorX: false };
+        this.sliceLinesGroup.add(lineRight);
+
+        const lineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftPts), mat);
+        lineLeft.layers.set(3);
+        lineLeft.userData = { isSlice: true, curveName, defaultColor: color.getHex(), isCurveLine: true, curve: curveName, mirrorX: true };
+        this.sliceLinesGroup.add(lineLeft);
       });
     }
   }
@@ -493,12 +518,60 @@ export class BoardViewport extends LitElement {
 
 
   
-  private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40):[number, number, number][] {
+    private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40):[number, number, number][] {
                 if (!this.mathEngine) return[];
                       const flat = this.mathEngine.sample_curve(bezier, steps) as Float32Array;
                       const pts:[number, number, number][] =[];
                             for (let i = 0; i < flat.length; i += 3) {
                             pts.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]);      }      return pts;  }
+
+  public getXOffset(curveName: string, xInches: number, zInches: number, mathEngine: WasmEngine): number {
+      if (curveName === 'apexRocker') {
+          const profile = mathEngine.get_profile_at_z(zInches) as { apexX: number };
+          return profile.apexX;
+      }
+      return xInches;
+  }
+
+  public setHoverPreview(preview: { curve: string, t: number, mirrorX: boolean } | null) {
+      this.hoverPreview = preview;
+      this.updatePreviewNode();
+  }
+
+  private updatePreviewNode() {
+      while (this.previewGroup.children.length > 0) {
+          const child = this.previewGroup.children[0] as THREE.Mesh;
+          child.geometry.dispose();
+          (child.material as THREE.Material).dispose();
+          this.previewGroup.remove(child);
+      }
+      if (!this.hoverPreview || !this.mathEngine) return;
+
+      const { curve, t, mirrorX } = this.hoverPreview;
+      const ptRaw = (this.mathEngine as any).get_point_on_curve(curve, t);
+      if (!ptRaw) return;
+
+      let x = ptRaw[0];
+      let y = ptRaw[1];
+      let z = ptRaw[2];
+
+      y = this.getZHeight(curve, y, z, this.mathEngine);
+      x = this.getXOffset(curve, x, z, this.mathEngine);
+
+      if (mirrorX) x = -x;
+
+      const scale = 1/12;
+      const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.6, depthTest: false });
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.4 * scale, 16, 16), mat);
+      mesh.position.set(x * scale, y * scale, z * scale);
+      mesh.renderOrder = 1000;
+      
+      mesh.layers.set(1);
+      mesh.layers.enable(2);
+      mesh.layers.enable(3);
+
+      this.previewGroup.add(mesh);
+  }
 
         private _updateGizmoPositionsFromState() {
     const mathEngine = this.mathEngine;
@@ -512,32 +585,24 @@ export class BoardViewport extends LitElement {
       }
     });
 
-                const getXOffset = (curveName: string, xInches: number, zInches: number) => {
-            if (curveName === 'apexRocker') {
-                const profile = mathEngine.get_profile_at_z(zInches) as { apexX: number };
-                return profile.apexX;
-            }
-            return xInches;
-        };
-
         const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
       if (!curveData) return;
-      curveData.controlPoints.forEach((cp, i) => {
+            curveData.controlPoints.forEach((cp, i) => {
         const cpY = this.getZHeight(curveName, cp[1], cp[2], mathEngine);
-        const cpX = getXOffset(curveName, cp[0], cp[2]);
+        const cpX = this.getXOffset(curveName, cp[0], cp[2], mathEngine);
         gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cpX * scale, cpY * scale, cp[2] * scale);
         
         const t1 = curveData.tangents1[i]; 
         if (t1) {
           const t1Y = this.getZHeight(curveName, t1[1], t1[2], mathEngine);
-          const t1X = getXOffset(curveName, t1[0], t1[2]);
+          const t1X = this.getXOffset(curveName, t1[0], t1[2], mathEngine);
           gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1X * scale, t1Y * scale, t1[2] * scale);
         }
         
         const t2 = curveData.tangents2[i]; 
         if (t2) {
           const t2Y = this.getZHeight(curveName, t2[1], t2[2], mathEngine);
-          const t2X = getXOffset(curveName, t2[0], t2[2]);
+          const t2X = this.getXOffset(curveName, t2[0], t2[2], mathEngine);
           gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2X * scale, t2Y * scale, t2[2] * scale);
         }
       });

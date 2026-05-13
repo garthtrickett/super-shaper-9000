@@ -13,9 +13,11 @@ export class InteractionManager {
   private activeDragCamera: THREE.Camera | null = null;
   private boardState?: BoardModel;
   private maximizedView: 'perspective' | 'top' | 'side' | 'profile' | null = null;
-  private isPanning = false;
+    private isPanning = false;
   private panStartPixel = new THREE.Vector2();
   private activePanCamera: THREE.OrthographicCamera | null = null;
+  public hoveredCurve: string | null = null;
+  public hoveredT: number | null = null;
 
   constructor(
     private host: HTMLElement,
@@ -29,15 +31,17 @@ export class InteractionManager {
     private controls: {
       perspective: OrbitControls;
     },
-    private gizmoGroup: THREE.Group
+    private gizmoGroup: THREE.Group,
+    private wireframeGroup: THREE.Group
   ) {}
 
-  public initialize() {
+    public initialize() {
     this.canvas.addEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.addEventListener("pointermove", this.onPointerMove);
     this.canvas.addEventListener("pointerup", this.onPointerUp);
     this.canvas.addEventListener("pointercancel", this.onPointerUp);
     this.canvas.addEventListener("pointerleave", this.onPointerUp);
+    window.addEventListener("keyup", this.onKeyUp);
   }
 
   public isDragging(): boolean {
@@ -50,6 +54,15 @@ export class InteractionManager {
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointercancel", this.onPointerUp);
     this.canvas.removeEventListener("pointerleave", this.onPointerUp);
+    window.removeEventListener("keyup", this.onKeyUp);
+  }
+
+  private onKeyUp = (e: KeyboardEvent) => {
+    if (e.key === 'Alt' && this.hoveredCurve) {
+        this.hoveredCurve = null;
+        this.hoveredT = null;
+        (this.host as any).setHoverPreview(null);
+    }
   }
 
   public setBoardState(state: BoardModel) {
@@ -103,7 +116,18 @@ export class InteractionManager {
     return { camera, mouse: new THREE.Vector2(localX, localY) };
   }
 
-  private onPointerDown = (e: PointerEvent) => {
+    private onPointerDown = (e: PointerEvent) => {
+    if (e.altKey && this.hoveredCurve && this.hoveredT !== null) {
+        this.host.dispatchEvent(new CustomEvent('insert-node', {
+            detail: { curve: this.hoveredCurve, t: this.hoveredT },
+            bubbles: true, composed: true
+        }));
+        this.hoveredCurve = null;
+        this.hoveredT = null;
+        (this.host as any).setHoverPreview(null);
+        return;
+    }
+
     this.dragStartPos.set(e.clientX, e.clientY);
 
     const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
@@ -164,9 +188,49 @@ export class InteractionManager {
       const deltaXWorld = -(dx / vpWidth) * worldWidth;
       const deltaYWorld = (dy / vpHeight) * worldHeight;
 
-      this.activePanCamera.translateX(deltaXWorld);
+            this.activePanCamera.translateX(deltaXWorld);
       this.activePanCamera.translateY(deltaYWorld);
       return;
+    }
+
+    if (!this.draggedGizmo && e.altKey) {
+        const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
+        this.mouse.copy(mouse);
+        this.raycaster.setFromCamera(this.mouse, camera);
+        this.raycaster.layers.mask = camera.layers.mask;
+        this.raycaster.params.Line = { threshold: 0.2 }; 
+
+        const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
+        const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isCurveLine);
+
+        if (hit) {
+            const curveName = hit.object.userData.curve;
+            const mirrorX = hit.object.userData.mirrorX;
+            const ro = this.raycaster.ray.origin.clone();
+            const rd = this.raycaster.ray.direction.clone();
+            if (mirrorX) {
+                ro.x *= -1;
+                rd.x *= -1;
+            }
+            ro.multiplyScalar(12);
+
+            const mathEngine = (this.host as any).mathEngine;
+            if (mathEngine && mathEngine.find_closest_t) {
+                const t = mathEngine.find_closest_t(curveName, ro.x, ro.y, ro.z, rd.x, rd.y, rd.z);
+                if (t >= 0 && t <= 1) {
+                    this.hoveredCurve = curveName;
+                    this.hoveredT = t;
+                    (this.host as any).setHoverPreview({ curve: curveName, t, mirrorX });
+                    return;
+                }
+            }
+        }
+    }
+
+    if (!this.draggedGizmo && this.hoveredCurve) {
+        this.hoveredCurve = null;
+        this.hoveredT = null;
+        (this.host as any).setHoverPreview(null);
     }
 
     if (!this.draggedGizmo || !this.activeDragCamera) return;
