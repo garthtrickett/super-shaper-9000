@@ -65,13 +65,16 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     for offset in 0..max_offset {
         let compressed_data = &bytes[offset..];
 
-                // 1. Try ZLIB (Standard Java DeflaterOutputStream)
+        // 1. Try ZLIB (Standard Java DeflaterOutputStream)
         let mut z_decoder = ZlibDecoder::new(compressed_data);
         let mut out = Vec::new();
         if z_decoder.read_to_end(&mut out).is_ok() {
             let text = String::from_utf8_lossy(&out);
             if text.contains("<?xml") || text.to_lowercase().contains("<board") {
-                log::info!("[Rust Engine] Successfully decoded ZLIB at offset {}", offset);
+                log::info!(
+                    "[Rust Engine] Successfully decoded ZLIB at offset {}",
+                    offset
+                );
                 return Ok(text.to_string());
             }
         }
@@ -82,7 +85,10 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
         if raw_decoder.read_to_end(&mut out).is_ok() {
             let text = String::from_utf8_lossy(&out);
             if text.contains("<?xml") || text.to_lowercase().contains("<board") {
-                log::info!("[Rust Engine] Successfully decoded RAW DEFLATE at offset {}", offset);
+                log::info!(
+                    "[Rust Engine] Successfully decoded RAW DEFLATE at offset {}",
+                    offset
+                );
                 return Ok(text.to_string());
             }
         }
@@ -93,7 +99,10 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
         if gz_decoder.read_to_end(&mut out).is_ok() {
             let text = String::from_utf8_lossy(&out);
             if text.contains("<?xml") || text.to_lowercase().contains("<board") {
-                log::info!("[Rust Engine] Successfully decoded GZIP at offset {}", offset);
+                log::info!(
+                    "[Rust Engine] Successfully decoded GZIP at offset {}",
+                    offset
+                );
                 return Ok(text.to_string());
             }
         }
@@ -214,18 +223,21 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-        #[test]
+    #[test]
     fn test_brd_decompression_and_parsing() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
 
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
-        
+
         let xml = decompress_brd(&bytes).expect("Failed to decompress BRD");
-        
+
         // Grug-brain debug: see the actual XML content
-        println!("--- XML HEAD ---\n{}\n---------------", &xml[..xml.len().min(500)]);
+        println!(
+            "--- XML HEAD ---\n{}\n---------------",
+            &xml[..xml.len().min(500)]
+        );
 
         assert!(xml.to_lowercase().contains("<board>"));
         assert!(xml.contains("<length>"));
