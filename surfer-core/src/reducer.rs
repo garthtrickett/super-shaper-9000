@@ -745,7 +745,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     }
                 }
             }
-                        push_history(model);
+            push_history(model);
         }
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
@@ -1239,7 +1239,7 @@ mod tests {
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
     }
 
-        #[test]
+    #[test]
     fn test_insert_node_action() {
         let mut model = create_mock_model();
         assert_eq!(model.outline.as_ref().unwrap().control_points.len(), 3);

@@ -250,6 +250,7 @@ pub fn evaluate_curvature_quill(
 /// The required coordinate for `t_target` to ensure the target segment has the exact
 /// same curvature (rate of bend) as the source segment at the anchor point.
 ///
+#[allow(clippy::type_complexity)]
 pub fn split_bezier_cubic(
     p0: Vec3,
     t0: Vec3,
@@ -269,6 +270,7 @@ pub fn split_bezier_cubic(
     ((p0, p01, p012, p0123), (p0123, p123, p23, p1))
 }
 
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn split_rational_bezier_cubic(
     p0: Vec3,
     t0: Vec3,
@@ -335,9 +337,9 @@ pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) {
     if segment_idx >= num_segments {
         segment_idx = num_segments - 1;
     }
-    let local_t = scaled_t - segment_idx as f32;
+        let local_t = scaled_t - segment_idx as f32;
 
-    if local_t < 1e-4 || local_t > 1.0 - 1e-4 {
+    if !(1e-4..=1.0 - 1e-4).contains(&local_t) {
         return;
     }
 
