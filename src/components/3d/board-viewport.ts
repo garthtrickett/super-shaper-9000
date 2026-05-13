@@ -689,7 +689,7 @@ export class BoardViewport extends LitElement {
   
         private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40): [number, number, number][] {
         if (!this.mathEngine) return[];
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+         
         const flat = this.mathEngine.sample_curve(bezier, steps) as Float32Array;
         const pts: [number, number, number][] =[];
         for (let i = 0; i < flat.length; i += 3) {
