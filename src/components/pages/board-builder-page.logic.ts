@@ -262,7 +262,8 @@ export type BoardAction =
   | { type: "REDO" }
   | { type: "SCALE_WIDTH"; factor: number }
   | { type: "SCALE_THICKNESS"; factor: number }
-    | { type: "IMPORT_S3DX"; xml: string }
+        | { type: "IMPORT_S3DX"; xml: string }
+    | { type: "IMPORT_BRD"; bytes: Uint8Array }
     | { type: "ADD_OUTLINE_LAYER" }
   | { type: "REMOVE_OUTLINE_LAYER"; index: number }
   | { type: "TOGGLE_OUTLINE_LAYER"; index: number }

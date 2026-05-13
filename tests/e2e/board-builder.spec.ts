@@ -540,9 +540,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const modalHeading = page.getByRole('heading', { name: "Import Design" });
     await expect(modalHeading).toBeVisible();
 
-    // 3. Trigger the file chooser and upload the golden S3DX fixture
+        // 3. Trigger the file chooser and upload the golden S3DX fixture
     const fileChooserPromise = page.waitForEvent('filechooser');
-    await page.getByText('Select .s3dx File').click();
+    await page.getByText('Select File').click();
     const fileChooser = await fileChooserPromise;
     
     // Use the known fixture file from the repository
@@ -562,6 +562,49 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(page.locator("board-viewport canvas")).toBeVisible();
     
     // 7. Verify no WebGL or NaN errors occurred during the mesh generation of the imported file
+        const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));
+    expect(criticalErrors).toHaveLength(0);
+  });
+
+  test("BRD Native Import Pipeline", async ({ page }) => {
+    const errors: string[] =[];
+    page.on('console', msg => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    page.on('pageerror', err => errors.push(err.message));
+
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+
+    const volumeDisplay = boardControls.locator('div.text-2xl.font-black.text-blue-500');
+    const initialVolume = await volumeDisplay.textContent();
+    expect(initialVolume).toBeTruthy();
+
+    const importBtn = boardControls.getByRole('button', { name: /Import Design/i });
+    await importBtn.click();
+
+    const modalHeading = page.getByRole('heading', { name: "Import Design" });
+    await expect(modalHeading).toBeVisible();
+
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByText('Select File').click();
+    const fileChooser = await fileChooserPromise;
+    
+    // Upload the golden BRD fixture
+    await fileChooser.setFiles('./src/assets/fixtures/brd/6\'4-Bump-Squash-Full-Nose.brd');
+
+    await expect(modalHeading).toBeHidden();
+
+    // Verify volume changed
+    await expect(volumeDisplay).not.toHaveText(initialVolume as string);
+    
+    // Let geometry settle
+    await page.waitForTimeout(500);
+
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+    
     const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));
     expect(criticalErrors).toHaveLength(0);
   });

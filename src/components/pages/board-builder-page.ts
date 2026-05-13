@@ -130,30 +130,38 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-      private _handleS3dxUpload = async (e: Event) => {
+            private _handleFileUpload = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
     try {
-      // S3DX files are often ISO-8859-1 encoded.
-      // Read as ArrayBuffer and decode explicitly to prevent replacement characters ().
       const buffer = await file.arrayBuffer();
-      const decoder = new TextDecoder('iso-8859-1');
-      const text = decoder.decode(buffer);
       
-            this._proposeAction({
-        type: "IMPORT_S3DX",
-        xml: text
-      });
+      if (file.name.toLowerCase().endsWith('.brd')) {
+        this._proposeAction({
+          type: "IMPORT_BRD",
+          bytes: new Uint8Array(buffer)
+        });
+      } else {
+        // S3DX files are often ISO-8859-1 encoded.
+        // Read as ArrayBuffer and decode explicitly to prevent replacement characters ().
+        const decoder = new TextDecoder('iso-8859-1');
+        const text = decoder.decode(buffer);
+        
+        this._proposeAction({
+          type: "IMPORT_S3DX",
+          xml: text
+        });
+      }
 
       this.showImportModal = false;
       this.importJson = "";
       this.importError = "";
     } catch (err) {
       this.isProcessing = false;
-      console.error("Failed to read .s3dx file", err);
-      this.importError = err instanceof Error ? err.message : "Failed to read .s3dx file";
+      console.error("Failed to read file", err);
+      this.importError = err instanceof Error ? err.message : "Failed to read file";
     } finally {
       // Reset input so the same file can be selected again if needed
       input.value = "";
@@ -296,13 +304,13 @@ export class BoardBuilderPage extends LitElement {
         <div class="bg-zinc-900 border border-zinc-800 p-6 rounded-lg shadow-2xl w-[500px] max-w-full flex flex-col">
           <h2 class="text-xl font-bold text-zinc-100 mb-4">Import Design</h2>
           
-          <div class="mb-6 p-4 bg-zinc-950 border border-dashed border-zinc-700 rounded-lg flex flex-col items-center justify-center text-center">
+                    <div class="mb-6 p-4 bg-zinc-950 border border-dashed border-zinc-700 rounded-lg flex flex-col items-center justify-center text-center">
             <svg class="w-8 h-8 text-emerald-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-            <p class="text-sm font-bold text-zinc-300 mb-1">Upload Shape3D (.s3dx) File</p>
+            <p class="text-sm font-bold text-zinc-300 mb-1">Upload Shape3D (.s3dx) or BoardCAD (.brd)</p>
             <p class="text-xs text-zinc-500 mb-3">Import your existing designs directly.</p>
             <label class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-bold text-white rounded transition-colors cursor-pointer">
-              <span>Select .s3dx File</span>
-              <input type="file" accept=".s3dx" class="hidden" @change=${this._handleS3dxUpload} />
+              <span>Select File</span>
+              <input type="file" accept=".s3dx,.brd" class="hidden" @change=${this._handleFileUpload} />
             </label>
           </div>
 
