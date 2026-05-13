@@ -605,7 +605,7 @@ export class BoardViewport extends LitElement {
     
     const sampled = this.sampleBezierCurve(clonedCurve, steps);
     const projected = sampled.map(p => {
-       let x = this.getXOffset(userData.curve, p[0], p[2], this.mathEngine!);
+       const x = this.getXOffset(userData.curve, p[0], p[2], this.mathEngine!);
        let y = p[1];
        
        const profile = this.mathEngine!.get_profile_at_z(p[2]) as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
@@ -687,12 +687,16 @@ export class BoardViewport extends LitElement {
 
 
   
-    private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40):[number, number, number][] {
-                if (!this.mathEngine) return[];
-                      const flat = this.mathEngine.sample_curve(bezier, steps) as Float32Array;
-                      const pts:[number, number, number][] =[];
-                            for (let i = 0; i < flat.length; i += 3) {
-                            pts.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]);      }      return pts;  }
+        private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40): [number, number, number][] {
+        if (!this.mathEngine) return[];
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const flat = this.mathEngine.sample_curve(bezier, steps) as Float32Array;
+        const pts: [number, number, number][] =[];
+        for (let i = 0; i < flat.length; i += 3) {
+            pts.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]);
+        }
+        return pts;
+    }
 
   public getXOffset(curveName: string, xInches: number, zInches: number, mathEngine: WasmEngine): number {
       if (curveName === 'apexRocker') {

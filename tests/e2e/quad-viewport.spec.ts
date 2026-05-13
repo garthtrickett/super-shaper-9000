@@ -147,11 +147,19 @@ test.describe('Quad Viewport CAD Interface', () => {
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.mouse.down();
 
-    // Capture the wireframe vertex before moving
+        // Capture the wireframe vertex before moving
     const initialOutlineX = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
-      const line = vp.wireframeGroup.children.find((c: any) => c.userData.curve === 'outline' && !c.userData.mirrorX);
-      return line.geometry.attributes.position.array[50 * 3]; // X coord near middle
+      type ViewportElement = HTMLElement & {
+        wireframeGroup: {
+          children: Array<{
+            userData: { curve: string; mirrorX: boolean };
+            geometry: { attributes: { position: { array: Float32Array } } };
+          }>;
+        };
+      };
+      const vp = document.querySelector('board-viewport') as ViewportElement | null;
+      const line = vp?.wireframeGroup.children.find((c) => c.userData.curve === 'outline' && !c.userData.mirrorX);
+      return line ? line.geometry.attributes.position.array[50 * 3] : 0;
     });
 
     // Drag it inwards to dramatically narrow the board (use fewer steps to save time in headless WebGL)
@@ -159,13 +167,21 @@ test.describe('Quad Viewport CAD Interface', () => {
 
     // Verify the real-time preview modified the wireframe buffer BEFORE mouseup
     const previewOutlineX = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
-      const line = vp.wireframeGroup.children.find((c: any) => c.userData.curve === 'outline' && !c.userData.mirrorX);
-      return line.geometry.attributes.position.array[50 * 3];
+      type ViewportElement = HTMLElement & {
+        wireframeGroup: {
+          children: Array<{
+            userData: { curve: string; mirrorX: boolean };
+            geometry: { attributes: { position: { array: Float32Array } } };
+          }>;
+        };
+      };
+      const vp = document.querySelector('board-viewport') as ViewportElement | null;
+      const line = vp?.wireframeGroup.children.find((c) => c.userData.curve === 'outline' && !c.userData.mirrorX);
+      return line ? line.geometry.attributes.position.array[50 * 3] : 0;
     });
 
     expect(previewOutlineX).not.toEqual(initialOutlineX);
-    expect(previewOutlineX).toBeLessThan(initialOutlineX);
+    expect(previewOutlineX as number).toBeLessThan(initialOutlineX as number);
 
     await page.mouse.up();
 
