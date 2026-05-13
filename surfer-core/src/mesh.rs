@@ -1791,8 +1791,9 @@ mod tests {
             tangents2: vec![Vec3::new(12.0, 0.0, 75.0), Vec3::new(12.0, 0.0, 80.0)],
             ..Default::default()
         };
-        model.outline_layers = Some(vec![OutlineLayer {
+                model.outline_layers = Some(vec![OutlineLayer {
             name: "Wing".to_string(),
+            active: true,
             otl_ext: wing_ext,
             otl_int: BezierCurveData::default(),
         }]);
