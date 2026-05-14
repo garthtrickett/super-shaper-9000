@@ -152,7 +152,17 @@ export class InteractionManager {
     this.raycaster.layers.mask = camera.layers.mask;
     this.raycaster.params.Line = { threshold: 1.5 }; 
 
-    const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
+        const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
+
+    // In Orthographic views, large Line thresholds cause rays to hit multiple lines.
+    // Three.js sorts by Z-depth (distance from camera) by default, meaning higher lines (like deckShoulder)
+    // steal the hover from lower lines (like outline). We must sort by the actual radial distanceToRay.
+    intersects.sort((a, b) => {
+      const distA = a.distanceToRay !== undefined ? a.distanceToRay : a.distance;
+      const distB = b.distanceToRay !== undefined ? b.distanceToRay : b.distance;
+      return distA - distB;
+    });
+
     const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isCurveLine);
 
     if (hit) {
