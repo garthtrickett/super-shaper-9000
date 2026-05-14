@@ -1,4 +1,5 @@
 pub mod bezier;
+pub mod brd_exporter;
 pub mod brd_parser;
 pub mod geometry;
 pub mod mesh;
