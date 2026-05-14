@@ -652,13 +652,13 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         left_target_x
                     };
 
-                    let target_y = if j <= half {
+                                        let target_y = if j <= half {
                         // Right side center-line Y interpolation
-                        let f = j as f32 / half as f32;
+                        let f = u_columns[j].0;
                         ring[0].0.y + f * (ring[half].0.y - ring[0].0.y)
                     } else {
                         // Left side center-line Y interpolation
-                        let f = (num_cols - 1 - j) as f32 / half as f32;
+                        let f = u_columns[j].0;
                         ring[num_cols - 1].0.y + f * (ring[half + 1].0.y - ring[num_cols - 1].0.y)
                     };
 
@@ -2318,10 +2318,85 @@ mod tests {
             }
         }
         
-        assert_eq!(
+                assert_eq!(
             degenerate_count, 0,
             "Found {} degenerate triangles! These render as black shapes.",
             degenerate_count
         );
+    }
+
+    #[test]
+    fn test_mini_simmons_tail_cap_no_intersections() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd not found.");
+            return;
+        }
+
+        let bytes = std::fs::read(&path).unwrap();
+        let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
+        
+        // Emulate the frontend's behavior of preserving the active cross section
+        let basic_cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(6.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.0, 0.0),
+                Vec3::new(6.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(4.0, -1.25, 0.0),
+                Vec3::new(9.375, -0.5, 0.0),
+                Vec3::new(8.0, 1.25, 0.0),
+                Vec3::new(2.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(2.0, -1.25, 0.0),
+                Vec3::new(8.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.5, 0.0),
+                Vec3::new(4.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+        };
+        model.cross_sections = vec![basic_cs];
+
+        let mesh = super::generate_mesh(&model);
+
+        // Analyze cap triangles at the tail
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+        
+        let mut tail_cap_inverted_triangles = 0;
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+
+            let v1 = Vec3::new(mesh.vertices[i1*3], mesh.vertices[i1*3+1], mesh.vertices[i1*3+2]);
+            let v2 = Vec3::new(mesh.vertices[i2*3], mesh.vertices[i2*3+1], mesh.vertices[i2*3+2]);
+            let v3 = Vec3::new(mesh.vertices[i3*3], mesh.vertices[i3*3+1], mesh.vertices[i3*3+2]);
+
+            // Filter for tail cap triangles (Z is approximately tail_z)
+            if (v1.z - tail_z).abs() < 1e-3 && (v2.z - tail_z).abs() < 1e-3 && (v3.z - tail_z).abs() < 1e-3 {
+                
+                let face_normal = (v2 - v1).cross(v3 - v1).normalize();
+                
+                // For a flat cap facing +Z, the CCW normal should be exactly (0, 0, 1)
+                // If it's inverted due to crossovers, Z will drop into the negative.
+                if face_normal.z < -0.1 {
+                    tail_cap_inverted_triangles += 1;
+                }
+            }
+        }
+
+        assert_eq!(tail_cap_inverted_triangles, 0, "Found inverted triangles on the tail cap! This is caused by Y-coordinate crossovers during cap generation.");
     }
 }
