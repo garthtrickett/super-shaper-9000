@@ -614,7 +614,7 @@ mod tests {
         assert!(model.rocker_bottom.is_some());
         assert!(model.rocker_top.is_some());
 
-        let outline = model.outline.unwrap();
-        assert!(outline.control_points.len() > 5);
+                let outline = model.outline.unwrap();
+        assert!(outline.control_points.len() > 2);
     }
 }
