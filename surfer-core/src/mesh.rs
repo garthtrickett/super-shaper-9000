@@ -2268,11 +2268,60 @@ mod tests {
                 "BUG: Cap normal on a blunt tail should not have a Y component! It is being slerped. Normal: {:?}",
                 n
             );
-            assert!(
+                        assert!(
                 (n.z - 1.0).abs() < 1e-2,
                 "BUG: Cap normal on a blunt tail should point strictly in +Z! Normal: {:?}",
                 n
             );
         }
+    }
+
+    #[test]
+    fn test_mini_simmons_bottom_black_shapes() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd not found.");
+            return;
+        }
+
+        let bytes = std::fs::read(&path).unwrap();
+        let model = crate::brd_parser::parse_brd(&bytes).unwrap();
+        let mesh = super::generate_mesh(&model);
+
+        // 1. Check for NaN Normals (which render as pure black in WebGL)
+        let mut nan_normals = 0;
+        for i in (0..mesh.normals.len()).step_by(3) {
+            let n = Vec3::new(mesh.normals[i], mesh.normals[i+1], mesh.normals[i+2]);
+            if !n.is_finite() {
+                nan_normals += 1;
+            }
+        }
+        assert_eq!(nan_normals, 0, "Found {} NaN normal vectors. These cause black shading artifacts.", nan_normals);
+
+        // 2. Check for Degenerate Triangles
+        let mut degenerate_count = 0;
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+
+            let v1 = Vec3::new(mesh.vertices[i1*3], mesh.vertices[i1*3+1], mesh.vertices[i1*3+2]);
+            let v2 = Vec3::new(mesh.vertices[i2*3], mesh.vertices[i2*3+1], mesh.vertices[i2*3+2]);
+            let v3 = Vec3::new(mesh.vertices[i3*3], mesh.vertices[i3*3+1], mesh.vertices[i3*3+2]);
+
+            let area = (v2 - v1).cross(v3 - v1).length();
+            if area < 1e-10 {
+                degenerate_count += 1;
+            }
+        }
+        
+        assert_eq!(
+            degenerate_count, 0,
+            "Found {} degenerate triangles! These render as black shapes.",
+            degenerate_count
+        );
     }
 }
