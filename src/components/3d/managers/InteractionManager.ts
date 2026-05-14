@@ -205,20 +205,33 @@ export class InteractionManager {
     return bestMatch;
   }
 
-    private onPointerDown = (e: PointerEvent) => {
+        private onPointerDown = (e: PointerEvent) => {
     const isRightClick = e.button === 2;
     const isAltClick = e.altKey && e.button === 0;
 
-    if ((isRightClick || isAltClick) && this.hoveredCurve && this.hoveredT !== null) {
-        this.host.dispatchEvent(new CustomEvent('insert-node', {
-            detail: { curve: this.hoveredCurve, t: this.hoveredT },
-            bubbles: true, composed: true
-        }));
-        this.hoveredCurve = null;
-        this.hoveredT = null;
-        this.host.setHoverPreview(null);
-        e.stopPropagation();
-        return;
+    if (isRightClick || isAltClick) {
+        let curveToInsert = this.hoveredCurve;
+        let tToInsert = this.hoveredT;
+
+        if (!curveToInsert || tToInsert === null) {
+            const hit = this.findCurveAtPointer(e);
+            if (hit) {
+                curveToInsert = hit.curveName;
+                tToInsert = hit.t;
+            }
+        }
+
+        if (curveToInsert && tToInsert !== null) {
+            this.host.dispatchEvent(new CustomEvent('insert-node', {
+                detail: { curve: curveToInsert, t: tToInsert },
+                bubbles: true, composed: true
+            }));
+            this.hoveredCurve = null;
+            this.hoveredT = null;
+            this.host.setHoverPreview(null);
+            e.stopPropagation();
+            return;
+        }
     }
 
     this.dragStartPos.set(e.clientX, e.clientY);
