@@ -710,15 +710,17 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await maximizeBtn.click();
     await page.waitForTimeout(500);
 
-    const hitPosition = await page.evaluate(() => {
+        const hitPosition = await page.evaluate(() => {
+      type Vector3Mock = { set(x: number, y: number, z: number): void, project(cam: unknown): void, x: number, y: number, z: number };
+      type CameraMock = { position: { clone(): Vector3Mock } };
       type BoardViewportElement = HTMLElement & {
         mathEngine?: {
           get_point_on_curve(curveName: string, t: number): Float32Array;
-          get_profile_at_z(z: number): any;
+          get_profile_at_z(z: number): { apexY: number };
         };
         sceneManager?: {
           cameras: {
-            perspective: any;
+            perspective: CameraMock;
           }
         };
       };
@@ -763,13 +765,26 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         // 3. Wait for WASM debounce and Three.js rebuild
     await page.waitForTimeout(1000);
 
-    // 4. Dynamically find the exact screen coordinates of the new Gizmo (Index 1)
+        // 4. Dynamically find the exact screen coordinates of the new Gizmo (Index 1)
     const newGizmoPos = await page.evaluate(() => {
-      const vp = document.querySelector('board-viewport') as any;
+      type Vector3Mock = { set(x: number, y: number, z: number): void, project(cam: unknown): void, x: number, y: number, z: number };
+      type CameraMock = { position: { clone(): Vector3Mock } };
+      type Object3DMock = { position: { clone(): Vector3Mock }, userData?: { isGizmo?: boolean, curve?: string, index?: number, type?: string } };
+      type BoardViewportElement = HTMLElement & {
+        sceneManager?: {
+          cameras: {
+            perspective: CameraMock;
+          };
+          scene: {
+            traverse(callback: (child: Object3DMock) => void): void;
+          };
+        };
+      };
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.sceneManager) return null;
 
-            let gizmo: any = null;
-      vp.sceneManager.scene.traverse((child: any) => {
+      let gizmo: Object3DMock | null = null;
+      vp.sceneManager.scene.traverse((child: Object3DMock) => {
         if (child.userData?.isGizmo && child.userData.curve === 'outline' && child.userData.index === 1 && child.userData.type === 'anchor') {
           gizmo = child;
         }
@@ -781,6 +796,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       vec.project(camera);
 
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       return {
         x: rect.left + ((vec.x + 1) / 2 * rect.width),
