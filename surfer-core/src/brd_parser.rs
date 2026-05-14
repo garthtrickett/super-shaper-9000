@@ -335,7 +335,7 @@ fn parse_aku_slices(
 ) -> Vec<BezierCurveData> {
     let mut slices = Vec::new();
 
-    for line in lines.by_ref() {
+    while let Some(line) = lines.next() {
         let line = line.trim();
         if line == ")" {
             break;
