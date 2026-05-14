@@ -295,19 +295,40 @@ export class BoardViewport extends LitElement {
           return [profile.shoulderX, profile.shoulderY, p[2]] as Point3D;
         });
 
-    if (this.boardState?.showOutline !== false) {
+        if (this.boardState?.showOutline !== false) {
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, 'outline'));
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, 'outline'));
+      
+      if (activeOutline.length > 0) {
+          const firstPt = activeOutline[0];
+          const lastPt = activeOutline[activeOutline.length - 1];
+          this.wireframeGroup.add(buildLine([[firstPt[0], firstPt[1], firstPt[2]], [-firstPt[0], firstPt[1], firstPt[2]]], matOutline, 1, false, 'noseCapOutline'));
+          this.wireframeGroup.add(buildLine([[lastPt[0], lastPt[1], lastPt[2]], [-lastPt[0], lastPt[1], lastPt[2]]], matOutline, 1, false, 'tailCapOutline'));
+      }
     }
 
     if (activeApexOutline && this.boardState?.showApexOutline !== false) {
       this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, false, 'apexOutline'));
       this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, true, 'apexOutline'));
+      
+      if (activeApexOutline.length > 0) {
+          const firstPt = activeApexOutline[0];
+          const lastPt = activeApexOutline[activeApexOutline.length - 1];
+          this.wireframeGroup.add(buildLine([[firstPt[0], firstPt[1], firstPt[2]], [-firstPt[0], firstPt[1], firstPt[2]]], matApexOutline, 1, false, 'noseCapApex'));
+          this.wireframeGroup.add(buildLine([[lastPt[0], lastPt[1], lastPt[2]], [-lastPt[0], lastPt[1], lastPt[2]]], matApexOutline, 1, false, 'tailCapApex'));
+      }
     }
 
     if (activeRailOutline && this.boardState?.showRailOutline !== false) {
       this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, false, 'railOutline'));
       this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, true, 'railOutline'));
+      
+      if (activeRailOutline.length > 0) {
+          const firstPt = activeRailOutline[0];
+          const lastPt = activeRailOutline[activeRailOutline.length - 1];
+          this.wireframeGroup.add(buildLine([[firstPt[0], firstPt[1], firstPt[2]], [-firstPt[0], firstPt[1], firstPt[2]]], matRailOutline, 1, false, 'noseCapRail'));
+          this.wireframeGroup.add(buildLine([[lastPt[0], lastPt[1], lastPt[2]], [-lastPt[0], lastPt[1], lastPt[2]]], matRailOutline, 1, false, 'tailCapRail'));
+      }
     }
 
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, 'rockerTop'));

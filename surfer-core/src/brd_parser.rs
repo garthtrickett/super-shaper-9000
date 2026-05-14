@@ -125,45 +125,66 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
 }
 
 fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
-    // Clean up start
-    while curve.control_points.len() >= 3 {
-        let p_first = curve.control_points[0];
-        let p_next = curve.control_points[1];
-        
-        // If the first point is at the stringer, and the next point is wide at the rail,
-        // and they are close in Z (< 2.0 inches), it is a blocky nose cap that must be stripped.
-        let is_vertical_cap = p_first.x.abs() < 0.5 && p_next.x.abs() > 1.0 && (p_first.z - p_next.z).abs() < 2.0;
+    // A robust CAD tail/nose cap stripper.
+    // CAD files often close the loop by drawing a line from the rail to the stringer.
+    // Sometimes this is one straight line. Sometimes it's a rounded curve with many points.
+    // We want to strip ALL points that belong to these caps so the curve purely represents the rail.
 
-        if (p_first.z - p_next.z).abs() < 1e-3 || is_vertical_cap {
-            curve.control_points.remove(0);
-            curve.tangents1.remove(0);
-            curve.tangents2.remove(0);
-            if let Some(w) = &mut curve.weights {
-                w.remove(0);
+    // 1. Clean up START (Nose cap)
+    if curve.control_points.len() >= 3 {
+        let p_stringer = curve.control_points[0];
+        if p_stringer.x.abs() < 0.5 { // Starts near stringer
+            // Find the first point that is clearly on the rail
+            let mut rail_idx = 0;
+            for i in 1..curve.control_points.len() {
+                if curve.control_points[i].x.abs() > 1.0 {
+                    rail_idx = i;
+                    break;
+                }
             }
-        } else {
-            break;
+            
+            // If the rail point is very close in Z to the stringer point, it's a blunt cap.
+            // All points from 0 to rail_idx - 1 belong to the cap and must be stripped.
+            if rail_idx > 0 && (curve.control_points[rail_idx].z - p_stringer.z).abs() < 3.0 {
+                for _ in 0..rail_idx {
+                    curve.control_points.remove(0);
+                    curve.tangents1.remove(0);
+                    curve.tangents2.remove(0);
+                    if let Some(w) = &mut curve.weights {
+                        w.remove(0);
+                    }
+                }
+            }
         }
     }
 
-    // Clean up end
-    while curve.control_points.len() >= 3 {
+    // 2. Clean up END (Tail cap)
+    if curve.control_points.len() >= 3 {
         let len = curve.control_points.len();
-        let p_last = curve.control_points[len - 1];
-        let p_prev = curve.control_points[len - 2];
-        
-        // Strip blocky tail caps (often sloped slightly rather than perfectly vertical)
-        let is_vertical_cap = p_last.x.abs() < 0.5 && p_prev.x.abs() > 1.0 && (p_last.z - p_prev.z).abs() < 2.0;
-
-        if (p_last.z - p_prev.z).abs() < 1e-3 || is_vertical_cap {
-            curve.control_points.pop();
-            curve.tangents1.pop();
-            curve.tangents2.pop();
-            if let Some(w) = &mut curve.weights {
-                w.pop();
+        let p_stringer = curve.control_points[len - 1];
+        if p_stringer.x.abs() < 0.5 { // Ends near stringer
+            // Find the last point that is clearly on the rail (searching backwards)
+            let mut rail_idx = len - 1;
+            for i in (0..len - 1).rev() {
+                if curve.control_points[i].x.abs() > 1.0 {
+                    rail_idx = i;
+                    break;
+                }
             }
-        } else {
-            break;
+            
+            // If the rail point is very close in Z to the stringer point, it's a blunt cap.
+            // All points from rail_idx + 1 to the end belong to the cap and must be stripped.
+            if rail_idx < len - 1 && (p_stringer.z - curve.control_points[rail_idx].z).abs() < 3.0 {
+                let to_remove = (len - 1) - rail_idx;
+                for _ in 0..to_remove {
+                    curve.control_points.pop();
+                    curve.tangents1.pop();
+                    curve.tangents2.pop();
+                    if let Some(w) = &mut curve.weights {
+                        w.pop();
+                    }
+                }
+            }
         }
     }
 
