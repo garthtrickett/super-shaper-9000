@@ -760,17 +760,42 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.mouse.click(hitPosition!.x, hitPosition!.y, { button: 'left' });
     await page.keyboard.up('Alt');
     
-    // 3. Wait for WASM debounce and Three.js rebuild
+        // 3. Wait for WASM debounce and Three.js rebuild
     await page.waitForTimeout(1000);
 
-    // 4. Move away and back to re-trigger raycaster on the new Gizmo
+    // 4. Dynamically find the exact screen coordinates of the new Gizmo (Index 1)
+    const newGizmoPos = await page.evaluate(() => {
+      const vp = document.querySelector('board-viewport') as any;
+      if (!vp || !vp.sceneManager) return null;
+
+      let gizmo = null;
+      vp.sceneManager.scene.traverse((child: any) => {
+        if (child.userData?.isGizmo && child.userData.curve === 'outline' && child.userData.index === 1 && child.userData.type === 'anchor') {
+          gizmo = child;
+        }
+      });
+      if (!gizmo) return null;
+
+      const camera = vp.sceneManager.cameras.perspective;
+      const vec = gizmo.position.clone();
+      vec.project(camera);
+
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: rect.left + ((vec.x + 1) / 2 * rect.width),
+        y: rect.top + ((1 - vec.y) / 2 * rect.height)
+      };
+    });
+
+    expect(newGizmoPos).toBeTruthy();
+
+    // 5. Move to the new gizmo and click it
     await page.mouse.move(0, 0);
     await page.waitForTimeout(200);
-    await page.mouse.move(hitPosition!.x, hitPosition!.y);
+    await page.mouse.move(newGizmoPos!.x, newGizmoPos!.y);
     await page.waitForTimeout(500);
-
-    // 5. Click to select the newly created node
-    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    await page.mouse.click(newGizmoPos!.x, newGizmoPos!.y);
     await page.waitForTimeout(500);
 
     const inspector = page.locator("node-inspector");
