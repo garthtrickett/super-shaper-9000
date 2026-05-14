@@ -182,18 +182,20 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
         }
     } else {
         // Rocker curves (is_thickness == true)
-        // Caps are vertical segments. We strip points at the ends that have the exact same Z (within a tiny tolerance)
-        // and are near y=0, but only if they form a blunt drop.
+        // Caps are vertical segments. We strip points at the ends that have the exact same Z
+        // (within a tiny tolerance) because they represent vertical caps closing the shape,
+        // which messes up thickness evaluations at the exact tips.
         
-        // 1. Clean up START (Nose cap)
+        // 1. Clean up START (Nose/Tail cap at index 0)
         let mut strip_start = 0;
-        for i in 0..curve.control_points.len().saturating_sub(1) {
-            let p0 = curve.control_points[i];
-            let p1 = curve.control_points[i+1];
-            if (p0.z - p1.z).abs() < 1.0 && p0.y.abs() < p1.y.abs() && p0.y.abs() < 0.5 {
-                strip_start = i + 1;
-            } else {
-                break;
+        if let Some(first_p) = curve.control_points.first() {
+            let base_z = first_p.z;
+            for i in 1..curve.control_points.len() {
+                if (curve.control_points[i].z - base_z).abs() < 0.001 {
+                    strip_start += 1;
+                } else {
+                    break;
+                }
             }
         }
         for _ in 0..strip_start {
@@ -205,15 +207,16 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
             }
         }
 
-        // 2. Clean up END (Tail cap)
+        // 2. Clean up END (Nose/Tail cap at index N-1)
         let mut strip_end = 0;
-        for i in (1..curve.control_points.len()).rev() {
-            let p_last = curve.control_points[i];
-            let p_prev = curve.control_points[i-1];
-            if (p_last.z - p_prev.z).abs() < 1.0 && p_last.y.abs() < p_prev.y.abs() && p_last.y.abs() < 0.5 {
-                strip_end += 1;
-            } else {
-                break;
+        if let Some(last_p) = curve.control_points.last() {
+            let base_z = last_p.z;
+            for i in (0..curve.control_points.len().saturating_sub(1)).rev() {
+                if (curve.control_points[i].z - base_z).abs() < 0.001 {
+                    strip_end += 1;
+                } else {
+                    break;
+                }
             }
         }
         for _ in 0..strip_end {
