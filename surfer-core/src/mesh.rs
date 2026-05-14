@@ -638,8 +638,13 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
             let width_inches = ring_width / scale;
             let num_x_steps = (width_inches / 0.5).ceil().max(1.0) as u32;
-            let right_target_x = ring[0].0.x;
+                        let right_target_x = ring[0].0.x;
+            let right_target_y_bot = ring[0].0.y;
+            let right_target_y_top = ring[half].0.y;
+
             let left_target_x = ring[num_cols - 1].0.x;
+            let left_target_y_bot = ring[num_cols - 1].0.y;
+            let left_target_y_top = ring[half + 1].0.y;
 
             for step in 0..=num_x_steps {
                 let fraction = 1.0 - (step as f32 / num_x_steps as f32);
@@ -647,28 +652,24 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     let (pos, color, _u_tex, _v_coord, _abs_u) = ring[j];
                     let side = u_columns[j].1;
 
-                    let target_x = if side > 0.0 {
-                        right_target_x
+                    let target_x = if side > 0.0 { right_target_x } else { left_target_x };
+                    
+                    // To ensure the cap perfectly seals the hull on the outside, and gradually flattens
+                    // to a straight vertical line at the stringer (X=0), we lerp the Y coordinate based on the fraction.
+                    let pos_bot_y = ring[if side > 0.0 { 0 } else { num_cols - 1 }].0.y;
+                    let pos_top_y = ring[if side > 0.0 { half } else { half + 1 }].0.y;
+                    let y_frac = if (pos_top_y - pos_bot_y).abs() > 1e-5 {
+                        (pos.y - pos_bot_y) / (pos_top_y - pos_bot_y)
                     } else {
-                        left_target_x
+                        0.5
                     };
+                    
+                    let target_y_bot = if side > 0.0 { right_target_y_bot } else { left_target_y_bot };
+                    let target_y_top = if side > 0.0 { right_target_y_top } else { left_target_y_top };
+                    let center_y = target_y_bot + (target_y_top - target_y_bot) * y_frac;
 
-                    // By projecting horizontally (keeping Y constant), we guarantee that the lines
-                    // scaling inwards towards the center axis will NEVER cross each other,
-                    // completely eliminating topological folds and inverted normals on complex tail shapes.
-                    let target_y = pos.y;
-
-                    // To ensure a perfect watertight seal with the hull, step 0 must copy the exact float bits
-                    let new_x = if step == 0 {
-                        pos.x
-                    } else {
-                        target_x + (pos.x - target_x) * fraction
-                    };
-                    let new_y = if step == 0 {
-                        pos.y
-                    } else {
-                        target_y + (pos.y - target_y) * fraction
-                    };
+                    let new_x = if step == 0 { pos.x } else { target_x + (pos.x - target_x) * fraction };
+                    let new_y = if step == 0 { pos.y } else { center_y + (pos.y - center_y) * fraction };
 
                     vertices.push(new_x);
                     vertices.push(new_y);

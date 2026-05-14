@@ -109,22 +109,21 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
         return default_bounds;
     }
 
-    let nose_z = evaluate_curve(outline, 0.0).z;
+    let out_nose_z = evaluate_curve(outline, 0.0).z;
     let notch_z = evaluate_curve(outline, 1.0).z;
 
-    let mut tip_z = f32::NEG_INFINITY;
+    let mut out_tip_z = f32::NEG_INFINITY;
     let mut tip_t = 1.0;
     let steps = 50;
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
         let p = evaluate_curve(outline, t);
-        if p.z > tip_z {
-            tip_z = p.z;
+        if p.z > out_tip_z {
+            out_tip_z = p.z;
             tip_t = t;
         }
     }
 
-    // Refine tip_t for pinpoint accuracy at the absolute outer tail tip
     let mut t_search = tip_t;
     let mut step_size = 1.0 / steps as f32;
     for _ in 0..15 {
@@ -133,15 +132,33 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
         let t_right = 1.0_f32.min(t_search + step_size);
         let p_left = evaluate_curve(outline, t_left);
         let p_right = evaluate_curve(outline, t_right);
-        if p_left.z > tip_z {
-            tip_z = p_left.z;
+        if p_left.z > out_tip_z {
+            out_tip_z = p_left.z;
             t_search = t_left;
-        } else if p_right.z > tip_z {
-            tip_z = p_right.z;
+        } else if p_right.z > out_tip_z {
+            out_tip_z = p_right.z;
             t_search = t_right;
         }
     }
     tip_t = t_search;
+
+    // Use Rocker for absolute Z bounds to prevent amputation when outline caps are stripped
+    let nose_z = if let Some(rb) = &model.rocker_bottom {
+        evaluate_curve(rb, 0.0).z.min(out_nose_z)
+    } else {
+        out_nose_z
+    };
+
+    let mut tip_z = if let Some(rb) = &model.rocker_bottom {
+        evaluate_curve(rb, 1.0).z.max(out_tip_z)
+    } else {
+        out_tip_z
+    };
+
+    // If the rocker is somehow shorter than the outline, fall back to the outline's tip
+    if out_tip_z > tip_z {
+        tip_z = out_tip_z;
+    }
 
     BoardBounds {
         nose_z,
