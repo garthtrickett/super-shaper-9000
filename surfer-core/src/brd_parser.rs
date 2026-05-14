@@ -703,6 +703,45 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_bump_squash_stringer_tail_alignment() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let outline = model.outline.as_ref().expect("Missing outline");
+        let rocker_top = model.rocker_top.as_ref().expect("Missing rocker top");
+        let rocker_bottom = model.rocker_bottom.as_ref().expect("Missing rocker bottom");
+
+        let outline_tail_z = outline.control_points.last().unwrap().z;
+        let rtop_tail_z = rocker_top.control_points.last().unwrap().z;
+        let rbot_tail_z = rocker_bottom.control_points.last().unwrap().z;
+
+        println!("Outline Tail Z: {}", outline_tail_z);
+        println!("Rocker Top Tail Z: {}", rtop_tail_z);
+        println!("Rocker Bottom Tail Z: {}", rbot_tail_z);
+
+        let top_diff = (outline_tail_z - rtop_tail_z).abs();
+        let bot_diff = (outline_tail_z - rbot_tail_z).abs();
+
+        println!("Top Diff: {}", top_diff);
+        println!("Bottom Diff: {}", bot_diff);
+
+        assert!(
+            top_diff < 0.1,
+            "Rocker top extends past outline! Outline: {}, Rocker Top: {}",
+            outline_tail_z, rtop_tail_z
+        );
+        assert!(
+            bot_diff < 0.1,
+            "Rocker bottom extends past outline! Outline: {}, Rocker Bottom: {}",
+            outline_tail_z, rbot_tail_z
+        );
+    }
+
     #[test]
     fn test_brd_decompression_and_parsing() {
         let _ = env_logger::builder().is_test(true).try_init();
