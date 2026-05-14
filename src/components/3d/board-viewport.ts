@@ -475,11 +475,8 @@ export class BoardViewport extends LitElement {
           const worldY = this.getZHeight(curveName, p[1], p[2], mathEngine);
           return new THREE.Vector3(p[0]*scale, worldY*scale, p[2]*scale);
         });
-        const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z)).reverse();
-        leftPts.pop();
-        const fullPts =[...leftPts, ...pts];
-        if (fullPts[0]) fullPts.push(fullPts[0].clone());
-                const color = new THREE.Color(0x334155); // Darker Slate-700
+                const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z));
+        const color = new THREE.Color(0x334155); // Darker Slate-700
         const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6, depthWrite: false });
                 const lineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
         lineRight.layers.set(3);
@@ -640,21 +637,11 @@ export class BoardViewport extends LitElement {
           const mirrorX = line.userData.mirrorX as boolean;
           const positions = line.geometry.attributes.position?.array as Float32Array;
           
-          if (positions.length === projected.length * 3) {
+                    if (positions.length === projected.length * 3) {
              for (let i = 0; i < projected.length; i++) {
                const p = projected[i];
                if (!p) continue;
                positions[i * 3] = (mirrorX ? -p[0] : p[0]) * scale;
-               positions[i * 3 + 1] = p[1] * scale;
-               positions[i * 3 + 2] = p[2] * scale;
-             }
-             const posAttr = line.geometry.attributes.position as THREE.BufferAttribute | undefined;
-             if (posAttr) posAttr.needsUpdate = true;
-          } else if (userData.curve.startsWith('crossSection_') && positions.length === (projected.length - 1) * 3 && mirrorX) {
-             for (let i = 0; i < projected.length - 1; i++) {
-               const p = projected[projected.length - 1 - i]; // Reverse order
-               if (!p) continue;
-               positions[i * 3] = -p[0] * scale;
                positions[i * 3 + 1] = p[1] * scale;
                positions[i * 3 + 2] = p[2] * scale;
              }
