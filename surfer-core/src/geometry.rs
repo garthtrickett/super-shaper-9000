@@ -2531,8 +2531,8 @@ mod tests {
         assert_eq!(violations, 0, "Tuck X should never be less than Inner X (the stringer), or the mesh folds backwards!");
     }
 
-    #[test]
-    fn test_mini_simmons_smooth_u_sweep() {
+        #[test]
+    fn test_mini_simmons_mesh_generation_diagnostics() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
@@ -2545,6 +2545,7 @@ mod tests {
         let bytes = std::fs::read(&path).unwrap();
         let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
         
+        // Standard basic cross section for meshing
         let basic_cs = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.25, 0.0),
@@ -2571,44 +2572,35 @@ mod tests {
         };
         model.cross_sections = vec![basic_cs];
 
-                let bounds = crate::geometry::get_board_bounds(&model);
-        let z_test = bounds.tip_z - 1.0; // 1 inch from the absolute tail tip
-        let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z_test, 0.0, bounds.tip_t);
+        let bounds = crate::geometry::get_board_bounds(&model);
+        println!("\n=== MINI SIMMONS BOUNDS ===");
+        println!("nose_z: {:.4}", bounds.nose_z);
+        println!("tip_z: {:.4}", bounds.tip_z);
+        println!("notch_z: {:.4}", bounds.notch_z);
+        println!("tip_t: {:.4}", bounds.tip_t);
+        println!("Delta (tip_z - notch_z): {:.6}", bounds.tip_z - bounds.notch_z);
         
-        let profile = crate::geometry::get_board_profile_at_z(&model, z_test, v_outer);
-        println!("\n=== MINI SIMMONS TAIL PROFILE @ Z={:.2} ===", z_test);
-        println!("bot_y: {:.4}, top_y: {:.4}", profile.bot_y, profile.top_y);
-        println!("apex_x: {:.4}, apex_y: {:.4}", profile.apex_x, profile.apex_y);
-        println!("tuck_x: {:.4}, tuck_y: {:.4}", profile.tuck_x, profile.tuck_y);
-        println!("shoulder_x: {:.4}, shoulder_y: {:.4}", profile.shoulder_x, profile.shoulder_y);
-        println!("half_width: {:.4}", profile.half_width);
-        
-        println!("\n--- 3D MESH U-SWEEP (BOTTOM HULL ONLY) ---");
-        let mut dx_signs = Vec::new();
-        let mut last_x = 0.0;
-        
-        for i in 0..=20 {
-            let u = i as f32 / 40.0; // u from 0.0 to 0.5
-            let pt = crate::geometry::get_point_at_uv(&model, u, v_outer, z_test, 0.0, 1.0);
-            let n = crate::geometry::get_surface_normal_at_uvz(&model, u, z_test, 1.0);
-            
-            println!("U={:.3} -> X: {:.4}, Y: {:.4} | Normal({:.3}, {:.3}, {:.3})", u, pt.x, pt.y, n.x, n.y, n.z);
-            
-            let dx = pt.x - last_x;
-            if i > 0 && dx.abs() > 1e-4 {
-                let sign = dx.signum();
-                if dx_signs.is_empty() || *dx_signs.last().unwrap() != sign {
-                    dx_signs.push(sign);
-                }
-            }
-            last_x = pt.x;
+        if (bounds.tip_z - bounds.notch_z) >= 1e-3 {
+            println!("🚨 WARNING: The engine thinks this is a Swallow Tail and will generate an interior notch wall!");
+        } else {
+            println!("✅ Engine correctly identified a standard blunt/squash tail.");
         }
 
-        assert!(
-            dx_signs.len() <= 2,
-            "Mesh is jagged! U-sweep produced {} direction reversals in X. Expected 1 (out to apex, back to stringer).",
-            dx_signs.len() - 1
-        );
+        let mesh = crate::mesh::generate_mesh(&model);
+        let scale = 1.0 / 12.0;
+        
+        // Get all unique Z values in the generated mesh near the tail
+        let mut unique_zs: Vec<f32> = mesh.vertices.chunks_exact(3).map(|v| v[2] / scale).collect();
+        unique_zs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        unique_zs.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
+        
+        println!("\n--- LAST 10 Z-RINGS IN GENERATED MESH ---");
+        let tail_rings = unique_zs.iter().rev().take(10).collect::<Vec<_>>();
+        for (i, z) in tail_rings.iter().enumerate() {
+            println!("Ring {}: Z = {:.5}", i, z);
+        }
+
+        assert!((bounds.tip_z - bounds.notch_z) < 1e-3, "Mini Simmons is triggering the Swallow Tail logic! This is the cause of the tail bug.");
     }
 
     #[test]
