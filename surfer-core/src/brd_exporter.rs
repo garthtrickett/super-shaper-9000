@@ -102,10 +102,16 @@ pub fn encrypt_aku_shaper(text: &str) -> Result<Vec<u8>, String> {
     let iv = &hash[8..16];
 
     let cipher = DesCbcEnc::new(key.into(), iv.into());
-    let mut ciphertext = cipher.encrypt_padded_vec_mut::<Pkcs7>(text.as_bytes());
+    let msg_len = text.len();
+    let mut buffer = vec![0u8; msg_len + 8];
+    buffer[..msg_len].copy_from_slice(text.as_bytes());
+
+    let ciphertext = cipher
+        .encrypt_padded_mut::<Pkcs7>(&mut buffer, msg_len)
+        .map_err(|e| format!("Encryption failed: {:?}", e))?;
     
     let mut final_data = b"%BRD-1.02s00".to_vec();
-    final_data.append(&mut ciphertext);
+    final_data.extend_from_slice(ciphertext);
     
     Ok(final_data)
 }
