@@ -230,13 +230,13 @@ test.describe('Quad Viewport CAD Interface', () => {
         const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
         if (!vp || !vp.mathEngine || !vp.sceneManager) return null;
 
-        const curveName = (camName === 'side' || camName === 'profile') ? 'rockerTop' : 'outline';
-        const pt = vp.mathEngine.get_point_on_curve(curveName, 0.5);
+                const curveName = (camName === 'side' || camName === 'profile') ? 'rockerTop' : 'outline';
+        const pt = vp.mathEngine.get_point_on_curve(curveName, 0.25);
         if (!pt) return null;
 
-        let worldX = pt[0]! / 12;
+        const worldX = pt[0]! / 12;
         let worldY = pt[1]! / 12;
-        let worldZ = pt[2]! / 12;
+        const worldZ = pt[2]! / 12;
 
         if (curveName === 'outline') {
             const profile = vp.mathEngine.get_profile_at_z(pt[2]!);
