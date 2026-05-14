@@ -137,7 +137,6 @@ pub fn export_aku_brd(model: &BoardModel) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_relative_eq;
     use std::fs;
     use std::path::PathBuf;
 
