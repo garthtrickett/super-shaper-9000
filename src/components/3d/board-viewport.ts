@@ -683,7 +683,7 @@ export class BoardViewport extends LitElement {
     }
   };
 
-  private getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
+    public getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
     if (!this.boardState) return yInches;
     const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number };
     if (['outline', 'apexOutline'].includes(curveName)) {

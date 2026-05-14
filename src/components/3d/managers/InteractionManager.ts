@@ -6,6 +6,8 @@ import type { BoardModel } from "../../pages/board-builder-page.logic";
 export interface HostWithPreview extends HTMLElement {
   setHoverPreview(preview: { curve: string, t: number, mirrorX: boolean } | null): void;
   mathEngine?: import("../../../lib/client/wasm/surfer_wasm.js").WasmEngine;
+  getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: import("../../../lib/client/wasm/surfer_wasm.js").WasmEngine): number;
+  getXOffset(curveName: string, xInches: number, zInches: number, mathEngine: import("../../../lib/client/wasm/surfer_wasm.js").WasmEngine): number;
 }
 
 export class InteractionManager {

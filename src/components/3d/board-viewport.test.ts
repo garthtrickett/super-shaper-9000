@@ -83,6 +83,14 @@ describe("BoardViewport (3D Component)", () => {
     });
   });
 
+    describe("Projection Helpers", () => {
+    it("exposes getZHeight and getXOffset publicly", async () => {
+      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
+      expect(typeof el.getZHeight).to.equal('function');
+      expect(typeof el.getXOffset).to.equal('function');
+    });
+  });
+
   describe("Gizmo Visibility & Management", () => {
     it("shows/hides appropriate gizmos based on boardState", async () => {
       const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
