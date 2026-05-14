@@ -698,57 +698,67 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(weightSlider).toHaveValue('1');
   });
 
-    test("Dynamic Node Insertion via Right-Click", async ({ page }) => {
+      test("Dynamic Node Insertion via Alt+Click", async ({ page }) => {
     await page.goto('/');
     const viewport = page.locator("board-viewport");
     await expect(viewport).toBeVisible();
     await expect(viewport.locator("canvas")).toBeVisible();
     await page.waitForTimeout(1000);
 
+    // Maximize Perspective View to easily project the 3D coordinate to a 2D screen coordinate
+    const maximizeBtn = viewport.locator('button[title="Maximize Perspective"]');
+    await maximizeBtn.click();
+    await page.waitForTimeout(500);
+
     const hitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & {
         mathEngine?: {
           get_point_on_curve(curveName: string, t: number): Float32Array;
-        }
+          get_profile_at_z(z: number): any;
+        };
+        sceneManager?: {
+          cameras: {
+            perspective: any;
+          }
+        };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
-      if (!vp || !vp.mathEngine) return null;
+      if (!vp || !vp.mathEngine || !vp.sceneManager) return null;
 
       const pt = vp.mathEngine.get_point_on_curve('outline', 0.25);
       if (!pt) return null;
+
+      const profile = vp.mathEngine.get_profile_at_z(pt[2]!);
+
+      const worldX = pt[0]! / 12;
+      const worldY = profile.apexY / 12;
+      const worldZ = pt[2]! / 12;
+
+      const camera = vp.sceneManager.cameras.perspective;
+      const vec = camera.position.clone();
+      vec.set(worldX, worldY, worldZ);
+      vec.project(camera);
 
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
 
       const rect = canvas.getBoundingClientRect();
-      const aspect = rect.width / rect.height;
-
-            const worldX = pt[0]! / 12;
-      const worldZ = pt[2]! / 12;
-
-      const orthoRight = 5 * aspect;
-      const orthoTop = 5;
-
-      const ndcX = worldX / orthoRight;
-      const ndcY = -worldZ / orthoTop;
-
-      const w = rect.width / 2;
-      const h = rect.height / 2;
-
-      const pixelX = rect.left + ((ndcX + 1) / 2 * w);
-      const pixelY = rect.top + ((1 - ndcY) / 2 * h);
+      const pixelX = rect.left + ((vec.x + 1) / 2 * rect.width);
+      const pixelY = rect.top + ((1 - vec.y) / 2 * rect.height);
 
       return { x: pixelX, y: pixelY };
     });
 
-        expect(hitPosition).toBeTruthy();
+    expect(hitPosition).toBeTruthy();
 
     // 1. Move to the hit position to trigger hover state
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.waitForTimeout(500);
 
-        // 2. Right-Click to Insert
-    await page.mouse.click(hitPosition!.x, hitPosition!.y, { button: 'right' });
+    // 2. Alt-Click to Insert
+    await page.keyboard.down('Alt');
+    await page.mouse.click(hitPosition!.x, hitPosition!.y, { button: 'left' });
+    await page.keyboard.up('Alt');
     
     // 3. Wait for WASM debounce and Three.js rebuild
     await page.waitForTimeout(1000);
