@@ -515,7 +515,8 @@ mod tests {
         let bounds = crate::geometry::get_board_bounds(&model);
         let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z - 0.5, 0.5);
 
-        println!("Tail Profile: top_y={}, bot_y={}", profile.top_y, profile.bot_y);
+                println!("Tail Profile: top_y={}, bot_y={}", profile.top_y, profile.bot_y);
+        println!("\n--- FULL IMPORTED MODEL ---\n{:#?}\n---------------------------\n", model);
         
         assert!(profile.top_y - profile.bot_y > 0.05, "Tail pinched to zero! top: {}, bot: {}", profile.top_y, profile.bot_y);
     }
