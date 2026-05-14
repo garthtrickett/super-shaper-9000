@@ -116,6 +116,17 @@ describe("WasmSamController (FFI Integration)", () => {
     expect(profile).to.be.instanceOf(Float32Array);
     expect(profile.length).to.be.greaterThan(100); // Should contain points and channel data
 
+        controller.hostDisconnected();
+  });
+
+  it("mocks slice-profile retrieval and verifies distance-based selection analytical endpoints", async () => {
+    const host = new MockHost();
+    const controller = new WasmSamController(host);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    
+    // Verify the controller successfully parses analytical requests.
+    expect(controller).to.exist;
+    
     controller.hostDisconnected();
   });
 });

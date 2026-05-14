@@ -26,7 +26,7 @@ export class InteractionManager {
   public hoveredCurve: string | null = null;
   public hoveredT: number | null = null;
 
-    constructor(
+        constructor(
     private host: HostWithPreview,
     private canvas: HTMLCanvasElement,
         private cameras: {
@@ -39,7 +39,8 @@ export class InteractionManager {
       perspective: OrbitControls;
     },
     private gizmoGroup: THREE.Group,
-    private wireframeGroup: THREE.Group
+    private wireframeGroup: THREE.Group,
+    private sliceLinesGroup: THREE.Group
   ) {}
 
         private onContextMenu = (e: Event) => {
@@ -147,46 +148,61 @@ export class InteractionManager {
         return { camera, mouse: new THREE.Vector2(localX, localY) };
   }
 
-  private findCurveAtPointer(e: PointerEvent): { curveName: string, t: number, mirrorX: boolean } | null {
+    private findCurveAtPointer(e: PointerEvent): { curveName: string, t: number, mirrorX: boolean } | null {
     const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
     this.mouse.copy(mouse);
-        this.raycaster.setFromCamera(this.mouse, camera);
+    this.raycaster.setFromCamera(this.mouse, camera);
     this.raycaster.layers.mask = camera.layers.mask;
     this.raycaster.params.Line = { threshold: 1.5 }; 
 
-        const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
+    const rayTargets = [...this.wireframeGroup.children, ...this.sliceLinesGroup.children];
+    const intersects = this.raycaster.intersectObjects(rayTargets, false);
 
-    // In Orthographic views, large Line thresholds cause rays to hit multiple lines.
-    // Three.js sorts by Z-depth (distance from camera) by default, meaning higher lines (like deckShoulder)
-    // steal the hover from lower lines (like outline). We must sort by the actual radial distanceToRay.
-    intersects.sort((a, b) => {
-      const distA = a.distanceToRay !== undefined ? a.distanceToRay : a.distance;
-      const distB = b.distanceToRay !== undefined ? b.distanceToRay : b.distance;
-      return distA - distB;
-    });
+    const mathEngine = this.host.mathEngine;
+    if (!mathEngine || typeof mathEngine.find_closest_t !== 'function') return null;
 
-    const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isCurveLine);
+    let bestMatch: { curveName: string, t: number, mirrorX: boolean } | null = null;
+    let minDistanceSq = Infinity;
 
-    if (hit) {
+    const candidates = intersects.filter(i => i.object.userData?.isCurveLine);
+
+    for (const hit of candidates) {
         const curveName = hit.object.userData.curve as string;
         const mirrorX = hit.object.userData.mirrorX as boolean;
+        
         const ro = this.raycaster.ray.origin.clone();
         const rd = this.raycaster.ray.direction.clone();
+        
         if (mirrorX) {
             ro.x *= -1;
             rd.x *= -1;
         }
         ro.multiplyScalar(12);
 
-        const mathEngine = this.host.mathEngine;
-        if (mathEngine && typeof mathEngine.find_closest_t === 'function') {
-            const t = mathEngine.find_closest_t(curveName, ro.x, ro.y, ro.z, rd.x, rd.y, rd.z);
-            if (t >= 0 && t <= 1) {
-                return { curveName, t, mirrorX };
+        const t = mathEngine.find_closest_t(curveName, ro.x, ro.y, ro.z, rd.x, rd.y, rd.z);
+        if (t >= 0 && t <= 1) {
+            const ptRaw = mathEngine.get_point_on_curve(curveName, t);
+            if (ptRaw && ptRaw.length >= 3) {
+                let x = ptRaw[0] as number;
+                let y = ptRaw[1] as number;
+                const z = ptRaw[2] as number;
+
+                y = this.host.getZHeight(curveName, y, z, mathEngine);
+                x = this.host.getXOffset(curveName, x, z, mathEngine);
+
+                if (mirrorX) x = -x;
+
+                const visualPtWorld = new THREE.Vector3(x, y, z).multiplyScalar(1/12);
+                const distSq = this.raycaster.ray.distanceSqToPoint(visualPtWorld);
+                
+                if (distSq < minDistanceSq && distSq < 0.02777) {
+                    minDistanceSq = distSq;
+                    bestMatch = { curveName, t, mirrorX };
+                }
             }
         }
     }
-    return null;
+    return bestMatch;
   }
 
     private onPointerDown = (e: PointerEvent) => {

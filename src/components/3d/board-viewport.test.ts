@@ -51,10 +51,12 @@ describe("BoardViewport (3D Component)", () => {
       const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
       
       // Mock mathEngine
-      el.mathEngine = {
+            el.mathEngine = {
         get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
         sample_curve: () => new Float32Array(300), // 100 points * 3
-        getXOffset: () => 10
+        getXOffset: () => 10,
+        find_closest_t: () => 0.5,
+        get_point_on_curve: () => new Float32Array([1, 2, 3])
       } as any;
 
       // Force initial wireframe build

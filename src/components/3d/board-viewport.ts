@@ -65,10 +65,10 @@ export class BoardViewport extends LitElement {
   private matHandle = new THREE.MeshBasicMaterial({ color: 0x71717a, depthTest: false });
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false });
 
-        override firstUpdated() {
+                override firstUpdated() {
     this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup, this.curvatureGroup, this.previewGroup);
     this.sceneManager = new SceneManager(this.canvas,[this.boardContainer]);
-    this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup, this.wireframeGroup);
+    this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup, this.wireframeGroup, this.sliceLinesGroup);
     this.interactionManager.initialize();
     this.sceneManager.startRenderLoop(() => {
       if (this.boardState?.showZebra) {
