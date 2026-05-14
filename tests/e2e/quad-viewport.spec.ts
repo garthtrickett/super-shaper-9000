@@ -243,7 +243,7 @@ test.describe('Quad Viewport CAD Interface', () => {
             worldY = profile.apexY / 12;
         }
 
-                const camera = vp.sceneManager.cameras[camName as 'top' | 'side' | 'profile' | 'perspective'];
+                const camera = vp.sceneManager.cameras[camName];
         const vec = camera.position.clone();
         vec.set(worldX, worldY, worldZ);
         vec.project(camera);

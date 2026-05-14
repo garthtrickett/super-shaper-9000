@@ -124,18 +124,20 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     Err("Could not find a valid Zlib, Gzip, or Raw Deflate stream in the first 128 bytes of the BRD file".into())
 }
 
-fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
+fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> BezierCurveData {
     // A robust CAD tail/nose cap stripper.
     // CAD files often close the loop by drawing a line from the rail to the stringer.
     // Sometimes this is one straight line. Sometimes it's a rounded curve with many points.
     // We want to strip ALL points that belong to these caps so the curve purely represents the rail.
 
-    // 1. Clean up START (Nose cap)
-    if curve.control_points.len() >= 3 {
+    if curve.control_points.len() < 3 {
+        return curve;
+    }
+
+    if !is_thickness {
+        // 1. Clean up START (Nose cap)
         let p_stringer = curve.control_points[0];
         if p_stringer.x.abs() < 0.5 {
-            // Starts near stringer
-            // Find the first point that is clearly on the rail
             let mut rail_idx = 0;
             for i in 1..curve.control_points.len() {
                 if curve.control_points[i].x.abs() > 1.0 {
@@ -143,9 +145,6 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
                     break;
                 }
             }
-
-            // If the rail point is very close in Z to the stringer point, it's a blunt cap.
-            // All points from 0 to rail_idx - 1 belong to the cap and must be stripped.
             if rail_idx > 0 && (curve.control_points[rail_idx].z - p_stringer.z).abs() < 3.0 {
                 for _ in 0..rail_idx {
                     curve.control_points.remove(0);
@@ -157,15 +156,11 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
                 }
             }
         }
-    }
 
-    // 2. Clean up END (Tail cap)
-    if curve.control_points.len() >= 3 {
+        // 2. Clean up END (Tail cap)
         let len = curve.control_points.len();
         let p_stringer = curve.control_points[len - 1];
         if p_stringer.x.abs() < 0.5 {
-            // Ends near stringer
-            // Find the last point that is clearly on the rail (searching backwards)
             let mut rail_idx = len - 1;
             for i in (0..len - 1).rev() {
                 if curve.control_points[i].x.abs() > 1.0 {
@@ -173,9 +168,6 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
                     break;
                 }
             }
-
-            // If the rail point is very close in Z to the stringer point, it's a blunt cap.
-            // All points from rail_idx + 1 to the end belong to the cap and must be stripped.
             if rail_idx < len - 1 && (p_stringer.z - curve.control_points[rail_idx].z).abs() < 3.0 {
                 let to_remove = (len - 1) - rail_idx;
                 for _ in 0..to_remove {
@@ -186,6 +178,50 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
                         w.pop();
                     }
                 }
+            }
+        }
+    } else {
+        // Rocker curves (is_thickness == true)
+        // Caps are vertical segments. We strip points at the ends that have the exact same Z (within a tiny tolerance)
+        // and are near y=0, but only if they form a blunt drop.
+        
+        // 1. Clean up START (Nose cap)
+        let mut strip_start = 0;
+        for i in 0..curve.control_points.len().saturating_sub(1) {
+            let p0 = curve.control_points[i];
+            let p1 = curve.control_points[i+1];
+            if (p0.z - p1.z).abs() < 1.0 && p0.y.abs() < p1.y.abs() && p0.y.abs() < 0.5 {
+                strip_start = i + 1;
+            } else {
+                break;
+            }
+        }
+        for _ in 0..strip_start {
+            curve.control_points.remove(0);
+            curve.tangents1.remove(0);
+            curve.tangents2.remove(0);
+            if let Some(w) = &mut curve.weights {
+                w.remove(0);
+            }
+        }
+
+        // 2. Clean up END (Tail cap)
+        let mut strip_end = 0;
+        for i in (1..curve.control_points.len()).rev() {
+            let p_last = curve.control_points[i];
+            let p_prev = curve.control_points[i-1];
+            if (p_last.z - p_prev.z).abs() < 1.0 && p_last.y.abs() < p_prev.y.abs() && p_last.y.abs() < 0.5 {
+                strip_end += 1;
+            } else {
+                break;
+            }
+        }
+        for _ in 0..strip_end {
+            curve.control_points.pop();
+            curve.tangents1.pop();
+            curve.tangents2.pop();
+            if let Some(w) = &mut curve.weights {
+                w.pop();
             }
         }
     }
@@ -260,12 +296,12 @@ fn convert_brd_curve(
         tangents2 = old_t1.into_iter().rev().collect();
     }
 
-    Some(cleanup_vertical_ends(BezierCurveData {
+        Some(cleanup_vertical_ends(BezierCurveData {
         control_points,
         tangents1,
         tangents2,
         weights: None,
-    }))
+    }, is_thickness))
 }
 
 /// Deserializes the decompressed XML and translates the 2D coordinate space into our 3D parametric BoardModel.
@@ -469,12 +505,12 @@ fn parse_aku_curve(
         tangents1 = old_t2.into_iter().rev().collect();
         tangents2 = old_t1.into_iter().rev().collect();
 
-        Some(cleanup_vertical_ends(BezierCurveData {
+                Some(cleanup_vertical_ends(BezierCurveData {
             control_points,
             tangents1,
             tangents2,
             weights: None,
-        }))
+        }, is_thickness))
     }
 }
 
@@ -641,6 +677,17 @@ mod tests {
                 min_y = min_y.min(y);
                 max_y = max_y.max(y);
             }
+        }
+
+                let bounds = crate::geometry::get_board_bounds(&model);
+        let profile_tip = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
+        println!("Bounds tip_z: {}", bounds.tip_z);
+        println!("Profile at tip_z: top_y={}, bot_y={}, apex_x={}", profile_tip.top_y, profile_tip.bot_y, profile_tip.apex_x);
+        if let Some(r_top) = &model.rocker_top {
+            println!("Rocker Top end points: {:?}", &r_top.control_points[r_top.control_points.len().saturating_sub(3)..]);
+        }
+        if let Some(r_bot) = &model.rocker_bottom {
+            println!("Rocker Bottom end points: {:?}", &r_bot.control_points[r_bot.control_points.len().saturating_sub(3)..]);
         }
 
         let thickness_at_tail = (max_y - min_y) / scale;
