@@ -150,9 +150,9 @@ export class BoardBuilderPage extends LitElement {
       });
 
       this.isProcessing = false;
-      const state = this.wasmCtrl.model;
+            const state = this.wasmCtrl.model;
       const length = state ? state.length.toFixed(1) : "Unknown";
-      const blob = new Blob([brdBytes], { type: "application/octet-stream" });
+      const blob = new Blob([brdBytes as unknown as BlobPart], { type: "application/octet-stream" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
