@@ -768,7 +768,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
             // 4. Dynamically find the exact screen coordinates of the new Gizmo (Index 1)
     const newGizmoPos = await page.evaluate(() => {
       /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-      const vp = document.querySelector('board-viewport') as any;
+      const vp = document.querySelector('board-viewport');
       if (!vp || !vp.sceneManager) return null;
 
       let gizmo: any = null;
