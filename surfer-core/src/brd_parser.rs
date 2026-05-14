@@ -153,7 +153,7 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
             break;
         }
     }
-    
+
     curve
 }
 
@@ -215,7 +215,7 @@ fn convert_brd_curve(
         tangents2.push(t2);
     }
 
-        // Enforce "Nose to Tail" traversal for parametric compatibility
+    // Enforce "Nose to Tail" traversal for parametric compatibility
     if is_reversed {
         control_points.reverse();
         let old_t1 = tangents1.clone();
@@ -249,14 +249,14 @@ fn decrypt_aku_shaper(bytes: &[u8]) -> Result<String, String> {
     let salt: [u8; 8] = [0xC7, 0x73, 0x21, 0x8C, 0x7E, 0xC8, 0xEE, 0x99];
 
     // 1. Derive key and IV via MD5 (PKCS#5 PBKDF1 with 20 iterations)
-    let mut hasher = Md5::new();
+        let mut hasher = Md5::new();
     hasher.update(password.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     let mut hash = hasher.finalize();
 
     for _ in 1..20 {
         let mut next_hasher = Md5::new();
-        next_hasher.update(&hash);
+        next_hasher.update(hash);
         hash = next_hasher.finalize();
     }
 
@@ -274,28 +274,33 @@ fn decrypt_aku_shaper(bytes: &[u8]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(decrypted).to_string())
 }
 
-fn parse_aku_slice_curve(lines: &mut std::str::Lines, slice_z: f32, scale: f32) -> Option<BezierCurveData> {
+fn parse_aku_slice_curve(
+    lines: &mut std::str::Lines,
+    slice_z: f32,
+    scale: f32,
+) -> Option<BezierCurveData> {
     let mut control_points = Vec::new();
     let mut tangents1 = Vec::new();
     let mut tangents2 = Vec::new();
 
-    while let Some(line) = lines.next() {
+    for line in lines.by_ref() {
         let line = line.trim();
         if line.starts_with(')') {
             break;
         }
         if line.starts_with("gps") {
-            continue; 
+            continue;
         }
         if line.contains('[') {
             let start = line.find('[').unwrap_or(0) + 1;
             let end = line.find(']').unwrap_or(line.len());
             let content = &line[start..end];
-            let floats: Vec<f32> = content.split(|c| c == ',' || c == ' ')
+            let floats: Vec<f32> = content
+                .split([',', ' '])
                 .filter(|s| !s.trim().is_empty())
                 .map(|s| s.trim().parse::<f32>().unwrap_or(0.0))
                 .collect();
-            
+
             if floats.len() >= 6 {
                 let px = floats[0] * scale;
                 let py = floats[1] * scale;
@@ -323,28 +328,35 @@ fn parse_aku_slice_curve(lines: &mut std::str::Lines, slice_z: f32, scale: f32) 
     }
 }
 
-fn parse_aku_slices(lines: &mut std::str::Lines, board_length: f32, scale: f32) -> Vec<BezierCurveData> {
+fn parse_aku_slices(
+    lines: &mut std::str::Lines,
+    board_length: f32,
+    scale: f32,
+) -> Vec<BezierCurveData> {
     let mut slices = Vec::new();
-    
-    while let Some(line) = lines.next() {
+
+    for line in lines.by_ref() {
         let line = line.trim();
         if line == ")" {
             break;
         }
         if line.starts_with("(p36") || line.starts_with("p36") {
-            let clean = line.replace('(', "").replace(')', "");
-            let parts: Vec<&str> = clean.split(|c| c == ' ' || c == '\t').filter(|s| !s.is_empty()).collect();
+            let clean = line.replace(['(', ')'], "");
+            let parts: Vec<&str> = clean
+                .split([' ', '\t'])
+                .filter(|s| !s.is_empty())
+                .collect();
             if parts.len() >= 2 {
                 let px = parts[1].parse::<f32>().unwrap_or(0.0);
                 let slice_z = (board_length / 2.0 - px) * scale;
-                
+
                 if let Some(curve) = parse_aku_slice_curve(lines, slice_z, scale) {
                     slices.push(curve);
                 }
             }
         }
     }
-    
+
     // Sort slices from nose (negative Z) to tail (positive Z)
     slices.sort_by(|a, b| {
         let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
@@ -365,7 +377,7 @@ fn parse_aku_curve(
     let mut tangents1 = Vec::new();
     let mut tangents2 = Vec::new();
 
-    while let Some(line) = lines.next() {
+    for line in lines.by_ref() {
         let line = line.trim();
         if line.starts_with(')') {
             break;
@@ -378,7 +390,7 @@ fn parse_aku_curve(
             let end = line.find(']').unwrap_or(line.len());
             let content = &line[start..end];
             let floats: Vec<f32> = content
-                .split(|c| c == ',' || c == ' ')
+                .split([',', ' '])
                 .filter(|s| !s.trim().is_empty())
                 .map(|s| s.trim().parse::<f32>().unwrap_or(0.0))
                 .collect();
@@ -417,7 +429,7 @@ fn parse_aku_curve(
     if control_points.is_empty() {
         None
     } else {
-                // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
+        // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
         control_points.reverse();
         let old_t1 = tangents1.clone();
         let old_t2 = tangents2.clone();
@@ -465,7 +477,7 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
                 "p03" => {
                     model.thickness = value.parse::<f32>().unwrap_or(0.0) * scale;
                 }
-                                "p32" => {
+                "p32" => {
                     model.outline = parse_aku_curve(&mut lines, unscaled_length, scale, false);
                 }
                 "p33" => {
@@ -531,7 +543,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-        #[test]
+    #[test]
     fn test_egg_brd_import() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -548,10 +560,21 @@ mod tests {
         let bounds = crate::geometry::get_board_bounds(&model);
         let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z - 0.5, 0.5);
 
-                println!("Tail Profile: top_y={}, bot_y={}", profile.top_y, profile.bot_y);
-        println!("\n--- FULL IMPORTED MODEL ---\n{:#?}\n---------------------------\n", model);
-        
-                assert!(profile.top_y - profile.bot_y > 0.05, "Tail pinched to zero! top: {}, bot: {}", profile.top_y, profile.bot_y);
+        println!(
+            "Tail Profile: top_y={}, bot_y={}",
+            profile.top_y, profile.bot_y
+        );
+        println!(
+            "\n--- FULL IMPORTED MODEL ---\n{:#?}\n---------------------------\n",
+            model
+        );
+
+        assert!(
+            profile.top_y - profile.bot_y > 0.05,
+            "Tail pinched to zero! top: {}, bot: {}",
+            profile.top_y,
+            profile.bot_y
+        );
     }
 
     #[test]
@@ -589,7 +612,7 @@ mod tests {
 
         let thickness_at_tail = (max_y - min_y) / scale;
         println!("Mesh thickness at exact tail: {}", thickness_at_tail);
-        
+
         assert!(
             thickness_at_tail > 0.05,
             "Mesh tail is infinitely thin! Thickness: {}",
@@ -614,7 +637,7 @@ mod tests {
         assert!(model.rocker_bottom.is_some());
         assert!(model.rocker_top.is_some());
 
-                let outline = model.outline.unwrap();
+        let outline = model.outline.unwrap();
         assert!(outline.control_points.len() > 2);
     }
 }

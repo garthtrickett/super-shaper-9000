@@ -4,16 +4,20 @@ use md5::{Digest, Md5};
 
 type DesCbcEnc = cbc::Encryptor<des::Des>;
 
-fn format_aku_curve(curve: &Option<BezierCurveData>, board_length: f32, is_thickness: bool) -> String {
+fn format_aku_curve(
+    curve: &Option<BezierCurveData>,
+    board_length: f32,
+    is_thickness: bool,
+) -> String {
     if let Some(c) = curve {
         if c.control_points.is_empty() {
             return String::new();
         }
-        
+
         let mut pts = c.control_points.clone();
         let mut t1 = c.tangents1.clone();
         let mut t2 = c.tangents2.clone();
-        
+
         pts.reverse();
         let old_t1 = t1.clone();
         let old_t2 = t2.clone();
@@ -24,14 +28,17 @@ fn format_aku_curve(curve: &Option<BezierCurveData>, board_length: f32, is_thick
         for i in 0..pts.len() {
             let px = board_length / 2.0 - pts[i].z;
             let py = if is_thickness { pts[i].y } else { pts[i].x };
-            
+
             let t1x = board_length / 2.0 - t1[i].z;
             let t1y = if is_thickness { t1[i].y } else { t1[i].x };
-            
+
             let t2x = board_length / 2.0 - t2[i].z;
             let t2y = if is_thickness { t2[i].y } else { t2[i].x };
-            
-            out.push_str(&format!("[{:.6} {:.6} {:.6} {:.6} {:.6} {:.6}] ", px, py, t1x, t1y, t2x, t2y));
+
+            out.push_str(&format!(
+                "[{:.6} {:.6} {:.6} {:.6} {:.6} {:.6}] ",
+                px, py, t1x, t1y, t2x, t2y
+            ));
         }
         out
     } else {
@@ -49,12 +56,12 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     if !p32.is_empty() {
         out.push_str(&format!("p32: {}\n", p32));
     }
-    
+
     let p33 = format_aku_curve(&model.rocker_bottom, model.length, true);
     if !p33.is_empty() {
         out.push_str(&format!("p33: {}\n", p33));
     }
-    
+
     let p34 = format_aku_curve(&model.rocker_top, model.length, true);
     if !p34.is_empty() {
         out.push_str(&format!("p34: {}\n", p34));
@@ -63,16 +70,22 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     if !model.cross_sections.is_empty() {
         out.push_str("p35:\n");
         for cs in &model.cross_sections {
-            if cs.control_points.is_empty() { continue; }
+            if cs.control_points.is_empty() {
+                continue;
+            }
             let slice_z = cs.control_points[0].z;
             let px = model.length / 2.0 - slice_z;
             out.push_str(&format!("(p36 {:.6} ", px));
-            
+
             for i in 0..cs.control_points.len() {
-                out.push_str(&format!("[{:.6} {:.6} {:.6} {:.6} {:.6} {:.6}] ",
-                    cs.control_points[i].x, cs.control_points[i].y,
-                    cs.tangents1[i].x, cs.tangents1[i].y,
-                    cs.tangents2[i].x, cs.tangents2[i].y
+                out.push_str(&format!(
+                    "[{:.6} {:.6} {:.6} {:.6} {:.6} {:.6}] ",
+                    cs.control_points[i].x,
+                    cs.control_points[i].y,
+                    cs.tangents1[i].x,
+                    cs.tangents1[i].y,
+                    cs.tangents2[i].x,
+                    cs.tangents2[i].y
                 ));
             }
             out.push_str(")\n");
@@ -87,14 +100,14 @@ pub fn encrypt_aku_shaper(text: &str) -> Result<Vec<u8>, String> {
     let password = "deltaXTaildeltaXMiddle";
     let salt: [u8; 8] = [0xC7, 0x73, 0x21, 0x8C, 0x7E, 0xC8, 0xEE, 0x99];
 
-    let mut hasher = Md5::new();
+        let mut hasher = Md5::new();
     hasher.update(password.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     let mut hash = hasher.finalize();
 
     for _ in 1..20 {
         let mut next_hasher = Md5::new();
-        next_hasher.update(&hash);
+        next_hasher.update(hash);
         hash = next_hasher.finalize();
     }
 
@@ -109,10 +122,10 @@ pub fn encrypt_aku_shaper(text: &str) -> Result<Vec<u8>, String> {
     let ciphertext = cipher
         .encrypt_padded_mut::<Pkcs7>(&mut buffer, msg_len)
         .map_err(|e| format!("Encryption failed: {:?}", e))?;
-    
+
     let mut final_data = b"%BRD-1.02s00".to_vec();
     final_data.extend_from_slice(ciphertext);
-    
+
     Ok(final_data)
 }
 
@@ -143,9 +156,10 @@ mod tests {
         let exported_bytes = export_aku_brd(&model_a).expect("Failed to export BRD");
 
         // 3. Re-parse into model_b
-        let model_b = crate::brd_parser::parse_brd(&exported_bytes).expect("Failed to parse exported BRD");
+        let model_b =
+            crate::brd_parser::parse_brd(&exported_bytes).expect("Failed to parse exported BRD");
 
-                // 4. Assert Equivalence
+        // 4. Assert Equivalence
         // epsilon = 1e-2 provides enough leniency for float -> string -> float serialization noise and coordinate translation
         approx::assert_relative_eq!(model_a, model_b, epsilon = 1e-2);
     }

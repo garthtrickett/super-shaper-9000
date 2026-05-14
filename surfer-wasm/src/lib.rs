@@ -294,7 +294,7 @@ impl WasmEngine {
         ))
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn export_obj(&self) -> Result<String, JsValue> {
         let mesh = self.engine.compute_mesh();
         Ok(surfer_core::obj_exporter::export_obj(
