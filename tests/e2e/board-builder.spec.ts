@@ -741,25 +741,30 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       return { x: pixelX, y: pixelY };
     });
 
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
 
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(100);
-
-    await page.keyboard.down('Alt');
+    // 1. Move to the hit position to trigger hover state
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
-    await page.waitForTimeout(200);
-
-    await page.mouse.click(hitPosition!.x, hitPosition!.y);
-    await page.keyboard.up('Alt');
-
     await page.waitForTimeout(500);
 
-    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    // 2. Alt+Click to Insert
+    await page.mouse.click(hitPosition!.x, hitPosition!.y, { modifiers: ['Alt'] });
+    
+    // 3. Wait for WASM debounce and Three.js rebuild
+    await page.waitForTimeout(1000);
+
+    // 4. Move away and back to re-trigger raycaster on the new Gizmo
+    await page.mouse.move(0, 0);
     await page.waitForTimeout(200);
+    await page.mouse.move(hitPosition!.x, hitPosition!.y);
+    await page.waitForTimeout(500);
+
+    // 5. Click to select the newly created node
+    await page.mouse.click(hitPosition!.x, hitPosition!.y);
+    await page.waitForTimeout(500);
 
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
+    await expect(inspector).toBeVisible({ timeout: 5000 });
     await expect(inspector).toContainText("Main Outline");
     await expect(inspector).toContainText("Node 1");
   });
