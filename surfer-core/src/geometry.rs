@@ -1100,7 +1100,12 @@ pub fn get_surface_normal_base_at_uvz(
         t_v = Vec3::new(0.0, 0.0, 1.0);
     }
 
-    let mut n = t_u.cross(t_v).normalize();
+        let cross = t_u.cross(t_v);
+    let mut n = if cross.length_squared() > 1e-6 {
+        cross.normalize()
+    } else {
+        Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0)
+    };
     if side < 0.0 {
         n = -n;
     }
@@ -1108,7 +1113,12 @@ pub fn get_surface_normal_base_at_uvz(
     let pt = get_point_at_uv_base(model, u, v_outer, z_inches, inner_x, side);
     if pt.x.abs() < 1e-4 && inner_x < 1e-4 {
         n.x = 0.0;
-        n = n.normalize();
+        let len_sq = n.length_squared();
+        if len_sq > 1e-6 {
+            n /= len_sq.sqrt();
+        } else {
+            n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
+        }
     }
 
     n
@@ -1183,7 +1193,12 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
         t_v = Vec3::new(0.0, 0.0, 1.0);
     }
 
-    let mut n = t_u.cross(t_v).normalize();
+        let cross = t_u.cross(t_v);
+    let mut n = if cross.length_squared() > 1e-6 {
+        cross.normalize()
+    } else {
+        Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0)
+    };
     if side < 0.0 {
         n = -n;
     }
@@ -1191,7 +1206,12 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
     let pt = get_point_at_uv(model, u, v_outer, z_inches, inner_x, side);
     if pt.x.abs() < 1e-4 && inner_x < 1e-4 {
         n.x = 0.0;
-        n = n.normalize();
+        let len_sq = n.length_squared();
+        if len_sq > 1e-6 {
+            n /= len_sq.sqrt();
+        } else {
+            n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
+        }
     }
 
     n
