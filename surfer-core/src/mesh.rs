@@ -454,14 +454,15 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             let pos_c = grid[i + 1][j].0;
             let pos_d = grid[i + 1][j + 1].0;
 
-            // Only push valid triangles. If a ring collapses to a point at the poles,
+                        // Only push valid triangles. If a ring collapses to a point at the poles,
             // we dynamically drop the degenerate zero-area triangles.
-            if pos_a.distance_squared(pos_b) > 1e-16 {
+            // We use the cross product area to catch Z-collapses, U-collapses, and diagonal folds.
+            if (pos_b - pos_a).cross(pos_d - pos_a).length_squared() > 1e-16 {
                 indices.push(a);
                 indices.push(b);
                 indices.push(d);
             }
-            if pos_c.distance_squared(pos_d) > 1e-16 {
+            if (pos_d - pos_a).cross(pos_c - pos_a).length_squared() > 1e-16 {
                 indices.push(a);
                 indices.push(d);
                 indices.push(c);
@@ -652,15 +653,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         left_target_x
                     };
 
-                                        let target_y = if j <= half {
-                        // Right side center-line Y interpolation
-                        let f = u_columns[j].0;
-                        ring[0].0.y + f * (ring[half].0.y - ring[0].0.y)
-                    } else {
-                        // Left side center-line Y interpolation
-                        let f = u_columns[j].0;
-                        ring[num_cols - 1].0.y + f * (ring[half + 1].0.y - ring[num_cols - 1].0.y)
-                    };
+                                                            // By projecting horizontally (keeping Y constant), we guarantee that the lines
+                    // scaling inwards towards the center axis will NEVER cross each other, 
+                    // completely eliminating topological folds and inverted normals on complex tail shapes.
+                    let target_y = pos.y;
 
                     // To ensure a perfect watertight seal with the hull, step 0 must copy the exact float bits
                     let new_x = if step == 0 {
