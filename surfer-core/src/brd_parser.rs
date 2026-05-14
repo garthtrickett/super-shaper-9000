@@ -145,7 +145,7 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
                     break;
                 }
             }
-            if rail_idx > 0 && (curve.control_points[rail_idx].z - p_stringer.z).abs() < 3.0 {
+                        if rail_idx > 0 && (curve.control_points[rail_idx].z - p_stringer.z).abs() < 0.1 {
                 for _ in 0..rail_idx {
                     curve.control_points.remove(0);
                     curve.tangents1.remove(0);
@@ -168,7 +168,7 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
                     break;
                 }
             }
-            if rail_idx < len - 1 && (p_stringer.z - curve.control_points[rail_idx].z).abs() < 3.0 {
+                        if rail_idx < len - 1 && (p_stringer.z - curve.control_points[rail_idx].z).abs() < 0.1 {
                 let to_remove = (len - 1) - rail_idx;
                 for _ in 0..to_remove {
                     curve.control_points.pop();
