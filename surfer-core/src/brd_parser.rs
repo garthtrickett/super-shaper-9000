@@ -135,18 +135,19 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
     }
 
     if !is_thickness {
-        // 1. Clean up START (Nose cap)
+                // 1. Clean up START (Nose cap)
         let p_stringer = curve.control_points[0];
         if p_stringer.x.abs() < 0.5 {
-            let mut rail_idx = 0;
+            let mut corner_idx = 0;
             for i in 1..curve.control_points.len() {
-                if curve.control_points[i].x.abs() > 1.0 {
-                    rail_idx = i;
+                if (curve.control_points[i].z - p_stringer.z).abs() < 0.05 {
+                    corner_idx = i;
+                } else {
                     break;
                 }
             }
-                        if rail_idx > 0 && (curve.control_points[rail_idx].z - p_stringer.z).abs() < 0.1 {
-                for _ in 0..rail_idx {
+            if corner_idx > 0 {
+                for _ in 0..corner_idx {
                     curve.control_points.remove(0);
                     curve.tangents1.remove(0);
                     curve.tangents2.remove(0);
@@ -157,19 +158,20 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
             }
         }
 
-        // 2. Clean up END (Tail cap)
+                // 2. Clean up END (Tail cap)
         let len = curve.control_points.len();
         let p_stringer = curve.control_points[len - 1];
         if p_stringer.x.abs() < 0.5 {
-            let mut rail_idx = len - 1;
+            let mut corner_idx = len - 1;
             for i in (0..len - 1).rev() {
-                if curve.control_points[i].x.abs() > 1.0 {
-                    rail_idx = i;
+                if (p_stringer.z - curve.control_points[i].z).abs() < 0.05 {
+                    corner_idx = i;
+                } else {
                     break;
                 }
             }
-                        if rail_idx < len - 1 && (p_stringer.z - curve.control_points[rail_idx].z).abs() < 0.1 {
-                let to_remove = (len - 1) - rail_idx;
+            if corner_idx < len - 1 {
+                let to_remove = (len - 1) - corner_idx;
                 for _ in 0..to_remove {
                     curve.control_points.pop();
                     curve.tangents1.pop();
@@ -765,10 +767,10 @@ mod tests {
         println!("Delta Z: {}", dz);
         println!("Delta X: {}", dx);
         
-        // A proper nose curve should gradually increase in X as Z increases.
+                // A proper nose curve should gradually increase in X as Z increases.
         // If X jumps massively while Z barely moves, it's a CAD artifact (cap) that wasn't stripped.
         assert!(
-            !(dx > 0.5 && dz < 0.5),
+            !(dx > 0.1 && dz < 0.01),
             "Nose card artifact detected! The outline has a horizontal cap at the nose. P0: {:?}, P1: {:?} (dx: {}, dz: {})",
             p0, p1, dx, dz
         );
