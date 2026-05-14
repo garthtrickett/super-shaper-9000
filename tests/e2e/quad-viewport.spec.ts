@@ -223,8 +223,8 @@ test.describe('Quad Viewport CAD Interface', () => {
             get_point_on_curve(curveName: string, t: number): Float32Array;
             get_profile_at_z(z: number): { apexY: number, topY: number };
           };
-          sceneManager?: {
-            cameras: any;
+                    sceneManager?: {
+            cameras: Record<'top' | 'side' | 'profile' | 'perspective', CameraMock>;
           }
         };
         const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
@@ -243,7 +243,7 @@ test.describe('Quad Viewport CAD Interface', () => {
             worldY = profile.apexY / 12;
         }
 
-        const camera = vp.sceneManager.cameras[camName];
+                const camera = vp.sceneManager.cameras[camName as 'top' | 'side' | 'profile' | 'perspective'];
         const vec = camera.position.clone();
         vec.set(worldX, worldY, worldZ);
         vec.project(camera);
