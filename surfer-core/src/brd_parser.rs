@@ -129,94 +129,52 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
         return curve;
     }
 
-    if !is_thickness {
-        // 1. Clean up START (Nose cap)
-        loop {
-            let p0 = curve.control_points[0];
-            let p1 = curve.control_points[1];
-            let dz = (p1.z - p0.z).abs();
-            let dx = (p1.x - p0.x).abs();
-            
-            // If it's perfectly flat in Z (micro-cap) OR it's a very blunt wide step (slope > 3)
-            if dz < 0.05 || (dx > 0.5 && dx > dz * 3.0) {
-                curve.control_points.remove(0);
-                curve.tangents1.remove(0);
-                curve.tangents2.remove(0);
-                if let Some(w) = &mut curve.weights {
-                    w.remove(0);
-                }
-                if curve.control_points.len() < 3 { break; }
-            } else {
-                break;
-            }
+    let is_cap = |dz: f32, d_cross: f32| -> bool {
+        // Strip if it's perfectly flat in Z (micro-cap)
+        if dz < 0.05 {
+            return true;
         }
+        // Strip if the slope is nearly vertical (a cap closing the shape)
+        if d_cross > 0.2 && d_cross > dz * 10.0 {
+            return true;
+        }
+        false
+    };
 
-        // 2. Clean up END (Tail cap)
-        loop {
-            let len = curve.control_points.len();
-            let p_last = curve.control_points[len - 1];
-            let p_prev = curve.control_points[len - 2];
-            let dz = (p_last.z - p_prev.z).abs();
-            let dx = (p_last.x - p_prev.x).abs();
-            
-            if dz < 0.05 || (dx > 0.5 && dx > dz * 3.0) {
-                curve.control_points.pop();
-                curve.tangents1.pop();
-                curve.tangents2.pop();
-                if let Some(w) = &mut curve.weights {
-                    w.pop();
-                }
-                if curve.control_points.len() < 3 { break; }
-            } else {
-                break;
-            }
-        }
-    } else {
-        // Rocker curves (is_thickness == true)
-        // Caps are vertical segments. We strip points at the ends that have the exact same Z
-        // (within a tiny tolerance) because they represent vertical caps closing the shape,
-        // which messes up thickness evaluations at the exact tips.
+    // 1. Clean up START
+    loop {
+        let p0 = curve.control_points[0];
+        let p1 = curve.control_points[1];
+        let dz = (p1.z - p0.z).abs();
+        let d_cross = if is_thickness { (p1.y - p0.y).abs() } else { (p1.x - p0.x).abs() };
         
-        // 1. Clean up START (Nose/Tail cap at index 0)
-        let mut strip_start = 0;
-        if let Some(first_p) = curve.control_points.first() {
-            let base_z = first_p.z;
-            for i in 1..curve.control_points.len() {
-                if (curve.control_points[i].z - base_z).abs() < 0.001 {
-                    strip_start += 1;
-                } else {
-                    break;
-                }
-            }
-        }
-        for _ in 0..strip_start {
+        if is_cap(dz, d_cross) {
             curve.control_points.remove(0);
             curve.tangents1.remove(0);
             curve.tangents2.remove(0);
-            if let Some(w) = &mut curve.weights {
-                w.remove(0);
-            }
+            if let Some(w) = &mut curve.weights { w.remove(0); }
+            if curve.control_points.len() < 3 { break; }
+        } else {
+            break;
         }
+    }
 
-        // 2. Clean up END (Nose/Tail cap at index N-1)
-        let mut strip_end = 0;
-        if let Some(last_p) = curve.control_points.last() {
-            let base_z = last_p.z;
-            for i in (0..curve.control_points.len().saturating_sub(1)).rev() {
-                if (curve.control_points[i].z - base_z).abs() < 0.001 {
-                    strip_end += 1;
-                } else {
-                    break;
-                }
-            }
-        }
-        for _ in 0..strip_end {
+    // 2. Clean up END
+    loop {
+        let len = curve.control_points.len();
+        let p_last = curve.control_points[len - 1];
+        let p_prev = curve.control_points[len - 2];
+        let dz = (p_last.z - p_prev.z).abs();
+        let d_cross = if is_thickness { (p_last.y - p_prev.y).abs() } else { (p_last.x - p_prev.x).abs() };
+        
+        if is_cap(dz, d_cross) {
             curve.control_points.pop();
             curve.tangents1.pop();
             curve.tangents2.pop();
-            if let Some(w) = &mut curve.weights {
-                w.pop();
-            }
+            if let Some(w) = &mut curve.weights { w.pop(); }
+            if curve.control_points.len() < 3 { break; }
+        } else {
+            break;
         }
     }
 
