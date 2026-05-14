@@ -762,47 +762,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.mouse.click(hitPosition!.x, hitPosition!.y, { button: 'left' });
     await page.keyboard.up('Alt');
     
-        // 3. Wait for WASM debounce and Three.js rebuild
+            // 3. Wait for WASM debounce and Three.js rebuild
     await page.waitForTimeout(1000);
 
-            // 4. Dynamically find the exact screen coordinates of the new Gizmo (Index 1)
-    const newGizmoPos = await page.evaluate(() => {
-      /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-      const vp = document.querySelector('board-viewport');
-      if (!vp || !vp.sceneManager) return null;
-
-      let gizmo: any = null;
-      vp.sceneManager.scene.traverse((child: any) => {
-        if (child.userData?.isGizmo && child.userData.curve === 'outline' && child.userData.index === 1 && child.userData.type === 'anchor') {
-          gizmo = child;
-        }
-      });
-      if (!gizmo) return null;
-
-      const camera = vp.sceneManager.cameras.perspective;
-      const vec = gizmo.position.clone();
-      vec.project(camera);
-
-      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
-      if (!canvas) return null;
-      const rect = canvas.getBoundingClientRect();
-      return {
-        x: rect.left + ((vec.x + 1) / 2 * rect.width),
-        y: rect.top + ((1 - vec.y) / 2 * rect.height)
-      };
-      /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-    });
-
-    expect(newGizmoPos).toBeTruthy();
-
-    // 5. Move to the new gizmo and click it
-    await page.mouse.move(0, 0);
-    await page.waitForTimeout(200);
-    await page.mouse.move(newGizmoPos!.x, newGizmoPos!.y);
-    await page.waitForTimeout(500);
-    await page.mouse.click(newGizmoPos!.x, newGizmoPos!.y);
-    await page.waitForTimeout(500);
-
+    // 4. Verify the inspector automatically opens for the newly inserted node
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible({ timeout: 5000 });
     await expect(inspector).toContainText("Main Outline");

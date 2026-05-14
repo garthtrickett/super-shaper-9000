@@ -325,10 +325,10 @@ pub fn split_rational_bezier_cubic(
     )
 }
 
-pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) {
+pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) -> Option<usize> {
     let num_segments = curve.control_points.len().saturating_sub(1);
     if num_segments == 0 {
-        return;
+        return None;
     }
 
     let num_segments_f = num_segments as f32;
@@ -340,7 +340,7 @@ pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) {
     let local_t = scaled_t - segment_idx as f32;
 
     if !(1e-4..=1.0 - 1e-4).contains(&local_t) {
-        return;
+        return None;
     }
 
     let p0 = curve.control_points[segment_idx];
@@ -393,11 +393,13 @@ pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) {
 
         curve.control_points.insert(segment_idx + 1, np3);
 
-        curve.tangents2[segment_idx] = np1;
+                curve.tangents2[segment_idx] = np1;
         curve.tangents1.insert(segment_idx + 1, np2);
         curve.tangents2.insert(segment_idx + 1, nq1);
         curve.tangents1[segment_idx + 2] = nq2;
     }
+
+    Some(segment_idx + 1)
 }
 
 pub fn solve_g2_tangent(anchor: Vec3, t_source: Vec3, f_source: Vec3, f_target: Vec3) -> Vec3 {
@@ -830,7 +832,7 @@ mod tests {
         println!("✅ evaluate_bezier_cubic passed.");
     }
 
-    #[test]
+        #[test]
     fn test_insert_node() {
         let mut curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
@@ -839,8 +841,9 @@ mod tests {
             weights: None,
         };
 
-        insert_node(&mut curve, 0.5);
+        let new_idx = insert_node(&mut curve, 0.5);
 
+        assert_eq!(new_idx, Some(1));
         assert_eq!(curve.control_points.len(), 3);
         assert_eq!(curve.tangents1.len(), 3);
         assert_eq!(curve.tangents2.len(), 3);

@@ -162,10 +162,11 @@ fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t:
         let p = evaluate_curve(curve, t);
         let z_err = (p.z - target_z).abs();
 
-                if z_err < min_z_err - 1e-4 {
+        if z_err < min_z_err - 1e-4 {
             min_z_err = z_err;
             best_t = t;
-        } else if (z_err - min_z_err).abs() <= 1e-4 && (t - hint_t).abs() < (best_t - hint_t).abs() {
+        } else if (z_err - min_z_err).abs() <= 1e-4 && (t - hint_t).abs() < (best_t - hint_t).abs()
+        {
             best_t = t;
         }
     }

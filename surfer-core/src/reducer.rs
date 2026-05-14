@@ -687,9 +687,10 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             model.selected_node = None;
             push_history(model);
         }
-        BoardAction::InsertNode { curve, t } => {
+                BoardAction::InsertNode { curve, t } => {
+            let mut inserted_idx = None;
             if let Some(target) = get_curve_mut(model, &curve) {
-                crate::bezier::insert_node(target, t);
+                inserted_idx = crate::bezier::insert_node(target, t);
             }
 
             if curve.starts_with("channel_") {
@@ -708,12 +709,21 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                         let mirrored_side = if side == "left" { "right" } else { "left" };
                         let mirrored_curve =
                             format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
-                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
+                                                if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
                             crate::bezier::insert_node(m_target, t);
                         }
                     }
                 }
             }
+
+            if let Some(idx) = inserted_idx {
+                model.selected_node = Some(SelectedNode {
+                    curve: curve.clone(),
+                    index: idx,
+                    node_type: "anchor".to_string(),
+                });
+            }
+
             push_history(model);
         }
         BoardAction::ApplyContinuity {
