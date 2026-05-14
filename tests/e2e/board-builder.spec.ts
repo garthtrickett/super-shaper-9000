@@ -743,6 +743,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     expect(hitPosition).toBeTruthy();
 
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(100);
+
     await page.keyboard.down('Alt');
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.waitForTimeout(200);

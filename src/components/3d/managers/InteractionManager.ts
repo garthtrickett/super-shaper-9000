@@ -150,7 +150,7 @@ export class InteractionManager {
     this.mouse.copy(mouse);
     this.raycaster.setFromCamera(this.mouse, camera);
     this.raycaster.layers.mask = camera.layers.mask;
-    this.raycaster.params.Line = { threshold: 0.2 }; 
+    this.raycaster.params.Line = { threshold: 0.5 }; 
 
     const intersects = this.raycaster.intersectObjects(this.wireframeGroup.children, false);
     const hit = intersects.find((i: THREE.Intersection) => i.object.userData?.isCurveLine);

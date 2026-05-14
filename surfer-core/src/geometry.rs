@@ -161,7 +161,7 @@ fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t:
         let t = i as f32 / steps as f32;
         let p = evaluate_curve(curve, t);
         let z_err = (p.z - target_z).abs();
-        
+
         if z_err < min_z_err - 1e-4 {
             min_z_err = z_err;
             best_t = t;
@@ -200,7 +200,7 @@ fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t:
             t_search = t_r;
         }
     }
-    
+
     t_search
 }
 
@@ -277,27 +277,27 @@ pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, min_t: f32, max_t: f3
     let mut t_search = best_t;
     let mut step_size = (max_t - min_t) / steps as f32;
 
-            for _ in 0..20 {
-            step_size /= 2.0;
-            let t_left = min_t.max(t_search - step_size);
-            let t_right = max_t.min(t_search + step_size);
+    for _ in 0..20 {
+        step_size /= 2.0;
+        let t_left = min_t.max(t_search - step_size);
+        let t_right = max_t.min(t_search + step_size);
 
-            let p_left = evaluate_curve(curve, t_left);
-            let p_right = evaluate_curve(curve, t_right);
+        let p_left = evaluate_curve(curve, t_left);
+        let p_right = evaluate_curve(curve, t_right);
 
-            let err_left = (p_left.z - target_z).abs();
-            let err_right = (p_right.z - target_z).abs();
-            let err_curr = (evaluate_curve(curve, t_search).z - target_z).abs();
+        let err_left = (p_left.z - target_z).abs();
+        let err_right = (p_right.z - target_z).abs();
+        let err_curr = (evaluate_curve(curve, t_search).z - target_z).abs();
 
-            if err_left < err_curr && err_left <= err_right {
-                t_search = t_left;
-            } else if err_right < err_curr {
-                t_search = t_right;
-            }
+        if err_left < err_curr && err_left <= err_right {
+            t_search = t_left;
+        } else if err_right < err_curr {
+            t_search = t_right;
         }
-
-        t_search
     }
+
+    t_search
+}
 
 /// Evaluates the inner X-coordinate of a swallow tail "V" notch at a given Z.
 /// It searches the parameter space exclusively from `tip_t` (the absolute tail tip) to 1.0 (the stringer notch).
@@ -1084,7 +1084,7 @@ pub fn get_surface_normal_base_at_uvz(
         t_v = Vec3::new(0.0, 0.0, 1.0);
     }
 
-        let cross = t_u.cross(t_v);
+    let cross = t_u.cross(t_v);
     let mut n = if cross.length_squared() > 1e-6 {
         cross.normalize()
     } else {
@@ -1177,7 +1177,7 @@ pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side
         t_v = Vec3::new(0.0, 0.0, 1.0);
     }
 
-        let cross = t_u.cross(t_v);
+    let cross = t_u.cross(t_v);
     let mut n = if cross.length_squared() > 1e-6 {
         cross.normalize()
     } else {
@@ -2447,7 +2447,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_mini_simmons_tuck_x_not_less_than_inner_x() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2460,7 +2460,7 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
-        
+
         let basic_cs = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.25, 0.0),
@@ -2488,34 +2488,45 @@ mod tests {
         model.cross_sections = vec![basic_cs];
 
         let bounds = crate::geometry::get_board_bounds(&model);
-        
+
         // Scan the tail area
         let steps = 100;
         let mut violations = 0;
-        
+
         for i in 0..=steps {
             let f = i as f32 / steps as f32;
             let z = bounds.notch_z + (bounds.tip_z - bounds.notch_z) * f;
-            
-            let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
+
+            let v_outer =
+                crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
             let profile = crate::geometry::get_board_profile_at_z(&model, z, v_outer);
-            
+
             let inner_x = if z > bounds.notch_z {
-                crate::geometry::evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z)
+                crate::geometry::evaluate_notch_inner_x(
+                    model.outline.as_ref().unwrap(),
+                    bounds.tip_t,
+                    z,
+                )
             } else {
                 0.0
             };
-            
+
             if profile.tuck_x < inner_x - 1e-4 {
                 violations += 1;
-                println!("Z: {:.2}, inner_x: {:.4}, tuck_x: {:.4}, apex_x: {:.4}", z, inner_x, profile.tuck_x, profile.apex_x);
+                println!(
+                    "Z: {:.2}, inner_x: {:.4}, tuck_x: {:.4}, apex_x: {:.4}",
+                    z, inner_x, profile.tuck_x, profile.apex_x
+                );
             }
         }
-        
-        assert_eq!(violations, 0, "Tuck X should never be less than Inner X (the stringer), or the mesh folds backwards!");
+
+        assert_eq!(
+            violations, 0,
+            "Tuck X should never be less than Inner X (the stringer), or the mesh folds backwards!"
+        );
     }
 
-        #[test]
+    #[test]
     fn test_mini_simmons_mesh_generation_diagnostics() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2528,7 +2539,7 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
-        
+
         // Standard basic cross section for meshing
         let basic_cs = BezierCurveData {
             control_points: vec![
@@ -2562,8 +2573,11 @@ mod tests {
         println!("tip_z: {:.4}", bounds.tip_z);
         println!("notch_z: {:.4}", bounds.notch_z);
         println!("tip_t: {:.4}", bounds.tip_t);
-        println!("Delta (tip_z - notch_z): {:.6}", bounds.tip_z - bounds.notch_z);
-        
+        println!(
+            "Delta (tip_z - notch_z): {:.6}",
+            bounds.tip_z - bounds.notch_z
+        );
+
         if (bounds.tip_z - bounds.notch_z) >= 1e-3 {
             println!("🚨 WARNING: The engine thinks this is a Swallow Tail and will generate an interior notch wall!");
         } else {
@@ -2572,19 +2586,26 @@ mod tests {
 
         let mesh = crate::mesh::generate_mesh(&model);
         let scale = 1.0 / 12.0;
-        
+
         // Get all unique Z values in the generated mesh near the tail
-        let mut unique_zs: Vec<f32> = mesh.vertices.chunks_exact(3).map(|v| v[2] / scale).collect();
+        let mut unique_zs: Vec<f32> = mesh
+            .vertices
+            .chunks_exact(3)
+            .map(|v| v[2] / scale)
+            .collect();
         unique_zs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         unique_zs.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
-        
+
         println!("\n--- LAST 10 Z-RINGS IN GENERATED MESH ---");
         let tail_rings = unique_zs.iter().rev().take(10).collect::<Vec<_>>();
         for (i, z) in tail_rings.iter().enumerate() {
             println!("Ring {}: Z = {:.5}", i, z);
         }
 
-        assert!((bounds.tip_z - bounds.notch_z) < 1e-3, "Mini Simmons is triggering the Swallow Tail logic! This is the cause of the tail bug.");
+        assert!(
+            (bounds.tip_z - bounds.notch_z) < 1e-3,
+            "Mini Simmons is triggering the Swallow Tail logic! This is the cause of the tail bug."
+        );
     }
 
     #[test]

@@ -454,7 +454,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             let pos_c = grid[i + 1][j].0;
             let pos_d = grid[i + 1][j + 1].0;
 
-                        // Only push valid triangles. If a ring collapses to a point at the poles,
+            // Only push valid triangles. If a ring collapses to a point at the poles,
             // we dynamically drop the degenerate zero-area triangles.
             // We use the cross product area to catch Z-collapses, U-collapses, and diagonal folds.
             if (pos_b - pos_a).cross(pos_d - pos_a).length_squared() > 1e-16 {
@@ -653,8 +653,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                         left_target_x
                     };
 
-                                                            // By projecting horizontally (keeping Y constant), we guarantee that the lines
-                    // scaling inwards towards the center axis will NEVER cross each other, 
+                    // By projecting horizontally (keeping Y constant), we guarantee that the lines
+                    // scaling inwards towards the center axis will NEVER cross each other,
                     // completely eliminating topological folds and inverted normals on complex tail shapes.
                     let target_y = pos.y;
 
@@ -2264,7 +2264,7 @@ mod tests {
                 "BUG: Cap normal on a blunt tail should not have a Y component! It is being slerped. Normal: {:?}",
                 n
             );
-                        assert!(
+            assert!(
                 (n.z - 1.0).abs() < 1e-2,
                 "BUG: Cap normal on a blunt tail should point strictly in +Z! Normal: {:?}",
                 n
@@ -2290,12 +2290,16 @@ mod tests {
         // 1. Check for NaN Normals (which render as pure black in WebGL)
         let mut nan_normals = 0;
         for i in (0..mesh.normals.len()).step_by(3) {
-            let n = Vec3::new(mesh.normals[i], mesh.normals[i+1], mesh.normals[i+2]);
+            let n = Vec3::new(mesh.normals[i], mesh.normals[i + 1], mesh.normals[i + 2]);
             if !n.is_finite() {
                 nan_normals += 1;
             }
         }
-        assert_eq!(nan_normals, 0, "Found {} NaN normal vectors. These cause black shading artifacts.", nan_normals);
+        assert_eq!(
+            nan_normals, 0,
+            "Found {} NaN normal vectors. These cause black shading artifacts.",
+            nan_normals
+        );
 
         // 2. Check for Degenerate Triangles
         let mut degenerate_count = 0;
@@ -2304,24 +2308,36 @@ mod tests {
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            let v1 = Vec3::new(mesh.vertices[i1*3], mesh.vertices[i1*3+1], mesh.vertices[i1*3+2]);
-            let v2 = Vec3::new(mesh.vertices[i2*3], mesh.vertices[i2*3+1], mesh.vertices[i2*3+2]);
-            let v3 = Vec3::new(mesh.vertices[i3*3], mesh.vertices[i3*3+1], mesh.vertices[i3*3+2]);
+            let v1 = Vec3::new(
+                mesh.vertices[i1 * 3],
+                mesh.vertices[i1 * 3 + 1],
+                mesh.vertices[i1 * 3 + 2],
+            );
+            let v2 = Vec3::new(
+                mesh.vertices[i2 * 3],
+                mesh.vertices[i2 * 3 + 1],
+                mesh.vertices[i2 * 3 + 2],
+            );
+            let v3 = Vec3::new(
+                mesh.vertices[i3 * 3],
+                mesh.vertices[i3 * 3 + 1],
+                mesh.vertices[i3 * 3 + 2],
+            );
 
             let area = (v2 - v1).cross(v3 - v1).length();
             if area < 1e-10 {
                 degenerate_count += 1;
             }
         }
-        
-                assert_eq!(
+
+        assert_eq!(
             degenerate_count, 0,
             "Found {} degenerate triangles! These render as black shapes.",
             degenerate_count
         );
     }
 
-        #[test]
+    #[test]
     fn test_mini_simmons_no_inverted_hull_triangles() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2334,7 +2350,7 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
-        
+
         let basic_cs = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, -1.25, 0.0),
@@ -2362,8 +2378,8 @@ mod tests {
         model.cross_sections = vec![basic_cs];
 
         let mesh = super::generate_mesh(&model);
-        
-                let scale = 1.0 / 12.0;
+
+        let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
         let tail_scan_z = (bounds.tip_z - 10.0) * scale; // Scan the last 10 inches
 
@@ -2375,14 +2391,26 @@ mod tests {
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            let v1 = Vec3::new(mesh.vertices[i1*3], mesh.vertices[i1*3+1], mesh.vertices[i1*3+2]);
-            let v2 = Vec3::new(mesh.vertices[i2*3], mesh.vertices[i2*3+1], mesh.vertices[i2*3+2]);
-            let v3 = Vec3::new(mesh.vertices[i3*3], mesh.vertices[i3*3+1], mesh.vertices[i3*3+2]);
+            let v1 = Vec3::new(
+                mesh.vertices[i1 * 3],
+                mesh.vertices[i1 * 3 + 1],
+                mesh.vertices[i1 * 3 + 2],
+            );
+            let v2 = Vec3::new(
+                mesh.vertices[i2 * 3],
+                mesh.vertices[i2 * 3 + 1],
+                mesh.vertices[i2 * 3 + 2],
+            );
+            let v3 = Vec3::new(
+                mesh.vertices[i3 * 3],
+                mesh.vertices[i3 * 3 + 1],
+                mesh.vertices[i3 * 3 + 2],
+            );
 
-            let u1 = mesh.uvs[i1*2];
-            let u2 = mesh.uvs[i2*2];
-            let u3 = mesh.uvs[i3*2];
-            
+            let u1 = mesh.uvs[i1 * 2];
+            let u2 = mesh.uvs[i2 * 2];
+            let u3 = mesh.uvs[i3 * 2];
+
             let avg_u = (u1 + u2 + u3) / 3.0;
 
             let z_avg = (v1.z + v2.z + v3.z) / 3.0;
@@ -2392,24 +2420,31 @@ mod tests {
             if avg_u < 0.5 && z_avg > tail_scan_z && x_avg > 0.0 {
                 total_bottom_faces += 1;
                 let face_normal = (v2 - v1).cross(v3 - v1).normalize();
-                
-                // If it's the right side hull (X > 0) and bottom (U < 0.5), 
+
+                // If it's the right side hull (X > 0) and bottom (U < 0.5),
                 // the face normal MUST point Down (-Y) and Right (+X).
                 // If Ny > 0.1, it's pointing UP into the board (Black triangle!).
                 // If Nx < -0.1, it's pointing LEFT into the stringer (Folded mesh!).
                 if face_normal.y > 0.1 || face_normal.x < -0.1 {
-                     println!("\n⚠️ SUSPICIOUS FACE at Z={:.3}", z_avg * 12.0);
-                     println!("  V1: ({:.4}, {:.4}, {:.4}) u={:.2}", v1.x, v1.y, v1.z, u1);
-                     println!("  V2: ({:.4}, {:.4}, {:.4}) u={:.2}", v2.x, v2.y, v2.z, u2);
-                     println!("  V3: ({:.4}, {:.4}, {:.4}) u={:.2}", v3.x, v3.y, v3.z, u3);
-                     println!("  FACE NORMAL: Nx: {:.3}, Ny: {:.3}, Nz: {:.3}", face_normal.x, face_normal.y, face_normal.z);
-                     inverted_faces += 1;
+                    println!("\n⚠️ SUSPICIOUS FACE at Z={:.3}", z_avg * 12.0);
+                    println!("  V1: ({:.4}, {:.4}, {:.4}) u={:.2}", v1.x, v1.y, v1.z, u1);
+                    println!("  V2: ({:.4}, {:.4}, {:.4}) u={:.2}", v2.x, v2.y, v2.z, u2);
+                    println!("  V3: ({:.4}, {:.4}, {:.4}) u={:.2}", v3.x, v3.y, v3.z, u3);
+                    println!(
+                        "  FACE NORMAL: Nx: {:.3}, Ny: {:.3}, Nz: {:.3}",
+                        face_normal.x, face_normal.y, face_normal.z
+                    );
+                    inverted_faces += 1;
                 }
             }
         }
-        
+
         println!("Checked {} bottom faces.", total_bottom_faces);
-        assert_eq!(inverted_faces, 0, "Found {} inverted faces on the bottom of the hull! The mesh is folded over.", inverted_faces);
+        assert_eq!(
+            inverted_faces, 0,
+            "Found {} inverted faces on the bottom of the hull! The mesh is folded over.",
+            inverted_faces
+        );
     }
 
     #[test]
@@ -2425,7 +2460,7 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
-        
+
         // Emulate the frontend's behavior of preserving the active cross section
         let basic_cs = BezierCurveData {
             control_points: vec![
@@ -2459,7 +2494,7 @@ mod tests {
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
         let tail_z = bounds.tip_z * scale;
-        
+
         let mut tail_cap_inverted_triangles = 0;
 
         for i in (0..mesh.indices.len()).step_by(3) {
@@ -2467,15 +2502,29 @@ mod tests {
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            let v1 = Vec3::new(mesh.vertices[i1*3], mesh.vertices[i1*3+1], mesh.vertices[i1*3+2]);
-            let v2 = Vec3::new(mesh.vertices[i2*3], mesh.vertices[i2*3+1], mesh.vertices[i2*3+2]);
-            let v3 = Vec3::new(mesh.vertices[i3*3], mesh.vertices[i3*3+1], mesh.vertices[i3*3+2]);
+            let v1 = Vec3::new(
+                mesh.vertices[i1 * 3],
+                mesh.vertices[i1 * 3 + 1],
+                mesh.vertices[i1 * 3 + 2],
+            );
+            let v2 = Vec3::new(
+                mesh.vertices[i2 * 3],
+                mesh.vertices[i2 * 3 + 1],
+                mesh.vertices[i2 * 3 + 2],
+            );
+            let v3 = Vec3::new(
+                mesh.vertices[i3 * 3],
+                mesh.vertices[i3 * 3 + 1],
+                mesh.vertices[i3 * 3 + 2],
+            );
 
             // Filter for tail cap triangles (Z is approximately tail_z)
-            if (v1.z - tail_z).abs() < 1e-3 && (v2.z - tail_z).abs() < 1e-3 && (v3.z - tail_z).abs() < 1e-3 {
-                
+            if (v1.z - tail_z).abs() < 1e-3
+                && (v2.z - tail_z).abs() < 1e-3
+                && (v3.z - tail_z).abs() < 1e-3
+            {
                 let face_normal = (v2 - v1).cross(v3 - v1).normalize();
-                
+
                 // For a flat cap facing +Z, the CCW normal should be exactly (0, 0, 1)
                 // If it's inverted due to crossovers, Z will drop into the negative.
                 if face_normal.z < -0.1 {

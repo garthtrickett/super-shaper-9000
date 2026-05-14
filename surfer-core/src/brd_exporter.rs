@@ -24,7 +24,7 @@ fn format_aku_curve(
         t1 = old_t2.into_iter().rev().collect();
         t2 = old_t1.into_iter().rev().collect();
 
-                let mut out = String::new();
+        let mut out = String::new();
         for i in 0..pts.len() {
             let px = board_length / 2.0 - pts[i].z;
             let py = if is_thickness { pts[i].y } else { pts[i].x };
@@ -53,7 +53,7 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     out.push_str(&format!("p04: {:.6}\n", model.width));
     out.push_str(&format!("p03: {:.6}\n", model.thickness));
 
-        let p32 = format_aku_curve(&model.outline, model.length, false);
+    let p32 = format_aku_curve(&model.outline, model.length, false);
     if !p32.is_empty() {
         out.push_str(&format!("p32:\n{}", p32));
     }
@@ -75,7 +75,7 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
                 continue;
             }
             let slice_z = cs.control_points[0].z;
-                        let px = model.length / 2.0 - slice_z;
+            let px = model.length / 2.0 - slice_z;
             out.push_str(&format!("(p36 {:.6}\n", px));
 
             for i in 0..cs.control_points.len() {

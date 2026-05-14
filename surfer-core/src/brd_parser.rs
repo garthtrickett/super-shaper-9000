@@ -133,7 +133,8 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
     // 1. Clean up START (Nose cap)
     if curve.control_points.len() >= 3 {
         let p_stringer = curve.control_points[0];
-        if p_stringer.x.abs() < 0.5 { // Starts near stringer
+        if p_stringer.x.abs() < 0.5 {
+            // Starts near stringer
             // Find the first point that is clearly on the rail
             let mut rail_idx = 0;
             for i in 1..curve.control_points.len() {
@@ -142,7 +143,7 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
                     break;
                 }
             }
-            
+
             // If the rail point is very close in Z to the stringer point, it's a blunt cap.
             // All points from 0 to rail_idx - 1 belong to the cap and must be stripped.
             if rail_idx > 0 && (curve.control_points[rail_idx].z - p_stringer.z).abs() < 3.0 {
@@ -162,7 +163,8 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
     if curve.control_points.len() >= 3 {
         let len = curve.control_points.len();
         let p_stringer = curve.control_points[len - 1];
-        if p_stringer.x.abs() < 0.5 { // Ends near stringer
+        if p_stringer.x.abs() < 0.5 {
+            // Ends near stringer
             // Find the last point that is clearly on the rail (searching backwards)
             let mut rail_idx = len - 1;
             for i in (0..len - 1).rev() {
@@ -171,7 +173,7 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
                     break;
                 }
             }
-            
+
             // If the rail point is very close in Z to the stringer point, it's a blunt cap.
             // All points from rail_idx + 1 to the end belong to the cap and must be stripped.
             if rail_idx < len - 1 && (p_stringer.z - curve.control_points[rail_idx].z).abs() < 3.0 {
@@ -668,7 +670,7 @@ mod tests {
         assert!(model.rocker_bottom.is_some());
         assert!(model.rocker_top.is_some());
 
-                let outline = model.outline.unwrap();
+        let outline = model.outline.unwrap();
         assert!(outline.control_points.len() > 2);
     }
 
@@ -686,7 +688,7 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-                // The nominal name is 5'4", but the actual CAD file length is ~63.5 inches.
+        // The nominal name is 5'4", but the actual CAD file length is ~63.5 inches.
         assert_relative_eq!(model.length, 63.5, epsilon = 0.1);
 
         assert!(model.outline.is_some());
@@ -695,7 +697,7 @@ mod tests {
 
         let outline = model.outline.as_ref().unwrap();
         assert!(outline.control_points.len() > 2);
-        
+
         let bounds = crate::geometry::get_board_bounds(&model);
         let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z - 0.5, 0.5);
 
