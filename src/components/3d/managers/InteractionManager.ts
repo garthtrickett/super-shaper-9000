@@ -386,7 +386,7 @@ export class InteractionManager {
       this.canvas.style.cursor = 'default';
     }
     
-    if (dist < 5) {
+        if (dist < 5 && e.button === 0 && !e.altKey) {
       const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
       this.mouse.copy(mouse);
       this.raycaster.setFromCamera(this.mouse, camera);

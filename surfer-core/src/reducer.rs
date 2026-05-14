@@ -687,7 +687,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             model.selected_node = None;
             push_history(model);
         }
-                BoardAction::InsertNode { curve, t } => {
+        BoardAction::InsertNode { curve, t } => {
             let mut inserted_idx = None;
             if let Some(target) = get_curve_mut(model, &curve) {
                 inserted_idx = crate::bezier::insert_node(target, t);
@@ -709,7 +709,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                         let mirrored_side = if side == "left" { "right" } else { "left" };
                         let mirrored_curve =
                             format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
-                                                if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
+                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
                             crate::bezier::insert_node(m_target, t);
                         }
                     }
@@ -1339,7 +1339,7 @@ mod tests {
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
     }
 
-        #[test]
+    #[test]
     fn test_insert_node_action() {
         let mut model = create_mock_model();
         assert_eq!(model.outline.as_ref().unwrap().control_points.len(), 3);

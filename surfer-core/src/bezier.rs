@@ -393,7 +393,7 @@ pub fn insert_node(curve: &mut BezierCurveData, global_t: f32) -> Option<usize> 
 
         curve.control_points.insert(segment_idx + 1, np3);
 
-                curve.tangents2[segment_idx] = np1;
+        curve.tangents2[segment_idx] = np1;
         curve.tangents1.insert(segment_idx + 1, np2);
         curve.tangents2.insert(segment_idx + 1, nq1);
         curve.tangents1[segment_idx + 2] = nq2;
@@ -832,7 +832,7 @@ mod tests {
         println!("✅ evaluate_bezier_cubic passed.");
     }
 
-        #[test]
+    #[test]
     fn test_insert_node() {
         let mut curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
