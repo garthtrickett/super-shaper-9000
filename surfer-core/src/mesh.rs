@@ -2367,6 +2367,10 @@ mod tests {
 
         let mesh = super::generate_mesh(&model);
         
+                let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_scan_z = (bounds.tip_z - 10.0) * scale; // Scan the last 10 inches
+
         let mut inverted_faces = 0;
         let mut total_bottom_faces = 0;
 
@@ -2385,11 +2389,11 @@ mod tests {
             
             let avg_u = (u1 + u2 + u3) / 3.0;
 
-                        let z_avg = (v1.z + v2.z + v3.z) / 3.0;
+            let z_avg = (v1.z + v2.z + v3.z) / 3.0;
             let x_avg = (v1.x + v2.x + v3.x) / 3.0;
 
-            // Only check faces near the bottom/tuck (U < 0.5) near the tail (Z > 60")
-            if avg_u < 0.5 && z_avg > (60.0 / 12.0) && x_avg > 0.0 {
+            // Only check faces near the bottom/tuck (U < 0.5) in the last 10 inches of the tail on the right side
+            if avg_u < 0.5 && z_avg > tail_scan_z && x_avg > 0.0 {
                 total_bottom_faces += 1;
                 let face_normal = (v2 - v1).cross(v3 - v1).normalize();
                 
