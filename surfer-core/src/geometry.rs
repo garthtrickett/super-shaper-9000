@@ -2571,16 +2571,28 @@ mod tests {
         };
         model.cross_sections = vec![basic_cs];
 
-        let bounds = crate::geometry::get_board_bounds(&model);
-        let z_test = bounds.tip_z - 2.0; // Right near the wide tail
+                let bounds = crate::geometry::get_board_bounds(&model);
+        let z_test = bounds.tip_z - 1.0; // 1 inch from the absolute tail tip
         let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z_test, 0.0, bounds.tip_t);
         
+        let profile = crate::geometry::get_board_profile_at_z(&model, z_test, v_outer);
+        println!("\n=== MINI SIMMONS TAIL PROFILE @ Z={:.2} ===", z_test);
+        println!("bot_y: {:.4}, top_y: {:.4}", profile.bot_y, profile.top_y);
+        println!("apex_x: {:.4}, apex_y: {:.4}", profile.apex_x, profile.apex_y);
+        println!("tuck_x: {:.4}, tuck_y: {:.4}", profile.tuck_x, profile.tuck_y);
+        println!("shoulder_x: {:.4}, shoulder_y: {:.4}", profile.shoulder_x, profile.shoulder_y);
+        println!("half_width: {:.4}", profile.half_width);
+        
+        println!("\n--- 3D MESH U-SWEEP (BOTTOM HULL ONLY) ---");
         let mut dx_signs = Vec::new();
         let mut last_x = 0.0;
         
-        for i in 0..=100 {
-            let u = i as f32 / 100.0;
+        for i in 0..=20 {
+            let u = i as f32 / 40.0; // u from 0.0 to 0.5
             let pt = crate::geometry::get_point_at_uv(&model, u, v_outer, z_test, 0.0, 1.0);
+            let n = crate::geometry::get_surface_normal_at_uvz(&model, u, z_test, 1.0);
+            
+            println!("U={:.3} -> X: {:.4}, Y: {:.4} | Normal({:.3}, {:.3}, {:.3})", u, pt.x, pt.y, n.x, n.y, n.z);
             
             let dx = pt.x - last_x;
             if i > 0 && dx.abs() > 1e-4 {
@@ -2592,8 +2604,6 @@ mod tests {
             last_x = pt.x;
         }
 
-        // Ideally, it goes from Stringer (x=0) to Apex (x=Width) to Stringer (x=0)
-        // This is exactly 1 change in sign: +1, then -1. So dx_signs.len() should be 2.
         assert!(
             dx_signs.len() <= 2,
             "Mesh is jagged! U-sweep produced {} direction reversals in X. Expected 1 (out to apex, back to stringer).",

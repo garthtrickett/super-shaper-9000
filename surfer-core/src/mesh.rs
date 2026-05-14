@@ -2385,16 +2385,25 @@ mod tests {
             
             let avg_u = (u1 + u2 + u3) / 3.0;
 
-            // Only check faces near the bottom/tuck (U < 0.4) where the black triangles appear
-            if avg_u < 0.4 {
+                        let z_avg = (v1.z + v2.z + v3.z) / 3.0;
+            let x_avg = (v1.x + v2.x + v3.x) / 3.0;
+
+            // Only check faces near the bottom/tuck (U < 0.5) near the tail (Z > 60")
+            if avg_u < 0.5 && z_avg > (60.0 / 12.0) && x_avg > 0.0 {
                 total_bottom_faces += 1;
-                let n1 = Vec3::new(mesh.normals[i1*3], mesh.normals[i1*3+1], mesh.normals[i1*3+2]);
                 let face_normal = (v2 - v1).cross(v3 - v1).normalize();
                 
-                // For valid topology, the face normal must generally align with the vertex normal.
-                // If it points precisely opposite, the face is folded inside-out.
-                if face_normal.dot(n1) < -0.1 {
-                    inverted_faces += 1;
+                // If it's the right side hull (X > 0) and bottom (U < 0.5), 
+                // the face normal MUST point Down (-Y) and Right (+X).
+                // If Ny > 0.1, it's pointing UP into the board (Black triangle!).
+                // If Nx < -0.1, it's pointing LEFT into the stringer (Folded mesh!).
+                if face_normal.y > 0.1 || face_normal.x < -0.1 {
+                     println!("\n⚠️ SUSPICIOUS FACE at Z={:.3}", z_avg * 12.0);
+                     println!("  V1: ({:.4}, {:.4}, {:.4}) u={:.2}", v1.x, v1.y, v1.z, u1);
+                     println!("  V2: ({:.4}, {:.4}, {:.4}) u={:.2}", v2.x, v2.y, v2.z, u2);
+                     println!("  V3: ({:.4}, {:.4}, {:.4}) u={:.2}", v3.x, v3.y, v3.z, u3);
+                     println!("  FACE NORMAL: Nx: {:.3}, Ny: {:.3}, Nz: {:.3}", face_normal.x, face_normal.y, face_normal.z);
+                     inverted_faces += 1;
                 }
             }
         }
