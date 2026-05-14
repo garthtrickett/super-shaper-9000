@@ -742,6 +742,38 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_bump_squash_nose_card_artifact() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let outline = model.outline.as_ref().expect("Missing outline");
+        
+        let p0 = outline.control_points[0];
+        let p1 = outline.control_points[1];
+        
+        println!("Nose P0: {:?}", p0);
+        println!("Nose P1: {:?}", p1);
+        
+        let dz = (p1.z - p0.z).abs();
+        let dx = (p1.x - p0.x).abs();
+        
+        println!("Delta Z: {}", dz);
+        println!("Delta X: {}", dx);
+        
+        // A proper nose curve should gradually increase in X as Z increases.
+        // If X jumps massively while Z barely moves, it's a CAD artifact (cap) that wasn't stripped.
+        assert!(
+            !(dx > 0.5 && dz < 0.5),
+            "Nose card artifact detected! The outline has a horizontal cap at the nose. P0: {:?}, P1: {:?} (dx: {}, dz: {})",
+            p0, p1, dx, dz
+        );
+    }
+
     #[test]
     fn test_brd_decompression_and_parsing() {
         let _ = env_logger::builder().is_test(true).try_init();
