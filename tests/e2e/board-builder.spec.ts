@@ -698,7 +698,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(weightSlider).toHaveValue('1');
   });
 
-  test("Dynamic Node Insertion via Alt+Click", async ({ page }) => {
+    test("Dynamic Node Insertion via Right-Click", async ({ page }) => {
     await page.goto('/');
     const viewport = page.locator("board-viewport");
     await expect(viewport).toBeVisible();
@@ -747,8 +747,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.waitForTimeout(500);
 
-    // 2. Alt+Click to Insert
-    await page.mouse.click(hitPosition!.x, hitPosition!.y, { modifiers: ['Alt'] });
+        // 2. Right-Click to Insert
+    await page.mouse.click(hitPosition!.x, hitPosition!.y, { button: 'right' });
     
     // 3. Wait for WASM debounce and Three.js rebuild
     await page.waitForTimeout(1000);
