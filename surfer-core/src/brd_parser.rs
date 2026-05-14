@@ -125,7 +125,8 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
 }
 
 fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
-    if curve.control_points.len() >= 3 {
+    // Clean up start
+    while curve.control_points.len() >= 3 {
         if (curve.control_points[0].z - curve.control_points[1].z).abs() < 1e-3 {
             curve.control_points.remove(0);
             curve.tangents1.remove(0);
@@ -133,11 +134,14 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
             if let Some(w) = &mut curve.weights {
                 w.remove(0);
             }
+        } else {
+            break;
         }
     }
-    
-    let len = curve.control_points.len();
-    if len >= 3 {
+
+    // Clean up end
+    while curve.control_points.len() >= 3 {
+        let len = curve.control_points.len();
         if (curve.control_points[len - 1].z - curve.control_points[len - 2].z).abs() < 1e-3 {
             curve.control_points.pop();
             curve.tangents1.pop();
@@ -145,6 +149,8 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
             if let Some(w) = &mut curve.weights {
                 w.pop();
             }
+        } else {
+            break;
         }
     }
     
