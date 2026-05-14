@@ -335,40 +335,6 @@ fn parse_aku_slices(
 ) -> Vec<BezierCurveData> {
     let mut slices = Vec::new();
 
-    while let Some(line) = lines.next() {
-        let line = line.trim();
-        if line == ")" {
-            break;
-        }
-        if line.starts_with("(p36") || line.starts_with("p36") {
-            let clean = line.replace(['(', ')'], "");
-            let parts: Vec<&str> = clean.split([' ', '\t']).filter(|s| !s.is_empty()).collect();
-            if parts.len() >= 2 {
-                let px = parts[1].parse::<f32>().unwrap_or(0.0);
-                let slice_z = (board_length / 2.0 - px) * scale;
-
-                if let Some(curve) = parse_aku_slice_curve(lines, slice_z, scale) {
-                    slices.push(curve);
-                }
-            }
-        }
-    }
-
-    // Sort slices from nose (negative Z) to tail (positive Z)
-    slices.sort_by(|a, b| {
-        let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
-        let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
-        za.partial_cmp(&zb).unwrap()
-    });
-
-    slices
-}
-    lines: &mut std::str::Lines,
-    board_length: f32,
-    scale: f32,
-) -> Vec<BezierCurveData> {
-    let mut slices = Vec::new();
-
     for line in lines.by_ref() {
         let line = line.trim();
         if line == ")" {
