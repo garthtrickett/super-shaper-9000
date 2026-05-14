@@ -151,43 +151,62 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     }
 }
 
-pub fn evaluate_bezier_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> Vec3 {
+fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> f32 {
     let mut best_t = hint_t;
-    let mut min_err = f32::INFINITY;
+    let mut min_z_err = f32::INFINITY;
     let steps = 50;
 
+    // 1. Scan the grid
     for i in 0..=steps {
         let t = i as f32 / steps as f32;
         let p = evaluate_curve(curve, t);
         let z_err = (p.z - target_z).abs();
-        let t_err = (t - hint_t).abs() * 0.1;
-        let total_err = z_err + t_err;
-        if total_err < min_err {
-            min_err = total_err;
+        
+        if z_err < min_z_err - 1e-4 {
+            min_z_err = z_err;
             best_t = t;
+        } else if (z_err - min_z_err).abs() <= 1e-4 {
+            if (t - hint_t).abs() < (best_t - hint_t).abs() {
+                best_t = t;
+            }
         }
     }
 
+    // 2. Explicitly test the hint_t to avoid grid quantization loss on exact matches
+    let hint_p = evaluate_curve(curve, hint_t);
+    let hint_z_err = (hint_p.z - target_z).abs();
+    if hint_z_err < min_z_err - 1e-4 {
+        best_t = hint_t;
+    } else if (hint_z_err - min_z_err).abs() <= 1e-4 {
+        best_t = hint_t; // hint_t is closer to hint_t than best_t is
+    }
+
+    // 3. Strict refinement loop focusing solely on minimizing Z error
     let mut t_search = best_t;
     let mut step = 1.0 / steps as f32;
-    for _ in 0..15 {
+    for _ in 0..20 {
         step /= 2.0;
         let t_l = 0.0_f32.max(t_search - step);
         let t_r = 1.0_f32.min(t_search + step);
         let p_l = evaluate_curve(curve, t_l);
         let p_r = evaluate_curve(curve, t_r);
-        let err_l = (p_l.z - target_z).abs() + (t_l - hint_t).abs() * 0.1;
-        let err_r = (p_r.z - target_z).abs() + (t_r - hint_t).abs() * 0.1;
+        let err_l = (p_l.z - target_z).abs();
+        let err_r = (p_r.z - target_z).abs();
+        let err_curr = (evaluate_curve(curve, t_search).z - target_z).abs();
 
-        if err_l < min_err && err_l <= err_r {
-            min_err = err_l;
+        if err_l < err_curr && err_l <= err_r {
             t_search = t_l;
-        } else if err_r < min_err {
-            min_err = err_r;
+        } else if err_r < err_curr {
             t_search = t_r;
         }
     }
-    evaluate_curve(curve, t_search)
+    
+    t_search
+}
+
+pub fn evaluate_bezier_at_z(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> Vec3 {
+    let t = evaluate_bezier_t_at_z_robust(curve, target_z, hint_t);
+    evaluate_curve(curve, t)
 }
 
 pub fn evaluate_bezier_pos_and_tan_at_z(
@@ -195,42 +214,8 @@ pub fn evaluate_bezier_pos_and_tan_at_z(
     target_z: f32,
     hint_t: f32,
 ) -> (Vec3, Vec3) {
-    let mut best_t = hint_t;
-    let mut min_err = f32::INFINITY;
-    let steps = 50;
-
-    for i in 0..=steps {
-        let t = i as f32 / steps as f32;
-        let p = evaluate_curve(curve, t);
-        let z_err = (p.z - target_z).abs();
-        let t_err = (t - hint_t).abs() * 0.1;
-        let total_err = z_err + t_err;
-        if total_err < min_err {
-            min_err = total_err;
-            best_t = t;
-        }
-    }
-
-    let mut t_search = best_t;
-    let mut step = 1.0 / steps as f32;
-    for _ in 0..15 {
-        step /= 2.0;
-        let t_l = 0.0_f32.max(t_search - step);
-        let t_r = 1.0_f32.min(t_search + step);
-        let p_l = evaluate_curve(curve, t_l);
-        let p_r = evaluate_curve(curve, t_r);
-        let err_l = (p_l.z - target_z).abs() + (t_l - hint_t).abs() * 0.1;
-        let err_r = (p_r.z - target_z).abs() + (t_r - hint_t).abs() * 0.1;
-
-        if err_l < min_err && err_l <= err_r {
-            min_err = err_l;
-            t_search = t_l;
-        } else if err_r < min_err {
-            min_err = err_r;
-            t_search = t_r;
-        }
-    }
-    crate::bezier::evaluate_composite_pos_and_tangent(curve, t_search)
+    let t = evaluate_bezier_t_at_z_robust(curve, target_z, hint_t);
+    crate::bezier::evaluate_composite_pos_and_tangent(curve, t)
 }
 
 pub fn evaluate_composite_outline_pos_and_tan_at_z(
@@ -292,28 +277,27 @@ pub fn find_v_at_z(curve: &BezierCurveData, target_z: f32, min_t: f32, max_t: f3
     let mut t_search = best_t;
     let mut step_size = (max_t - min_t) / steps as f32;
 
-    for _ in 0..15 {
-        step_size /= 2.0;
-        let t_left = min_t.max(t_search - step_size);
-        let t_right = max_t.min(t_search + step_size);
+            for _ in 0..20 {
+            step_size /= 2.0;
+            let t_left = min_t.max(t_search - step_size);
+            let t_right = max_t.min(t_search + step_size);
 
-        let p_left = evaluate_curve(curve, t_left);
-        let p_right = evaluate_curve(curve, t_right);
+            let p_left = evaluate_curve(curve, t_left);
+            let p_right = evaluate_curve(curve, t_right);
 
-        let err_left = (p_left.z - target_z).abs();
-        let err_right = (p_right.z - target_z).abs();
+            let err_left = (p_left.z - target_z).abs();
+            let err_right = (p_right.z - target_z).abs();
+            let err_curr = (evaluate_curve(curve, t_search).z - target_z).abs();
 
-        if err_left < min_err && err_left <= err_right {
-            min_err = err_left;
-            t_search = t_left;
-        } else if err_right < min_err {
-            min_err = err_right;
-            t_search = t_right;
+            if err_left < err_curr && err_left <= err_right {
+                t_search = t_left;
+            } else if err_right < err_curr {
+                t_search = t_right;
+            }
         }
-    }
 
-    t_search
-}
+        t_search
+    }
 
 /// Evaluates the inner X-coordinate of a swallow tail "V" notch at a given Z.
 /// It searches the parameter space exclusively from `tip_t` (the absolute tail tip) to 1.0 (the stringer notch).
