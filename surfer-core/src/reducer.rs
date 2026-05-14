@@ -1339,7 +1339,7 @@ mod tests {
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
     }
 
-    #[test]
+        #[test]
     fn test_insert_node_action() {
         let mut model = create_mock_model();
         assert_eq!(model.outline.as_ref().unwrap().control_points.len(), 3);
@@ -1354,6 +1354,7 @@ mod tests {
         assert_eq!(outline.control_points.len(), 4);
         assert_eq!(outline.tangents1.len(), 4);
         assert_eq!(outline.tangents2.len(), 4);
+        assert_eq!(model.selected_node.as_ref().unwrap().index, 1);
     }
 
     #[test]
