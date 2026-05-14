@@ -50,7 +50,7 @@ export class BoardBuilderPage extends LitElement {
       this.contourSliceData = data.profile;
       this.isProcessing = false;
     }
-        if (data.type === "STATE_UPDATED" || data.type === "EXPORT_OBJ_RESULT" || data.type === "EXPORT_S3DX_RESULT" || data.type === "ERROR") {
+            if (data.type === "STATE_UPDATED" || data.type === "EXPORT_OBJ_RESULT" || data.type === "EXPORT_S3DX_RESULT" || data.type === "EXPORT_BRD_RESULT" || data.type === "ERROR") {
       const ctrl = this.wasmCtrl as unknown as { currentSequence?: number };
       if (data.seq === undefined || data.seq === ctrl.currentSequence) {
         this.isProcessing = false;
@@ -121,11 +121,46 @@ export class BoardBuilderPage extends LitElement {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `SuperShaper_${length}.s3dx`;
+            a.download = `SuperShaper_${length}.s3dx`;
       a.click();
       URL.revokeObjectURL(url);
         } catch (e) {
       console.error("Failed to export S3DX", e);
+      this.isProcessing = false;
+    }
+  }
+
+  private async _handleExportBrd() {
+    try {
+      this.isProcessing = true;
+      const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+      if (!worker) { this.isProcessing = false; return; }
+      
+      const brdBytes = await new Promise<Uint8Array>((resolve) => {
+        const id = Math.random().toString();
+        const handler = (e: MessageEvent) => {
+          const data = e.data as { type: string; id?: string; brdBytes?: Uint8Array };
+          if (data.type === "EXPORT_BRD_RESULT" && data.id === id) {
+            worker.removeEventListener("message", handler);
+            resolve(data.brdBytes!);
+          }
+        };
+        worker.addEventListener("message", handler);
+        worker.postMessage({ type: "EXPORT_BRD", id });
+      });
+
+      this.isProcessing = false;
+      const state = this.wasmCtrl.model;
+      const length = state ? state.length.toFixed(1) : "Unknown";
+      const blob = new Blob([brdBytes], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `SuperShaper_${length}.brd`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to export BRD", e);
       this.isProcessing = false;
     }
   }
@@ -419,7 +454,8 @@ export class BoardBuilderPage extends LitElement {
                     .bottomChannels=${state.bottomChannels ||[]}
           .foilData=${foilData}
           @export-design=${() => this.showExportModal = true}
-                    @export-s3dx=${() => void this._handleExportS3dx()}
+                              @export-s3dx=${() => void this._handleExportS3dx()}
+          @export-brd=${() => void this._handleExportBrd()}
           @export-obj=${() => void this._handleExportObj()}
           @import-design=${() => this.showImportModal = true}
                                         @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
