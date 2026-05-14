@@ -100,7 +100,7 @@ pub fn encrypt_aku_shaper(text: &str) -> Result<Vec<u8>, String> {
     let password = "deltaXTaildeltaXMiddle";
     let salt: [u8; 8] = [0xC7, 0x73, 0x21, 0x8C, 0x7E, 0xC8, 0xEE, 0x99];
 
-        let mut hasher = Md5::new();
+    let mut hasher = Md5::new();
     hasher.update(password.as_bytes());
     hasher.update(salt);
     let mut hash = hasher.finalize();
