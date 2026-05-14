@@ -294,12 +294,18 @@ impl WasmEngine {
         ))
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn export_obj(&self) -> Result<String, JsValue> {
         let mesh = self.engine.compute_mesh();
         Ok(surfer_core::obj_exporter::export_obj(
             self.engine.get_model(),
             &mesh,
         ))
+    }
+
+    #[wasm_bindgen]
+    pub fn export_brd(&self) -> Result<Vec<u8>, JsValue> {
+        surfer_core::brd_exporter::export_aku_brd(self.engine.get_model())
+            .map_err(|e| JsValue::from_str(&e))
     }
 }

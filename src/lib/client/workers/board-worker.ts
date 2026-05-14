@@ -53,9 +53,23 @@ self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; actio
         return;
     }
 
-    if (msg.type === "EXPORT_OBJ") {
+        if (msg.type === "EXPORT_OBJ") {
         const obj = engine.export_obj();
         (self as unknown as Worker).postMessage({ type: "EXPORT_OBJ_RESULT", id: msg.id, seq: msg.seq, obj });
+        return;
+    }
+
+    if (msg.type === "EXPORT_BRD") {
+        try {
+            const brdBytes = engine.export_brd();
+            (self as unknown as Worker).postMessage(
+                { type: "EXPORT_BRD_RESULT", id: msg.id, seq: msg.seq, brdBytes },
+                [brdBytes.buffer]
+            );
+        } catch (err) {
+            console.error("[BoardWorker] Failed to export BRD", err);
+            (self as unknown as Worker).postMessage({ type: "ERROR", seq: msg.seq, error: String(err) });
+        }
         return;
     }
 
