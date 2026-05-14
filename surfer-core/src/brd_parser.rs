@@ -127,7 +127,14 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
 fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
     // Clean up start
     while curve.control_points.len() >= 3 {
-        if (curve.control_points[0].z - curve.control_points[1].z).abs() < 1e-3 {
+        let p_first = curve.control_points[0];
+        let p_next = curve.control_points[1];
+        
+        // If the first point is at the stringer, and the next point is wide at the rail,
+        // and they are close in Z (< 2.0 inches), it is a blocky nose cap that must be stripped.
+        let is_vertical_cap = p_first.x.abs() < 0.5 && p_next.x.abs() > 1.0 && (p_first.z - p_next.z).abs() < 2.0;
+
+        if (p_first.z - p_next.z).abs() < 1e-3 || is_vertical_cap {
             curve.control_points.remove(0);
             curve.tangents1.remove(0);
             curve.tangents2.remove(0);
@@ -142,7 +149,13 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
     // Clean up end
     while curve.control_points.len() >= 3 {
         let len = curve.control_points.len();
-        if (curve.control_points[len - 1].z - curve.control_points[len - 2].z).abs() < 1e-3 {
+        let p_last = curve.control_points[len - 1];
+        let p_prev = curve.control_points[len - 2];
+        
+        // Strip blocky tail caps (often sloped slightly rather than perfectly vertical)
+        let is_vertical_cap = p_last.x.abs() < 0.5 && p_prev.x.abs() > 1.0 && (p_last.z - p_prev.z).abs() < 2.0;
+
+        if (p_last.z - p_prev.z).abs() < 1e-3 || is_vertical_cap {
             curve.control_points.pop();
             curve.tangents1.pop();
             curve.tangents2.pop();

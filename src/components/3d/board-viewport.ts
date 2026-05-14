@@ -264,29 +264,38 @@ export class BoardViewport extends LitElement {
         const matApexRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
     const matDeckShoulder = new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.85 });
 
-    const activeApexOutline = this.boardState?.apexOutline
-      ? this.sampleBezierCurve(this.boardState.apexOutline, 100).map((p) =>
-          projectY("apexOutline", p),
-        )
-      : null;
-    const activeRailOutline = this.boardState?.railOutline
-      ? this.sampleBezierCurve(this.boardState.railOutline, 100).map((p) =>
-          projectY("railOutline", p),
-        )
-      : null;
-                const activeApexRocker = this.boardState?.apexRocker
-            ? this.sampleBezierCurve(this.boardState.apexRocker, 100).map((p) => {
-                const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { apexX: number };
-                return [profile.apexX, p[1], p[2]] as Point3D;
-              })
-      : null;
-        const activeDeckShoulder = this.boardState?.deckShoulder
-      ? this.sampleBezierCurve(this.boardState.deckShoulder, 100).map((p) =>
-          projectY("deckShoulder", p),
-        )
-      : null;
+        const activeApexOutline = this.boardState?.apexOutline && this.boardState.apexOutline.controlPoints.length > 0
+      ? this.sampleBezierCurve(this.boardState.apexOutline, 100).map((p) => projectY("apexOutline", p))
+      : activeOutline.map((p) => {
+          const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { apexX: number, apexY: number };
+          return [profile.apexX, profile.apexY, p[2]] as Point3D;
+        });
 
-        if (this.boardState?.showOutline !== false) {
+    const activeRailOutline = this.boardState?.railOutline && this.boardState.railOutline.controlPoints.length > 0
+      ? this.sampleBezierCurve(this.boardState.railOutline, 100).map((p) => projectY("railOutline", p))
+      : activeOutline.map((p) => {
+          const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { tuckX: number, tuckY: number };
+          return [profile.tuckX, profile.tuckY, p[2]] as Point3D;
+        });
+
+    const activeApexRocker = this.boardState?.apexRocker && this.boardState.apexRocker.controlPoints.length > 0
+      ? this.sampleBezierCurve(this.boardState.apexRocker, 100).map((p) => {
+          const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { apexX: number };
+          return [profile.apexX, p[1], p[2]] as Point3D;
+        })
+      : activeOutline.map((p) => {
+          const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { apexX: number, apexY: number };
+          return [profile.apexX, profile.apexY, p[2]] as Point3D;
+        });
+
+    const activeDeckShoulder = this.boardState?.deckShoulder && this.boardState.deckShoulder.controlPoints.length > 0
+      ? this.sampleBezierCurve(this.boardState.deckShoulder, 100).map((p) => projectY("deckShoulder", p))
+      : activeOutline.map((p) => {
+          const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { shoulderX: number, shoulderY: number };
+          return [profile.shoulderX, profile.shoulderY, p[2]] as Point3D;
+        });
+
+    if (this.boardState?.showOutline !== false) {
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, 'outline'));
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, 'outline'));
     }
