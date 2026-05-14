@@ -770,8 +770,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector).toContainText("Node 1");
     
     // Test Side Ortho View (Bottom-Left Quadrant)
-    // First dismiss inspector by clicking somewhere empty
-    await page.mouse.click(10, 10);
+        // First dismiss inspector by clicking somewhere empty on the canvas
+    const canvasBox = await viewport.locator("canvas").boundingBox();
+    await page.mouse.click(canvasBox!.x + 150, canvasBox!.y + 150);
     await expect(inspector).toBeHidden({ timeout: 5000 });
 
     const sideHitPosition = await page.evaluate(() => {
