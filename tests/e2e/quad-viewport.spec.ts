@@ -195,6 +195,100 @@ test.describe('Quad Viewport CAD Interface', () => {
     const diff = Math.abs(parseFloat(finalX) - parseFloat(initialX));
     
     // Verify it moved by at least half an inch
-    expect(diff).toBeGreaterThan(0.5);
+        expect(diff).toBeGreaterThan(0.5);
+  });
+
+  test('should trigger copy cursor when hovering over curves in any quadrant', async ({ page }) => {
+    const canvas = page.locator('board-viewport canvas');
+    const box = await canvas.boundingBox();
+    expect(box).toBeDefined();
+
+    // Helper to check cursor
+    const checkCursor = async (pos: { x: number, y: number }) => {
+      await page.mouse.move(pos.x, pos.y);
+      await page.waitForTimeout(200); // allow raycaster to update
+      const cursor = await page.evaluate(() => {
+        const canvas = document.querySelector('board-viewport')?.shadowRoot?.querySelector('canvas') || document.querySelector('board-viewport canvas');
+        return window.getComputedStyle(canvas!).cursor;
+      });
+      return cursor;
+    };
+
+    const getCurvePositionInQuadrant = async (cameraName: 'top' | 'side' | 'profile' | 'perspective') => {
+      return page.evaluate((camName) => {
+        type Vector3Mock = { set(x: number, y: number, z: number): void, project(cam: unknown): void, x: number, y: number, z: number };
+        type CameraMock = { position: { clone(): Vector3Mock } };
+        type BoardViewportElement = HTMLElement & {
+          mathEngine?: {
+            get_point_on_curve(curveName: string, t: number): Float32Array;
+            get_profile_at_z(z: number): { apexY: number, topY: number };
+          };
+          sceneManager?: {
+            cameras: any;
+          }
+        };
+        const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+        if (!vp || !vp.mathEngine || !vp.sceneManager) return null;
+
+        const curveName = (camName === 'side' || camName === 'profile') ? 'rockerTop' : 'outline';
+        const pt = vp.mathEngine.get_point_on_curve(curveName, 0.5);
+        if (!pt) return null;
+
+        let worldX = pt[0]! / 12;
+        let worldY = pt[1]! / 12;
+        let worldZ = pt[2]! / 12;
+
+        if (curveName === 'outline') {
+            const profile = vp.mathEngine.get_profile_at_z(pt[2]!);
+            worldY = profile.apexY / 12;
+        }
+
+        const camera = vp.sceneManager.cameras[camName];
+        const vec = camera.position.clone();
+        vec.set(worldX, worldY, worldZ);
+        vec.project(camera);
+
+        const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+        if (!canvas) return null;
+
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width / 2;
+        const h = rect.height / 2;
+        
+        let pixelX = 0;
+        let pixelY = 0;
+        
+        if (camName === 'top') {
+            pixelX = rect.left + ((vec.x + 1) / 2 * w);
+            pixelY = rect.top + ((1 - vec.y) / 2 * h);
+        } else if (camName === 'side') {
+            pixelX = rect.left + ((vec.x + 1) / 2 * w);
+            pixelY = rect.top + h + ((1 - vec.y) / 2 * h);
+        } else if (camName === 'profile') {
+            pixelX = rect.left + w + ((vec.x + 1) / 2 * w);
+            pixelY = rect.top + h + ((1 - vec.y) / 2 * h);
+        } else {
+            pixelX = rect.left + w + ((vec.x + 1) / 2 * w);
+            pixelY = rect.top + ((1 - vec.y) / 2 * h);
+        }
+
+        return { x: pixelX, y: pixelY };
+      }, cameraName);
+    };
+
+    const topPos = await getCurvePositionInQuadrant('top');
+    expect(topPos).toBeTruthy();
+    expect(await checkCursor(topPos!)).toBe('copy');
+
+    const sidePos = await getCurvePositionInQuadrant('side');
+    expect(sidePos).toBeTruthy();
+    expect(await checkCursor(sidePos!)).toBe('copy');
+
+    const profilePos = await getCurvePositionInQuadrant('profile');
+    expect(profilePos).toBeTruthy();
+    expect(await checkCursor(profilePos!)).toBe('copy');
+
+    // Make sure an empty area returns default
+    expect(await checkCursor({ x: box!.x + 10, y: box!.y + 10 })).not.toBe('copy');
   });
 });

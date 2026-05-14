@@ -698,7 +698,143 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(weightSlider).toHaveValue('1');
   });
 
-      test("Dynamic Node Insertion via Alt+Click", async ({ page }) => {
+        test("Dynamic Node Insertion in Orthographic Views", async ({ page }) => {
+    await page.goto('/');
+    const viewport = page.locator("board-viewport");
+    await expect(viewport).toBeVisible();
+    await expect(viewport.locator("canvas")).toBeVisible();
+    await page.waitForTimeout(1000);
+
+    // Test Top Ortho View (Top-Left Quadrant)
+    const topHitPosition = await page.evaluate(() => {
+      type Vector3Mock = { set(x: number, y: number, z: number): void, project(cam: unknown): void, x: number, y: number, z: number };
+      type CameraMock = { position: { clone(): Vector3Mock } };
+      type BoardViewportElement = HTMLElement & {
+        mathEngine?: {
+          get_point_on_curve(curveName: string, t: number): Float32Array;
+          get_profile_at_z(z: number): { apexY: number };
+        };
+        sceneManager?: {
+          cameras: {
+            top: CameraMock;
+          }
+        };
+      };
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      if (!vp || !vp.mathEngine || !vp.sceneManager) return null;
+
+      const pt = vp.mathEngine.get_point_on_curve('outline', 0.25);
+      if (!pt) return null;
+
+      const profile = vp.mathEngine.get_profile_at_z(pt[2]!);
+
+      const worldX = pt[0]! / 12;
+      const worldY = profile.apexY / 12;
+      const worldZ = pt[2]! / 12;
+
+      const camera = vp.sceneManager.cameras.top;
+      const vec = camera.position.clone();
+      vec.set(worldX, worldY, worldZ);
+      vec.project(camera);
+
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+      const pixelX = rect.left + ((vec.x + 1) / 2 * w);
+      const pixelY = rect.top + ((1 - vec.y) / 2 * h);
+
+      return { x: pixelX, y: pixelY };
+    });
+
+    expect(topHitPosition).toBeTruthy();
+
+    // Move to the hit position to trigger hover state
+    await page.mouse.move(topHitPosition!.x, topHitPosition!.y);
+    await page.waitForTimeout(500);
+
+    // Alt-Click to Insert
+    await page.keyboard.down('Alt');
+    await page.mouse.click(topHitPosition!.x, topHitPosition!.y, { button: 'left' });
+    await page.keyboard.up('Alt');
+    
+    // Wait for WASM debounce and Three.js rebuild
+    await page.waitForTimeout(1000);
+
+    // Verify the inspector automatically opens for the newly inserted node
+    const inspector = page.locator("node-inspector");
+    await expect(inspector).toBeVisible({ timeout: 5000 });
+    await expect(inspector).toContainText("Main Outline");
+    await expect(inspector).toContainText("Node 1");
+    
+    // Test Side Ortho View (Bottom-Left Quadrant)
+    // First dismiss inspector by clicking somewhere empty
+    await page.mouse.click(10, 10);
+    await expect(inspector).toBeHidden({ timeout: 5000 });
+
+    const sideHitPosition = await page.evaluate(() => {
+      type Vector3Mock = { set(x: number, y: number, z: number): void, project(cam: unknown): void, x: number, y: number, z: number };
+      type CameraMock = { position: { clone(): Vector3Mock } };
+      type BoardViewportElement = HTMLElement & {
+        mathEngine?: {
+          get_point_on_curve(curveName: string, t: number): Float32Array;
+          get_profile_at_z(z: number): { topY: number };
+        };
+        sceneManager?: {
+          cameras: {
+            side: CameraMock;
+          }
+        };
+      };
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      if (!vp || !vp.mathEngine || !vp.sceneManager) return null;
+
+      // Insert on Rocker Top
+      const pt = vp.mathEngine.get_point_on_curve('rockerTop', 0.25);
+      if (!pt) return null;
+
+      const worldX = pt[0]! / 12;
+      const worldY = pt[1]! / 12;
+      const worldZ = pt[2]! / 12;
+
+      const camera = vp.sceneManager.cameras.side;
+      const vec = camera.position.clone();
+      vec.set(worldX, worldY, worldZ);
+      vec.project(camera);
+
+      const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+      if (!canvas) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+      // Side view is bottom-left quadrant
+      const pixelX = rect.left + ((vec.x + 1) / 2 * w);
+      const pixelY = rect.top + h + ((1 - vec.y) / 2 * h);
+
+      return { x: pixelX, y: pixelY };
+    });
+
+    expect(sideHitPosition).toBeTruthy();
+
+    await page.mouse.move(sideHitPosition!.x, sideHitPosition!.y);
+    await page.waitForTimeout(500);
+
+    // Alt-Click to Insert
+    await page.keyboard.down('Alt');
+    await page.mouse.click(sideHitPosition!.x, sideHitPosition!.y, { button: 'left' });
+    await page.keyboard.up('Alt');
+    
+    await page.waitForTimeout(1000);
+
+    await expect(inspector).toBeVisible({ timeout: 5000 });
+    await expect(inspector).toContainText("Rocker (Top)");
+    await expect(inspector).toContainText("Node 1");
+  });
+
+  test("Dynamic Node Insertion via Alt+Click", async ({ page }) => {
     await page.goto('/');
     const viewport = page.locator("board-viewport");
     await expect(viewport).toBeVisible();
