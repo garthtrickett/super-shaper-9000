@@ -768,7 +768,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const vp = document.querySelector('board-viewport') as any;
       if (!vp || !vp.sceneManager) return null;
 
-      let gizmo = null;
+            let gizmo: any = null;
       vp.sceneManager.scene.traverse((child: any) => {
         if (child.userData?.isGizmo && child.userData.curve === 'outline' && child.userData.index === 1 && child.userData.type === 'anchor') {
           gizmo = child;
