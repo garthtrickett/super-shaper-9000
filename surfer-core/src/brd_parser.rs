@@ -146,14 +146,22 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
         let p0 = curve.control_points[0];
         let p1 = curve.control_points[1];
         let dz = (p1.z - p0.z).abs();
-        let d_cross = if is_thickness { (p1.y - p0.y).abs() } else { (p1.x - p0.x).abs() };
-        
+        let d_cross = if is_thickness {
+            (p1.y - p0.y).abs()
+        } else {
+            (p1.x - p0.x).abs()
+        };
+
         if is_cap(dz, d_cross) {
             curve.control_points.remove(0);
             curve.tangents1.remove(0);
             curve.tangents2.remove(0);
-            if let Some(w) = &mut curve.weights { w.remove(0); }
-            if curve.control_points.len() < 3 { break; }
+            if let Some(w) = &mut curve.weights {
+                w.remove(0);
+            }
+            if curve.control_points.len() < 3 {
+                break;
+            }
         } else {
             break;
         }
@@ -165,14 +173,22 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
         let p_last = curve.control_points[len - 1];
         let p_prev = curve.control_points[len - 2];
         let dz = (p_last.z - p_prev.z).abs();
-        let d_cross = if is_thickness { (p_last.y - p_prev.y).abs() } else { (p_last.x - p_prev.x).abs() };
-        
+        let d_cross = if is_thickness {
+            (p_last.y - p_prev.y).abs()
+        } else {
+            (p_last.x - p_prev.x).abs()
+        };
+
         if is_cap(dz, d_cross) {
             curve.control_points.pop();
             curve.tangents1.pop();
             curve.tangents2.pop();
-            if let Some(w) = &mut curve.weights { w.pop(); }
-            if curve.control_points.len() < 3 { break; }
+            if let Some(w) = &mut curve.weights {
+                w.pop();
+            }
+            if curve.control_points.len() < 3 {
+                break;
+            }
         } else {
             break;
         }
@@ -248,12 +264,15 @@ fn convert_brd_curve(
         tangents2 = old_t1.into_iter().rev().collect();
     }
 
-        Some(cleanup_vertical_ends(BezierCurveData {
-        control_points,
-        tangents1,
-        tangents2,
-        weights: None,
-    }, is_thickness))
+    Some(cleanup_vertical_ends(
+        BezierCurveData {
+            control_points,
+            tangents1,
+            tangents2,
+            weights: None,
+        },
+        is_thickness,
+    ))
 }
 
 /// Deserializes the decompressed XML and translates the 2D coordinate space into our 3D parametric BoardModel.
@@ -457,12 +476,15 @@ fn parse_aku_curve(
         tangents1 = old_t2.into_iter().rev().collect();
         tangents2 = old_t1.into_iter().rev().collect();
 
-                Some(cleanup_vertical_ends(BezierCurveData {
-            control_points,
-            tangents1,
-            tangents2,
-            weights: None,
-        }, is_thickness))
+        Some(cleanup_vertical_ends(
+            BezierCurveData {
+                control_points,
+                tangents1,
+                tangents2,
+                weights: None,
+            },
+            is_thickness,
+        ))
     }
 }
 
@@ -631,15 +653,25 @@ mod tests {
             }
         }
 
-                let bounds = crate::geometry::get_board_bounds(&model);
-        let profile_tip = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let profile_tip =
+            crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
         println!("Bounds tip_z: {}", bounds.tip_z);
-        println!("Profile at tip_z: top_y={}, bot_y={}, apex_x={}", profile_tip.top_y, profile_tip.bot_y, profile_tip.apex_x);
+        println!(
+            "Profile at tip_z: top_y={}, bot_y={}, apex_x={}",
+            profile_tip.top_y, profile_tip.bot_y, profile_tip.apex_x
+        );
         if let Some(r_top) = &model.rocker_top {
-            println!("Rocker Top end points: {:?}", &r_top.control_points[r_top.control_points.len().saturating_sub(3)..]);
+            println!(
+                "Rocker Top end points: {:?}",
+                &r_top.control_points[r_top.control_points.len().saturating_sub(3)..]
+            );
         }
         if let Some(r_bot) = &model.rocker_bottom {
-            println!("Rocker Bottom end points: {:?}", &r_bot.control_points[r_bot.control_points.len().saturating_sub(3)..]);
+            println!(
+                "Rocker Bottom end points: {:?}",
+                &r_bot.control_points[r_bot.control_points.len().saturating_sub(3)..]
+            );
         }
 
         let thickness_at_tail = (max_y - min_y) / scale;
@@ -652,8 +684,7 @@ mod tests {
         );
     }
 
-        #[test]
-        #[test]
+    #[test]
     fn test_bump_squash_stringer_tail_alignment() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -668,18 +699,19 @@ mod tests {
         let outline_tail_z = outline.control_points.last().unwrap().z;
         let rtop_tail_z = rocker_top.control_points.last().unwrap().z;
 
-        // The cap should be successfully stripped, meaning the outline safely stops 
+        // The cap should be successfully stripped, meaning the outline safely stops
         // at the squash corner (~37.4) while the rocker continues to the stringer tip (~38.0)
         let top_diff = (outline_tail_z - rtop_tail_z).abs();
 
         assert!(
             top_diff > 0.4 && top_diff < 0.7,
             "Tail cap was not properly stripped! Outline Z: {}, Rocker Z: {}",
-            outline_tail_z, rtop_tail_z
+            outline_tail_z,
+            rtop_tail_z
         );
     }
 
-        #[test]
+    #[test]
     fn test_bump_squash_nose_card_artifact() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -689,20 +721,20 @@ mod tests {
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
         let outline = model.outline.as_ref().expect("Missing outline");
-        
+
         let p0 = outline.control_points[0];
         let p1 = outline.control_points[1];
-        
+
         println!("Nose P0: {:?}", p0);
         println!("Nose P1: {:?}", p1);
-        
+
         let dz = (p1.z - p0.z).abs();
         let dx = (p1.x - p0.x).abs();
-        
+
         println!("Delta Z: {}", dz);
         println!("Delta X: {}", dx);
-        
-                // A proper nose curve should gradually increase in X as Z increases.
+
+        // A proper nose curve should gradually increase in X as Z increases.
         // If X jumps massively while Z barely moves, it's a CAD artifact (cap) that wasn't stripped.
         assert!(
             !(dx > 0.1 && dz < 0.01),

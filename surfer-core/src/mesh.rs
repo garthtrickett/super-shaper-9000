@@ -638,7 +638,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
             let width_inches = ring_width / scale;
             let num_x_steps = (width_inches / 0.5).ceil().max(1.0) as u32;
-                        let right_target_x = ring[0].0.x;
+            let right_target_x = ring[0].0.x;
             let right_target_y_bot = ring[0].0.y;
             let right_target_y_top = ring[half].0.y;
 
@@ -652,8 +652,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     let (pos, color, _u_tex, _v_coord, _abs_u) = ring[j];
                     let side = u_columns[j].1;
 
-                    let target_x = if side > 0.0 { right_target_x } else { left_target_x };
-                    
+                    let target_x = if side > 0.0 {
+                        right_target_x
+                    } else {
+                        left_target_x
+                    };
+
                     // To ensure the cap perfectly seals the hull on the outside, and gradually flattens
                     // to a straight vertical line at the stringer (X=0), we lerp the Y coordinate based on the fraction.
                     let pos_bot_y = ring[if side > 0.0 { 0 } else { num_cols - 1 }].0.y;
@@ -663,13 +667,29 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                     } else {
                         0.5
                     };
-                    
-                    let target_y_bot = if side > 0.0 { right_target_y_bot } else { left_target_y_bot };
-                    let target_y_top = if side > 0.0 { right_target_y_top } else { left_target_y_top };
+
+                    let target_y_bot = if side > 0.0 {
+                        right_target_y_bot
+                    } else {
+                        left_target_y_bot
+                    };
+                    let target_y_top = if side > 0.0 {
+                        right_target_y_top
+                    } else {
+                        left_target_y_top
+                    };
                     let center_y = target_y_bot + (target_y_top - target_y_bot) * y_frac;
 
-                    let new_x = if step == 0 { pos.x } else { target_x + (pos.x - target_x) * fraction };
-                    let new_y = if step == 0 { pos.y } else { center_y + (pos.y - center_y) * fraction };
+                    let new_x = if step == 0 {
+                        pos.x
+                    } else {
+                        target_x + (pos.x - target_x) * fraction
+                    };
+                    let new_y = if step == 0 {
+                        pos.y
+                    } else {
+                        center_y + (pos.y - center_y) * fraction
+                    };
 
                     vertices.push(new_x);
                     vertices.push(new_y);

@@ -299,33 +299,16 @@ export class BoardViewport extends LitElement {
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, 'outline'));
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, 'outline'));
       
-            if (activeOutline.length > 0) {
-          const firstPt = activeOutline[0];
-          const lastPt = activeOutline[activeOutline.length - 1];
-                    // Outline caps removed for accurate 3D contour visuals
-      }
     }
 
     if (activeApexOutline && this.boardState?.showApexOutline !== false) {
       this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, false, 'apexOutline'));
-      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, true, 'apexOutline'));
-      
-            if (activeApexOutline.length > 0) {
-          const firstPt = activeApexOutline[0];
-          const lastPt = activeApexOutline[activeApexOutline.length - 1];
-                    // Apex caps removed for accurate 3D contour visuals
-      }
+      this.wireframeGroup.add(buildLine(activeApexOutline, matApexOutline, 1, true, 'apexOutline'));      
     }
 
     if (activeRailOutline && this.boardState?.showRailOutline !== false) {
       this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, false, 'railOutline'));
-      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, true, 'railOutline'));
-      
-            if (activeRailOutline.length > 0) {
-          const firstPt = activeRailOutline[0];
-          const lastPt = activeRailOutline[activeRailOutline.length - 1];
-                    // Rail caps removed for accurate 3D contour visuals
-      }
+      this.wireframeGroup.add(buildLine(activeRailOutline, matRailOutline, 1, true, 'railOutline'));      
     }
 
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, 'rockerTop'));
