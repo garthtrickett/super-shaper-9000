@@ -124,6 +124,33 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     Err("Could not find a valid Zlib, Gzip, or Raw Deflate stream in the first 128 bytes of the BRD file".into())
 }
 
+fn cleanup_vertical_ends(mut curve: BezierCurveData) -> BezierCurveData {
+    if curve.control_points.len() >= 3 {
+        if (curve.control_points[0].z - curve.control_points[1].z).abs() < 1e-3 {
+            curve.control_points.remove(0);
+            curve.tangents1.remove(0);
+            curve.tangents2.remove(0);
+            if let Some(w) = &mut curve.weights {
+                w.remove(0);
+            }
+        }
+    }
+    
+    let len = curve.control_points.len();
+    if len >= 3 {
+        if (curve.control_points[len - 1].z - curve.control_points[len - 2].z).abs() < 1e-3 {
+            curve.control_points.pop();
+            curve.tangents1.pop();
+            curve.tangents2.pop();
+            if let Some(w) = &mut curve.weights {
+                w.pop();
+            }
+        }
+    }
+    
+    curve
+}
+
 fn convert_brd_curve(
     container: &Option<BrdBezierContainer>,
     board_length: f32,
@@ -182,7 +209,7 @@ fn convert_brd_curve(
         tangents2.push(t2);
     }
 
-    // Enforce "Nose to Tail" traversal for parametric compatibility
+        // Enforce "Nose to Tail" traversal for parametric compatibility
     if is_reversed {
         control_points.reverse();
         let old_t1 = tangents1.clone();
@@ -191,12 +218,12 @@ fn convert_brd_curve(
         tangents2 = old_t1.into_iter().rev().collect();
     }
 
-    Some(BezierCurveData {
+    Some(cleanup_vertical_ends(BezierCurveData {
         control_points,
         tangents1,
         tangents2,
         weights: None,
-    })
+    }))
 }
 
 /// Deserializes the decompressed XML and translates the 2D coordinate space into our 3D parametric BoardModel.
@@ -384,19 +411,19 @@ fn parse_aku_curve(
     if control_points.is_empty() {
         None
     } else {
-        // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
+                // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
         control_points.reverse();
         let old_t1 = tangents1.clone();
         let old_t2 = tangents2.clone();
         tangents1 = old_t2.into_iter().rev().collect();
         tangents2 = old_t1.into_iter().rev().collect();
 
-                Some(BezierCurveData {
+        Some(cleanup_vertical_ends(BezierCurveData {
             control_points,
             tangents1,
             tangents2,
             weights: None,
-        })
+        }))
     }
 }
 
@@ -518,7 +545,50 @@ mod tests {
                 println!("Tail Profile: top_y={}, bot_y={}", profile.top_y, profile.bot_y);
         println!("\n--- FULL IMPORTED MODEL ---\n{:#?}\n---------------------------\n", model);
         
-        assert!(profile.top_y - profile.bot_y > 0.05, "Tail pinched to zero! top: {}, bot: {}", profile.top_y, profile.bot_y);
+                assert!(profile.top_y - profile.bot_y > 0.05, "Tail pinched to zero! top: {}, bot: {}", profile.top_y, profile.bot_y);
+    }
+
+    #[test]
+    fn test_egg_mesh_thickness_at_tail() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/7'0-Egg.brd");
+
+        if !path.exists() {
+            println!("7'0-Egg.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let mesh = crate::mesh::generate_mesh(&model);
+
+        // Find the vertices at the tail (Z max)
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        let mut min_y = f32::INFINITY;
+        let mut max_y = f32::NEG_INFINITY;
+
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            let y = mesh.vertices[i * 3 + 1];
+            if (z - tail_z).abs() < 1e-3 {
+                min_y = min_y.min(y);
+                max_y = max_y.max(y);
+            }
+        }
+
+        let thickness_at_tail = (max_y - min_y) / scale;
+        println!("Mesh thickness at exact tail: {}", thickness_at_tail);
+        
+        assert!(
+            thickness_at_tail > 0.05,
+            "Mesh tail is infinitely thin! Thickness: {}",
+            thickness_at_tail
+        );
     }
 
     #[test]
