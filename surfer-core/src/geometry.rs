@@ -2463,6 +2463,144 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_mini_simmons_tuck_x_not_less_than_inner_x() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd not found.");
+            return;
+        }
+
+        let bytes = std::fs::read(&path).unwrap();
+        let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
+        
+        let basic_cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(6.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.0, 0.0),
+                Vec3::new(6.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(4.0, -1.25, 0.0),
+                Vec3::new(9.375, -0.5, 0.0),
+                Vec3::new(8.0, 1.25, 0.0),
+                Vec3::new(2.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(2.0, -1.25, 0.0),
+                Vec3::new(8.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.5, 0.0),
+                Vec3::new(4.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+        };
+        model.cross_sections = vec![basic_cs];
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        
+        // Scan the tail area
+        let steps = 100;
+        let mut violations = 0;
+        
+        for i in 0..=steps {
+            let f = i as f32 / steps as f32;
+            let z = bounds.notch_z + (bounds.tip_z - bounds.notch_z) * f;
+            
+            let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
+            let profile = crate::geometry::get_board_profile_at_z(&model, z, v_outer);
+            
+            let inner_x = if z > bounds.notch_z {
+                crate::geometry::evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z)
+            } else {
+                0.0
+            };
+            
+            if profile.tuck_x < inner_x - 1e-4 {
+                violations += 1;
+                println!("Z: {:.2}, inner_x: {:.4}, tuck_x: {:.4}, apex_x: {:.4}", z, inner_x, profile.tuck_x, profile.apex_x);
+            }
+        }
+        
+        assert_eq!(violations, 0, "Tuck X should never be less than Inner X (the stringer), or the mesh folds backwards!");
+    }
+
+    #[test]
+    fn test_mini_simmons_smooth_u_sweep() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd not found.");
+            return;
+        }
+
+        let bytes = std::fs::read(&path).unwrap();
+        let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
+        
+        let basic_cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(6.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.0, 0.0),
+                Vec3::new(6.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(4.0, -1.25, 0.0),
+                Vec3::new(9.375, -0.5, 0.0),
+                Vec3::new(8.0, 1.25, 0.0),
+                Vec3::new(2.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(2.0, -1.25, 0.0),
+                Vec3::new(8.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.5, 0.0),
+                Vec3::new(4.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+        };
+        model.cross_sections = vec![basic_cs];
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let z_test = bounds.tip_z - 2.0; // Right near the wide tail
+        let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z_test, 0.0, bounds.tip_t);
+        
+        let mut dx_signs = Vec::new();
+        let mut last_x = 0.0;
+        
+        for i in 0..=100 {
+            let u = i as f32 / 100.0;
+            let pt = crate::geometry::get_point_at_uv(&model, u, v_outer, z_test, 0.0, 1.0);
+            
+            let dx = pt.x - last_x;
+            if i > 0 && dx.abs() > 1e-4 {
+                let sign = dx.signum();
+                if dx_signs.is_empty() || *dx_signs.last().unwrap() != sign {
+                    dx_signs.push(sign);
+                }
+            }
+            last_x = pt.x;
+        }
+
+        // Ideally, it goes from Stringer (x=0) to Apex (x=Width) to Stringer (x=0)
+        // This is exactly 1 change in sign: +1, then -1. So dx_signs.len() should be 2.
+        assert!(
+            dx_signs.len() <= 2,
+            "Mesh is jagged! U-sweep produced {} direction reversals in X. Expected 1 (out to apex, back to stringer).",
+            dx_signs.len() - 1
+        );
+    }
+
     #[test]
     fn test_channel_projection_on_v_tail() {
         use crate::model::ChannelLayer;

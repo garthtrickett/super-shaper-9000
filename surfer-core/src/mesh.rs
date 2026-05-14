@@ -2325,6 +2325,84 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_mini_simmons_no_inverted_hull_triangles() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd not found.");
+            return;
+        }
+
+        let bytes = std::fs::read(&path).unwrap();
+        let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
+        
+        let basic_cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(6.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.0, 0.0),
+                Vec3::new(6.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(4.0, -1.25, 0.0),
+                Vec3::new(9.375, -0.5, 0.0),
+                Vec3::new(8.0, 1.25, 0.0),
+                Vec3::new(2.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(2.0, -1.25, 0.0),
+                Vec3::new(8.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.5, 0.0),
+                Vec3::new(4.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+        };
+        model.cross_sections = vec![basic_cs];
+
+        let mesh = super::generate_mesh(&model);
+        
+        let mut inverted_faces = 0;
+        let mut total_bottom_faces = 0;
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+
+            let v1 = Vec3::new(mesh.vertices[i1*3], mesh.vertices[i1*3+1], mesh.vertices[i1*3+2]);
+            let v2 = Vec3::new(mesh.vertices[i2*3], mesh.vertices[i2*3+1], mesh.vertices[i2*3+2]);
+            let v3 = Vec3::new(mesh.vertices[i3*3], mesh.vertices[i3*3+1], mesh.vertices[i3*3+2]);
+
+            let u1 = mesh.uvs[i1*2];
+            let u2 = mesh.uvs[i2*2];
+            let u3 = mesh.uvs[i3*2];
+            
+            let avg_u = (u1 + u2 + u3) / 3.0;
+
+            // Only check faces near the bottom/tuck (U < 0.4) where the black triangles appear
+            if avg_u < 0.4 {
+                total_bottom_faces += 1;
+                let n1 = Vec3::new(mesh.normals[i1*3], mesh.normals[i1*3+1], mesh.normals[i1*3+2]);
+                let face_normal = (v2 - v1).cross(v3 - v1).normalize();
+                
+                // For valid topology, the face normal must generally align with the vertex normal.
+                // If it points precisely opposite, the face is folded inside-out.
+                if face_normal.dot(n1) < -0.1 {
+                    inverted_faces += 1;
+                }
+            }
+        }
+        
+        println!("Checked {} bottom faces.", total_bottom_faces);
+        assert_eq!(inverted_faces, 0, "Found {} inverted faces on the bottom of the hull! The mesh is folded over.", inverted_faces);
+    }
+
     #[test]
     fn test_mini_simmons_tail_cap_no_intersections() {
         let _ = env_logger::builder().is_test(true).try_init();
