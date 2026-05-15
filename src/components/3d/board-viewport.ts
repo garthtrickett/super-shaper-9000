@@ -116,10 +116,15 @@ export class BoardViewport extends LitElement {
         needsFullGeometryUpdate = true;
       }
 
-      let shouldUpdateSolidMesh = false;
+            let shouldUpdateSolidMesh = false;
       if (changedProperties.has("meshData") && this.meshData) {
         shouldUpdateSolidMesh = true;
       }
+
+      // Reset scale that might have been applied during a preview drag
+      this.solidGroup.scale.set(1, 1, 1);
+      this.finGroup.scale.set(1, 1, 1);
+      this.annotationGroup.scale.set(1, 1, 1);
 
             if (needsFullGeometryUpdate || changedProperties.has("mathEngine")) {
         clearTimeout(this.geometryUpdateDebounceId);
@@ -708,6 +713,50 @@ export class BoardViewport extends LitElement {
           return profile.apexX;
       }
       return xInches;
+  }
+
+    public previewState(newState: BoardModel) {
+    if (!this.mathEngine) return;
+    
+    const scaleX = newState.width / (this.boardState?.width || 1);
+    const scaleY = newState.thickness / (this.boardState?.thickness || 1);
+    const scaleZ = newState.length / (this.boardState?.length || 1);
+
+    const oldState = this.boardState;
+    this.boardState = newState;
+
+    const scale = 1 / 12;
+    
+    // Rebuild wireframe
+    while (this.wireframeGroup.children.length > 0) {
+        const child = this.wireframeGroup.children[0] as THREE.Line;
+        child.geometry.dispose();
+        (child.material as THREE.Material).dispose();
+        this.wireframeGroup.remove(child);
+    }
+    this.buildWireframe(this.mathEngine, scale);
+
+    // Update Gizmos
+    this._updateGizmoPositionsFromState();
+
+    // Rebuild Slice Lines and Apex Line
+    this.buildSliceLines(this.mathEngine, scale);
+    this.buildApexLine(this.mathEngine, scale);
+
+    // Stretch the solid mesh, fins, and annotations visually
+    this.solidGroup.scale.set(scaleX, scaleY, scaleZ);
+    this.finGroup.scale.set(scaleX, scaleY, scaleZ);
+    this.annotationGroup.scale.set(scaleX, scaleY, scaleZ);
+
+    if (newState.showMriView) {
+        const pct = newState.mriSlicePosition ?? 50.0;
+        const L = newState.length * scale;
+        const sliceZ = -L/2 + (L * (pct / 100.0));
+        this.mriClippingPlane.normal.set(0, 0, -1);
+        this.mriClippingPlane.constant = sliceZ;
+    }
+
+    this.boardState = oldState;
   }
 
   public setHoverPreview(preview: { curve: string, t: number, mirrorX: boolean } | null) {

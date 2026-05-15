@@ -56,9 +56,7 @@ export class BoardControls extends LitElement {
 
     private _dragValues: Record<string, number> = {};
   private _activeDragKeys = new Set<string>();
-  private _pendingDispatches: Record<string, number> = {};
-  private _throttleTimers: Record<string, number> = {};
-  private _lastDispatched: Record<string, number> = {};
+    private _lastDispatched: Record<string, number> = {};
 
   private _dispatchNumber(param: string, value: number) {
     if (this._lastDispatched[param] === value) return;
@@ -71,20 +69,12 @@ export class BoardControls extends LitElement {
     }));
   }
 
-  private _dispatchNumberThrottled(param: string, value: number) {
-    this._pendingDispatches[param] = value;
-    
-    if (!this._throttleTimers[param]) {
-      this._dispatchNumber(param, value);
-      
-      this._throttleTimers[param] = window.setTimeout(() => {
-        const latest = this._pendingDispatches[param];
-        if (latest !== undefined && latest !== value) {
-          this._dispatchNumber(param, latest);
-        }
-        delete this._throttleTimers[param];
-      }, 100);
-    }
+  private _dispatchPreviewNumber(param: string, value: number) {
+    this.dispatchEvent(new CustomEvent("preview-number", { 
+      detail: { param, value },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   private _dispatchString(param: string, value: string) {
@@ -137,12 +127,16 @@ export class BoardControls extends LitElement {
             const finalVal = this._dragValues[key];
             if (finalVal !== undefined) this._dispatchNumber(key, finalVal);
           }}
-          @pointercancel=${() => this._activeDragKeys.delete(key)}
+                    @pointercancel=${() => {
+            this._activeDragKeys.delete(key);
+            const finalVal = this._dragValues[key];
+            if (finalVal !== undefined) this._dispatchNumber(key, finalVal);
+          }}
           @input=${(e: Event) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             this._dragValues[key] = val;
             this.requestUpdate();
-            this._dispatchNumberThrottled(key, val);
+            this._dispatchPreviewNumber(key, val);
           }}
           class="w-full accent-blue-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
         />

@@ -29,9 +29,22 @@ export class BoardBuilderPage extends LitElement {
   @state() private contourSliceData?: Float32Array;
   @state() private isProcessing = false;
 
-  private _proposeAction(action: BoardAction) {
+    private _proposeAction(action: BoardAction) {
     this.isProcessing = true;
     this.wasmCtrl.propose(action);
+  }
+
+  private _previewAction(action: BoardAction) {
+    if (!this.mathEngine) return;
+    try {
+      const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
+      const viewport = this.shadowRoot?.querySelector('board-viewport') as any;
+      if (viewport && result.state) {
+        viewport.previewState(result.state);
+      }
+    } catch (err) {
+      console.error("[BoardBuilder] Preview failed:", err);
+    }
   }
 
         private requestSliceProfile() {
@@ -426,7 +439,10 @@ export class BoardBuilderPage extends LitElement {
           .cantAngle=${state.cantAngle}
           .coreMaterial=${state.coreMaterial}
           .glassingSchedule=${state.glassingSchedule}
-                                                            @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+                                                                      @preview-number=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+            this._previewAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+          }}
+          @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
             this._proposeAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
@@ -509,7 +525,8 @@ export class BoardBuilderPage extends LitElement {
                       <node-inspector
             class="absolute top-16 right-4 z-20 w-[340px]"
             .boardState=${state}
-                                                                                                                                                @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number], weight?: number }>) => this._proposeAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+                                                                                                                                                            @preview-node=${(e: CustomEvent<{ curve: string, index: number, weight?: number }>) => this._previewAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+            @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number], weight?: number }>) => this._proposeAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
                         @apply-continuity=${(e: CustomEvent<{ curve: string, index: number, level: "G0" | "G1" | "G2", master?: string }>) => this._proposeAction({ type: "APPLY_CONTINUITY", ...e.detail })}
             @continuity-changed=${(e: CustomEvent<{ level: 'G0' | 'G1' | 'G2' }>) => this._selectedNodeContinuity = e.detail.level}
             @remove-node=${(e: CustomEvent<{ curve: string, index: number }>) => this._proposeAction({ type: "REMOVE_NODE", ...e.detail })}

@@ -79,9 +79,7 @@ export class NodeInspector extends LitElement {
 
     private _dragWeightValue?: number;
   private _isDraggingWeight = false;
-  private _weightThrottleTimer?: number;
-  private _pendingWeight?: number;
-  private _lastDispatchedWeight?: number;
+    private _lastDispatchedWeight?: number;
 
   private _dispatchWeight(val: number) {
     if (this._lastDispatchedWeight === val) return;
@@ -94,23 +92,18 @@ export class NodeInspector extends LitElement {
     }));
   }
 
-  private _dispatchWeightThrottled(val: number) {
-    this._pendingWeight = val;
-    if (!this._weightThrottleTimer) {
-      this._dispatchWeight(val);
-      this._weightThrottleTimer = window.setTimeout(() => {
-        if (this._pendingWeight !== undefined && this._pendingWeight !== val) {
-          this._dispatchWeight(this._pendingWeight);
-        }
-        this._weightThrottleTimer = undefined;
-      }, 100);
-    }
+  private _dispatchPreviewWeight(val: number) {
+    const sel = this.boardState.selectedNode!;
+    this.dispatchEvent(new CustomEvent('preview-node', {
+      detail: { curve: sel.curve, index: sel.index, weight: val },
+      bubbles: true, composed: true
+    }));
   }
 
   private _handleWeightChange(val: number) {
     this._dragWeightValue = val;
     this.requestUpdate();
-    this._dispatchWeightThrottled(val);
+    this._dispatchPreviewWeight(val);
   }
 
   private _handleAnchorChange(axis: 0|1|2, val: number) {
@@ -308,7 +301,10 @@ export class NodeInspector extends LitElement {
                   this._isDraggingWeight = false;
                   if (this._dragWeightValue !== undefined) this._dispatchWeight(this._dragWeightValue);
                 }}
-                @pointercancel=${() => this._isDraggingWeight = false}
+                                @pointercancel=${() => {
+                  this._isDraggingWeight = false;
+                  if (this._dragWeightValue !== undefined) this._dispatchWeight(this._dragWeightValue);
+                }}
                 @input=${(e: Event) => this._handleWeightChange(parseFloat((e.target as HTMLInputElement).value))}
                 class="w-full accent-emerald-500 cursor-pointer"
               />
