@@ -262,10 +262,11 @@ export type BoardAction =
   | { type: "REDO" }
   | { type: "SCALE_WIDTH"; factor: number }
   | { type: "SCALE_THICKNESS"; factor: number }
-                | { type: "IMPORT_S3DX"; xml: string }
-    | { type: "IMPORT_BRD"; bytes: number[] }
-    | { type: "EXPORT_BRD" }
-    | { type: "ADD_OUTLINE_LAYER" }
+                  | { type: "IMPORT_S3DX"; xml: string }
+  | { type: "IMPORT_BRD"; bytes: number[] }
+  | { type: "EXPORT_BRD" }
+  | { type: "ADD_OUTLINE_LAYER" }
+  | { type: "ADD_CROSS_SECTION"; z: number }
   | { type: "REMOVE_OUTLINE_LAYER"; index: number }
   | { type: "TOGGLE_OUTLINE_LAYER"; index: number }
   | { type: "ADD_BOTTOM_CHANNEL" }

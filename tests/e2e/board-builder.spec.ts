@@ -831,7 +831,23 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.waitForTimeout(1000);
 
     await expect(inspector).toBeVisible({ timeout: 5000 });
-    await expect(inspector).toContainText("Rocker (Top)");
+        await expect(inspector).toContainText("Rocker (Top)");
     await expect(inspector).toContainText("Node 1");
+
+    // Test Cross Section Insertion via Ctrl-Click
+    await page.mouse.click(canvasBox!.x + 150, canvasBox!.y + 150);
+    await expect(inspector).toBeHidden({ timeout: 5000 });
+
+    await page.mouse.move(topHitPosition!.x, topHitPosition!.y);
+    await page.waitForTimeout(500);
+
+    await page.keyboard.down('Control');
+    await page.mouse.click(topHitPosition!.x, topHitPosition!.y, { button: 'left' });
+    await page.keyboard.up('Control');
+    
+    await page.waitForTimeout(1000);
+
+    await expect(inspector).toBeVisible({ timeout: 5000 });
+    await expect(inspector).toContainText("Slice");
   });
 });

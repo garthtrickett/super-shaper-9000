@@ -1099,11 +1099,105 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             model.bottom_channels = Some(channels);
             push_history(model);
         }
-        BoardAction::ToggleChannelSymmetry { index } => {
+                BoardAction::ToggleChannelSymmetry { index } => {
             if let Some(channels) = &mut model.bottom_channels {
                 if let Some(channel) = channels.get_mut(index) {
                     channel.is_symmetric = !channel.is_symmetric;
                 }
+            }
+            push_history(model);
+        }
+        BoardAction::AddCrossSection { z } => {
+            if let Some(blend) = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z) {
+                let mut new_cs = BezierCurveData::default();
+                let num_pts = blend.s0.control_points.len();
+                let z1 = blend.s0.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                let z2 = blend.s1.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                let dz = z2 - z1;
+
+                for i in 0..num_pts {
+                    let p0 = blend.s_prev.control_points.get(i).copied().unwrap_or_else(|| blend.s0.control_points.get(i).copied().unwrap_or_default());
+                    let p1 = blend.s0.control_points.get(i).copied().unwrap_or_default();
+                    let p2 = blend.s1.control_points.get(i).copied().unwrap_or(p1);
+                    let p3 = blend.s_next.control_points.get(i).copied().unwrap_or(p2);
+
+                    let dt0 = p0.distance(p1).sqrt();
+                    let dt1 = p1.distance(p2).sqrt();
+                    let dt2 = p2.distance(p3).sqrt();
+
+                    let (mut m1, mut m2) = crate::geometry::compute_centripetal_tangents(p0, p1, p2, p3, dt0, dt1, dt2);
+                    m1.z = dz;
+                    m2.z = dz;
+                    
+                    let mut pt = crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, blend.lerp_factor);
+                    pt.z = z;
+                    new_cs.control_points.push(pt);
+
+                    let t1_0 = blend.s_prev.tangents1.get(i).copied().unwrap_or_else(|| blend.s0.tangents1.get(i).copied().unwrap_or(p0));
+                    let t1_1 = blend.s0.tangents1.get(i).copied().unwrap_or(p1);
+                    let t1_2 = blend.s1.tangents1.get(i).copied().unwrap_or(p2);
+                    let t1_3 = blend.s_next.tangents1.get(i).copied().unwrap_or(p3);
+                    let dt0_t1 = t1_0.distance(t1_1).sqrt();
+                    let dt1_t1 = t1_1.distance(t1_2).sqrt();
+                    let dt2_t1 = t1_2.distance(t1_3).sqrt();
+                    let (mut m1_t1, mut m2_t1) = crate::geometry::compute_centripetal_tangents(t1_0, t1_1, t1_2, t1_3, dt0_t1, dt1_t1, dt2_t1);
+                    m1_t1.z = dz;
+                    m2_t1.z = dz;
+                    let mut pt_t1 = crate::bezier::evaluate_cubic_hermite(t1_1, t1_2, m1_t1, m2_t1, blend.lerp_factor);
+                    pt_t1.z = z;
+                    new_cs.tangents1.push(pt_t1);
+
+                    let t2_0 = blend.s_prev.tangents2.get(i).copied().unwrap_or_else(|| blend.s0.tangents2.get(i).copied().unwrap_or(p0));
+                    let t2_1 = blend.s0.tangents2.get(i).copied().unwrap_or(p1);
+                    let t2_2 = blend.s1.tangents2.get(i).copied().unwrap_or(p2);
+                    let t2_3 = blend.s_next.tangents2.get(i).copied().unwrap_or(p3);
+                    let dt0_t2 = t2_0.distance(t2_1).sqrt();
+                    let dt1_t2 = t2_1.distance(t2_2).sqrt();
+                    let dt2_t2 = t2_2.distance(t2_3).sqrt();
+                    let (mut m1_t2, mut m2_t2) = crate::geometry::compute_centripetal_tangents(t2_0, t2_1, t2_2, t2_3, dt0_t2, dt1_t2, dt2_t2);
+                    m1_t2.z = dz;
+                    m2_t2.z = dz;
+                    let mut pt_t2 = crate::bezier::evaluate_cubic_hermite(t2_1, t2_2, m1_t2, m2_t2, blend.lerp_factor);
+                    pt_t2.z = z;
+                    new_cs.tangents2.push(pt_t2);
+
+                    let w1 = blend.s0.weights.as_ref().and_then(|w| w.get(i).copied()).unwrap_or(1.0);
+                    let w2 = blend.s1.weights.as_ref().and_then(|w| w.get(i).copied()).unwrap_or(1.0);
+                    let mut weights = new_cs.weights.take().unwrap_or_else(|| vec![1.0; i]);
+                    weights.push(w1 + (w2 - w1) * blend.lerp_factor);
+                    new_cs.weights = Some(weights);
+                }
+
+                model.cross_sections.push(new_cs);
+                model.cross_sections.sort_by(|a, b| {
+                    let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                    let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                    za.partial_cmp(&zb).unwrap()
+                });
+                
+                let new_idx = model.cross_sections.iter().position(|cs| (cs.control_points.first().map(|p| p.z).unwrap_or(0.0) - z).abs() < 1e-4).unwrap_or(0);
+                model.selected_node = Some(SelectedNode {
+                    curve: format!("crossSection_{}", new_idx),
+                    index: 0,
+                    node_type: "anchor".to_string()
+                });
+            } else if model.cross_sections.len() > 0 {
+                let mut new_cs = model.cross_sections[0].clone();
+                for p in &mut new_cs.control_points { p.z = z; }
+                for p in &mut new_cs.tangents1 { p.z = z; }
+                for p in &mut new_cs.tangents2 { p.z = z; }
+                model.cross_sections.push(new_cs);
+                model.cross_sections.sort_by(|a, b| {
+                    let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                    let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                    za.partial_cmp(&zb).unwrap()
+                });
+                let new_idx = model.cross_sections.iter().position(|cs| (cs.control_points.first().map(|p| p.z).unwrap_or(0.0) - z).abs() < 1e-4).unwrap_or(0);
+                model.selected_node = Some(SelectedNode {
+                    curve: format!("crossSection_{}", new_idx),
+                    index: 0,
+                    node_type: "anchor".to_string()
+                });
             }
             push_history(model);
         }
@@ -1391,6 +1485,28 @@ mod tests {
                 .x,
             -2.0
         );
+    }
+
+        #[test]
+    fn test_add_cross_section_action() {
+        let mut model = create_mock_model();
+        let cs0 = BezierCurveData {
+            control_points: vec![Vec3::new(0., 0., 0.), Vec3::new(10., 0., 0.)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        };
+        let cs1 = BezierCurveData {
+            control_points: vec![Vec3::new(0., 0., 100.), Vec3::new(10., 0., 100.)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        };
+        model.cross_sections = vec![cs0, cs1];
+
+        update(&mut model, BoardAction::AddCrossSection { z: 50.0 });
+        assert_eq!(model.cross_sections.len(), 3);
+        assert_eq!(model.cross_sections[1].control_points[0].z, 50.0);
     }
 
     #[test]

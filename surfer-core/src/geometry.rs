@@ -395,7 +395,7 @@ pub fn radial_ease(t: f32, ease_type: EaseType) -> f32 {
 }
 
 #[inline]
-fn compute_centripetal_tangents(
+pub fn compute_centripetal_tangents(
     v0: Vec3,
     v1: Vec3,
     v2: Vec3,

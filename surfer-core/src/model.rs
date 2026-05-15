@@ -475,9 +475,12 @@ pub enum BoardAction {
     #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
     ImportS3dx { xml: String },
-    #[serde(rename = "IMPORT_BRD")]
+        #[serde(rename = "IMPORT_BRD")]
     #[serde(rename_all = "camelCase")]
     ImportBrd { bytes: Vec<u8> },
+    #[serde(rename = "ADD_CROSS_SECTION")]
+    #[serde(rename_all = "camelCase")]
+    AddCrossSection { z: f32 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -207,10 +207,11 @@ export class InteractionManager {
   }
 
         private onPointerDown = (e: PointerEvent) => {
-    const isRightClick = e.button === 2;
+        const isRightClick = e.button === 2;
     const isAltClick = e.altKey && e.button === 0;
+    const isCtrlClick = (e.ctrlKey || e.metaKey) && e.button === 0;
 
-    if (isRightClick || isAltClick) {
+    if (isRightClick || isAltClick || isCtrlClick) {
         let curveToInsert = this.hoveredCurve;
         let tToInsert = this.hoveredT;
 
@@ -223,15 +224,34 @@ export class InteractionManager {
         }
 
         if (curveToInsert && tToInsert !== null) {
-            this.host.dispatchEvent(new CustomEvent('insert-node', {
-                detail: { curve: curveToInsert, t: tToInsert },
-                bubbles: true, composed: true
-            }));
-            this.hoveredCurve = null;
-            this.hoveredT = null;
-            this.host.setHoverPreview(null);
-            e.stopPropagation();
-            return;
+            if (isCtrlClick && curveToInsert === 'outline') {
+                const mathEngine = this.host.mathEngine;
+                if (mathEngine) {
+                    const ptRaw = mathEngine.get_point_on_curve(curveToInsert, tToInsert);
+                    if (ptRaw && ptRaw.length >= 3) {
+                        const zInches = ptRaw[2] as number;
+                        this.host.dispatchEvent(new CustomEvent('add-cross-section', {
+                            detail: { z: zInches },
+                            bubbles: true, composed: true
+                        }));
+                        this.hoveredCurve = null;
+                        this.hoveredT = null;
+                        this.host.setHoverPreview(null);
+                        e.stopPropagation();
+                        return;
+                    }
+                }
+            } else if (isRightClick || isAltClick) {
+                this.host.dispatchEvent(new CustomEvent('insert-node', {
+                    detail: { curve: curveToInsert, t: tToInsert },
+                    bubbles: true, composed: true
+                }));
+                this.hoveredCurve = null;
+                this.hoveredT = null;
+                this.host.setHoverPreview(null);
+                e.stopPropagation();
+                return;
+            }
         }
     }
 
