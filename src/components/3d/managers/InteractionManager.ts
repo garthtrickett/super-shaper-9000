@@ -47,13 +47,13 @@ export class InteractionManager {
     e.preventDefault();
   }
 
-    public initialize() {
+      public initialize() {
     this.canvas.addEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.addEventListener("pointermove", this.onPointerMove);
     this.canvas.addEventListener("pointerup", this.onPointerUp);
     this.canvas.addEventListener("pointercancel", this.onPointerUp);
     this.canvas.addEventListener("pointerleave", this.onPointerUp);
-    this.canvas.addEventListener("wheel", this.onWheel, { passive: false });
+    this.canvas.addEventListener("wheel", this.onWheel, { passive: false, capture: true });
     this.canvas.addEventListener("contextmenu", this.onContextMenu);
   }
 
@@ -61,21 +61,22 @@ export class InteractionManager {
     return this.draggedGizmo !== null;
   }
 
-  public dispose() {
+    public dispose() {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
     this.canvas.removeEventListener("pointercancel", this.onPointerUp);
     this.canvas.removeEventListener("pointerleave", this.onPointerUp);
-    this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("wheel", this.onWheel, { capture: true } as any);
     this.canvas.removeEventListener("contextmenu", this.onContextMenu);
   }
 
-        private onWheel = (e: WheelEvent) => {
+                private onWheel = (e: WheelEvent) => {
     const { camera, mouse } = this.getQuadrantCameraAndMouse(e);
     
     if (camera !== this.cameras.perspective) {
       e.preventDefault();
+      e.stopPropagation();
       const orthoCam = camera as THREE.OrthographicCamera;
       
       const raycaster = new THREE.Raycaster();
