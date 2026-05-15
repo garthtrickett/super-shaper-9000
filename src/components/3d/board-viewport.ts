@@ -796,9 +796,12 @@ export class BoardViewport extends LitElement {
 
       if (mirrorX) x = -x;
 
-      const scale = 1/12;
+            const scale = 1/12;
+      const isCrossSection = curve.startsWith('crossSection_');
+      const gizmoScale = isCrossSection ? (1.0 / 3.5) : 1.0;
+
       const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.6, depthTest: false });
-      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.4 * scale, 16, 16), mat);
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry((0.4 * scale) * gizmoScale, 16, 16), mat);
       mesh.position.set(x * scale, y * scale, z * scale);
       mesh.renderOrder = 1000;
       

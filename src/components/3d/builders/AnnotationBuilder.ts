@@ -17,7 +17,7 @@ export class AnnotationBuilder {
       group.remove(child);
     }
 
-    const createTextSprite = (text: string) => {
+        const createTextSprite = (text: string, spriteScale: number = 1.0) => {
       const canvas = document.createElement('canvas');
       canvas.width = 256;
       canvas.height = 128;
@@ -32,7 +32,7 @@ export class AnnotationBuilder {
       texture.minFilter = THREE.LinearFilter;
       const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
       const sprite = new THREE.Sprite(spriteMaterial);
-      sprite.scale.set(1.5, 0.75, 1.0);
+      sprite.scale.set(1.5 * spriteScale, 0.75 * spriteScale, 1.0);
       // Attach metadata for E2E testing
       sprite.userData = { isAnnotation: true, text };
       return sprite;
@@ -52,12 +52,12 @@ export class AnnotationBuilder {
       return new THREE.Line(geo, mat);
     };
 
-    const addDim = (text: string, p1: THREE.Vector3, p2: THREE.Vector3, tickDir: THREE.Vector3, layer: number, textOffset: THREE.Vector3) => {
-      const line = createDimLine(p1, p2, tickDir, 0.5 * scale);
+    const addDim = (text: string, p1: THREE.Vector3, p2: THREE.Vector3, tickDir: THREE.Vector3, layer: number, textOffset: THREE.Vector3, viewScale: number = 1.0) => {
+      const line = createDimLine(p1, p2, tickDir, (0.5 * scale) / viewScale);
       line.layers.set(layer);
       group.add(line);
 
-      const sprite = createTextSprite(text);
+      const sprite = createTextSprite(text, 1.0 / viewScale);
       const midPoint = new THREE.Vector3().lerpVectors(p1, p2, 0.5).add(textOffset);
       sprite.position.copy(midPoint);
       sprite.layers.set(layer);
@@ -78,8 +78,11 @@ export class AnnotationBuilder {
     // Side view is looking down X axis (from +X), so -Z is to the Right. Shift text Right.
     addDim(`${boardState.thickness.toFixed(2)}"`, new THREE.Vector3(0, -T/2, 0), new THREE.Vector3(0, T/2, 0), new THREE.Vector3(0, 0, 1), 7, new THREE.Vector3(0, 0, -1.5 * scale));
 
-    // Profile View (Layer 8) - Width & Thickness
-    addDim(`${boardState.width.toFixed(2)}"`, new THREE.Vector3(-W/2, -T/2 - pad, 0), new THREE.Vector3(W/2, -T/2 - pad, 0), new THREE.Vector3(0, 1, 0), 8, new THREE.Vector3(0, -1.0 * scale, 0));
-    addDim(`${boardState.thickness.toFixed(2)}"`, new THREE.Vector3(W/2 + pad, -T/2, 0), new THREE.Vector3(W/2 + pad, T/2, 0), new THREE.Vector3(1, 0, 0), 8, new THREE.Vector3(1.5 * scale, 0, 0));
+        // Profile View (Layer 8) - Width & Thickness
+    // Scale annotations down by 3.5x to compensate for the 3.5x camera zoom in profile view
+    const pScale = 3.5;
+    const pPad = pad / pScale;
+    addDim(`${boardState.width.toFixed(2)}"`, new THREE.Vector3(-W/2, -T/2 - pPad, 0), new THREE.Vector3(W/2, -T/2 - pPad, 0), new THREE.Vector3(0, 1, 0), 8, new THREE.Vector3(0, (-1.0 * scale) / pScale, 0), pScale);
+    addDim(`${boardState.thickness.toFixed(2)}"`, new THREE.Vector3(W/2 + pPad, -T/2, 0), new THREE.Vector3(W/2 + pPad, T/2, 0), new THREE.Vector3(1, 0, 0), 8, new THREE.Vector3((1.5 * scale) / pScale, 0, 0), pScale);
   }
 }

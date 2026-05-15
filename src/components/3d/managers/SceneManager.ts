@@ -104,9 +104,11 @@ export class SceneManager {
     this.cameras.side.layers.disableAll();
     this.cameras.side.layers.enable(2); this.cameras.side.layers.enable(7);
 
-    this.cameras.profile.position.set(0, 0, -10);
+        this.cameras.profile.position.set(0, 0, -10);
     this.cameras.profile.up.set(0, 1, 0);
     this.cameras.profile.lookAt(0, 0, 0);
+    this.cameras.profile.zoom = 3.5;
+    this.cameras.profile.updateProjectionMatrix();
     this.cameras.profile.layers.disableAll();
         this.cameras.profile.layers.enable(3); this.cameras.profile.layers.enable(8);
 

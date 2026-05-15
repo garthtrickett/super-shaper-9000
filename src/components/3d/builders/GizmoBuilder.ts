@@ -26,9 +26,11 @@ export class GizmoBuilder {
 
     runClientUnscoped(clientLog("info", "[GizmoBuilder] Rendering Bezier Gizmos"));
 
-    const anchorGeo = new THREE.SphereGeometry(1.0 * scale, 16, 16);
+        const anchorGeo = new THREE.SphereGeometry(1.0 * scale, 16, 16);
     const handleGeo = new THREE.BoxGeometry(0.8 * scale, 0.8 * scale, 0.8 * scale);
     const lineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
+    const lineMatCrossSection = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: (0.5 * scale) / 3.5, gapSize: (0.5 * scale) / 3.5, depthTest: false });
+
 
                                         const getZHeight = (curveName: string, yInches: number, zInches: number) => {
         const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
@@ -73,10 +75,14 @@ export class GizmoBuilder {
         const matLayerAnchor = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false });
     const matLayerHandle = new THREE.MeshBasicMaterial({ color: 0xfcd34d, depthTest: false });
 
-    const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number, isLayer = false) => {
+        const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number, isLayer = false) => {
         const aMat = isLayer ? matLayerAnchor : matAnchor;
         const hMat = isLayer ? matLayerHandle : matHandle;
         if (!curve) return;
+
+        const isCrossSection = curveName.startsWith('crossSection_');
+        const gizmoScale = isCrossSection ? (1.0 / 3.5) : 1.0;
+
         for (let i = 0; i < curve.controlPoints.length; i++) {
             const cp = curve.controlPoints[i]!;
             const t1 = curve.tangents1[i];
@@ -86,6 +92,7 @@ export class GizmoBuilder {
             const cpX = getXOffset(curveName, cp[0], cp[2]);
 
                         const anchorMesh = new THREE.Mesh(anchorGeo, aMat);
+            anchorMesh.scale.setScalar(gizmoScale);
             anchorMesh.position.set(cpX * scale, cpY * scale, cp[2] * scale);
             anchorMesh.renderOrder = 999;
             anchorMesh.layers.set(layerIndex);
@@ -105,6 +112,7 @@ export class GizmoBuilder {
                 const tY = getZHeight(curveName, t[1], t[2]);
                 const tX = getXOffset(curveName, t[0], t[2]);
                                 const handleMesh = new THREE.Mesh(handleGeo, hMat);
+                handleMesh.scale.setScalar(gizmoScale);
                 handleMesh.position.set(tX * scale, tY * scale, t[2] * scale);
                 handleMesh.renderOrder = 999;
                 handleMesh.layers.set(layerIndex);
@@ -122,7 +130,7 @@ export class GizmoBuilder {
                     new THREE.Vector3(cpX * scale, cpY * scale, cp[2] * scale),
                     new THREE.Vector3(tX * scale, tY * scale, t[2] * scale)
                 ]);
-                const line = new THREE.Line(lineGeo, lineMat);
+                const line = new THREE.Line(lineGeo, isCrossSection ? lineMatCrossSection : lineMat);
                 line.computeLineDistances();
                 line.renderOrder = 998;
                 line.layers.set(layerIndex);
