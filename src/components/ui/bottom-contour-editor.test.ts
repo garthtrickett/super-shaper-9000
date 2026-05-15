@@ -26,7 +26,7 @@ describe("BottomContourEditor", () => {
 
     await el.updateComplete;
 
-    const path = el.querySelector("path");
+        const path = el.querySelector("g#transform-group path");
     expect(path).to.exist;
     expect(path!.getAttribute("d")).to.include("M -5 0 L 5 0");
 

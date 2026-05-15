@@ -83,8 +83,9 @@ describe("BoardViewport (3D Component)", () => {
       // Mock mathEngine
             el.mathEngine = {
         get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
-        sample_curve: () => new Float32Array(300), // 100 points * 3
+                sample_curve: () => new Float32Array(300), // 100 points * 3
         getXOffset: () => 10,
+        get_bottom_y_at: () => 0,
         find_closest_t: () => 0.5,
         get_point_on_curve: () => new Float32Array([1, 2, 3])
       } as any;
@@ -150,8 +151,9 @@ describe("BoardViewport (3D Component)", () => {
       
       el.mathEngine = {
         get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
-        sample_curve: () => new Float32Array(300),
+                sample_curve: () => new Float32Array(300),
         getXOffset: () => 10,
+        get_bottom_y_at: () => 0,
         find_closest_t: () => 0.5,
         get_point_on_curve: () => new Float32Array([1, 2, 50])
       } as any;
@@ -180,8 +182,9 @@ describe("BoardViewport (3D Component)", () => {
       
       el.mathEngine = {
         get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
-        sample_curve: () => new Float32Array(300),
+                sample_curve: () => new Float32Array(300),
         getXOffset: () => 10,
+        get_bottom_y_at: () => 0,
         find_closest_t: () => 0.5,
         get_point_on_curve: () => new Float32Array([1, 2, 3])
       } as any;
