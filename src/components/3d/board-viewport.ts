@@ -831,15 +831,15 @@ export class BoardViewport extends LitElement {
           userScale = this.boardState?.gizmoScaleTop ?? 1.0;
       }
 
-      if (isCrossSection) {
+            if (isCrossSection) {
           scaleX = (1.0 / 3.5) * userScale;
           scaleY = (1.0 / 3.5) * userScale;
           scaleZ = (1.0 / 3.5) * userScale;
           targetLayer = 3;
       } else if (isSideView) {
-          scaleX = (1.0 / 3.0) * userScale;
-          scaleY = ((1.0 / 3.0) / 2.5) * userScale; // Counter-stretch for 2.5x camera Y stretch
-          scaleZ = (1.0 / 3.0) * userScale;
+          scaleX = userScale;
+          scaleY = userScale / 2.5; // Counter-stretch for 2.5x camera Y stretch
+          scaleZ = userScale;
           targetLayer = 2;
       } else {
           scaleX = userScale;

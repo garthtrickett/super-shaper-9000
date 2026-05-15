@@ -97,14 +97,14 @@ export class GizmoBuilder {
             orthoUserScale = boardState.gizmoScaleTop ?? 1.0;
         }
 
-        if (isCrossSection) {
+                if (isCrossSection) {
             orthoScaleX = (1.0 / 3.5) * orthoUserScale;
             orthoScaleY = (1.0 / 3.5) * orthoUserScale;
             orthoScaleZ = (1.0 / 3.5) * orthoUserScale;
         } else if (isSideView) {
-            orthoScaleX = (1.0 / 3.0) * orthoUserScale;
-            orthoScaleY = ((1.0 / 3.0) / 2.5) * orthoUserScale; // Counter-stretch for 2.5x camera Y stretch
-            orthoScaleZ = (1.0 / 3.0) * orthoUserScale;
+            orthoScaleX = orthoUserScale;
+            orthoScaleY = orthoUserScale / 2.5; // Counter-stretch for 2.5x camera Y stretch
+            orthoScaleZ = orthoUserScale;
         } else {
             orthoScaleX = orthoUserScale;
             orthoScaleY = orthoUserScale;
