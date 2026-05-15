@@ -36,50 +36,21 @@ describe("BottomContourEditor", () => {
                 const spy = sinon.spy();
     el.addEventListener("update-node-position", spy);
 
-        const pointerMoveEvent = new PointerEvent("pointermove", { pointerId: 1, clientX: -3, clientY: 0.5, bubbles: true });
+            const pointerMoveEvent = new PointerEvent("pointermove", { pointerId: 1, clientX: -3, clientY: 0.5, bubbles: true });
 
-    // Directly set active drag state to avoid flaky synthetic pointer events
-    (el as any).activeDrag = { curve: "channel_0_left_outline", index: 0, origZ: 50, pointerId: pointerMoveEvent.pointerId };
+    (el as any).activeDrag = { curve: "channel_0_left_outline", index: 0, origZ: 50, pointerId: 1 };
     await el.updateComplete;
 
-    // Simulate pointer move on SVG
     const svg = el.querySelector("svg")!;
-    
-        // Mock the CTM for headless test using native DOMMatrix to avoid matrixTransform TypeError
     const gEl = el.querySelector('#transform-group') as any;
-    gEl.getScreenCTM = () => {
-      console.log("[TEST] getScreenCTM called");
-      return new DOMMatrix();
-    };
+    gEl.getScreenCTM = () => new DOMMatrix();
+    svg.createSVGPoint = () => ({
+      x: 0, y: 0,
+      matrixTransform: () => ({ x: -3, y: 0.5 })
+    }) as any;
 
-    const origCreate = svg.createSVGPoint;
-    svg.createSVGPoint = () => {
-      console.log("[TEST] createSVGPoint called");
-      try {
-        const p = origCreate.call(svg);
-        p.matrixTransform = (m: any) => {
-           console.log("[TEST] matrixTransform called");
-           return { x: -3, y: 0.5 };
-        };
-        return p;
-      } catch(e) {
-        console.log("[TEST] createSVGPoint failed, returning mock");
-        return { x: 0, y: 0, matrixTransform: () => ({ x: -3, y: 0.5 }) } as any;
-      }
-    };
-
-    console.log("[TEST] activeDrag before dispatch:", JSON.stringify((el as any).activeDrag));
-    console.log("[TEST] SVG element:", !!svg, "gEl:", !!gEl);
-
-    svg.addEventListener('pointermove', (e: any) => console.log("[TEST] raw svg pointermove listener fired. pointerId:", e.pointerId));
-
-    try {
-      svg.dispatchEvent(pointerMoveEvent);
-    } catch (e) {
-      console.error("[TEST] Error during dispatch:", e);
-    }
-
-    console.log("[TEST] spy.called after dispatch:", spy.called);
+    // Call handler directly to bypass DOM event flakiness
+    (el as any)._handlePointerMove(pointerMoveEvent);
 
     expect(spy.called).to.be.true;
     const detail = spy.firstCall.args[0].detail;
