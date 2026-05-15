@@ -112,8 +112,8 @@ describe("BoardViewport (3D Component)", () => {
         }
       }));
 
-                        // Verify the buffer was modified by the projection logic
-      const array = line.geometry.attributes.position.array as Float32Array;
+                              // Verify the buffer was modified by the projection logic
+      const array = line.geometry.attributes.position!.array as Float32Array;
       expect(array[0]).to.be.closeTo(10 * (1/12), 0.001);
       
       // _updateGeometry should NOT have been called (no full rebuild)

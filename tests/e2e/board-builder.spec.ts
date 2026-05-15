@@ -141,8 +141,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 1. Programmatically find and click the middle anchor point in the top-down view
     const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & {
+            type BoardViewportElement = HTMLElement & {
         boardState?: {
+          gizmoScaleTop?: number;
           outline?: {
             controlPoints:[number, number, number][];
           };
@@ -275,8 +276,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 4. Verify 3D Gizmo selection for the new wing
     // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
     const hitPosition = await page.evaluate(() => {
-            type BoardViewportElement = HTMLElement & { 
+                  type BoardViewportElement = HTMLElement & { 
         boardState?: {
+          gizmoScaleTop?: number;
           outlineLayers?: { active?: boolean, otlExt: { controlPoints:[number, number, number][] } }[]
         }
       };
@@ -341,8 +343,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
     const hitPosition = await page.evaluate(() => {
-            type BoardViewportElement = HTMLElement & { 
+                  type BoardViewportElement = HTMLElement & { 
         boardState?: {
+          gizmoScaleTop?: number;
           outlineLayers?: { active?: boolean, otlExt: { controlPoints: [number, number, number][] } }[]
         }
       };
@@ -424,8 +427,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 4. Verify 3D Gizmo selection for the new channel
     const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & { 
+            type BoardViewportElement = HTMLElement & { 
         boardState?: {
+          gizmoScaleTop?: number;
           bottomChannels?: { rightOutline: { controlPoints:[number, number, number][] } }[]
         }
       };
@@ -485,8 +489,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
-            type BoardViewportElement = HTMLElement & { 
+                  type BoardViewportElement = HTMLElement & { 
         boardState?: {
+          gizmoScaleTop?: number;
           outlineLayers?: { active?: boolean, otlInt: { controlPoints: [number, number, number][] } }[]
         }
       };
@@ -683,8 +688,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 1. Programmatically find and click the middle anchor point
     const hitPosition = await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & {
-        boardState?: { outline?: { controlPoints: [number, number, number][] } };
+            type BoardViewportElement = HTMLElement & {
+        boardState?: { gizmoScaleTop?: number, outline?: { controlPoints: [number, number, number][] } };
       };
             const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
