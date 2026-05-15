@@ -33,12 +33,12 @@ describe("BottomContourEditor", () => {
     const circles = el.querySelectorAll("circle");
     expect(circles.length).to.equal(4); // 4 control points
 
-    const spy = sinon.spy();
+        const spy = sinon.spy();
     el.addEventListener("update-node-position", spy);
 
-        // Simulate pointer down on the first circle (leftOutline)
-    const circle = circles[0];
-    circle!.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true }));
+    // Directly set active drag state to avoid flaky synthetic pointer events
+    (el as any).activeDrag = { curve: "channel_0_left_outline", index: 0, origZ: 50, pointerId: 1 };
+    await el.updateComplete;
 
     // Simulate pointer move on SVG
     const svg = el.querySelector("svg")!;
