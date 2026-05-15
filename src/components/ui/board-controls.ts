@@ -113,7 +113,39 @@ export class BoardControls extends LitElement {
       <div class="mb-4">
         <div class="flex justify-between items-center mb-1">
           <label class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">${label}</label>
-          <span class="text-xs font-mono bg-zinc-800 text-blue-400 px-1.5 py-0.5 rounded">${displayValue}</span>
+                    <input 
+            type="text"
+            .value=${displayValue}
+            ?disabled=${disabled}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            @change=${(e: Event) => {
+              const input = e.target as HTMLInputElement;
+              const valStr = input.value.trim();
+              let parsedVal = NaN;
+              
+              if (key === "length" && valStr.includes("'")) {
+                const parts = valStr.split("'");
+                const feet = parseFloat(parts[0] || "0") || 0;
+                const inches = parseFloat(parts[1]?.replace('"', '') || "0");
+                parsedVal = feet * 12 + inches;
+              } else {
+                parsedVal = parseFloat(valStr.replace(/[^\d.-]/g, ''));
+              }
+
+              if (!isNaN(parsedVal)) {
+                const clamped = Math.max(min, Math.min(max, parsedVal));
+                this._dispatchNumber(key, clamped);
+              } else {
+                input.value = displayValue;
+              }
+            }}
+            @focus=${(e: Event) => (e.target as HTMLInputElement).select()}
+            class="text-xs font-mono bg-zinc-800 text-blue-400 px-1.5 py-0.5 rounded w-20 text-right outline-none focus:ring-1 focus:ring-blue-500 border border-transparent transition-all"
+          />
         </div>
         <input 
           type="range" 
