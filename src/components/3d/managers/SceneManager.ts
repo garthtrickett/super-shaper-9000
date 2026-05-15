@@ -34,10 +34,10 @@ export class SceneManager {
     this.perspCam = new THREE.PerspectiveCamera(50, aspect, 0.1, 1000);
     this.orthoCam = this.createOrthoCamera(aspect);
 
-    this.cameras = {
+        this.cameras = {
       perspective: this.perspCam,
       top: this.createOrthoCamera(aspect),
-      side: this.createOrthoCamera(aspect),
+      side: this.createOrthoCamera(aspect, 2.5), // Exaggerated vertical scale for rocker profile
       profile: this.createOrthoCamera(aspect),
     };
 
@@ -79,12 +79,12 @@ export class SceneManager {
     this.resizeObserver.observe(this.canvas);
   }
 
-  private createOrthoCamera(aspect: number): THREE.OrthographicCamera {
+    private createOrthoCamera(aspect: number, stretchY: number = 1.0): THREE.OrthographicCamera {
     const frustumSize = 10;
     const orthoLeft = -frustumSize * aspect / 2;
     const orthoRight = frustumSize * aspect / 2;
-    const orthoTop = frustumSize / 2;
-    const orthoBottom = -frustumSize / 2;
+    const orthoTop = (frustumSize / 2) / stretchY;
+    const orthoBottom = (-frustumSize / 2) / stretchY;
     return new THREE.OrthographicCamera(orthoLeft, orthoRight, orthoTop, orthoBottom, 0.1, 1000);
   }
 
@@ -279,13 +279,17 @@ export class SceneManager {
     const orthoTop = frustumSize / 2;
     const orthoBottom = -frustumSize / 2;
 
-    [this.cameras.top, this.cameras.side, this.cameras.profile].forEach(cam => {
+        [
+      { cam: this.cameras.top, stretchY: 1.0 },
+      { cam: this.cameras.side, stretchY: 2.5 },
+      { cam: this.cameras.profile, stretchY: 1.0 }
+    ].forEach(({ cam, stretchY }) => {
       cam.left = orthoLeft;
       cam.right = orthoRight;
-      cam.top = orthoTop;
-      cam.bottom = orthoBottom;
+      cam.top = orthoTop / stretchY;
+      cam.bottom = orthoBottom / stretchY;
       cam.updateProjectionMatrix();
-        });
+    });
 
     if (this.isOrtho3d) {
       const dist = this.orthoCam.position.distanceTo(this.controls.perspective.target);

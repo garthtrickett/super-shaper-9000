@@ -26,8 +26,8 @@ export class GizmoBuilder {
 
     runClientUnscoped(clientLog("info", "[GizmoBuilder] Rendering Bezier Gizmos"));
 
-        const anchorGeo = new THREE.SphereGeometry(1.0 * scale, 16, 16);
-    const handleGeo = new THREE.BoxGeometry(0.8 * scale, 0.8 * scale, 0.8 * scale);
+            const anchorGeo = new THREE.SphereGeometry(0.35 * scale, 16, 16);
+    const handleGeo = new THREE.BoxGeometry(0.25 * scale, 0.25 * scale, 0.25 * scale);
     const lineMat = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: 0.5 * scale, gapSize: 0.5 * scale, depthTest: false });
     const lineMatCrossSection = new THREE.LineDashedMaterial({ color: 0x94a3b8, dashSize: (0.5 * scale) / 3.5, gapSize: (0.5 * scale) / 3.5, depthTest: false });
 
