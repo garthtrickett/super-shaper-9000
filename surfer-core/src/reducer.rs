@@ -1386,7 +1386,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     curve: format!("crossSection_{}", new_idx),
                     index: 0,
                     node_type: "anchor".to_string(),
-                                });
+                });
             } else if !model.cross_sections.is_empty() {
                 let mut new_cs = BezierCurveData::default();
                 let num_pts = model.cross_sections[0].control_points.len();
@@ -1467,12 +1467,24 @@ mod tests {
     use super::*;
     use glam::Vec3;
 
-    fn create_mock_model() -> BoardModel {
+        fn create_mock_model() -> BoardModel {
         BoardModel {
             outline: Some(BezierCurveData {
                 control_points: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 0.0), Vec3::ZERO],
                 tangents1: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, -2.0), Vec3::ZERO],
                 tangents2: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 2.0), Vec3::ZERO],
+                ..Default::default()
+            }),
+            rocker_top: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)],
+                tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+                tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+                ..Default::default()
+            }),
+            rocker_bottom: Some(BezierCurveData {
+                control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)],
+                tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+                tangents2: vec![Vec3::ZERO, Vec3::ZERO],
                 ..Default::default()
             }),
             ..Default::default()
