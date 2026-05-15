@@ -34,6 +34,7 @@ export class BoardViewport extends LitElement {
       @property({ type: Object }) curvatureCombs?: Float32Array;
   @property({ attribute: false }) mathEngine?: WasmEngine;
   @property({ type: String }) selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
+  @property({ type: Boolean }) isProcessing = false;
   
   protected override createRenderRoot() { return this; }
 
@@ -941,8 +942,17 @@ export class BoardViewport extends LitElement {
         ${id === 'profile' ? renderProfileSliceSelector() : ''}
       </div>
     `;
-    return html`
+        return html`
       <canvas class="block w-full h-full outline-none"></canvas>
+      ${this.isProcessing ? html`
+        <div class="absolute bottom-3 left-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 text-blue-400 border-blue-500/30 border text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors">
+          <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Computing</span>
+        </div>
+      ` : ''}
                         <div class="absolute bottom-3 right-3 z-20 pointer-events-auto flex gap-2">
         <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>

@@ -455,11 +455,10 @@ export class BoardBuilderPage extends LitElement {
           </div>
         </div>
       ` : ''}
-      <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
+            <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
         <!-- UI Controls Panel -->
                 <board-controls
           class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl"
-          .isProcessing=${this.isProcessing}
                     .length=${state.length}
           .width=${state.width}
                     .thickness=${state.thickness}
@@ -540,7 +539,7 @@ export class BoardBuilderPage extends LitElement {
           </button>
         </div>
 
-                <!-- Render the 3D scene taking up the full remaining area -->
+                        <!-- Render the 3D scene taking up the full remaining area -->
                                         <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
@@ -548,6 +547,7 @@ export class BoardBuilderPage extends LitElement {
           .curvatureCombs=${curvatureCombs}
                               .mathEngine=${this.mathEngine}
           .selectedNodeContinuity=${this._selectedNodeContinuity}
+          .isProcessing=${this.isProcessing}
                             @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
                         this._proposeAction({ type: "SELECT_NODE", node: e.detail.node });
             // Reset continuity to a safe default when a new node is selected
