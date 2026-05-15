@@ -92,7 +92,10 @@ pub struct BoardModel {
     #[serde(default = "default_one")]
     pub rail_coefficient_nose: f32,
     #[serde(default = "default_one")]
-    pub thickness_z_stretch: f32,
+        pub thickness_z_stretch: f32,
+    pub gizmo_scale_top: Option<f32>,
+    pub gizmo_scale_side: Option<f32>,
+    pub gizmo_scale_profile: Option<f32>,
     pub show_gizmos: Option<bool>,
     pub show_solid_mesh: Option<bool>,
     pub show_heatmap: Option<bool>,
@@ -257,11 +260,26 @@ impl approx::AbsDiffEq for BoardModel {
                 &other.rail_coefficient_nose,
                 epsilon,
             )
-            && f32::abs_diff_eq(
+                        && f32::abs_diff_eq(
                 &self.thickness_z_stretch,
                 &other.thickness_z_stretch,
                 epsilon,
             )
+            && (match (&self.gizmo_scale_top, &other.gizmo_scale_top) {
+                (Some(a), Some(b)) => f32::abs_diff_eq(a, b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.gizmo_scale_side, &other.gizmo_scale_side) {
+                (Some(a), Some(b)) => f32::abs_diff_eq(a, b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.gizmo_scale_profile, &other.gizmo_scale_profile) {
+                (Some(a), Some(b)) => f32::abs_diff_eq(a, b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
             && (match (&self.outline, &other.outline) {
                 (Some(a), Some(b)) => a.abs_diff_eq(b, epsilon),
                 (None, None) => true,
@@ -357,7 +375,10 @@ impl Default for BoardModel {
             v_concave_nose: 0.0,
             rail_coefficient_tail: 1.0,
             rail_coefficient_nose: 1.0,
-            thickness_z_stretch: 1.0,
+                        thickness_z_stretch: 1.0,
+            gizmo_scale_top: None,
+            gizmo_scale_side: None,
+            gizmo_scale_profile: None,
             show_gizmos: None,
             show_solid_mesh: None,
             show_heatmap: None,

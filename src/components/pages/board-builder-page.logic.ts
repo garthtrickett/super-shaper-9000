@@ -240,8 +240,11 @@ export const INITIAL_STATE: BoardModel = {
   vConcaveNose: 0.0,
   railCoefficientTail: 1.0,
   railCoefficientNose: 1.0,
-  thicknessZStretch: 1.0,
-  coreMaterial: "pu", 
+    thicknessZStretch: 1.0,
+  gizmoScaleTop: 1.0,
+  gizmoScaleSide: 1.0,
+  gizmoScaleProfile: 1.0,
+  coreMaterial: "pu",  
   glassingSchedule: "heavy", 
 };
 

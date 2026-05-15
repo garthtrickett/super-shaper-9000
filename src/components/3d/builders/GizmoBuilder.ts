@@ -75,26 +75,40 @@ export class GizmoBuilder {
         const matLayerAnchor = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false });
     const matLayerHandle = new THREE.MeshBasicMaterial({ color: 0xfcd34d, depthTest: false });
 
-        const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number, isLayer = false) => {
+                const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number, isLayer = false) => {
         const aMat = isLayer ? matLayerAnchor : matAnchor;
         const hMat = isLayer ? matLayerHandle : matHandle;
         if (!curve) return;
 
                 const isCrossSection = curveName.startsWith('crossSection_');
         const isSideView = layerIndex === 2;
+        const isTopView = layerIndex === 1;
 
         let scaleX = 1.0;
         let scaleY = 1.0;
         let scaleZ = 1.0;
 
+        let userScale = 1.0;
         if (isCrossSection) {
-            scaleX = 1.0 / 3.5;
-            scaleY = 1.0 / 3.5;
-            scaleZ = 1.0 / 3.5;
+            userScale = boardState.gizmoScaleProfile ?? 1.0;
         } else if (isSideView) {
-            scaleX = 1.0 / 3.0;
-            scaleY = (1.0 / 3.0) / 2.5; // Counter-stretch for 2.5x camera Y stretch
-            scaleZ = 1.0 / 3.0;
+            userScale = boardState.gizmoScaleSide ?? 1.0;
+        } else if (isTopView) {
+            userScale = boardState.gizmoScaleTop ?? 1.0;
+        }
+
+        if (isCrossSection) {
+            scaleX = (1.0 / 3.5) * userScale;
+            scaleY = (1.0 / 3.5) * userScale;
+            scaleZ = (1.0 / 3.5) * userScale;
+        } else if (isSideView) {
+            scaleX = (1.0 / 3.0) * userScale;
+            scaleY = ((1.0 / 3.0) / 2.5) * userScale; // Counter-stretch for 2.5x camera Y stretch
+            scaleZ = (1.0 / 3.0) * userScale;
+        } else {
+            scaleX = userScale;
+            scaleY = userScale;
+            scaleZ = userScale;
         }
 
         for (let i = 0; i < curve.controlPoints.length; i++) {

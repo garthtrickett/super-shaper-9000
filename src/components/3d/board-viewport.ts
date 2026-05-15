@@ -119,9 +119,9 @@ export class BoardViewport extends LitElement {
           }
 
           if (changed) {
-            if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker', 'deckShoulder', 'outlineLayers', 'bottomChannels'].includes(k)) {
+                        if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker', 'deckShoulder', 'outlineLayers', 'bottomChannels'].includes(k)) {
               isManualDragUpdate = true;
-                        } else if (!['selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition'].includes(k)) {
+                        } else if (!['selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition', 'gizmoScaleTop', 'gizmoScaleSide', 'gizmoScaleProfile'].includes(k)) {
               needsFullGeometryUpdate = true;
               isManualDragUpdate = false;
               break;
@@ -160,8 +160,14 @@ export class BoardViewport extends LitElement {
         if (oldState?.showSolidMesh !== this.boardState.showSolidMesh) this.solidGroup.visible = this.boardState.showSolidMesh !== false;
         if (JSON.stringify(oldState?.selectedNode) !== JSON.stringify(this.boardState.selectedNode)) this.updateGizmoHighlights();
         if (oldState?.showApexLine !== this.boardState.showApexLine) this.apexLineGroup.visible = !!this.boardState.showApexLine;
-        if (oldState?.showCurvature !== this.boardState.showCurvature) {
+                if (oldState?.showCurvature !== this.boardState.showCurvature) {
           CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
+        }
+        if (oldState?.gizmoScaleTop !== this.boardState.gizmoScaleTop ||
+            oldState?.gizmoScaleSide !== this.boardState.gizmoScaleSide ||
+            oldState?.gizmoScaleProfile !== this.boardState.gizmoScaleProfile) {
+          GizmoBuilder.build(this.gizmoGroup, this.boardState, this.mathEngine, 1/12, this.matAnchor, this.matHandle, this.activeProfileSlice);
+          this.updateGizmoHighlights();
         }
       }
 
@@ -747,8 +753,15 @@ export class BoardViewport extends LitElement {
     }
     this.buildWireframe(this.mathEngine, scale);
 
-    // Update Gizmos
-    this._updateGizmoPositionsFromState();
+        // Update Gizmos
+    if (oldState?.gizmoScaleTop !== newState.gizmoScaleTop ||
+        oldState?.gizmoScaleSide !== newState.gizmoScaleSide ||
+        oldState?.gizmoScaleProfile !== newState.gizmoScaleProfile) {
+      GizmoBuilder.build(this.gizmoGroup, newState, this.mathEngine, 1/12, this.matAnchor, this.matHandle, this.activeProfileSlice);
+      this.updateGizmoHighlights();
+    } else {
+      this._updateGizmoPositionsFromState();
+    }
 
     // Rebuild Slice Lines and Apex Line
     this.buildSliceLines(this.mathEngine, scale);
@@ -799,23 +812,37 @@ export class BoardViewport extends LitElement {
 
                   const scale = 1/12;
       const isCrossSection = curve.startsWith('crossSection_');
-      const isSideView = curve === 'rockerTop' || curve === 'rockerBottom' || curve === 'apexRocker' || (curve.startsWith('channel_') && curve.endsWith('_depth'));
+            const isSideView = curve === 'rockerTop' || curve === 'rockerBottom' || curve === 'apexRocker' || (curve.startsWith('channel_') && curve.endsWith('_depth'));
+      const isTopView = !isCrossSection && !isSideView;
       
       let scaleX = 1.0;
       let scaleY = 1.0;
       let scaleZ = 1.0;
       let targetLayer = 1;
 
+      let userScale = 1.0;
       if (isCrossSection) {
-          scaleX = 1.0 / 3.5;
-          scaleY = 1.0 / 3.5;
-          scaleZ = 1.0 / 3.5;
+          userScale = this.boardState?.gizmoScaleProfile ?? 1.0;
+      } else if (isSideView) {
+          userScale = this.boardState?.gizmoScaleSide ?? 1.0;
+      } else if (isTopView) {
+          userScale = this.boardState?.gizmoScaleTop ?? 1.0;
+      }
+
+      if (isCrossSection) {
+          scaleX = (1.0 / 3.5) * userScale;
+          scaleY = (1.0 / 3.5) * userScale;
+          scaleZ = (1.0 / 3.5) * userScale;
           targetLayer = 3;
       } else if (isSideView) {
-          scaleX = 1.0 / 3.0;
-          scaleY = (1.0 / 3.0) / 2.5; // Counter-stretch for 2.5x camera Y stretch
-          scaleZ = 1.0 / 3.0;
+          scaleX = (1.0 / 3.0) * userScale;
+          scaleY = ((1.0 / 3.0) / 2.5) * userScale; // Counter-stretch for 2.5x camera Y stretch
+          scaleZ = (1.0 / 3.0) * userScale;
           targetLayer = 2;
+      } else {
+          scaleX = userScale;
+          scaleY = userScale;
+          scaleZ = userScale;
       }
 
       const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.6, depthTest: false });

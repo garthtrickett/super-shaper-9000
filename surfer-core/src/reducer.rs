@@ -654,9 +654,12 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "frontFinX" => model.front_fin_x = value,
             "rearFinZ" => model.rear_fin_z = value,
             "rearFinX" => model.rear_fin_x = value,
-            "toeAngle" => model.toe_angle = value,
+                        "toeAngle" => model.toe_angle = value,
             "cantAngle" => model.cant_angle = value,
             "mriSlicePosition" => model.mri_slice_position = Some(value),
+            "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
+            "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
+            "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
             _ => {}
         },
         BoardAction::UpdateString { param, value } => match param.as_str() {
@@ -1031,8 +1034,11 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     parsed_model.show_deck_shoulder = model.show_deck_shoulder;
                     parsed_model.show_cross_sections = model.show_cross_sections;
                     parsed_model.show_curvature = model.show_curvature;
-                    parsed_model.show_mri_view = model.show_mri_view;
+                                        parsed_model.show_mri_view = model.show_mri_view;
                     parsed_model.mri_slice_position = model.mri_slice_position;
+                    parsed_model.gizmo_scale_top = model.gizmo_scale_top;
+                    parsed_model.gizmo_scale_side = model.gizmo_scale_side;
+                    parsed_model.gizmo_scale_profile = model.gizmo_scale_profile;
 
                     // BRD files do not contain 3D cross-sections.
                     // We preserve the current cross-sections to allow 3D mesh generation.
@@ -1071,8 +1077,11 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     parsed_model.show_deck_shoulder = model.show_deck_shoulder;
                     parsed_model.show_cross_sections = model.show_cross_sections;
                     parsed_model.show_curvature = model.show_curvature;
-                    parsed_model.show_mri_view = model.show_mri_view;
+                                        parsed_model.show_mri_view = model.show_mri_view;
                     parsed_model.mri_slice_position = model.mri_slice_position;
+                    parsed_model.gizmo_scale_top = model.gizmo_scale_top;
+                    parsed_model.gizmo_scale_side = model.gizmo_scale_side;
+                    parsed_model.gizmo_scale_profile = model.gizmo_scale_profile;
 
                     *model = parsed_model;
                     push_history(model);

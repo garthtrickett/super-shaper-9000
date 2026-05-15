@@ -472,8 +472,11 @@ export class BoardBuilderPage extends LitElement {
           .rearFinX=${state.rearFinX}
           .toeAngle=${state.toeAngle}
           .cantAngle=${state.cantAngle}
-          .coreMaterial=${state.coreMaterial}
+                    .coreMaterial=${state.coreMaterial}
           .glassingSchedule=${state.glassingSchedule}
+          .gizmoScaleTop=${state.gizmoScaleTop ?? 1.0}
+          .gizmoScaleSide=${state.gizmoScaleSide ?? 1.0}
+          .gizmoScaleProfile=${state.gizmoScaleProfile ?? 1.0}
                                                                       @preview-number=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
             this._previewAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
