@@ -797,18 +797,34 @@ export class BoardViewport extends LitElement {
 
       if (mirrorX) x = -x;
 
-            const scale = 1/12;
+                  const scale = 1/12;
       const isCrossSection = curve.startsWith('crossSection_');
-      const gizmoScale = isCrossSection ? (1.0 / 3.5) : 1.0;
+      const isSideView = curve === 'rockerTop' || curve === 'rockerBottom' || curve === 'apexRocker' || (curve.startsWith('channel_') && curve.endsWith('_depth'));
+      
+      let scaleX = 1.0;
+      let scaleY = 1.0;
+      let scaleZ = 1.0;
+      let targetLayer = 1;
 
-            const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.6, depthTest: false });
-      const mesh = new THREE.Mesh(new THREE.SphereGeometry((0.35 * scale) * gizmoScale, 16, 16), mat);
+      if (isCrossSection) {
+          scaleX = 1.0 / 3.5;
+          scaleY = 1.0 / 3.5;
+          scaleZ = 1.0 / 3.5;
+          targetLayer = 3;
+      } else if (isSideView) {
+          scaleX = 1.0 / 3.0;
+          scaleY = (1.0 / 3.0) / 2.5; // Counter-stretch for 2.5x camera Y stretch
+          scaleZ = 1.0 / 3.0;
+          targetLayer = 2;
+      }
+
+      const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.6, depthTest: false });
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.35 * scale, 16, 16), mat);
+      mesh.scale.set(scaleX, scaleY, scaleZ);
       mesh.position.set(x * scale, y * scale, z * scale);
       mesh.renderOrder = 1000;
       
-      mesh.layers.set(1);
-      mesh.layers.enable(2);
-      mesh.layers.enable(3);
+      mesh.layers.set(targetLayer);
 
       this.previewGroup.add(mesh);
   }

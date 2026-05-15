@@ -80,8 +80,22 @@ export class GizmoBuilder {
         const hMat = isLayer ? matLayerHandle : matHandle;
         if (!curve) return;
 
-        const isCrossSection = curveName.startsWith('crossSection_');
-        const gizmoScale = isCrossSection ? (1.0 / 3.5) : 1.0;
+                const isCrossSection = curveName.startsWith('crossSection_');
+        const isSideView = layerIndex === 2;
+
+        let scaleX = 1.0;
+        let scaleY = 1.0;
+        let scaleZ = 1.0;
+
+        if (isCrossSection) {
+            scaleX = 1.0 / 3.5;
+            scaleY = 1.0 / 3.5;
+            scaleZ = 1.0 / 3.5;
+        } else if (isSideView) {
+            scaleX = 1.0 / 3.0;
+            scaleY = (1.0 / 3.0) / 2.5; // Counter-stretch for 2.5x camera Y stretch
+            scaleZ = 1.0 / 3.0;
+        }
 
         for (let i = 0; i < curve.controlPoints.length; i++) {
             const cp = curve.controlPoints[i]!;
@@ -92,7 +106,7 @@ export class GizmoBuilder {
             const cpX = getXOffset(curveName, cp[0], cp[2]);
 
                         const anchorMesh = new THREE.Mesh(anchorGeo, aMat);
-            anchorMesh.scale.setScalar(gizmoScale);
+            anchorMesh.scale.set(scaleX, scaleY, scaleZ);
             anchorMesh.position.set(cpX * scale, cpY * scale, cp[2] * scale);
             anchorMesh.renderOrder = 999;
             anchorMesh.layers.set(layerIndex);
@@ -112,7 +126,7 @@ export class GizmoBuilder {
                 const tY = getZHeight(curveName, t[1], t[2]);
                 const tX = getXOffset(curveName, t[0], t[2]);
                                 const handleMesh = new THREE.Mesh(handleGeo, hMat);
-                handleMesh.scale.setScalar(gizmoScale);
+                handleMesh.scale.set(scaleX, scaleY, scaleZ);
                 handleMesh.position.set(tX * scale, tY * scale, t[2] * scale);
                 handleMesh.renderOrder = 999;
                 handleMesh.layers.set(layerIndex);
