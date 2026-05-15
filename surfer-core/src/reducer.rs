@@ -432,6 +432,133 @@ fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
     }
 }
 
+fn map_cross_section_point(
+    model: &BoardModel,
+    z: f32,
+    u: f32,
+    unmapped_pt: Vec3,
+) -> Vec3 {
+    let bounds = crate::geometry::get_board_bounds(model);
+    let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
+    let inner_x = if z > bounds.notch_z {
+        crate::geometry::evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z)
+    } else {
+        0.0
+    };
+
+    let profile = crate::geometry::get_board_profile_at_z(model, z, v_outer);
+    let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z).unwrap();
+
+    let t_tuck = 0.01_f32.max(blend.t_apex * 0.5);
+    let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
+
+    let p_bot = blend.evaluate(0.0);
+    let p_tuck = blend.evaluate(t_tuck);
+    let p_apex = blend.evaluate(blend.t_apex);
+    let p_shoulder = blend.evaluate(t_shoulder);
+    let p_top = blend.evaluate(1.0);
+
+    let world_thick = profile.top_y - profile.bot_y;
+    let local_thick = p_top.y - p_bot.y;
+    let scale_y = if local_thick.abs() > 1e-5 {
+        world_thick / local_thick
+    } else {
+        1.0
+    };
+
+    let mut final_pos = Vec3::ZERO;
+    final_pos.z = z;
+
+    if u <= t_tuck {
+        let t = if t_tuck > 0.0 { u / t_tuck } else { 0.0 };
+        let w_x = if (p_tuck.x - p_bot.x).abs() > 1e-5 {
+            (unmapped_pt.x - p_bot.x) / (p_tuck.x - p_bot.x)
+        } else {
+            t
+        };
+        final_pos.x = inner_x + w_x * (profile.tuck_x - inner_x);
+
+        let local_baseline_y = p_bot.y + t * (p_tuck.y - p_bot.y);
+        let local_deviation = unmapped_pt.y - local_baseline_y;
+        let world_baseline_y = profile.bot_y + t * (profile.tuck_y - profile.bot_y);
+        final_pos.y = world_baseline_y + local_deviation * scale_y;
+    } else if u <= blend.t_apex {
+        let t = if blend.t_apex > t_tuck { (u - t_tuck) / (blend.t_apex - t_tuck) } else { 0.0 };
+        let w_x = if (p_apex.x - p_tuck.x).abs() > 1e-5 {
+            (unmapped_pt.x - p_tuck.x) / (p_apex.x - p_tuck.x)
+        } else {
+            t
+        };
+        final_pos.x = profile.tuck_x + w_x * (profile.apex_x - profile.tuck_x);
+
+        let local_baseline_y = p_tuck.y + t * (p_apex.y - p_tuck.y);
+        let local_deviation = unmapped_pt.y - local_baseline_y;
+        let world_baseline_y = profile.tuck_y + t * (profile.apex_y - profile.tuck_y);
+        final_pos.y = world_baseline_y + local_deviation * scale_y;
+    } else if u <= t_shoulder {
+        let t = if t_shoulder > blend.t_apex { (u - blend.t_apex) / (t_shoulder - blend.t_apex) } else { 0.0 };
+        let w_x = if (p_shoulder.x - p_apex.x).abs() > 1e-5 {
+            (unmapped_pt.x - p_apex.x) / (p_shoulder.x - p_apex.x)
+        } else {
+            t
+        };
+        final_pos.x = profile.apex_x + w_x * (profile.shoulder_x - profile.apex_x);
+
+        let local_baseline_y = p_apex.y + t * (p_shoulder.y - p_apex.y);
+        let local_deviation = unmapped_pt.y - local_baseline_y;
+        let world_baseline_y = profile.apex_y + t * (profile.shoulder_y - profile.apex_y);
+        final_pos.y = world_baseline_y + local_deviation * scale_y;
+    } else {
+        let t = if 1.0 > t_shoulder { (u - t_shoulder) / (1.0 - t_shoulder) } else { 0.0 };
+        let w_x = if (p_top.x - p_shoulder.x).abs() > 1e-5 {
+            (unmapped_pt.x - p_shoulder.x) / (p_top.x - p_shoulder.x)
+        } else {
+            t
+        };
+        final_pos.x = profile.shoulder_x + w_x * (inner_x - profile.shoulder_x);
+
+        let local_baseline_y = p_shoulder.y + t * (p_top.y - p_shoulder.y);
+        let local_deviation = unmapped_pt.y - local_baseline_y;
+        let world_baseline_y = profile.shoulder_y + t * (profile.top_y - profile.shoulder_y);
+        final_pos.y = world_baseline_y + local_deviation * scale_y;
+    }
+
+    let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+    let dist = z - mid_z;
+    let rail_coeff = if dist > 0.0 {
+        let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        1.0 + (model.rail_coefficient_tail - 1.0) * ease_t
+    } else {
+        let t = ((-dist) / (mid_z - bounds.nose_z)).clamp(0.0, 1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
+    };
+
+    let norm_x_for_rail = if profile.apex_x > inner_x {
+        ((final_pos.x - inner_x) / (profile.apex_x - inner_x)).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+
+    let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x_for_rail;
+    final_pos.y = profile.bot_y + (final_pos.y - profile.bot_y) * local_rail_coeff;
+
+    if final_pos.x < inner_x {
+        final_pos.x = inner_x;
+    }
+    final_pos.y = final_pos.y.max(profile.bot_y - 5.0);
+
+    let is_nose_pole = (z - bounds.nose_z).abs() < 1e-4;
+    let is_tail_pole = (z - bounds.tip_z).abs() < 1e-4;
+
+    if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.1 {
+        final_pos.x = 0.0;
+    }
+
+    final_pos
+}
+
 pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();
 
@@ -1107,15 +1234,18 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-        BoardAction::AddCrossSection { z } => {
+                BoardAction::AddCrossSection { z } => {
             if let Some(blend) = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z) {
                 let mut new_cs = BezierCurveData::default();
                 let num_pts = blend.s0.control_points.len();
                 let z1 = blend.s0.control_points.first().map(|p| p.z).unwrap_or(0.0);
                 let z2 = blend.s1.control_points.first().map(|p| p.z).unwrap_or(0.0);
                 let dz = z2 - z1;
+                let num_segments = num_pts.saturating_sub(1);
 
                 for i in 0..num_pts {
+                    let u = if num_segments > 0 { i as f32 / num_segments as f32 } else { 0.0 };
+
                     let p0 = blend.s_prev.control_points.get(i).copied().unwrap_or_else(|| blend.s0.control_points.get(i).copied().unwrap_or_default());
                     let p1 = blend.s0.control_points.get(i).copied().unwrap_or_default();
                     let p2 = blend.s1.control_points.get(i).copied().unwrap_or(p1);
@@ -1129,9 +1259,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     m1.z = dz;
                     m2.z = dz;
                     
-                    let mut pt = crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, blend.lerp_factor);
-                    pt.z = z;
-                    new_cs.control_points.push(pt);
+                    let unmapped_pt = crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, blend.lerp_factor);
+                    let mapped_pt = map_cross_section_point(model, z, u, unmapped_pt);
+                    new_cs.control_points.push(mapped_pt);
 
                     let t1_0 = blend.s_prev.tangents1.get(i).copied().unwrap_or_else(|| blend.s0.tangents1.get(i).copied().unwrap_or(p0));
                     let t1_1 = blend.s0.tangents1.get(i).copied().unwrap_or(p1);
@@ -1143,9 +1273,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let (mut m1_t1, mut m2_t1) = crate::geometry::compute_centripetal_tangents(t1_0, t1_1, t1_2, t1_3, dt0_t1, dt1_t1, dt2_t1);
                     m1_t1.z = dz;
                     m2_t1.z = dz;
-                    let mut pt_t1 = crate::bezier::evaluate_cubic_hermite(t1_1, t1_2, m1_t1, m2_t1, blend.lerp_factor);
-                    pt_t1.z = z;
-                    new_cs.tangents1.push(pt_t1);
+                    let unmapped_t1 = crate::bezier::evaluate_cubic_hermite(t1_1, t1_2, m1_t1, m2_t1, blend.lerp_factor);
+                    let mapped_t1 = map_cross_section_point(model, z, u, unmapped_t1);
+                    new_cs.tangents1.push(mapped_t1);
 
                     let t2_0 = blend.s_prev.tangents2.get(i).copied().unwrap_or_else(|| blend.s0.tangents2.get(i).copied().unwrap_or(p0));
                     let t2_1 = blend.s0.tangents2.get(i).copied().unwrap_or(p1);
@@ -1157,9 +1287,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     let (mut m1_t2, mut m2_t2) = crate::geometry::compute_centripetal_tangents(t2_0, t2_1, t2_2, t2_3, dt0_t2, dt1_t2, dt2_t2);
                     m1_t2.z = dz;
                     m2_t2.z = dz;
-                    let mut pt_t2 = crate::bezier::evaluate_cubic_hermite(t2_1, t2_2, m1_t2, m2_t2, blend.lerp_factor);
-                    pt_t2.z = z;
-                    new_cs.tangents2.push(pt_t2);
+                    let unmapped_t2 = crate::bezier::evaluate_cubic_hermite(t2_1, t2_2, m1_t2, m2_t2, blend.lerp_factor);
+                    let mapped_t2 = map_cross_section_point(model, z, u, unmapped_t2);
+                    new_cs.tangents2.push(mapped_t2);
 
                     let w1 = blend.s0.weights.as_ref().and_then(|w| w.get(i).copied()).unwrap_or(1.0);
                     let w2 = blend.s1.weights.as_ref().and_then(|w| w.get(i).copied()).unwrap_or(1.0);
@@ -1182,10 +1312,23 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                     node_type: "anchor".to_string()
                 });
             } else if model.cross_sections.len() > 0 {
-                let mut new_cs = model.cross_sections[0].clone();
-                for p in &mut new_cs.control_points { p.z = z; }
-                for p in &mut new_cs.tangents1 { p.z = z; }
-                for p in &mut new_cs.tangents2 { p.z = z; }
+                let mut new_cs = BezierCurveData::default();
+                let num_pts = model.cross_sections[0].control_points.len();
+                let num_segments = num_pts.saturating_sub(1);
+                
+                for i in 0..num_pts {
+                    let u = if num_segments > 0 { i as f32 / num_segments as f32 } else { 0.0 };
+                    
+                    let p = model.cross_sections[0].control_points.get(i).copied().unwrap_or_default();
+                    let t1 = model.cross_sections[0].tangents1.get(i).copied().unwrap_or_default();
+                    let t2 = model.cross_sections[0].tangents2.get(i).copied().unwrap_or_default();
+                    
+                    new_cs.control_points.push(map_cross_section_point(model, z, u, p));
+                    new_cs.tangents1.push(map_cross_section_point(model, z, u, t1));
+                    new_cs.tangents2.push(map_cross_section_point(model, z, u, t2));
+                }
+                new_cs.weights = model.cross_sections[0].weights.clone();
+
                 model.cross_sections.push(new_cs);
                 model.cross_sections.sort_by(|a, b| {
                     let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);

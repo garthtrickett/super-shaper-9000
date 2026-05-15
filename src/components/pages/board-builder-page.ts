@@ -38,7 +38,7 @@ export class BoardBuilderPage extends LitElement {
     if (!this.mathEngine) return;
     try {
       const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
-      const viewport = this.shadowRoot?.querySelector('board-viewport') as any;
+      const viewport = this.shadowRoot?.querySelector('board-viewport');
       if (viewport && result.state) {
         viewport.previewState(result.state);
       }
