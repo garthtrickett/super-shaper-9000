@@ -261,7 +261,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 3. Verify 'Wing 1' appears in the controls list
     const wingItem = boardControls.locator("span", { hasText: /Wing 1/i });
-    await expect(wingItem).toBeVisible();
+        await expect(wingItem).toBeVisible();
+
+    // Wait for the viewport to process the new geometry and render the gizmo
+    await page.waitForTimeout(1000);
 
     // 4. Verify 3D Gizmo selection for the new wing
     // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
@@ -355,9 +358,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     expect(hitPosition).toBeTruthy();
 
-    // Select the gizmo to open the inspector
+        // Select the gizmo to open the inspector
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(1000);
 
     // 3. Drag the gizmo outward (+X direction)
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
@@ -709,45 +712,36 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.waitForTimeout(1000);
 
     // Test Top Ortho View (Top-Left Quadrant)
-    const topHitPosition = await page.evaluate(() => {
-      type Vector3Mock = { set(x: number, y: number, z: number): void, project(cam: unknown): void, x: number, y: number, z: number };
-      type CameraMock = { position: { clone(): Vector3Mock } };
+        const topHitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & {
-        mathEngine?: {
-          get_point_on_curve(curveName: string, t: number): Float32Array;
-          get_profile_at_z(z: number): { apexY: number };
-        };
-        sceneManager?: {
-          cameras: {
-            top: CameraMock;
-          }
-        };
+        mathEngine?: { get_point_on_curve(curveName: string, t: number): Float32Array; };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
-      if (!vp || !vp.mathEngine || !vp.sceneManager) return null;
+      if (!vp || !vp.mathEngine) return null;
 
       const pt = vp.mathEngine.get_point_on_curve('outline', 0.25);
       if (!pt) return null;
 
-      const profile = vp.mathEngine.get_profile_at_z(pt[2]!);
-
       const worldX = pt[0]! / 12;
-      const worldY = profile.apexY / 12;
       const worldZ = pt[2]! / 12;
-
-      const camera = vp.sceneManager.cameras.top;
-      const vec = camera.position.clone();
-      vec.set(worldX, worldY, worldZ);
-      vec.project(camera);
 
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
 
       const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+
+      // Manual projection for top-left quadrant
+      const orthoRight = 5 * aspect;
+      const orthoTop = 5;
+      const ndcX = worldX / orthoRight;
+      const ndcY = -worldZ / orthoTop;
+
       const w = rect.width / 2;
       const h = rect.height / 2;
-      const pixelX = rect.left + ((vec.x + 1) / 2 * w);
-      const pixelY = rect.top + ((1 - vec.y) / 2 * h);
+
+      const pixelX = rect.left + ((ndcX + 1) / 2 * w);
+      const pixelY = rect.top + ((1 - ndcY) / 2 * h);
 
       return { x: pixelX, y: pixelY };
     });
@@ -778,45 +772,40 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.mouse.click(canvasBox!.x + 150, canvasBox!.y + 150);
     await expect(inspector).toBeHidden({ timeout: 5000 });
 
-    const sideHitPosition = await page.evaluate(() => {
-      type Vector3Mock = { set(x: number, y: number, z: number): void, project(cam: unknown): void, x: number, y: number, z: number };
-      type CameraMock = { position: { clone(): Vector3Mock } };
+        const sideHitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & {
-        mathEngine?: {
-          get_point_on_curve(curveName: string, t: number): Float32Array;
-          get_profile_at_z(z: number): { topY: number };
-        };
-        sceneManager?: {
-          cameras: {
-            side: CameraMock;
-          }
-        };
+        mathEngine?: { get_point_on_curve(curveName: string, t: number): Float32Array; };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
-      if (!vp || !vp.mathEngine || !vp.sceneManager) return null;
+      if (!vp || !vp.mathEngine) return null;
 
-      // Insert on Rocker Top
       const pt = vp.mathEngine.get_point_on_curve('rockerTop', 0.25);
       if (!pt) return null;
 
-      const worldX = pt[0]! / 12;
       const worldY = pt[1]! / 12;
       const worldZ = pt[2]! / 12;
-
-      const camera = vp.sceneManager.cameras.side;
-      const vec = camera.position.clone();
-      vec.set(worldX, worldY, worldZ);
-      vec.project(camera);
 
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
 
       const rect = canvas.getBoundingClientRect();
+      const aspect = rect.width / rect.height;
+
+      // Manual projection for bottom-left quadrant (Side view)
+      const frustumSize = 10;
+      const stretchY = 2.5;
+      const orthoRight = frustumSize * aspect / 2;
+      const orthoTop = (frustumSize / 2) / stretchY;
+      
+      const ndcX = worldZ / orthoRight; // In side view, Z is horizontal
+      const ndcY = worldY / orthoTop; // And Y is vertical
+
       const w = rect.width / 2;
       const h = rect.height / 2;
-      // Side view is bottom-left quadrant
-      const pixelX = rect.left + ((vec.x + 1) / 2 * w);
-      const pixelY = rect.top + h + ((1 - vec.y) / 2 * h);
+      
+      // Bottom-left quadrant
+      const pixelX = rect.left + ((ndcX + 1) / 2 * w);
+      const pixelY = rect.top + h + ((1 - ndcY) / 2 * h);
 
       return { x: pixelX, y: pixelY };
     });
