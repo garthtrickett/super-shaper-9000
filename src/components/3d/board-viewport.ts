@@ -415,18 +415,10 @@ export class BoardViewport extends LitElement {
         mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
     this.solidGroup.add(mesh);
 
-    const capMat = new THREE.MeshBasicMaterial({ color: 0x475569, side: THREE.BackSide, clippingPlanes:[this.mriClippingPlane] });
+        const capMat = new THREE.MeshBasicMaterial({ color: 0x475569, side: THREE.BackSide, clippingPlanes:[this.mriClippingPlane] });
     const capMesh = new THREE.Mesh(geom, capMat);
     capMesh.layers.set(0);
     this.solidGroup.add(capMesh);
-
-    const blueprintMat = new THREE.MeshBasicMaterial({ color: 0x09090b, depthWrite: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide, clippingPlanes: [this.mriClippingPlane] });
-    const blueprintMesh = new THREE.Mesh(geom, blueprintMat);
-    blueprintMesh.layers.set(5); this.solidGroup.add(blueprintMesh);
-    const edgesGeo = new THREE.EdgesGeometry(geom, 15);
-    const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4, clippingPlanes:[this.mriClippingPlane] });
-    const blueprintEdges = new THREE.LineSegments(edgesGeo, edgesMat);
-    blueprintEdges.layers.set(5); this.solidGroup.add(blueprintEdges);
   }
 
   

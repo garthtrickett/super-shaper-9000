@@ -11,7 +11,7 @@ export class FinBuilder {
         group.remove(child);
     }
 
-    const createFinMesh = (isSmall: boolean = false, isBlueprint: boolean = false) => {
+        const createFinMesh = (isSmall: boolean = false) => {
         const shape = new THREE.Shape();
         const base = isSmall ? 3.5 * scale : 4.5 * scale;
         const height = isSmall ? 4.0 * scale : 4.75 * scale;
@@ -41,42 +41,17 @@ export class FinBuilder {
         // Center the thickness perfectly
         geom.translate(0, 0, -0.025 * scale);
         
-        let mat;
-        if (isBlueprint) {
-            mat = new THREE.MeshBasicMaterial({
-                color: 0x09090b,
-                depthWrite: true,
-                polygonOffset: true,
-                polygonOffsetFactor: 1,
-                polygonOffsetUnits: 1
-            });
-        } else {
-            mat = new THREE.MeshPhysicalMaterial({ 
-                color: 0xf8fafc, 
-                roughness: 0.15, 
-                transmission: 0.9,
-                thickness: 0.2,
-                ior: 1.5
-            });
-        }
+        const mat = new THREE.MeshPhysicalMaterial({ 
+            color: 0xf8fafc, 
+            roughness: 0.15, 
+            transmission: 0.9,
+            thickness: 0.2,
+            ior: 1.5
+        });
         
         const finMesh = new THREE.Mesh(geom, mat);
-        
-        if (isBlueprint) {
-            finMesh.layers.set(5);
-            const edgesGeo = new THREE.EdgesGeometry(geom, 15);
-            const edgesMat = new THREE.LineBasicMaterial({
-                color: 0x3b82f6,
-                transparent: true,
-                opacity: 0.6
-            });
-            const finEdges = new THREE.LineSegments(edgesGeo, edgesMat);
-            finEdges.layers.set(5);
-            finMesh.add(finEdges);
-        } else {
-            finMesh.castShadow = true;
-            finMesh.layers.set(0);
-        }
+        finMesh.castShadow = true;
+        finMesh.layers.set(0);
         
         // 1. Flip upside down so tip points down into the water (-Y)
         // 2. Rotate 90deg so leading edge (+X in shape) points towards the board's nose (-Z)
@@ -86,13 +61,11 @@ export class FinBuilder {
 
     const mountFin = (zFromTail: number, railOffset: number, isRight: boolean, isCenter: boolean, isSmall: boolean) => {
         // 1. Create the perfectly oriented local fin meshes
-        const finSolid = createFinMesh(isSmall, false);
-        const finBlueprint = createFinMesh(isSmall, true);
+        const finSolid = createFinMesh(isSmall);
         
         // 2. Wrap it in a container so Toe and Cant rotations don't conflict
         const finContainer = new THREE.Group();
         finContainer.add(finSolid);
-        finContainer.add(finBlueprint);
 
         // 3. Position the container on the board
                 const zLoc = (boardState.length / 2) - zFromTail;
