@@ -77,12 +77,40 @@ export class NodeInspector extends LitElement {
     return undefined;
   }
 
-  private _handleWeightChange(val: number) {
+    private _dragWeightValue?: number;
+  private _isDraggingWeight = false;
+  private _weightThrottleTimer?: number;
+  private _pendingWeight?: number;
+  private _lastDispatchedWeight?: number;
+
+  private _dispatchWeight(val: number) {
+    if (this._lastDispatchedWeight === val) return;
+    this._lastDispatchedWeight = val;
+    
     const sel = this.boardState.selectedNode!;
     this.dispatchEvent(new CustomEvent('update-node', {
       detail: { curve: sel.curve, index: sel.index, weight: val },
       bubbles: true, composed: true
     }));
+  }
+
+  private _dispatchWeightThrottled(val: number) {
+    this._pendingWeight = val;
+    if (!this._weightThrottleTimer) {
+      this._dispatchWeight(val);
+      this._weightThrottleTimer = window.setTimeout(() => {
+        if (this._pendingWeight !== undefined && this._pendingWeight !== val) {
+          this._dispatchWeight(this._pendingWeight);
+        }
+        this._weightThrottleTimer = undefined;
+      }, 100);
+    }
+  }
+
+  private _handleWeightChange(val: number) {
+    this._dragWeightValue = val;
+    this.requestUpdate();
+    this._dispatchWeightThrottled(val);
   }
 
   private _handleAnchorChange(axis: 0|1|2, val: number) {
@@ -256,29 +284,49 @@ export class NodeInspector extends LitElement {
           ${renderInput('Z (L)', anc[2], isSlice, (v) => this._handleAnchorChange(2, v))}
         </div>
 
-        <div class="mb-4 bg-zinc-950/50 p-2 rounded border border-zinc-800">
-          <div class="flex justify-between items-center mb-2">
-            <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Node Tension (Weight)</h4>
-            <span class="text-[10px] font-mono bg-zinc-900 text-emerald-400 px-1.5 py-0.5 rounded border border-zinc-700 shadow-inner">
-              ${(curveData.weights?.[sel.index] ?? 1.0).toFixed(2)}x
-            </span>
+                ${(() => {
+          const propWeight = curveData.weights?.[sel.index] ?? 1.0;
+          if (!this._isDraggingWeight && this._dragWeightValue === propWeight) {
+            this._dragWeightValue = undefined;
+          }
+          const activeWeight = this._dragWeightValue !== undefined ? this._dragWeightValue : propWeight;
+
+          return html`
+          <div class="mb-4 bg-zinc-950/50 p-2 rounded border border-zinc-800">
+            <div class="flex justify-between items-center mb-2">
+              <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Node Tension (Weight)</h4>
+              <span class="text-[10px] font-mono bg-zinc-900 text-emerald-400 px-1.5 py-0.5 rounded border border-zinc-700 shadow-inner">
+                ${activeWeight.toFixed(2)}x
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input 
+                type="range" min="0.1" max="10.0" step="0.1"
+                .value=${activeWeight.toString()}
+                @pointerdown=${() => this._isDraggingWeight = true}
+                @pointerup=${() => {
+                  this._isDraggingWeight = false;
+                  if (this._dragWeightValue !== undefined) this._dispatchWeight(this._dragWeightValue);
+                }}
+                @pointercancel=${() => this._isDraggingWeight = false}
+                @input=${(e: Event) => this._handleWeightChange(parseFloat((e.target as HTMLInputElement).value))}
+                class="w-full accent-emerald-500 cursor-pointer"
+              />
+              <button type="button"
+                @click=${() => {
+                  this._dragWeightValue = 1.0;
+                  this._isDraggingWeight = false;
+                  this._dispatchWeight(1.0);
+                }}
+                class="text-[10px] font-bold tracking-wider uppercase bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors"
+                title="Reset to Standard Bezier (1.0)"
+              >
+                RST
+              </button>
+            </div>
           </div>
-                    <div class="flex items-center gap-2">
-            <input 
-              type="range" min="0.1" max="10.0" step="0.1"
-              .value=${(curveData.weights?.[sel.index] ?? 1.0).toString()}
-              @input=${(e: Event) => this._handleWeightChange(parseFloat((e.target as HTMLInputElement).value))}
-              class="w-full accent-emerald-500 cursor-pointer"
-            />
-            <button type="button"
-              @click=${() => this._handleWeightChange(1.0)}
-              class="text-[10px] font-bold tracking-wider uppercase bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white px-2 py-1 rounded transition-colors"
-              title="Reset to Standard Bezier (1.0)"
-            >
-              RST
-            </button>
-          </div>
-        </div>
+          `;
+        })()}
 
         ${isEndNode ? '' : html`
         <div class="mb-4">

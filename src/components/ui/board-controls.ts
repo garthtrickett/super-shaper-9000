@@ -54,12 +54,37 @@ export class BoardControls extends LitElement {
     return this; // Light DOM for Tailwind 
   }
 
+    private _dragValues: Record<string, number> = {};
+  private _activeDragKeys = new Set<string>();
+  private _pendingDispatches: Record<string, number> = {};
+  private _throttleTimers: Record<string, number> = {};
+  private _lastDispatched: Record<string, number> = {};
+
   private _dispatchNumber(param: string, value: number) {
+    if (this._lastDispatched[param] === value) return;
+    this._lastDispatched[param] = value;
+    
     this.dispatchEvent(new CustomEvent("number-changed", { 
       detail: { param, value },
       bubbles: true,
       composed: true
     }));
+  }
+
+  private _dispatchNumberThrottled(param: string, value: number) {
+    this._pendingDispatches[param] = value;
+    
+    if (!this._throttleTimers[param]) {
+      this._dispatchNumber(param, value);
+      
+      this._throttleTimers[param] = window.setTimeout(() => {
+        const latest = this._pendingDispatches[param];
+        if (latest !== undefined && latest !== value) {
+          this._dispatchNumber(param, latest);
+        }
+        delete this._throttleTimers[param];
+      }, 100);
+    }
   }
 
   private _dispatchString(param: string, value: string) {
@@ -78,13 +103,19 @@ export class BoardControls extends LitElement {
     }));
   }
 
-  private _renderSlider(label: string, key: string, min: number, max: number, step: number, value: number, unit = "\"", disabled = false) {
-    let displayValue = `${value.toFixed(2)}${unit}`;
+    private _renderSlider(label: string, key: string, min: number, max: number, step: number, value: number, unit = "\"", disabled = false) {
+    if (!this._activeDragKeys.has(key) && this._dragValues[key] === value) {
+      delete this._dragValues[key];
+    }
+
+    const activeValue = this._dragValues[key] !== undefined ? this._dragValues[key] : value;
+    
+    let displayValue = `${activeValue.toFixed(2)}${unit}`;
     
     // Surfboards conventionally display length in feet and inches (e.g., 5'10")
     if (key === "length") {
-      const feet = Math.floor(value / 12);
-      const inches = value % 12;
+      const feet = Math.floor(activeValue / 12);
+      const inches = activeValue % 12;
       const inchStr = inches % 1 === 0 ? inches.toString() : inches.toFixed(1);
       displayValue = `${feet}'${inchStr}"`;
     }
@@ -98,9 +129,21 @@ export class BoardControls extends LitElement {
         <input 
           type="range" 
           min="${min}" max="${max}" step="${step}" 
-          .value="${String(value)}"
+          .value="${String(activeValue)}"
           ?disabled=${disabled}
-          @input=${(e: Event) => this._dispatchNumber(key, parseFloat((e.target as HTMLInputElement).value))}
+          @pointerdown=${() => this._activeDragKeys.add(key)}
+          @pointerup=${() => {
+            this._activeDragKeys.delete(key);
+            const finalVal = this._dragValues[key];
+            if (finalVal !== undefined) this._dispatchNumber(key, finalVal);
+          }}
+          @pointercancel=${() => this._activeDragKeys.delete(key)}
+          @input=${(e: Event) => {
+            const val = parseFloat((e.target as HTMLInputElement).value);
+            this._dragValues[key] = val;
+            this.requestUpdate();
+            this._dispatchNumberThrottled(key, val);
+          }}
           class="w-full accent-blue-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
         />
       </div>
