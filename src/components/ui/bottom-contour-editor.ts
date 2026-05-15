@@ -34,7 +34,7 @@ export class BottomContourEditor extends LitElement {
         const target = e.target as Element;
     try {
       target.setPointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch  {}
     this.activeDrag = { curve, index, origZ, pointerId: e.pointerId };
   };
 
@@ -74,7 +74,7 @@ export class BottomContourEditor extends LitElement {
         if (target.hasPointerCapture(e.pointerId)) {
           target.releasePointerCapture(e.pointerId);
         }
-      } catch (err) {}
+      } catch  {}
       this.activeDrag = null;
     }
   };

@@ -94,7 +94,8 @@ test.describe('Quad Viewport CAD Interface', () => {
     // --- 1. Dynamically locate the 3D Gizmo from the application state ---
     // This perfectly calculates the projection matrix equivalent to find the 2px sphere.
     const hitPosition = await page.evaluate<{ x: number; y: number } | null>(() => {
-            type BoardViewportElement = HTMLElement & {
+                  type BoardViewportElement = HTMLElement & {
+        requestUpdate?: () => void;
         boardState?: {
           gizmoScaleTop?: number;
           outline?: {
@@ -108,7 +109,7 @@ test.describe('Quad Viewport CAD Interface', () => {
 
       if (viewport.boardState) {
         viewport.boardState.gizmoScaleTop = 3.0;
-        (viewport as any).requestUpdate();
+        viewport.requestUpdate?.();
       }
 
       const outline = viewport.boardState.outline;
