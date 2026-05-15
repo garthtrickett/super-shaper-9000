@@ -36,7 +36,7 @@ describe("BottomContourEditor", () => {
                 const spy = sinon.spy();
     el.addEventListener("update-node-position", spy);
 
-    const pointerMoveEvent = new PointerEvent("pointermove", { pointerId: 1, clientX: 100, clientY: 100, bubbles: true });
+        const pointerMoveEvent = new PointerEvent("pointermove", { pointerId: 1, clientX: -3, clientY: 0.5, bubbles: true });
 
     // Directly set active drag state to avoid flaky synthetic pointer events
     (el as any).activeDrag = { curve: "channel_0_left_outline", index: 0, origZ: 50, pointerId: pointerMoveEvent.pointerId };
@@ -45,17 +45,9 @@ describe("BottomContourEditor", () => {
     // Simulate pointer move on SVG
     const svg = el.querySelector("svg")!;
     
-    // Mock the CTM and SVG Point translation for headless test
+    // Mock the CTM for headless test using native DOMMatrix to avoid matrixTransform TypeError
     const gEl = el.querySelector('#transform-group') as any;
-    gEl.getScreenCTM = () => ({
-      inverse: () => ({
-        a: 1, b: 0, c: 0, d: 1, e: 0, f: 0
-      })
-    });
-    svg.createSVGPoint = () => ({
-      x: 0, y: 0,
-      matrixTransform: () => ({ x: -3, y: 0.5 })
-    }) as any;
+    gEl.getScreenCTM = () => new DOMMatrix();
 
     svg.dispatchEvent(pointerMoveEvent);
 
