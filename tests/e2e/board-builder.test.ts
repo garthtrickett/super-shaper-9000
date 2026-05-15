@@ -31,8 +31,9 @@ test('Board Builder UI updates correctly on slider changes', async ({ page }) =>
   const lengthSlider = lengthContainer.locator('input[type="range"]');
 
   // Change length from 70 to 90 (significantly longer to trigger adaptive subdivision)
-  await lengthSlider.fill('90'); 
+    await lengthSlider.fill('90'); 
   await lengthSlider.dispatchEvent('input');
+  await lengthSlider.dispatchEvent('pointerup');
 
   // 3. Wait for debounce (150ms) and WASM worker computation to settle
   await page.waitForTimeout(600);

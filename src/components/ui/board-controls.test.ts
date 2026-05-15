@@ -5,10 +5,10 @@ import type { BoardControls } from "./board-controls";
 
 describe("BoardControls (UI Component)", () => {
   describe("Event Dispatching", () => {
-    it("should emit number-changed event when length slider is moved", async () => {
+        it("should emit preview-number event when length slider is moved", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
-      el.addEventListener("number-changed", spy);
+      el.addEventListener("preview-number", spy);
 
       // Robustly find the length slider by its associated label
       const labels = Array.from(el.querySelectorAll('label'));
@@ -23,6 +23,52 @@ describe("BoardControls (UI Component)", () => {
 
       expect(spy.calledOnce).to.be.true;
       expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 72 });
+    });
+
+    it("should emit number-changed event when length slider drag ends", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("number-changed", spy);
+
+      const labels = Array.from(el.querySelectorAll('label'));
+      const lengthLabel = labels.find(l => l.textContent?.includes("Length"));
+      const lengthInput = lengthLabel!.parentElement!.parentElement!.querySelector('input[type="range"]') as HTMLInputElement;
+      
+      lengthInput.value = "72";
+      lengthInput.dispatchEvent(new Event("input"));
+      lengthInput.dispatchEvent(new Event("pointerup"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 72 });
+    });
+
+    it("should emit number-changed event when text input is changed", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("number-changed", spy);
+
+      const labels = Array.from(el.querySelectorAll('label'));
+      const lengthLabel = labels.find(l => l.textContent?.includes("Length"));
+      const lengthTextInput = lengthLabel!.parentElement!.querySelector('input[type="text"]') as HTMLInputElement;
+      
+      lengthTextInput.value = "73";
+      lengthTextInput.dispatchEvent(new Event("change"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 73 });
+    });
+
+    it("should emit new-design event when New Design button is clicked", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("new-design", spy);
+
+      const buttons = Array.from(el.querySelectorAll("button"));
+      const btn = buttons.find(b => b.textContent?.includes("Start New Design"));
+      expect(btn).to.exist;
+
+      btn!.click();
+      expect(spy.calledOnce).to.be.true;
     });
 
     it("should emit string-changed event when fin setup select is changed", async () => {
@@ -118,11 +164,11 @@ describe("BoardControls (UI Component)", () => {
       expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "showMriView", value: true });
     });
 
-    it("should emit number-changed event when Slice Position slider is moved", async () => {
+        it("should emit preview-number event when Slice Position slider is moved", async () => {
       // Provide showMriView = true so the conditional slider renders
       const el = await fixture<BoardControls>(html`<board-controls .showMriView=${true}></board-controls>`);
       const spy = sinon.spy();
-      el.addEventListener("number-changed", spy);
+      el.addEventListener("preview-number", spy);
 
       const labels = Array.from(el.querySelectorAll("label"));
       const positionLabel = labels.find(l => l.textContent?.includes("Slice Position"));
@@ -133,6 +179,23 @@ describe("BoardControls (UI Component)", () => {
 
       positionInput.value = "75";
       positionInput.dispatchEvent(new Event("input"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "mriSlicePosition", value: 75 });
+    });
+
+    it("should emit number-changed event when Slice Position slider drag ends", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls .showMriView=${true}></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("number-changed", spy);
+
+      const labels = Array.from(el.querySelectorAll("label"));
+      const positionLabel = labels.find(l => l.textContent?.includes("Slice Position"));
+      const positionInput = positionLabel!.parentElement!.parentElement!.querySelector('input[type="range"]') as HTMLInputElement;
+
+      positionInput.value = "75";
+      positionInput.dispatchEvent(new Event("input"));
+      positionInput.dispatchEvent(new Event("pointerup"));
 
       expect(spy.calledOnce).to.be.true;
       expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "mriSlicePosition", value: 75 });

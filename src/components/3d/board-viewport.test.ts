@@ -14,7 +14,7 @@ describe("BoardViewport (3D Component)", () => {
     expect(el.meshData?.volumeLiters).to.equal(28.5);
   });
 
-  it("should render a canvas element in the light DOM", async () => {
+    it("should render a canvas element in the light DOM", async () => {
     const el = await fixture<BoardViewport>(
       html`<board-viewport></board-viewport>`
     );
@@ -24,7 +24,37 @@ describe("BoardViewport (3D Component)", () => {
     expect(canvas?.tagName.toLowerCase()).to.equal("canvas");
   });
 
-  describe("Camera & Viewport Controls", () => {
+  it("shows processing spinner when isProcessing is true", async () => {
+    const el = await fixture<BoardViewport>(html`<board-viewport .isProcessing=${true}></board-viewport>`);
+    
+    const spinner = Array.from(el.querySelectorAll('div')).find(div => div.textContent?.includes('Computing'));
+    expect(spinner).to.exist;
+  });
+
+    describe("Camera & Viewport Controls", () => {
+    it("renders profile slice selector and updates active profile slice", async () => {
+      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
+      
+      // Mock the quad view layout (which renders the selector)
+      (el as any).maximizedView = null;
+      await el.updateComplete;
+
+      const select = el.querySelector('select');
+      expect(select).to.exist;
+      
+      // By default it should be on slice 0
+      expect((el as any).activeProfileSlice).to.equal(0);
+      
+      // Add a dummy second slice to state to allow selection
+      el.boardState = { ...INITIAL_STATE, crossSections: [INITIAL_STATE.crossSections[0], INITIAL_STATE.crossSections[0]] } as any;
+      await el.updateComplete;
+
+      select!.value = "1";
+      select!.dispatchEvent(new Event("change"));
+
+      expect((el as any).activeProfileSlice).to.equal(1);
+    });
+
     it("flips the board container when Flip button is clicked", async () => {
       const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
 
@@ -115,6 +145,36 @@ describe("BoardViewport (3D Component)", () => {
   });
 
   describe("Stationary Node Insertion", () => {
+        it("emits add-cross-section event on ctrl-click outline", async () => {
+      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
+      
+      el.mathEngine = {
+        get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
+        sample_curve: () => new Float32Array(300),
+        getXOffset: () => 10,
+        find_closest_t: () => 0.5,
+        get_point_on_curve: () => new Float32Array([1, 2, 50])
+      } as any;
+
+      (el as any)._updateGeometry();
+
+      const addSliceSpy = sinon.spy();
+      el.addEventListener('add-cross-section', addSliceSpy);
+
+      const wireframeGroup = (el as any).wireframeGroup as THREE.Group;
+      const testLine = wireframeGroup.children.find(c => c.userData.curve === 'outline') as THREE.Line;
+      expect(testLine).to.exist;
+
+      const im = (el as any).interactionManager;
+      im.raycaster.intersectObjects = () => [{ object: testLine, distance: 10, distanceToRay: 0 }];
+      
+      const canvas = el.querySelector("canvas")!;
+      canvas.dispatchEvent(new PointerEvent("pointerdown", { ctrlKey: true, button: 0, clientX: 100, clientY: 100, bubbles: true }));
+
+      expect(addSliceSpy.calledOnce).to.be.true;
+      expect(addSliceSpy.firstCall.args[0].detail.z).to.equal(50);
+    });
+
     it("emits insert-node event on right-click without prior hover", async () => {
       const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
       

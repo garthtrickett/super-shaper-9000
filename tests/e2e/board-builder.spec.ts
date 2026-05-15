@@ -230,8 +230,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 3. Adjust the depth
     const depthInput = depthContainer.locator('input[type="range"]');
-    await depthInput.fill('6.5');
+        await depthInput.fill('6.5');
     await depthInput.dispatchEvent('input');
+    await depthInput.dispatchEvent('pointerup');
     
     // Wait for the geometry debounce to settle
     await page.waitForTimeout(500);
@@ -683,8 +684,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Default should be 1.00x
     await expect(weightBadge).toContainText('1.00x');
 
-    // Set the slider value (Playwright supports fill for range inputs)
+        // Set the slider value (Playwright supports fill for range inputs)
     await weightSlider.fill('5.5');
+    await weightSlider.dispatchEvent('input');
+    await weightSlider.dispatchEvent('pointerup');
 
     // 4. Verify no crash and the DOM successfully re-renders with WASM data
     const canvas = viewport.locator("canvas");
