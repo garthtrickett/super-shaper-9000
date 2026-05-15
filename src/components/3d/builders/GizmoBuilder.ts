@@ -75,41 +75,43 @@ export class GizmoBuilder {
         const matLayerAnchor = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false });
     const matLayerHandle = new THREE.MeshBasicMaterial({ color: 0xfcd34d, depthTest: false });
 
-                const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, layerIndex: number, isLayer = false) => {
+                const drawGizmosForCurve = (curve: BezierCurveData | undefined, curveName: string, orthoLayerIndex: number, isLayer = false) => {
         const aMat = isLayer ? matLayerAnchor : matAnchor;
         const hMat = isLayer ? matLayerHandle : matHandle;
         if (!curve) return;
 
                 const isCrossSection = curveName.startsWith('crossSection_');
-        const isSideView = layerIndex === 2;
-        const isTopView = layerIndex === 1;
+        const isSideView = orthoLayerIndex === 12;
+        const isTopView = orthoLayerIndex === 11;
 
-        let scaleX = 1.0;
-        let scaleY = 1.0;
-        let scaleZ = 1.0;
+        let orthoScaleX = 1.0;
+        let orthoScaleY = 1.0;
+        let orthoScaleZ = 1.0;
 
-        let userScale = 1.0;
+        let orthoUserScale = 1.0;
         if (isCrossSection) {
-            userScale = boardState.gizmoScaleProfile ?? 1.0;
+            orthoUserScale = boardState.gizmoScaleProfile ?? 1.0;
         } else if (isSideView) {
-            userScale = boardState.gizmoScaleSide ?? 1.0;
+            orthoUserScale = boardState.gizmoScaleSide ?? 1.0;
         } else if (isTopView) {
-            userScale = boardState.gizmoScaleTop ?? 1.0;
+            orthoUserScale = boardState.gizmoScaleTop ?? 1.0;
         }
 
         if (isCrossSection) {
-            scaleX = (1.0 / 3.5) * userScale;
-            scaleY = (1.0 / 3.5) * userScale;
-            scaleZ = (1.0 / 3.5) * userScale;
+            orthoScaleX = (1.0 / 3.5) * orthoUserScale;
+            orthoScaleY = (1.0 / 3.5) * orthoUserScale;
+            orthoScaleZ = (1.0 / 3.5) * orthoUserScale;
         } else if (isSideView) {
-            scaleX = (1.0 / 3.0) * userScale;
-            scaleY = ((1.0 / 3.0) / 2.5) * userScale; // Counter-stretch for 2.5x camera Y stretch
-            scaleZ = (1.0 / 3.0) * userScale;
+            orthoScaleX = (1.0 / 3.0) * orthoUserScale;
+            orthoScaleY = ((1.0 / 3.0) / 2.5) * orthoUserScale; // Counter-stretch for 2.5x camera Y stretch
+            orthoScaleZ = (1.0 / 3.0) * orthoUserScale;
         } else {
-            scaleX = userScale;
-            scaleY = userScale;
-            scaleZ = userScale;
+            orthoScaleX = orthoUserScale;
+            orthoScaleY = orthoUserScale;
+            orthoScaleZ = orthoUserScale;
         }
+
+        const perspScale = boardState.gizmoScalePerspective ?? 1.0;
 
         for (let i = 0; i < curve.controlPoints.length; i++) {
             const cp = curve.controlPoints[i]!;
@@ -119,50 +121,50 @@ export class GizmoBuilder {
             const cpY = getZHeight(curveName, cp[1], cp[2]);
             const cpX = getXOffset(curveName, cp[0], cp[2]);
 
-                        const anchorMesh = new THREE.Mesh(anchorGeo, aMat);
-            anchorMesh.scale.set(scaleX, scaleY, scaleZ);
-            anchorMesh.position.set(cpX * scale, cpY * scale, cp[2] * scale);
-            anchorMesh.renderOrder = 999;
-            anchorMesh.layers.set(layerIndex);
-            anchorMesh.userData = { 
-                isGizmo: true, 
-                type: 'anchor', 
-                curve: curveName, 
-                index: i,
-                maxIndex: curve.controlPoints.length - 1,
-                origZ: cp[2]
+            const buildNode = (x: number, y: number, z: number, type: string, sx: number, sy: number, sz: number, targetLayer: number) => {
+                const isAnchor = type === 'anchor';
+                const mesh = new THREE.Mesh(isAnchor ? anchorGeo : handleGeo, isAnchor ? aMat : hMat);
+                mesh.scale.set(sx, sy, sz);
+                mesh.position.set(x * scale, y * scale, z * scale);
+                mesh.renderOrder = 999;
+                mesh.layers.set(targetLayer);
+                mesh.userData = { 
+                    isGizmo: true, 
+                    type, 
+                    curve: curveName, 
+                    index: i,
+                    maxIndex: curve.controlPoints.length - 1,
+                    origZ: z
+                };
+                group.add(mesh);
             };
-            group.add(anchorMesh);
 
-                        const drawHandle = (t:[number, number, number], handleType: string) => {
+            buildNode(cpX, cpY, cp[2], 'anchor', orthoScaleX, orthoScaleY, orthoScaleZ, orthoLayerIndex);
+            buildNode(cpX, cpY, cp[2], 'anchor', perspScale, perspScale, perspScale, 15);
+
+            const drawHandle = (t:[number, number, number], handleType: string) => {
                 if (Math.abs(t[0]-cp[0]) < 0.001 && Math.abs(t[1]-cp[1]) < 0.001 && Math.abs(t[2]-cp[2]) < 0.001) return;
 
                 const tY = getZHeight(curveName, t[1], t[2]);
                 const tX = getXOffset(curveName, t[0], t[2]);
-                                const handleMesh = new THREE.Mesh(handleGeo, hMat);
-                handleMesh.scale.set(scaleX, scaleY, scaleZ);
-                handleMesh.position.set(tX * scale, tY * scale, t[2] * scale);
-                handleMesh.renderOrder = 999;
-                handleMesh.layers.set(layerIndex);
-                handleMesh.userData = { 
-                    isGizmo: true, 
-                    type: handleType, 
-                    curve: curveName, 
-                    index: i,
-                    maxIndex: curve.controlPoints.length - 1,
-                    origZ: t[2]
-                };
-                group.add(handleMesh);
 
-                const lineGeo = new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(cpX * scale, cpY * scale, cp[2] * scale),
-                    new THREE.Vector3(tX * scale, tY * scale, t[2] * scale)
-                ]);
-                const line = new THREE.Line(lineGeo, isCrossSection ? lineMatCrossSection : lineMat);
-                line.computeLineDistances();
-                line.renderOrder = 998;
-                line.layers.set(layerIndex);
-                group.add(line);
+                buildNode(tX, tY, t[2], handleType, orthoScaleX, orthoScaleY, orthoScaleZ, orthoLayerIndex);
+                buildNode(tX, tY, t[2], handleType, perspScale, perspScale, perspScale, 15);
+
+                const buildLine = (targetLayer: number) => {
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(cpX * scale, cpY * scale, cp[2] * scale),
+                        new THREE.Vector3(tX * scale, tY * scale, t[2] * scale)
+                    ]);
+                    const line = new THREE.Line(lineGeo, isCrossSection ? lineMatCrossSection : lineMat);
+                    line.computeLineDistances();
+                    line.renderOrder = 998;
+                    line.layers.set(targetLayer);
+                    group.add(line);
+                };
+                
+                buildLine(orthoLayerIndex);
+                buildLine(15);
             };
 
             if (t1) drawHandle(t1, 'tangent1');
@@ -170,46 +172,45 @@ export class GizmoBuilder {
         }
     };
 
-    if (boardState.showOutline !== false) drawGizmosForCurve(boardState.outline, 'outline', 1);
-    if (boardState.showRockerTop !== false) drawGizmosForCurve(boardState.rockerTop, 'rockerTop', 2);
-    if (boardState.showRockerBottom !== false) drawGizmosForCurve(boardState.rockerBottom, 'rockerBottom', 2);
-    if (boardState.showApexOutline !== false) drawGizmosForCurve(boardState.apexOutline, 'apexOutline', 1);
-    if (boardState.showRailOutline !== false) drawGizmosForCurve(boardState.railOutline, 'railOutline', 1);
-        if (boardState.showApexRocker !== false) drawGizmosForCurve(boardState.apexRocker, 'apexRocker', 2);
-    if (boardState.showDeckShoulder !== false) drawGizmosForCurve(boardState.deckShoulder, 'deckShoulder', 1);
+    if (boardState.showOutline !== false) drawGizmosForCurve(boardState.outline, 'outline', 11);
+    if (boardState.showRockerTop !== false) drawGizmosForCurve(boardState.rockerTop, 'rockerTop', 12);
+    if (boardState.showRockerBottom !== false) drawGizmosForCurve(boardState.rockerBottom, 'rockerBottom', 12);
+    if (boardState.showApexOutline !== false) drawGizmosForCurve(boardState.apexOutline, 'apexOutline', 11);
+    if (boardState.showRailOutline !== false) drawGizmosForCurve(boardState.railOutline, 'railOutline', 11);
+    if (boardState.showApexRocker !== false) drawGizmosForCurve(boardState.apexRocker, 'apexRocker', 12);
+    if (boardState.showDeckShoulder !== false) drawGizmosForCurve(boardState.deckShoulder, 'deckShoulder', 11);
     
-            if (boardState.showCrossSections !== false && boardState.crossSections) {
+    if (boardState.showCrossSections !== false && boardState.crossSections) {
         boardState.crossSections.forEach((cs, idx) => {
-            // The active profile slice goes on layer 3 (visible to profile cam), others on layer 4 (only visible to perspective cam)
-            drawGizmosForCurve(cs, `crossSection_${idx}`, idx === activeProfileSlice ? 3 : 4);
+            drawGizmosForCurve(cs, `crossSection_${idx}`, idx === activeProfileSlice ? 13 : 14);
         });
     }
 
-                if (boardState.showOutline !== false && boardState.outlineLayers) {
+    if (boardState.showOutline !== false && boardState.outlineLayers) {
         boardState.outlineLayers.forEach((layer, idx) => {
             if (layer.active === false) return;
             if (layer.otlExt?.controlPoints?.length > 0) {
-                drawGizmosForCurve(layer.otlExt, `outlineLayer_${idx}_ext`, 1, true);
+                drawGizmosForCurve(layer.otlExt, `outlineLayer_${idx}_ext`, 11, true);
             }
             if (layer.otlInt?.controlPoints?.length > 0) {
-                drawGizmosForCurve(layer.otlInt, `outlineLayer_${idx}_int`, 1, true);
+                drawGizmosForCurve(layer.otlInt, `outlineLayer_${idx}_int`, 11, true);
             }
         });
     }
 
-        if (boardState.bottomChannels) {
+    if (boardState.bottomChannels) {
         boardState.bottomChannels.forEach((channel, idx) => {
             if (channel.leftOutline?.controlPoints?.length > 0) {
-                drawGizmosForCurve(channel.leftOutline, `channel_${idx}_left_outline`, 1, true);
+                drawGizmosForCurve(channel.leftOutline, `channel_${idx}_left_outline`, 11, true);
             }
             if (channel.rightOutline?.controlPoints?.length > 0) {
-                drawGizmosForCurve(channel.rightOutline, `channel_${idx}_right_outline`, 1, true);
+                drawGizmosForCurve(channel.rightOutline, `channel_${idx}_right_outline`, 11, true);
             }
             if (channel.leftDepth?.controlPoints?.length > 0) {
-                drawGizmosForCurve(channel.leftDepth, `channel_${idx}_left_depth`, 2, true);
+                drawGizmosForCurve(channel.leftDepth, `channel_${idx}_left_depth`, 12, true);
             }
             if (channel.rightDepth?.controlPoints?.length > 0) {
-                drawGizmosForCurve(channel.rightDepth, `channel_${idx}_right_depth`, 2, true);
+                drawGizmosForCurve(channel.rightDepth, `channel_${idx}_right_depth`, 12, true);
             }
         });
     }
