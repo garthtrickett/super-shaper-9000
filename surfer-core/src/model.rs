@@ -92,8 +92,8 @@ pub struct BoardModel {
     #[serde(default = "default_one")]
     pub rail_coefficient_nose: f32,
     #[serde(default = "default_one")]
-        pub thickness_z_stretch: f32,
-        pub gizmo_scale_top: Option<f32>,
+    pub thickness_z_stretch: f32,
+    pub gizmo_scale_top: Option<f32>,
     pub gizmo_scale_side: Option<f32>,
     pub gizmo_scale_profile: Option<f32>,
     pub gizmo_scale_perspective: Option<f32>,
@@ -261,7 +261,7 @@ impl approx::AbsDiffEq for BoardModel {
                 &other.rail_coefficient_nose,
                 epsilon,
             )
-                        && f32::abs_diff_eq(
+            && f32::abs_diff_eq(
                 &self.thickness_z_stretch,
                 &other.thickness_z_stretch,
                 epsilon,
@@ -276,12 +276,15 @@ impl approx::AbsDiffEq for BoardModel {
                 (None, None) => true,
                 _ => false,
             })
-                        && (match (&self.gizmo_scale_profile, &other.gizmo_scale_profile) {
+            && (match (&self.gizmo_scale_profile, &other.gizmo_scale_profile) {
                 (Some(a), Some(b)) => f32::abs_diff_eq(a, b, epsilon),
                 (None, None) => true,
                 _ => false,
             })
-            && (match (&self.gizmo_scale_perspective, &other.gizmo_scale_perspective) {
+            && (match (
+                &self.gizmo_scale_perspective,
+                &other.gizmo_scale_perspective,
+            ) {
                 (Some(a), Some(b)) => f32::abs_diff_eq(a, b, epsilon),
                 (None, None) => true,
                 _ => false,
@@ -381,10 +384,10 @@ impl Default for BoardModel {
             v_concave_nose: 0.0,
             rail_coefficient_tail: 1.0,
             rail_coefficient_nose: 1.0,
-                        thickness_z_stretch: 1.0,
+            thickness_z_stretch: 1.0,
             gizmo_scale_top: None,
             gizmo_scale_side: None,
-                        gizmo_scale_profile: None,
+            gizmo_scale_profile: None,
             gizmo_scale_perspective: None,
             show_gizmos: None,
             show_solid_mesh: None,
@@ -503,7 +506,7 @@ pub enum BoardAction {
     #[serde(rename = "IMPORT_S3DX")]
     #[serde(rename_all = "camelCase")]
     ImportS3dx { xml: String },
-        #[serde(rename = "IMPORT_BRD")]
+    #[serde(rename = "IMPORT_BRD")]
     #[serde(rename_all = "camelCase")]
     ImportBrd { bytes: Vec<u8> },
     #[serde(rename = "ADD_CROSS_SECTION")]
