@@ -31,8 +31,10 @@ export class BottomContourEditor extends LitElement {
     private _handlePointerDown = (e: PointerEvent, curve: string, index: number, origZ: number) => {
     e.preventDefault();
     e.stopPropagation();
-    const target = e.target as Element;
-    target.setPointerCapture(e.pointerId);
+        const target = e.target as Element;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch (err) {}
     this.activeDrag = { curve, index, origZ, pointerId: e.pointerId };
   };
 
@@ -68,9 +70,11 @@ export class BottomContourEditor extends LitElement {
     private _handlePointerUp = (e: PointerEvent) => {
     if (this.activeDrag && this.activeDrag.pointerId === e.pointerId) {
       const target = e.target as Element;
-      if (target.hasPointerCapture(e.pointerId)) {
-        target.releasePointerCapture(e.pointerId);
-      }
+            try {
+        if (target.hasPointerCapture(e.pointerId)) {
+          target.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) {}
       this.activeDrag = null;
     }
   };

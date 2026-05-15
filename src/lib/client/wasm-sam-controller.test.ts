@@ -15,8 +15,11 @@ describe("WasmSamController (FFI Integration)", () => {
     const host = new MockHost();
     const controller = new WasmSamController(host);
 
-        // Wait for the worker to initialize the WASM module and post back the INITIAL_STATE
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+            // Wait for the worker to initialize the WASM module and post back the INITIAL_STATE
+    for (let i = 0; i < 40; i++) {
+      if (controller.model) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 
     expect(controller.model).to.exist;
         expect(controller.model!.length).to.equal(70.0); // Default Rust model length
@@ -39,7 +42,10 @@ describe("WasmSamController (FFI Integration)", () => {
     const host = new MockHost();
     const controller = new WasmSamController(host);
 
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+            for (let i = 0; i < 40; i++) {
+      if (controller.model) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
     const initialLength = controller.model!.length;
 
     controller.propose({
@@ -71,8 +77,11 @@ describe("WasmSamController (FFI Integration)", () => {
     const host = new MockHost();
     const controller = new WasmSamController(host);
 
-        // Wait for init
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+                // Wait for init
+    for (let i = 0; i < 40; i++) {
+      if (controller.model) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
     const initialVertexCount = controller.mesh?.vertexCount;
 
     // Propose a change
@@ -82,8 +91,11 @@ describe("WasmSamController (FFI Integration)", () => {
       value: 85.0
     });
 
-        // Wait for round trip
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+                // Wait for round trip
+        for (let i = 0; i < 40; i++) {
+          if (controller.model!.length === 85.0) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
 
             expect(controller.model!.length).to.equal(85.0);
     expect(controller.curvatureCombs).to.exist;
@@ -98,7 +110,10 @@ describe("WasmSamController (FFI Integration)", () => {
     const host = new MockHost();
     const controller = new WasmSamController(host) as any;
     
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+            for (let i = 0; i < 40; i++) {
+      if (controller.model) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 
     // Send message to worker directly if getSliceProfile is not yet fully typed
     const profile = await new Promise<Float32Array>((resolve) => {
@@ -120,9 +135,12 @@ describe("WasmSamController (FFI Integration)", () => {
   });
 
   it("mocks slice-profile retrieval and verifies distance-based selection analytical endpoints", async () => {
-    const host = new MockHost();
+        const host = new MockHost();
     const controller = new WasmSamController(host);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+    for (let i = 0; i < 40; i++) {
+      if (controller.model) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
     
     // Verify the controller successfully parses analytical requests.
     expect(controller).to.exist;

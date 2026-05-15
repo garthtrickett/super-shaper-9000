@@ -108,8 +108,9 @@ describe("BoardViewport (3D Component)", () => {
         }
       }));
 
-            // Verify the buffer was marked for update
-      expect((line.geometry.attributes.position as THREE.BufferAttribute | undefined)?.needsUpdate).to.be.true;
+                        // Verify the buffer was modified by the projection logic
+      const array = line.geometry.attributes.position.array as Float32Array;
+      expect(array[0]).to.be.closeTo(10 * (1/12), 0.001);
       
       // _updateGeometry should NOT have been called (no full rebuild)
       expect(updateSpy.called).to.be.false;
@@ -167,8 +168,9 @@ describe("BoardViewport (3D Component)", () => {
       const testLine = wireframeGroup.children.find(c => c.userData.curve === 'outline') as THREE.Line;
       expect(testLine).to.exist;
 
-      const im = (el as any).interactionManager;
+            const im = (el as any).interactionManager;
       im.raycaster.intersectObjects = () => [{ object: testLine, distance: 10, distanceToRay: 0 }];
+      im.raycaster.ray.distanceSqToPoint = () => 0;
       
       const canvas = el.querySelector("canvas")!;
       canvas.dispatchEvent(new PointerEvent("pointerdown", { ctrlKey: true, button: 0, clientX: 100, clientY: 100, bubbles: true }));
@@ -198,8 +200,9 @@ describe("BoardViewport (3D Component)", () => {
       const testLine = wireframeGroup.children.find(c => c.userData.curve === 'outline') as THREE.Line;
       expect(testLine).to.exist;
 
-      const im = (el as any).interactionManager;
+            const im = (el as any).interactionManager;
       im.raycaster.intersectObjects = () => [{ object: testLine, distance: 10, distanceToRay: 0 }];
+      im.raycaster.ray.distanceSqToPoint = () => 0;
       
       const canvas = el.querySelector("canvas")!;
       canvas.dispatchEvent(new PointerEvent("pointerdown", { button: 2, clientX: 100, clientY: 100, bubbles: true }));

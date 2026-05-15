@@ -282,7 +282,8 @@ export class BoardViewport extends LitElement {
         vertices[i * 3 + 1] = p[1] * scale;
         vertices[i * 3 + 2] = p[2] * scale;
       });
-        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        if (pts.length === 0) geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 0);
         const line = new THREE.Line(geometry, mat);
         line.layers.set(layerIndex);
         line.userData = { isCurveLine: true, curve: curveName, mirrorX };
