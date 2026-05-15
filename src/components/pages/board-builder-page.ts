@@ -553,7 +553,8 @@ export class BoardBuilderPage extends LitElement {
             // Reset continuity to a safe default when a new node is selected
             this._selectedNodeContinuity = 'G1';
           }}
-          @insert-node=${(e: CustomEvent<{curve: string, t: number}>) => this._proposeAction({ type: "INSERT_NODE", curve: e.detail.curve, t: e.detail.t })}
+                    @insert-node=${(e: CustomEvent<{curve: string, t: number}>) => this._proposeAction({ type: "INSERT_NODE", curve: e.detail.curve, t: e.detail.t })}
+          @add-cross-section=${(e: CustomEvent<{z: number}>) => this._proposeAction({ type: "ADD_CROSS_SECTION", z: e.detail.z })}
           @gizmo-drag-ended=${() => this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" })}
                     @gizmo-dragged=${this._handleGizmoDrag}
         ></board-viewport>
