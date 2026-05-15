@@ -39,8 +39,9 @@ export class BoardViewport extends LitElement {
 
   @query("canvas") private canvas!: HTMLCanvasElement;
     @state() private maximizedView: ViewportId | null = null;
-  @state() private isFlipped = false;
+    @state() private isFlipped = false;
   @state() private isOrtho = false;
+  @state() private activeProfileSlice = 0;
 
   private sceneManager!: SceneManager;
   private interactionManager!: InteractionManager;
@@ -78,11 +79,25 @@ export class BoardViewport extends LitElement {
     });
   }
 
-        override updated(changedProperties: PropertyValues) {
+          override updated(changedProperties: PropertyValues) {
     if (changedProperties.has("curvatureCombs") && this.curvatureCombs) {
       CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
     }
     
+    const prevSlice = this.activeProfileSlice;
+    if (this.boardState?.selectedNode?.curve.startsWith('crossSection_')) {
+        const idx = parseInt(this.boardState.selectedNode.curve.split('_')[1] || "0", 10);
+        if (!isNaN(idx)) {
+            this.activeProfileSlice = idx;
+        }
+    }
+    if (this.boardState?.crossSections && this.activeProfileSlice >= this.boardState.crossSections.length) {
+        this.activeProfileSlice = Math.max(0, this.boardState.crossSections.length - 1);
+    }
+    if (prevSlice !== this.activeProfileSlice) {
+        this.requestUpdate();
+    }
+
                 if ((changedProperties.has("boardState") || changedProperties.has("mathEngine")) && this.boardState) {
       this.interactionManager?.setBoardState(this.boardState);
       const oldState = changedProperties.get("boardState") as BoardModel | undefined;
@@ -201,9 +216,9 @@ export class BoardViewport extends LitElement {
       this.buildSolidMeshFromRust(this.meshData, scale);
     }
     
-    FinBuilder.build(this.finGroup, this.boardState, mathEngine, scale);
+        FinBuilder.build(this.finGroup, this.boardState, mathEngine, scale);
     if (!this.interactionManager?.isDragging()) {
-      GizmoBuilder.build(this.gizmoGroup, this.boardState, mathEngine, scale, this.matAnchor, this.matHandle);
+      GizmoBuilder.build(this.gizmoGroup, this.boardState, mathEngine, scale, this.matAnchor, this.matHandle, this.activeProfileSlice);
     }
     this.buildSliceLines(mathEngine, scale);
     this.buildApexLine(mathEngine, scale);
@@ -473,16 +488,19 @@ export class BoardViewport extends LitElement {
           const worldY = this.getZHeight(curveName, p[1], p[2], mathEngine);
           return new THREE.Vector3(p[0]*scale, worldY*scale, p[2]*scale);
         });
-                const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z));
+                        const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z));
         const color = new THREE.Color(0x334155); // Darker Slate-700
         const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6, depthWrite: false });
+        
+        const targetLayer = idx === this.activeProfileSlice ? 3 : 4;
+
                 const lineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
-        lineRight.layers.set(3);
+        lineRight.layers.set(targetLayer);
         lineRight.userData = { isSlice: true, curveName, defaultColor: color.getHex(), isCurveLine: true, curve: curveName, mirrorX: false };
         this.sliceLinesGroup.add(lineRight);
 
-        const lineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftPts), mat);
-        lineLeft.layers.set(3);
+                const lineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftPts), mat);
+        lineLeft.layers.set(targetLayer);
         lineLeft.userData = { isSlice: true, curveName, defaultColor: color.getHex(), isCurveLine: true, curve: curveName, mirrorX: true };
         this.sliceLinesGroup.add(lineLeft);
       });
@@ -888,14 +906,36 @@ export class BoardViewport extends LitElement {
     this.sceneManager.toggleOrtho();
   };
 
-  override render() {
+    override render() {
     const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l-5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
     const collapseIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>`;
-        const renderQuadrantOverlay = (id: ViewportId, label: string) => html`
+    
+    const renderProfileSliceSelector = () => {
+      if (!this.boardState?.crossSections || this.boardState.crossSections.length === 0) return '';
+      return html`
+        <div class="absolute bottom-3 left-3 pointer-events-auto z-50">
+          <select 
+            class="bg-zinc-950/90 hover:bg-zinc-800 text-[10px] font-bold text-zinc-300 hover:text-white uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border border-zinc-800 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            .value=${this.activeProfileSlice.toString()}
+            @change=${(e: Event) => {
+              this.activeProfileSlice = parseInt((e.target as HTMLSelectElement).value, 10);
+              this._updateGeometry();
+            }}
+          >
+            ${this.boardState.crossSections.map((_, idx) => html`
+              <option value=${idx} ?selected=${this.activeProfileSlice === idx}>Slice ${idx + 1}</option>
+            `)}
+          </select>
+        </div>
+      `;
+    };
+
+    const renderQuadrantOverlay = (id: ViewportId, label: string) => html`
       <div class="relative w-full h-full pointer-events-none">
         <button type="button" @click=${() => this.toggleMaximize(id)} class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-[10px] font-bold text-zinc-400 hover:text-white uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto transition-colors border border-zinc-800 cursor-pointer" title="Maximize ${label}">
           <span>${label}</span> ${expandIcon}
         </button>
+        ${id === 'profile' ? renderProfileSliceSelector() : ''}
       </div>
     `;
     return html`
@@ -918,11 +958,12 @@ export class BoardViewport extends LitElement {
             <div class="border-r border-zinc-800/80">${renderQuadrantOverlay('side', 'Side')}</div>
             <div>${renderQuadrantOverlay('profile', 'Profile')}</div>
           </div>
-                ` : html`
+                                ` : html`
           <div class="w-full h-full relative pointer-events-none">
             <button type="button" @click=${() => this.toggleMaximize(null)} class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto transition-colors border border-zinc-800 cursor-pointer" title="Restore View">
               <span>${this.maximizedView}</span> ${collapseIcon}
             </button>
+            ${this.maximizedView === 'profile' ? renderProfileSliceSelector() : ''}
           </div>
         `}
       </div>

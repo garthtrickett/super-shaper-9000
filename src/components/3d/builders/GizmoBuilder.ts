@@ -5,13 +5,14 @@ import { runClientUnscoped } from "../../../lib/client/runtime";
 import type { WasmEngine } from "../../../lib/client/wasm/surfer_wasm.js";
 
 export class GizmoBuilder {
-  static build(
+    static build(
     group: THREE.Group, 
     boardState: BoardModel,
     mathEngine: WasmEngine, 
     scale: number,
     matAnchor: THREE.Material,
-    matHandle: THREE.Material
+    matHandle: THREE.Material,
+    activeProfileSlice: number = 0
   ) {
     while (group.children.length > 0) {
         const child = group.children[0] as THREE.Mesh | THREE.Line;
@@ -141,9 +142,10 @@ export class GizmoBuilder {
         if (boardState.showApexRocker !== false) drawGizmosForCurve(boardState.apexRocker, 'apexRocker', 2);
     if (boardState.showDeckShoulder !== false) drawGizmosForCurve(boardState.deckShoulder, 'deckShoulder', 1);
     
-        if (boardState.showCrossSections !== false && boardState.crossSections) {
+            if (boardState.showCrossSections !== false && boardState.crossSections) {
         boardState.crossSections.forEach((cs, idx) => {
-            drawGizmosForCurve(cs, `crossSection_${idx}`, 3);
+            // The active profile slice goes on layer 3 (visible to profile cam), others on layer 4 (only visible to perspective cam)
+            drawGizmosForCurve(cs, `crossSection_${idx}`, idx === activeProfileSlice ? 3 : 4);
         });
     }
 
