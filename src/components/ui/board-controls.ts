@@ -196,10 +196,13 @@ export class BoardControls extends LitElement {
               <span class="text-[9px] font-bold uppercase tracking-widest">Computing</span>
             </div>
           ` : ''}
-        </div>
+                </div>
         <!-- Import / Export Actions -->
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
+        <div class="mb-2">
+          <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('new-design', { bubbles: true, composed: true }))} class="w-full bg-red-900/40 hover:bg-red-800/60 text-[10px] font-bold text-red-200 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer border border-red-900/50">Start New Design</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
           <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('export-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Export JSON</button>
         </div>
                         <div class="mb-2">

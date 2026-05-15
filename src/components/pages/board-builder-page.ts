@@ -216,6 +216,13 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
+    private _handleNewDesign() {
+    if (confirm("Are you sure you want to start a new design? All unsaved progress will be lost.")) {
+      localStorage.removeItem("super_shaper_saved_board");
+      this._proposeAction({ type: "LOAD_DESIGN", state: INITIAL_STATE });
+    }
+  }
+
   private _handleImport() {
     try {
       const parsed = JSON.parse(this.importJson) as unknown;
@@ -304,12 +311,41 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-      private _lastSyncedModel?: BoardModel;
+        private _lastSyncedModel?: BoardModel;
+  private _hasLoadedSavedState = false;
+  private _autoSaveTimeout?: number;
 
   protected override willUpdate(changedProperties: PropertyValues) {
     super.willUpdate(changedProperties);
-    // Sync the main-thread mathEngine with the controller's model before every render.
+    
     const modelToSync = this.wasmCtrl.model || INITIAL_STATE;
+
+    if (!this._hasLoadedSavedState && this.wasmCtrl.model) {
+      this._hasLoadedSavedState = true;
+      try {
+        const saved = localStorage.getItem("super_shaper_saved_board");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.length && parsed.outline) {
+            setTimeout(() => {
+              this._proposeAction({ type: "LOAD_DESIGN", state: parsed });
+              console.info("[BoardBuilder] Auto-loaded saved design from localStorage");
+            }, 0);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load saved board state:", err);
+      }
+    }
+
+    if (this._hasLoadedSavedState && this.wasmCtrl.model) {
+      clearTimeout(this._autoSaveTimeout);
+      this._autoSaveTimeout = window.setTimeout(() => {
+        localStorage.setItem("super_shaper_saved_board", JSON.stringify(this.wasmCtrl.model));
+      }, 1000);
+    }
+
+    // Sync the main-thread mathEngine with the controller's model before every render.
     if (this.mathEngine && modelToSync !== this._lastSyncedModel) {
         try {
             this._lastSyncedModel = modelToSync;
@@ -471,9 +507,10 @@ export class BoardBuilderPage extends LitElement {
           .foilData=${foilData}
           @export-design=${() => this.showExportModal = true}
                               @export-s3dx=${() => void this._handleExportS3dx()}
-          @export-brd=${() => void this._handleExportBrd()}
+                    @export-brd=${() => void this._handleExportBrd()}
           @export-obj=${() => void this._handleExportObj()}
           @import-design=${() => this.showImportModal = true}
+          @new-design=${() => this._handleNewDesign()}
                                         @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
                                         @add-outline-layer=${() => this._proposeAction({ type: 'ADD_OUTLINE_LAYER' })}
           @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
