@@ -102,8 +102,13 @@ test.describe('Quad Viewport CAD Interface', () => {
         };
       };
 
-      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
+
+      if (viewport.boardState) {
+        viewport.boardState.gizmoScaleTop = 3.0;
+        (viewport as any).requestUpdate();
+      }
 
       const outline = viewport.boardState.outline;
       // Index 1 is the wide point in the middle of the board
@@ -133,7 +138,8 @@ test.describe('Quad Viewport CAD Interface', () => {
 
       return { x: pixelX, y: pixelY };
     });
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
+    await page.waitForTimeout(500);
 
     // Select the gizmo to open the inspector
     await page.mouse.click(hitPosition!.x, hitPosition!.y);

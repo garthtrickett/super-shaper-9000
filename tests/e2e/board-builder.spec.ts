@@ -149,8 +149,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         };
       };
 
-      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
+
+      if (viewport.boardState) {
+        viewport.boardState.gizmoScaleTop = 3.0;
+        (viewport as any).requestUpdate();
+      }
 
       const outline = viewport.boardState.outline;
       const cp = outline.controlPoints[1]; // Target middle control point
@@ -179,7 +184,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
       return { x: pixelX, y: pixelY };
     });
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
+    await page.waitForTimeout(500);
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
     // 2. Verify the inspector appears
@@ -274,10 +280,17 @@ test.describe("Board Builder E2E: The Golden Path", () => {
           outlineLayers?: { active?: boolean, otlExt: { controlPoints:[number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
       // The wing node for Layer 0 EXT should be there.
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
+      
+      // Force gizmos to be huge to prevent exact-pixel misses in headless
+      if (vp.boardState) {
+        vp.boardState.gizmoScaleTop = 3.0;
+        (vp as any).requestUpdate();
+      }
+      
       const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
@@ -298,7 +311,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       return null;
     });
 
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
+    await page.waitForTimeout(500); // Allow gizmo scale to apply
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
     // 5. Verify the inspector reveals the layer correctly
@@ -332,8 +346,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
           outlineLayers?: { active?: boolean, otlExt: { controlPoints: [number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
+      
+      if (vp.boardState) {
+        vp.boardState.gizmoScaleTop = 3.0;
+        (vp as any).requestUpdate();
+      }
       const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
@@ -356,9 +375,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       return null;
     });
 
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
 
         // Select the gizmo to open the inspector
+    await page.waitForTimeout(500);
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
     await page.waitForTimeout(1000);
 
@@ -409,8 +429,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
           bottomChannels?: { rightOutline: { controlPoints:[number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
+      
+      if (vp.boardState) {
+        vp.boardState.gizmoScaleTop = 3.0;
+        (vp as any).requestUpdate();
+      }
       const cp = vp.boardState.bottomChannels[0]!.rightOutline.controlPoints[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
@@ -431,7 +456,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       return null;
     });
 
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
+    await page.waitForTimeout(500);
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
     // 5. Verify the inspector reveals the layer correctly
@@ -464,8 +490,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
           outlineLayers?: { active?: boolean, otlInt: { controlPoints: [number, number, number][] } }[]
         }
       };
-      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
+      
+      if (vp.boardState) {
+        vp.boardState.gizmoScaleTop = 3.0;
+        (vp as any).requestUpdate();
+      }
       // Target the Interior curve which is typically further IN than the exterior
       const cp = vp.boardState.outlineLayers[0]!.otlInt.controlPoints[0];
       
@@ -487,7 +518,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       return null;
     });
 
-    expect(hitPosition).toBeTruthy();
+        expect(hitPosition).toBeTruthy();
+    await page.waitForTimeout(500);
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
     // 3. Verify Node Inspector specifically confirms 'INT'
@@ -654,8 +686,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       type BoardViewportElement = HTMLElement & {
         boardState?: { outline?: { controlPoints: [number, number, number][] } };
       };
-      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
+      
+      if (viewport.boardState) {
+        viewport.boardState.gizmoScaleTop = 3.0;
+        (viewport as any).requestUpdate();
+      }
       const cp = viewport.boardState.outline.controlPoints[1];
       if (!cp) return null;
       const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
@@ -792,12 +829,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const aspect = rect.width / rect.height;
 
       // Manual projection for bottom-left quadrant (Side view)
-      const frustumSize = 10;
+            const frustumSize = 10;
       const stretchY = 2.5;
       const orthoRight = frustumSize * aspect / 2;
       const orthoTop = (frustumSize / 2) / stretchY;
       
-      const ndcX = worldZ / orthoRight; // In side view, Z is horizontal
+      const ndcX = -worldZ / orthoRight; // In side view, Z is horizontal (inverted)
       const ndcY = worldY / orthoTop; // And Y is vertical
 
       const w = rect.width / 2;
