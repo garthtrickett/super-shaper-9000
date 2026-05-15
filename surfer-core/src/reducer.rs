@@ -1467,7 +1467,7 @@ mod tests {
     use super::*;
     use glam::Vec3;
 
-        fn create_mock_model() -> BoardModel {
+    fn create_mock_model() -> BoardModel {
         BoardModel {
             outline: Some(BezierCurveData {
                 control_points: vec![Vec3::ZERO, Vec3::new(5.0, 0.0, 0.0), Vec3::ZERO],
