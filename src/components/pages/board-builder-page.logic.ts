@@ -82,7 +82,10 @@ export const BoardModelSchema = S.Struct({
   vConcaveNose: S.optional(S.Number),
   railCoefficientTail: S.optional(S.Number),
   railCoefficientNose: S.optional(S.Number),
-  thicknessZStretch: S.optional(S.Number),
+    thicknessZStretch: S.optional(S.Number),
+  gizmoScaleTop: S.optional(S.Number),
+  gizmoScaleSide: S.optional(S.Number),
+  gizmoScaleProfile: S.optional(S.Number),
   coreMaterial: S.Literal("pu", "eps"),
   glassingSchedule: S.Literal("light", "standard", "heavy"),
 });
@@ -169,7 +172,10 @@ export interface BoardModel {
   vConcaveNose?: number;
   railCoefficientTail?: number;
   railCoefficientNose?: number;
-  thicknessZStretch?: number;
+    thicknessZStretch?: number;
+  gizmoScaleTop?: number;
+  gizmoScaleSide?: number;
+  gizmoScaleProfile?: number;
   coreMaterial: CoreMaterial;
   glassingSchedule: GlassingSchedule;
 }
