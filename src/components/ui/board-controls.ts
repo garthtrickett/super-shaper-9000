@@ -31,9 +31,10 @@ export class BoardControls extends LitElement {
         @property({ type: Boolean }) showApexRocker = true;
         @property({ type: Boolean }) showDeckShoulder = true;
     @property({ type: Boolean }) showCrossSections = true;
-  @property({ type: Number }) gizmoScaleTop = 1.0;
+    @property({ type: Number }) gizmoScaleTop = 1.0;
   @property({ type: Number }) gizmoScaleSide = 1.0;
   @property({ type: Number }) gizmoScaleProfile = 1.0;
+  @property({ type: Number }) gizmoScalePerspective = 1.0;
   @property({ type: Boolean }) showCurvature = false;
   @property({ type: Boolean }) showMriView = false;
       @property({ type: Number }) mriSlicePosition = 50.0;
@@ -361,10 +362,11 @@ export class BoardControls extends LitElement {
           </div>
         </div>
 
-                ${this._renderAccordion("Control Point Sizes", html`
+                        ${this._renderAccordion("Control Point Sizes", html`
           ${this._renderSlider("Top View", "gizmoScaleTop", 0.1, 3.0, 0.1, this.gizmoScaleTop, "x")}
           ${this._renderSlider("Side View", "gizmoScaleSide", 0.1, 3.0, 0.1, this.gizmoScaleSide, "x")}
           ${this._renderSlider("Profile View", "gizmoScaleProfile", 0.1, 3.0, 0.1, this.gizmoScaleProfile, "x")}
+          ${this._renderSlider("Perspective View", "gizmoScalePerspective", 0.1, 3.0, 0.1, this.gizmoScalePerspective, "x")}
         `, false)}
 
         ${this._renderAccordion("Visibility", html`

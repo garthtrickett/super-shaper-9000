@@ -659,7 +659,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             "mriSlicePosition" => model.mri_slice_position = Some(value),
             "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
             "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
-            "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
+                        "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
+            "gizmoScalePerspective" => model.gizmo_scale_perspective = Some(value),
             _ => {}
         },
         BoardAction::UpdateString { param, value } => match param.as_str() {

@@ -92,33 +92,43 @@ export class SceneManager {
     this.perspCam.position.set(-6, 4, -6);
     this.orthoCam.position.set(-6, 4, -6);
 
-    this.cameras.top.position.set(0, 10, 0);
+        this.cameras.top.position.set(0, 10, 0);
     this.cameras.top.up.set(0, 0, -1);
     this.cameras.top.lookAt(0, 0, 0);
-        this.cameras.top.layers.disableAll();
-    this.cameras.top.layers.enable(1); this.cameras.top.layers.enable(6);
+    this.cameras.top.layers.disableAll();
+    this.cameras.top.layers.enable(1); this.cameras.top.layers.enable(6); this.cameras.top.layers.enable(11);
 
     this.cameras.side.position.set(10, 0, 0);
     this.cameras.side.up.set(0, 1, 0);
     this.cameras.side.lookAt(0, 0, 0);
     this.cameras.side.layers.disableAll();
-    this.cameras.side.layers.enable(2); this.cameras.side.layers.enable(7);
+    this.cameras.side.layers.enable(2); this.cameras.side.layers.enable(7); this.cameras.side.layers.enable(12);
 
-        this.cameras.profile.position.set(0, 0, -10);
+    this.cameras.profile.position.set(0, 0, -10);
     this.cameras.profile.up.set(0, 1, 0);
     this.cameras.profile.lookAt(0, 0, 0);
     this.cameras.profile.zoom = 3.5;
     this.cameras.profile.updateProjectionMatrix();
     this.cameras.profile.layers.disableAll();
-        this.cameras.profile.layers.enable(3); this.cameras.profile.layers.enable(8);
+    this.cameras.profile.layers.enable(3); this.cameras.profile.layers.enable(8); this.cameras.profile.layers.enable(13);
 
     this.perspCam.layers.enableAll();
     this.perspCam.layers.disable(6);
     this.perspCam.layers.disable(7); this.perspCam.layers.disable(8);
+    this.perspCam.layers.disable(11);
+    this.perspCam.layers.disable(12);
+    this.perspCam.layers.disable(13);
+    this.perspCam.layers.disable(14);
+    this.perspCam.layers.enable(15);
 
     this.orthoCam.layers.enableAll();
     this.orthoCam.layers.disable(6);
     this.orthoCam.layers.disable(7); this.orthoCam.layers.disable(8);
+    this.orthoCam.layers.disable(11);
+    this.orthoCam.layers.disable(12);
+    this.orthoCam.layers.disable(13);
+    this.orthoCam.layers.disable(14);
+    this.orthoCam.layers.enable(15);
   }
 
   private setupLighting() {

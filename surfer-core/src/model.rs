@@ -93,9 +93,10 @@ pub struct BoardModel {
     pub rail_coefficient_nose: f32,
     #[serde(default = "default_one")]
         pub thickness_z_stretch: f32,
-    pub gizmo_scale_top: Option<f32>,
+        pub gizmo_scale_top: Option<f32>,
     pub gizmo_scale_side: Option<f32>,
     pub gizmo_scale_profile: Option<f32>,
+    pub gizmo_scale_perspective: Option<f32>,
     pub show_gizmos: Option<bool>,
     pub show_solid_mesh: Option<bool>,
     pub show_heatmap: Option<bool>,
@@ -275,7 +276,12 @@ impl approx::AbsDiffEq for BoardModel {
                 (None, None) => true,
                 _ => false,
             })
-            && (match (&self.gizmo_scale_profile, &other.gizmo_scale_profile) {
+                        && (match (&self.gizmo_scale_profile, &other.gizmo_scale_profile) {
+                (Some(a), Some(b)) => f32::abs_diff_eq(a, b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.gizmo_scale_perspective, &other.gizmo_scale_perspective) {
                 (Some(a), Some(b)) => f32::abs_diff_eq(a, b, epsilon),
                 (None, None) => true,
                 _ => false,
@@ -378,7 +384,8 @@ impl Default for BoardModel {
                         thickness_z_stretch: 1.0,
             gizmo_scale_top: None,
             gizmo_scale_side: None,
-            gizmo_scale_profile: None,
+                        gizmo_scale_profile: None,
+            gizmo_scale_perspective: None,
             show_gizmos: None,
             show_solid_mesh: None,
             show_heatmap: None,

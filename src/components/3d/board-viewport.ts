@@ -163,9 +163,10 @@ export class BoardViewport extends LitElement {
                 if (oldState?.showCurvature !== this.boardState.showCurvature) {
           CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
         }
-        if (oldState?.gizmoScaleTop !== this.boardState.gizmoScaleTop ||
+                if (oldState?.gizmoScaleTop !== this.boardState.gizmoScaleTop ||
             oldState?.gizmoScaleSide !== this.boardState.gizmoScaleSide ||
-            oldState?.gizmoScaleProfile !== this.boardState.gizmoScaleProfile) {
+            oldState?.gizmoScaleProfile !== this.boardState.gizmoScaleProfile ||
+            oldState?.gizmoScalePerspective !== this.boardState.gizmoScalePerspective) {
           GizmoBuilder.build(this.gizmoGroup, this.boardState, this.mathEngine, 1/12, this.matAnchor, this.matHandle, this.activeProfileSlice);
           this.updateGizmoHighlights();
         }
@@ -754,9 +755,10 @@ export class BoardViewport extends LitElement {
     this.buildWireframe(this.mathEngine, scale);
 
         // Update Gizmos
-    if (oldState?.gizmoScaleTop !== newState.gizmoScaleTop ||
+        if (oldState?.gizmoScaleTop !== newState.gizmoScaleTop ||
         oldState?.gizmoScaleSide !== newState.gizmoScaleSide ||
-        oldState?.gizmoScaleProfile !== newState.gizmoScaleProfile) {
+        oldState?.gizmoScaleProfile !== newState.gizmoScaleProfile ||
+        oldState?.gizmoScalePerspective !== newState.gizmoScalePerspective) {
       GizmoBuilder.build(this.gizmoGroup, newState, this.mathEngine, 1/12, this.matAnchor, this.matHandle, this.activeProfileSlice);
       this.updateGizmoHighlights();
     } else {
@@ -860,11 +862,13 @@ export class BoardViewport extends LitElement {
     const mathEngine = this.mathEngine;
     if (!this.boardState || !mathEngine) return;
     const scale = 1 / 12;
-    const gizmosByUserData = new Map<string, THREE.Mesh>();
+        const gizmosByUserData = new Map<string, THREE.Mesh[]>();
     this.gizmoGroup.children.forEach(child => {
       if (child instanceof THREE.Mesh && child.userData.isGizmo) {
         const { curve, index, type } = child.userData;
-        gizmosByUserData.set(`${curve}-${index}-${type}`, child as THREE.Mesh);
+        const key = `${curve}-${index}-${type}`;
+        if (!gizmosByUserData.has(key)) gizmosByUserData.set(key, []);
+        gizmosByUserData.get(key)!.push(child as THREE.Mesh);
       }
     });
 
@@ -873,20 +877,26 @@ export class BoardViewport extends LitElement {
             curveData.controlPoints.forEach((cp, i) => {
         const cpY = this.getZHeight(curveName, cp[1], cp[2], mathEngine);
         const cpX = this.getXOffset(curveName, cp[0], cp[2], mathEngine);
-        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.position.set(cpX * scale, cpY * scale, cp[2] * scale);
+                gizmosByUserData.get(`${curveName}-${i}-anchor`)?.forEach(mesh => {
+            mesh.position.set(cpX * scale, cpY * scale, cp[2] * scale);
+        });
         
         const t1 = curveData.tangents1[i]; 
         if (t1) {
           const t1Y = this.getZHeight(curveName, t1[1], t1[2], mathEngine);
           const t1X = this.getXOffset(curveName, t1[0], t1[2], mathEngine);
-          gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.position.set(t1X * scale, t1Y * scale, t1[2] * scale);
+          gizmosByUserData.get(`${curveName}-${i}-tangent1`)?.forEach(mesh => {
+              mesh.position.set(t1X * scale, t1Y * scale, t1[2] * scale);
+          });
         }
         
         const t2 = curveData.tangents2[i]; 
         if (t2) {
           const t2Y = this.getZHeight(curveName, t2[1], t2[2], mathEngine);
           const t2X = this.getXOffset(curveName, t2[0], t2[2], mathEngine);
-          gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.position.set(t2X * scale, t2Y * scale, t2[2] * scale);
+          gizmosByUserData.get(`${curveName}-${i}-tangent2`)?.forEach(mesh => {
+              mesh.position.set(t2X * scale, t2Y * scale, t2[2] * scale);
+          });
         }
       });
     };
