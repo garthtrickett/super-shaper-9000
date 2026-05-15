@@ -163,12 +163,14 @@ export class BoardViewport extends LitElement {
                 if (oldState?.showCurvature !== this.boardState.showCurvature) {
           CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
         }
-                if (oldState?.gizmoScaleTop !== this.boardState.gizmoScaleTop ||
+                        if (oldState?.gizmoScaleTop !== this.boardState.gizmoScaleTop ||
             oldState?.gizmoScaleSide !== this.boardState.gizmoScaleSide ||
             oldState?.gizmoScaleProfile !== this.boardState.gizmoScaleProfile ||
             oldState?.gizmoScalePerspective !== this.boardState.gizmoScalePerspective) {
-          GizmoBuilder.build(this.gizmoGroup, this.boardState, this.mathEngine, 1/12, this.matAnchor, this.matHandle, this.activeProfileSlice);
-          this.updateGizmoHighlights();
+          if (this.mathEngine && !this.interactionManager?.isDragging()) {
+            GizmoBuilder.build(this.gizmoGroup, this.boardState, this.mathEngine, 1/12, this.matAnchor, this.matHandle, this.activeProfileSlice);
+            this.updateGizmoHighlights();
+          }
         }
       }
 

@@ -65,9 +65,9 @@ export class InteractionManager {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown, { capture: true });
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     this.canvas.removeEventListener("pointerup", this.onPointerUp);
-    this.canvas.removeEventListener("pointercancel", this.onPointerUp);
+        this.canvas.removeEventListener("pointercancel", this.onPointerUp);
     this.canvas.removeEventListener("pointerleave", this.onPointerUp);
-    this.canvas.removeEventListener("wheel", this.onWheel, { capture: true } as any);
+    this.canvas.removeEventListener("wheel", this.onWheel as EventListener, { capture: true });
     this.canvas.removeEventListener("contextmenu", this.onContextMenu);
   }
 

@@ -6,6 +6,7 @@ import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import initWasm, { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
 import { INITIAL_STATE, BoardModelSchema, type BoardModel, type BoardAction } from "./board-builder-page.logic";
 import "../3d/board-viewport";
+import type { BoardViewport } from "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
 import "../ui/bottom-contour-editor";
@@ -38,7 +39,7 @@ export class BoardBuilderPage extends LitElement {
     if (!this.mathEngine) return;
     try {
       const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
-      const viewport = this.shadowRoot?.querySelector('board-viewport');
+            const viewport = this.shadowRoot?.querySelector('board-viewport') as BoardViewport | null;
       if (viewport && result.state) {
         viewport.previewState(result.state);
       }
@@ -323,12 +324,12 @@ export class BoardBuilderPage extends LitElement {
     if (!this._hasLoadedSavedState && this.wasmCtrl.model) {
       this._hasLoadedSavedState = true;
       try {
-        const saved = localStorage.getItem("super_shaper_saved_board");
+                const saved = localStorage.getItem("super_shaper_saved_board");
         if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.length && parsed.outline) {
+          const parsed = JSON.parse(saved) as Partial<BoardModel>;
+          if (parsed && parsed.length !== undefined && parsed.outline) {
             setTimeout(() => {
-              this._proposeAction({ type: "LOAD_DESIGN", state: parsed });
+              this._proposeAction({ type: "LOAD_DESIGN", state: parsed as BoardModel });
               console.info("[BoardBuilder] Auto-loaded saved design from localStorage");
             }, 0);
           }
