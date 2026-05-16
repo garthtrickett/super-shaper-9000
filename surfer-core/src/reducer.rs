@@ -893,7 +893,7 @@ fn handle_layer_toggles(model: &mut BoardModel, action: BoardAction) -> Vec<Effe
                         0.0
                     };
 
-                                        let p0 = blend
+                    let p0 = blend
                         .s_prev
                         .control_points
                         .get(i)

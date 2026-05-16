@@ -76,6 +76,8 @@
         ];
 
         shellHook = ''
+          alias test-rust-parallel="cargo test --workspace -- --nocapture"
+          alias test-e2e="bun run test:e2e"
           echo "🚀 Bedrock Dev Environment Loaded"
           echo "Node: $(node --version)"
           
