@@ -1811,7 +1811,7 @@ mod tests {
         assert_eq!(model.cross_sections[1].control_points[0].z, 50.0);
     }
 
-    #[test]
+        #[test]
     fn test_mri_disables_zebra() {
         let mut model = create_mock_model();
         model.show_zebra = Some(true);
@@ -1824,5 +1824,47 @@ mod tests {
 
         assert_eq!(model.show_mri_view, Some(true));
         assert_eq!(model.show_zebra, Some(false));
+    }
+
+    #[test]
+    fn test_import_preserves_ui_state() {
+        let mut model = create_mock_model();
+        model.show_heatmap = Some(true);
+        model.gizmo_scale_top = Some(2.5);
+
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
+        let bytes = std::fs::read(&path).expect("Failed to read BRD fixture");
+
+        let action = BoardAction::ImportBrd { bytes };
+        update(&mut model, action);
+
+        // Check that UI state was preserved
+        assert_eq!(model.show_heatmap, Some(true));
+        assert_eq!(model.gizmo_scale_top, Some(2.5));
+
+        // Check that board geometry was updated
+        assert!((model.length - 76.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_add_bottom_channel_action() {
+        let mut model = create_mock_model();
+        model.length = 70.0;
+        assert!(model.bottom_channels.is_none());
+
+        let action = BoardAction::AddBottomChannel;
+        update(&mut model, action);
+
+        assert!(model.bottom_channels.is_some());
+        let channels = model.bottom_channels.as_ref().unwrap();
+        assert_eq!(channels.len(), 1);
+        let channel = &channels[0];
+        assert_eq!(channel.name, "Channel 1");
+        assert!(channel.is_symmetric);
+        assert!(!channel.right_outline.control_points.is_empty());
+        assert!(!channel.right_depth.control_points.is_empty());
+        assert!(!channel.left_outline.control_points.is_empty());
+        assert!(!channel.left_depth.control_points.is_empty());
     }
 }
