@@ -140,7 +140,7 @@ pub fn build_surface(
         grid.push(ring);
     }
 
-        // Fast 2D to 1D Topology Extrusion
+    // Fast 2D to 1D Topology Extrusion
     let mut normals = Vec::new();
     for ring in &grid {
         for sp in ring {

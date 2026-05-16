@@ -1765,8 +1765,9 @@ mod tests {
             tangents2: vec![Vec3::ZERO],
             ..Default::default()
         });
-        update(
+                update(
             &mut model,
+            &mut crate::model::DirtyState::default(),
             BoardAction::UpdateNumber {
                 param: "thickness".to_string(),
                 value: 3.6,

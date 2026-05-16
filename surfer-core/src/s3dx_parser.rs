@@ -1128,8 +1128,8 @@ mod tests {
         }
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
-        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = crate::mesh::generate_mesh(&model);
+                let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = crate::mesh::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut crate::mesh::MeshCache::default());
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
