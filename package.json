@@ -9,6 +9,7 @@
     "start": "bun run src/server/index.ts",
     "test:unit": "web-test-runner",
     "test:e2e": "playwright test",
+    "test:e2e:seq": "playwright test --workers=1",
     "test:server": "bun test src/server",
     "test:rust": "RUST_BACKTRACE=1 RUST_LOG=info cargo test -- --nocapture --test-threads=1",
     "test:rust:parallel": "cargo test --workspace -- --nocapture",
