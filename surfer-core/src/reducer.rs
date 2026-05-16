@@ -70,36 +70,24 @@ fn get_curve_mut<'a>(
 
 
 pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
-    let mut effects = Vec::new();
-
     match action {
         act @ (BoardAction::UpdateNumber { .. }
         | BoardAction::UpdateString { .. }
         | BoardAction::UpdateBoolean { .. }
         | BoardAction::ScaleWidth { .. }
-        | BoardAction::ScaleThickness { .. }) => {
-            let mut ps_effects = handle_parametric_scaling(model, act);
-            effects.append(&mut ps_effects);
-        }
+        | BoardAction::ScaleThickness { .. }) => handle_parametric_scaling(model, act),
         act @ (BoardAction::LoadDesign { .. }
         | BoardAction::SetCurves { .. }
         | BoardAction::ImportBrd { .. }
-        | BoardAction::ImportS3dx { .. }) => {
-            let mut i_effects = handle_import(model, act);
-            effects.append(&mut i_effects);
-        }
+        | BoardAction::ImportS3dx { .. }) => handle_import(model, act),
         act @ (BoardAction::UpdateNodePosition { .. }
         | BoardAction::SelectNode { .. }
         | BoardAction::RemoveNode { .. }
         | BoardAction::InsertNode { .. }
         | BoardAction::ApplyContinuity { .. }
-        | BoardAction::UpdateNodeExact { .. }) => {
-            let mut nm_effects = handle_node_mutations(model, act);
-            effects.append(&mut nm_effects);
-        }
+        | BoardAction::UpdateNodeExact { .. }) => handle_node_mutations(model, act),
         act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
-            let mut h_effects = handle_history(model, act);
-            effects.append(&mut h_effects);
+            handle_history(model, act)
         }
         act @ (BoardAction::AddOutlineLayer
         | BoardAction::RemoveOutlineLayer { .. }
@@ -107,13 +95,8 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         | BoardAction::AddBottomChannel
         | BoardAction::RemoveBottomChannel { .. }
         | BoardAction::ToggleChannelSymmetry { .. }
-        | BoardAction::AddCrossSection { .. }) => {
-            let mut l_effects = handle_layer_toggles(model, act);
-            effects.append(&mut l_effects);
-        }
+        | BoardAction::AddCrossSection { .. }) => handle_layer_toggles(model, act),
     }
-
-    effects
 }
 
 pub fn push_history(model: &mut BoardModel) {
