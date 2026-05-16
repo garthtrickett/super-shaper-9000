@@ -339,9 +339,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     const boardControls = page.locator("board-controls");
 
-    // 1. Create the wing
+        // 1. Create the wing
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
     await expect(boardControls.locator("span", { hasText: /Wing 1/i })).toBeVisible();
+
+    // Wait for the viewport to process the new geometry and render the gizmo
+    await page.waitForTimeout(1000);
 
     // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
     const hitPosition = await page.evaluate(() => {
@@ -424,9 +427,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 2. Click Add Channel
     await addBtn.click();
 
-    // 3. Verify 'Channel 1' appears in the controls list
+        // 3. Verify 'Channel 1' appears in the controls list
     const channelItem = boardControls.locator("span", { hasText: /Channel 1/i });
     await expect(channelItem).toBeVisible();
+
+    // Wait for the viewport to process the new geometry and render the gizmo
+    await page.waitForTimeout(1000);
 
     // 4. Verify 3D Gizmo selection for the new channel
     const hitPosition = await page.evaluate(() => {
@@ -486,10 +492,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.goto("/");
     const boardControls = page.locator("board-controls");
 
-    // 1. Create the wing
+        // 1. Create the wing
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
 
         await expect(boardControls.locator('span', { hasText: /Wing 1/i })).toBeVisible();
+
+    // Wait for the viewport to process the new geometry and render the gizmo
+    await page.waitForTimeout(1000);
 
     // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {

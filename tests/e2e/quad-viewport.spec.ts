@@ -171,8 +171,9 @@ test.describe('Quad Viewport CAD Interface', () => {
       return line ? (line.geometry.attributes.position.array[50 * 3] as number || 0) : 0;
     });
 
-    // Drag it inwards to dramatically narrow the board (use fewer steps to save time in headless WebGL)
-    await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 2 });
+        // Drag it inwards to dramatically narrow the board
+    await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 10 });
+    await page.waitForTimeout(200); // Give the event loop a moment to catch up
 
     // Verify the real-time preview modified the wireframe buffer BEFORE mouseup
         const previewOutlineX = await page.evaluate<number>(() => {
