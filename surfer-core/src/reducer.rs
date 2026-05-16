@@ -61,25 +61,25 @@ fn get_curve_mut<'a>(
     }
 }
 
-pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
     match action {
         act @ (BoardAction::UpdateNumber { .. }
         | BoardAction::UpdateString { .. }
         | BoardAction::UpdateBoolean { .. }
         | BoardAction::ScaleWidth { .. }
-        | BoardAction::ScaleThickness { .. }) => handle_parametric_scaling(model, act),
+        | BoardAction::ScaleThickness { .. }) => handle_parametric_scaling(model, dirty, act),
         act @ (BoardAction::LoadDesign { .. }
         | BoardAction::SetCurves { .. }
         | BoardAction::ImportBrd { .. }
-        | BoardAction::ImportS3dx { .. }) => handle_import(model, act),
+        | BoardAction::ImportS3dx { .. }) => handle_import(model, dirty, act),
         act @ (BoardAction::UpdateNodePosition { .. }
         | BoardAction::SelectNode { .. }
         | BoardAction::RemoveNode { .. }
         | BoardAction::InsertNode { .. }
         | BoardAction::ApplyContinuity { .. }
-        | BoardAction::UpdateNodeExact { .. }) => handle_node_mutations(model, act),
+        | BoardAction::UpdateNodeExact { .. }) => handle_node_mutations(model, dirty, act),
         act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
-            handle_history(model, act)
+            handle_history(model, dirty, act)
         }
         act @ (BoardAction::AddOutlineLayer
         | BoardAction::RemoveOutlineLayer { .. }
@@ -87,7 +87,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         | BoardAction::AddBottomChannel
         | BoardAction::RemoveBottomChannel { .. }
         | BoardAction::ToggleChannelSymmetry { .. }
-        | BoardAction::AddCrossSection { .. }) => handle_layer_toggles(model, act),
+        | BoardAction::AddCrossSection { .. }) => handle_layer_toggles(model, dirty, act),
     }
 }
 
@@ -121,7 +121,8 @@ pub fn push_history(model: &mut BoardModel) {
     model.history = Some(history);
 }
 
-fn handle_history(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+fn handle_history(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+    dirty.global_rebuild = true;
     match action {
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
@@ -373,6 +374,58 @@ fn apply_continuity(
     }
 }
 
+fn mark_node_dirty(model: &BoardModel, dirty: &mut DirtyState, curve_name: &str, index: usize) {
+    if curve_name.starts_with("crossSection_") {
+        let idx_str = curve_name.strip_prefix("crossSection_").unwrap_or("");
+        if let Ok(idx) = idx_str.parse::<usize>() {
+            let mut min_z = f32::NEG_INFINITY;
+            let mut max_z = f32::INFINITY;
+            if idx > 0 {
+                if let Some(cs) = model.cross_sections.get(idx - 1) {
+                    min_z = cs.control_points.first().map(|p| p.z).unwrap_or(min_z);
+                }
+            }
+            if let Some(cs) = model.cross_sections.get(idx + 1) {
+                max_z = cs.control_points.first().map(|p| p.z).unwrap_or(max_z);
+            }
+            if min_z == f32::NEG_INFINITY { min_z = -1000.0; }
+            if max_z == f32::INFINITY { max_z = 1000.0; }
+            dirty.dirty_z_ranges.push((min_z - 2.0, max_z + 2.0));
+        }
+        return;
+    }
+
+    let curve = match crate::geometry::get_curve(model, curve_name) {
+        Some(c) => c,
+        None => return,
+    };
+
+    if curve.control_points.is_empty() {
+        return;
+    }
+
+    let i_prev = index.saturating_sub(1);
+    let i_next = (index + 1).min(curve.control_points.len().saturating_sub(1));
+
+    let mut min_z = f32::INFINITY;
+    let mut max_z = f32::NEG_INFINITY;
+
+    let mut check_z = |z: f32| {
+        if z < min_z { min_z = z; }
+        if z > max_z { max_z = z; }
+    };
+
+    for i in i_prev..=i_next {
+        check_z(curve.control_points[i].z);
+        if let Some(t1) = curve.tangents1.get(i) { check_z(t1.z); }
+        if let Some(t2) = curve.tangents2.get(i) { check_z(t2.z); }
+    }
+
+    if min_z != f32::INFINITY && max_z != f32::NEG_INFINITY {
+        dirty.dirty_z_ranges.push((min_z - 2.0, max_z + 2.0));
+    }
+}
+
 fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
     if index > 0
         && index < target.control_points.len().saturating_sub(1)
@@ -393,7 +446,7 @@ fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
     }
 }
 
-fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+fn handle_node_mutations(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
     match action {
         BoardAction::UpdateNodePosition {
             curve,
@@ -401,8 +454,10 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
             node_type,
             position,
         } => {
+            mark_node_dirty(model, dirty, &curve, index);
             let pos = Vec3::from_array(position);
             apply_node_position(model, &curve, index, &node_type, pos);
+            mark_node_dirty(model, dirty, &curve, index);
 
             if curve.starts_with("channel_") {
                 let parts: Vec<&str> = curve.split('_').collect();
@@ -420,6 +475,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                         let mirrored_side = if side == "left" { "right" } else { "left" };
                         let mirrored_curve =
                             format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        mark_node_dirty(model, dirty, &mirrored_curve, index);
                         let mut mirrored_pos = pos;
                         mirrored_pos.x = -mirrored_pos.x;
                         apply_node_position(
@@ -429,6 +485,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                             &node_type,
                             mirrored_pos,
                         );
+                        mark_node_dirty(model, dirty, &mirrored_curve, index);
                     }
                 }
             }
@@ -437,6 +494,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
             model.selected_node = node;
         }
         BoardAction::RemoveNode { curve, index } => {
+            mark_node_dirty(model, dirty, &curve, index);
             if let Some(target) = get_curve_mut(model, &curve) {
                 remove_curve_node(target, index);
             }
@@ -457,6 +515,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                         let mirrored_side = if side == "left" { "right" } else { "left" };
                         let mirrored_curve =
                             format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        mark_node_dirty(model, dirty, &mirrored_curve, index);
                         if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
                             remove_curve_node(m_target, index);
                         }
@@ -470,6 +529,10 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
             let mut inserted_idx = None;
             if let Some(target) = get_curve_mut(model, &curve) {
                 inserted_idx = crate::bezier::insert_node(target, t);
+            }
+
+            if let Some(idx) = inserted_idx {
+                mark_node_dirty(model, dirty, &curve, idx);
             }
 
             if curve.starts_with("channel_") {
@@ -488,8 +551,12 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                         let mirrored_side = if side == "left" { "right" } else { "left" };
                         let mirrored_curve =
                             format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        let mut m_idx = None;
                         if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
-                            crate::bezier::insert_node(m_target, t);
+                            m_idx = crate::bezier::insert_node(m_target, t);
+                        }
+                        if let Some(idx) = m_idx {
+                            mark_node_dirty(model, dirty, &mirrored_curve, idx);
                         }
                     }
                 }
@@ -512,7 +579,9 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
             master,
         } => {
             let master_str = master.as_deref().unwrap_or("tangent1");
+            mark_node_dirty(model, dirty, &curve, index);
             apply_continuity(model, &curve, index, &level, master_str);
+            mark_node_dirty(model, dirty, &curve, index);
 
             if curve.starts_with("channel_") {
                 let parts: Vec<&str> = curve.split('_').collect();
@@ -530,7 +599,9 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                         let mirrored_side = if side == "left" { "right" } else { "left" };
                         let mirrored_curve =
                             format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        mark_node_dirty(model, dirty, &mirrored_curve, index);
                         apply_continuity(model, &mirrored_curve, index, &level, master_str);
+                        mark_node_dirty(model, dirty, &mirrored_curve, index);
                     }
                 }
             }
@@ -543,6 +614,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
             tangent2,
             weight,
         } => {
+            mark_node_dirty(model, dirty, &curve, index);
             apply_node_exact(
                 model,
                 &curve,
@@ -552,6 +624,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                 tangent2.map(Vec3::from_array),
                 weight,
             );
+            mark_node_dirty(model, dirty, &curve, index);
 
             if curve.starts_with("channel_") {
                 let parts: Vec<&str> = curve.split('_').collect();
@@ -572,6 +645,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                         let m_anchor = anchor.map(|a| Vec3::new(-a[0], a[1], a[2]));
                         let m_t1 = tangent1.map(|a| Vec3::new(-a[0], a[1], a[2]));
                         let m_t2 = tangent2.map(|a| Vec3::new(-a[0], a[1], a[2]));
+                        mark_node_dirty(model, dirty, &mirrored_curve, index);
                         apply_node_exact(
                             model,
                             &mirrored_curve,
@@ -581,6 +655,7 @@ fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Eff
                             m_t2,
                             weight,
                         );
+                        mark_node_dirty(model, dirty, &mirrored_curve, index);
                     }
                 }
             }
@@ -726,7 +801,8 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
     final_pos
 }
 
-fn handle_layer_toggles(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+fn handle_layer_toggles(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+    dirty.global_rebuild = true;
     match action {
         BoardAction::AddOutlineLayer => {
             let mut layers = model.outline_layers.take().unwrap_or_default();
@@ -1107,7 +1183,8 @@ fn preserve_ui_state(old_model: &BoardModel, new_model: &mut BoardModel) {
     new_model.gizmo_scale_profile = old_model.gizmo_scale_profile;
 }
 
-fn handle_import(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+fn handle_import(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+    dirty.global_rebuild = true;
     let mut effects = Vec::new();
     match action {
         BoardAction::LoadDesign { state } => {
@@ -1312,7 +1389,8 @@ fn apply_tail_type(model: &mut BoardModel) {
     }
 }
 
-fn handle_parametric_scaling(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+fn handle_parametric_scaling(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+    dirty.global_rebuild = true;
     match action {
         BoardAction::UpdateNumber { param, value } => match param.as_str() {
             "length" => {
@@ -1546,12 +1624,12 @@ mod tests {
         assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 10.0);
 
         // Undo
-        update(&mut model, BoardAction::Undo);
+        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::Undo);
         assert_eq!(model.history_index, Some(0));
         assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 5.0);
 
         // Redo
-        update(&mut model, BoardAction::Redo);
+        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::Redo);
         assert_eq!(model.history_index, Some(1));
         assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 10.0);
     }
@@ -1565,7 +1643,7 @@ mod tests {
             node_type: "anchor".to_string(),
             position: [6.0, 0.0, 1.0],
         };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
         let outline = model.outline.as_ref().unwrap();
 
         // Anchor moved
@@ -1581,7 +1659,7 @@ mod tests {
         model.width = 20.0;
 
         let action = BoardAction::ScaleWidth { factor: 1.1 };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
 
         assert!((model.width - 22.0).abs() < 1e-5);
         let outline = model.outline.as_ref().unwrap();
@@ -1609,6 +1687,7 @@ mod tests {
         // 1. Parametric Width Scale (20.0 -> 22.0 is a 1.1x factor)
         update(
             &mut model,
+            &mut crate::model::DirtyState::default(),
             BoardAction::UpdateNumber {
                 param: "width".to_string(),
                 value: 22.0,
@@ -1620,6 +1699,7 @@ mod tests {
         // 2. Parametric Length Scale (100.0 -> 110.0 is a 1.1x factor)
         update(
             &mut model,
+            &mut crate::model::DirtyState::default(),
             BoardAction::UpdateNumber {
                 param: "length".to_string(),
                 value: 110.0,
@@ -1631,6 +1711,7 @@ mod tests {
         // 3. Parametric Thickness Scale (2.5 -> 3.0 is a 1.2x factor)
         update(
             &mut model,
+            &mut crate::model::DirtyState::default(),
             BoardAction::UpdateNumber {
                 param: "thickness".to_string(),
                 value: 3.0,
@@ -1665,7 +1746,7 @@ mod tests {
             tangent2: None,
             weight: Some(2.5),
         };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
 
         let outline = model.outline.as_ref().unwrap();
         // Weights should be initialized and set
@@ -1682,7 +1763,7 @@ mod tests {
         let mut model = create_mock_model();
         assert!(model.bottom_channels.is_none());
 
-        update(&mut model, BoardAction::AddBottomChannel);
+        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::AddBottomChannel);
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 1);
         assert_eq!(model.bottom_channels.as_ref().unwrap()[0].name, "Channel 1");
         assert!(model.bottom_channels.as_ref().unwrap()[0].is_symmetric);
@@ -1693,7 +1774,7 @@ mod tests {
             node_type: "anchor".to_string(),
             position: [1.0, 1.0, 0.0],
         };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
         assert_eq!(
             model.bottom_channels.as_ref().unwrap()[0]
                 .right_depth
@@ -1725,7 +1806,7 @@ mod tests {
             -1.0
         );
 
-        update(&mut model, BoardAction::RemoveBottomChannel { index: 0 });
+        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::RemoveBottomChannel { index: 0 });
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
     }
 
@@ -1738,7 +1819,7 @@ mod tests {
             curve: "outline".to_string(),
             t: 0.25,
         };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
 
         let outline = model.outline.as_ref().unwrap();
         assert_eq!(outline.control_points.len(), 4);
@@ -1750,7 +1831,7 @@ mod tests {
     #[test]
     fn test_asymmetric_channel_update() {
         let mut model = create_mock_model();
-        update(&mut model, BoardAction::AddBottomChannel);
+        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::AddBottomChannel);
 
         // Unlink the channel symmetry
         model.bottom_channels.as_mut().unwrap()[0].is_symmetric = false;
@@ -1762,7 +1843,7 @@ mod tests {
             node_type: "anchor".to_string(),
             position: [5.0, 0.0, 0.0],
         };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
 
         // Right should update
         assert_eq!(
@@ -1800,7 +1881,7 @@ mod tests {
         };
         model.cross_sections = vec![cs0, cs1];
 
-        update(&mut model, BoardAction::AddCrossSection { z: 50.0 });
+        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::AddCrossSection { z: 50.0 });
         assert_eq!(model.cross_sections.len(), 3);
         assert_eq!(model.cross_sections[1].control_points[0].z, 50.0);
     }
@@ -1814,7 +1895,7 @@ mod tests {
             param: "showMriView".to_string(),
             value: true,
         };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
 
         assert_eq!(model.show_mri_view, Some(true));
         assert_eq!(model.show_zebra, Some(false));
@@ -1831,7 +1912,7 @@ mod tests {
         let bytes = std::fs::read(&path).expect("Failed to read BRD fixture");
 
         let action = BoardAction::ImportBrd { bytes };
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
 
         // Check that UI state was preserved
         assert_eq!(model.show_heatmap, Some(true));
@@ -1848,7 +1929,7 @@ mod tests {
         assert!(model.bottom_channels.is_none());
 
         let action = BoardAction::AddBottomChannel;
-        update(&mut model, action);
+        update(&mut model, &mut crate::model::DirtyState::default(), action);
 
         assert!(model.bottom_channels.is_some());
         let channels = model.bottom_channels.as_ref().unwrap();

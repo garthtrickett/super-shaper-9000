@@ -44,7 +44,7 @@ impl SurferEngine {
     }
 
     pub fn update(&mut self, action: BoardAction) -> (BoardModel, Vec<Effect>) {
-        let effects = reducer::update(&mut self.model, action);
+        let effects = reducer::update(&mut self.model, &mut self.dirty_state, action);
         (self.model.clone(), effects)
     }
 
