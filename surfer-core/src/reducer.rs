@@ -61,14 +61,6 @@ fn get_curve_mut<'a>(
     }
 }
 
-
-
-
-
-
-
-
-
 pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     match action {
         act @ (BoardAction::UpdateNumber { .. }
@@ -901,7 +893,7 @@ fn handle_layer_toggles(model: &mut BoardModel, action: BoardAction) -> Vec<Effe
                         0.0
                     };
 
-                    let p0 = blend
+                                        let p0 = blend
                         .s_prev
                         .control_points
                         .get(i)
@@ -912,6 +904,10 @@ fn handle_layer_toggles(model: &mut BoardModel, action: BoardAction) -> Vec<Effe
                     let p1 = blend.s0.control_points.get(i).copied().unwrap_or_default();
                     let p2 = blend.s1.control_points.get(i).copied().unwrap_or(p1);
                     let p3 = blend.s_next.control_points.get(i).copied().unwrap_or(p2);
+
+                    let dt0 = p0.distance(p1).sqrt();
+                    let dt1 = p1.distance(p2).sqrt();
+                    let dt2 = p2.distance(p3).sqrt();
 
                     let (mut m1, mut m2) = crate::geometry::compute_centripetal_tangents(
                         p0, p1, p2, p3, dt0, dt1, dt2,
@@ -1178,24 +1174,22 @@ fn handle_import(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
                 }
             }
         }
-        BoardAction::ImportS3dx { xml } => {
-            match crate::s3dx_parser::parse_s3dx(&xml) {
-                Ok(mut parsed_model) => {
-                    preserve_ui_state(model, &mut parsed_model);
+        BoardAction::ImportS3dx { xml } => match crate::s3dx_parser::parse_s3dx(&xml) {
+            Ok(mut parsed_model) => {
+                preserve_ui_state(model, &mut parsed_model);
 
-                    *model = parsed_model;
-                    push_history(model);
-                    effects.push(Effect::LogInfo {
-                        message: "Rust Engine: S3DX file imported successfully.".to_string(),
-                    });
-                }
-                Err(e) => {
-                    effects.push(Effect::LogInfo {
-                        message: format!("Rust Engine Error: Failed to parse S3DX: {}", e),
-                    });
-                }
+                *model = parsed_model;
+                push_history(model);
+                effects.push(Effect::LogInfo {
+                    message: "Rust Engine: S3DX file imported successfully.".to_string(),
+                });
             }
-        }
+            Err(e) => {
+                effects.push(Effect::LogInfo {
+                    message: format!("Rust Engine Error: Failed to parse S3DX: {}", e),
+                });
+            }
+        },
         _ => {}
     }
     effects
@@ -1811,7 +1805,7 @@ mod tests {
         assert_eq!(model.cross_sections[1].control_points[0].z, 50.0);
     }
 
-        #[test]
+    #[test]
     fn test_mri_disables_zebra() {
         let mut model = create_mock_model();
         model.show_zebra = Some(true);
