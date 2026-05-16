@@ -2,6 +2,8 @@ pub mod curves;
 pub use curves::*;
 pub mod profile;
 pub use profile::*;
+pub mod surface;
+pub use surface::*;
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 // use crate::bezier::evaluate_bezier_cubic;
@@ -238,7 +240,7 @@ impl<'a> BlendResult<'a> {
 
 
 
-pub fn get_point_at_uv_base(
+
     model: &BoardModel,
     u: f32,
     v: f32,
@@ -366,7 +368,7 @@ pub fn get_point_at_uv_base(
     final_pos
 }
 
-pub fn get_point_at_uv(
+
     model: &BoardModel,
     u: f32,
     v: f32,
@@ -450,33 +452,11 @@ pub fn get_point_at_uv(
 /// Spherical Linear Interpolation for normal vectors.
 /// Smoothly blends two direction vectors. If they are exactly opposite (180 deg),
 /// it routes the interpolation through the provided `fallback_mid` vector.
-pub fn slerp_normals(n1: Vec3, n2: Vec3, t: f32, fallback_mid: Vec3) -> Vec3 {
-    let t = t.clamp(0.0, 1.0);
-    let dot = n1.dot(n2).clamp(-1.0, 1.0);
 
-    if dot > 0.9999 {
-        return n1.lerp(n2, t).normalize();
-    }
-
-    if dot < -0.9999 {
-        if t < 0.5 {
-            return slerp_normals(n1, fallback_mid, t * 2.0, fallback_mid);
-        } else {
-            return slerp_normals(fallback_mid, n2, (t - 0.5) * 2.0, fallback_mid);
-        }
-    }
-
-    let theta = dot.acos();
-    let sin_theta = theta.sin();
-    let w1 = ((1.0 - t) * theta).sin() / sin_theta;
-    let w2 = (t * theta).sin() / sin_theta;
-
-    (n1 * w1 + n2 * w2).normalize()
-}
 
 /// Evaluates the analytical surface normals at the absolute Z-poles (nose or tail) of the board.
 /// Returns (top_normal, bottom_normal).
-pub fn get_surface_normal_base_at_uvz(
+
     model: &BoardModel,
     u: f32,
     z_inches: f32,
@@ -574,124 +554,9 @@ pub fn get_surface_normal_base_at_uvz(
     n
 }
 
-pub fn get_surface_normal_at_uvz(model: &BoardModel, u: f32, z_inches: f32, side: f32) -> Vec3 {
-    let bounds = get_board_bounds(model);
 
-    if (z_inches - bounds.nose_z).abs() < 1e-4 {
-        let profile_nose = get_board_profile_at_z(model, bounds.nose_z, 0.0);
-        if profile_nose.apex_x < 0.1 {
-            let (n_top, n_bot) = get_pole_normals(model, bounds.nose_z, true);
-            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
-            if side < 0.0 {
-                n.x = -n.x;
-            }
-            return n;
-        }
-    }
-    if (z_inches - bounds.tip_z).abs() < 1e-4 {
-        let profile_tail = get_board_profile_at_z(model, bounds.tip_z, 1.0);
-        if profile_tail.apex_x < 0.1 {
-            let (n_top, n_bot) = get_pole_normals(model, bounds.tip_z, false);
-            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
-            if side < 0.0 {
-                n.x = -n.x;
-            }
-            return n;
-        }
-    }
 
-    let v_outer = find_v_at_z(model.outline.as_ref().unwrap(), z_inches, 0.0, bounds.tip_t);
-    let inner_x = if z_inches > bounds.notch_z {
-        evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z_inches)
-    } else {
-        0.0
-    };
 
-    let du = 1e-4;
-    let u_plus = (u + du).min(1.0);
-    let u_minus = (u - du).max(0.0);
-    let mut pt_plus_u = get_point_at_uv(model, u_plus, v_outer, z_inches, inner_x, side);
-    pt_plus_u.x *= side;
-    let mut pt_minus_u = get_point_at_uv(model, u_minus, v_outer, z_inches, inner_x, side);
-    pt_minus_u.x *= side;
-    let mut t_u = (pt_plus_u - pt_minus_u).normalize();
-    if t_u.is_nan() || t_u.length_squared() < 1e-6 {
-        t_u = Vec3::new(side, 0.0, 0.0);
-    }
-
-    let dz = 1e-3;
-    let mut t_v = if z_inches <= bounds.nose_z + 1e-4 {
-        let mut pt_plus_v = get_point_at_uv(model, u, v_outer, z_inches + dz, inner_x, side);
-        pt_plus_v.x *= side;
-        let mut pt_c = get_point_at_uv(model, u, v_outer, z_inches, inner_x, side);
-        pt_c.x *= side;
-        (pt_plus_v - pt_c).normalize()
-    } else if z_inches >= bounds.tip_z - 1e-4 {
-        let mut pt_minus_v = get_point_at_uv(model, u, v_outer, z_inches - dz, inner_x, side);
-        pt_minus_v.x *= side;
-        let mut pt_c = get_point_at_uv(model, u, v_outer, z_inches, inner_x, side);
-        pt_c.x *= side;
-        (pt_c - pt_minus_v).normalize()
-    } else {
-        let mut pt_plus_v = get_point_at_uv(model, u, v_outer, z_inches + dz, inner_x, side);
-        pt_plus_v.x *= side;
-        let mut pt_minus_v = get_point_at_uv(model, u, v_outer, z_inches - dz, inner_x, side);
-        pt_minus_v.x *= side;
-        (pt_plus_v - pt_minus_v).normalize()
-    };
-    if t_v.is_nan() || t_v.length_squared() < 1e-6 {
-        t_v = Vec3::new(0.0, 0.0, 1.0);
-    }
-
-    let cross = t_u.cross(t_v);
-    let mut n = if cross.length_squared() > 1e-6 {
-        cross.normalize()
-    } else {
-        Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0)
-    };
-    if side < 0.0 {
-        n = -n;
-    }
-
-    let pt = get_point_at_uv(model, u, v_outer, z_inches, inner_x, side);
-    if pt.x.abs() < 1e-4 && inner_x < 1e-4 {
-        n.x = 0.0;
-        let len_sq = n.length_squared();
-        if len_sq > 1e-6 {
-            n /= len_sq.sqrt();
-        } else {
-            n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
-        }
-    }
-
-    n
-}
-
-pub fn get_pole_normals(model: &BoardModel, z_inches: f32, _is_nose: bool) -> (Vec3, Vec3) {
-    let r_top = model.rocker_top.as_ref().unwrap();
-    let r_bot = model.rocker_bottom.as_ref().unwrap();
-
-    let t_top = find_v_at_z(r_top, z_inches, 0.0, 1.0);
-    let t_bot = find_v_at_z(r_bot, z_inches, 0.0, 1.0);
-
-    let (_, tan_top) = crate::bezier::evaluate_composite_pos_and_tangent(r_top, t_top);
-    let (_, tan_bot) = crate::bezier::evaluate_composite_pos_and_tangent(r_bot, t_bot);
-
-    // The stringer lies on the YZ plane (X=0). The X-axis (1,0,0) is perpendicular to this plane.
-    // Top normal: Tangent x X-axis points outward (+Y)
-    let mut n_top = tan_top.cross(Vec3::X).normalize();
-    if n_top.is_nan() || n_top.length_squared() < 1e-5 {
-        n_top = Vec3::Y;
-    }
-
-    // Bottom normal: X-axis x Tangent points outward (-Y)
-    let mut n_bot = Vec3::X.cross(tan_bot).normalize();
-    if n_bot.is_nan() || n_bot.length_squared() < 1e-5 {
-        n_bot = Vec3::NEG_Y;
-    }
-
-    (n_top, n_bot)
-}
 
 pub fn color_heatmap(normalized_value: f32) -> Vec3 {
     let hue = (1.0 - normalized_value) * 240.0;
@@ -727,78 +592,7 @@ mod tests {
     use crate::model::BezierCurveData;
     use glam::Vec3;
 
-    #[test]
-    fn test_no_deck_y_spike_at_pin_tail() {
-        let mut model = BoardModel::default();
-        // Setup a rounded pin tail (ends exactly at X=0)
-        model.outline = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 50.0),
-                Vec3::new(0.0, 0.0, 100.0), // PIN TAIL
-            ],
-            tangents1: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 40.0),
-                Vec3::new(2.0, 0.0, 95.0),
-            ],
-            tangents2: vec![
-                Vec3::new(5.0, 0.0, 5.0),
-                Vec3::new(10.0, 0.0, 60.0),
-                Vec3::new(0.0, 0.0, 100.0),
-            ],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 100.)],
-            tangents1: vec![Vec3::new(0., 1., 0.), Vec3::new(0., 1., 66.6667)],
-            tangents2: vec![Vec3::new(0., 1., 33.3333), Vec3::new(0., 1., 100.0)],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 100.)],
-            tangents1: vec![Vec3::new(0., -1., 0.), Vec3::new(0., -1., 66.6667)],
-            tangents2: vec![Vec3::new(0., -1., 33.3333), Vec3::new(0., -1., 100.0)],
-            ..Default::default()
-        });
-        model.cross_sections = vec![BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, -1.25, 0.0),
-                Vec3::new(10.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.25, 0.0),
-            ],
-            tangents1: vec![
-                Vec3::new(0.0, -1.25, 0.0),
-                Vec3::new(5.0, -1.25, 0.0),
-                Vec3::new(5.0, 1.25, 0.0),
-            ],
-            tangents2: vec![
-                Vec3::new(5.0, -1.25, 0.0),
-                Vec3::new(10.0, 0.5, 0.0),
-                Vec3::new(0.0, 1.25, 0.0),
-            ],
-            ..Default::default()
-        }];
-
-        let blend = super::get_cross_section_blend_at_z(&model.cross_sections, 99.0).unwrap();
-        // Get the U parameter for the shoulder (midway between apex and stringer on the deck)
-        let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
-
-        // Sample just before the tip (where width > 1e-5, normal calculation)
-        let pt_99 = super::get_point_at_uv(&model, t_shoulder, 1.0, 99.0, 0.0, 1.0);
-
-        // Sample at the exact tip (where width <= 1e-5, fallback triggered)
-        let pt_100 = super::get_point_at_uv(&model, t_shoulder, 1.0, 100.0, 0.0, 1.0);
-
-        // The shoulder Y should smoothly taper. It should NOT jump drastically to the top stringer height (1.0)
-        let diff_y = (pt_100.y - pt_99.y).abs();
-        assert!(
-            diff_y < 0.2,
-            "Shoulder Y spiked abruptly at the tip! y_99: {}, y_100: {}",
-            pt_99.y,
-            pt_100.y
-        );
-    }
+    
 
     #[test]
     
@@ -809,130 +603,14 @@ mod tests {
     #[test]
     
 
-    #[test]
-    fn test_analytical_surface_normals() {
-        let mut model = BoardModel::default();
-        model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
-        model.cross_sections = vec![BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, -1.0, 0.0),
-                Vec3::new(10.0, 0.0, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            ],
-            tangents1: vec![
-                Vec3::new(0.0, -1.0, 0.0),
-                Vec3::new(10.0, -0.5, 0.0),
-                Vec3::new(5.0, 1.0, 0.0),
-            ],
-            tangents2: vec![
-                Vec3::new(5.0, -1.0, 0.0),
-                Vec3::new(10.0, 0.5, 0.0),
-                Vec3::new(0.0, 1.0, 0.0),
-            ],
-            ..Default::default()
-        }];
-
-        let n_deck = super::get_surface_normal_at_uvz(&model, 1.0, 50.0, 1.0);
-        assert!(
-            n_deck.y > 0.99,
-            "Deck stringer normal should point UP. Got {:?}",
-            n_deck
-        );
-        assert!(
-            n_deck.x.abs() < 1e-4,
-            "Deck stringer normal should have no X component. Got {:?}",
-            n_deck
-        );
-
-        let n_bot = super::get_surface_normal_at_uvz(&model, 0.0, 50.0, 1.0);
-        assert!(
-            n_bot.y < -0.99,
-            "Bottom stringer normal should point DOWN. Got {:?}",
-            n_bot
-        );
-        assert!(
-            n_bot.x.abs() < 1e-4,
-            "Bottom stringer normal should have no X component. Got {:?}",
-            n_bot
-        );
-
-        let n_apex = super::get_surface_normal_at_uvz(&model, 0.5, 50.0, 1.0);
-        assert!(
-            n_apex.x > 0.9,
-            "Apex normal should point OUTWARD horizontally. Got {:?}",
-            n_apex
-        );
-
-        let n_apex_left = super::get_surface_normal_at_uvz(&model, 0.5, 50.0, -1.0);
-        assert!(
-            n_apex_left.x < -0.9,
-            "Left apex normal should point OUTWARD horizontally (-X). Got {:?}",
-            n_apex_left
-        );
-
-        println!("✅ test_analytical_surface_normals passed.");
-    }
+    
 
     #[test]
     
 
     
 
-    #[test]
-    fn test_zone_based_uv_evaluation() {
-        let mut model = BoardModel::default();
-        model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(0., 0.6667, 66.6667)],
-            tangents2: vec![Vec3::new(0., 0.3333, 33.3333), Vec3::new(0., 1., 100.0)],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(0., -0.6667, 66.6667)],
-            tangents2: vec![Vec3::new(0., -0.3333, 33.3333), Vec3::new(0., -1., 100.0)],
-            ..Default::default()
-        });
-        model.cross_sections = vec![BezierCurveData {
-            control_points: vec![Vec3::ZERO, Vec3::new(10., 0., 0.), Vec3::ZERO],
-            tangents1: vec![Vec3::ZERO, Vec3::new(10., 0., 0.), Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::new(10., 0., 0.), Vec3::ZERO],
-            ..Default::default()
-        }];
-
-        // UV 0.0 should be at the bottom stringer (inner_x = 0)
-        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0);
-        assert_eq!(pt_bot_stringer.x, 0.0);
-
-        // UV 1.0 should be at the top stringer (inner_x = 0)
-        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0, 1.0);
-        assert_eq!(pt_top_stringer.x, 0.0);
-
-        println!("✅ test_zone_based_uv_evaluation passed.");
-    }
+    
 
     
 
@@ -963,35 +641,7 @@ mod tests {
     #[test]
     
 
-    #[test]
-    fn test_normal_slerp() {
-        let n1 = Vec3::new(0.0, -1.0, 0.0);
-        let n2 = Vec3::new(0.0, 1.0, 0.0);
-        let fallback = Vec3::new(0.0, 0.0, -1.0);
-
-        // Midpoint should exactly hit the fallback vector due to the 180-degree slerp bypass
-        let mid = slerp_normals(n1, n2, 0.5, fallback);
-        assert!((mid.z - (-1.0)).abs() < 1e-5);
-        assert!(mid.y.abs() < 1e-5);
-        assert!(mid.x.abs() < 1e-5);
-
-        // 90-degree test (no fallback triggered)
-        let n3 = Vec3::new(0.0, -1.0, 0.0);
-        let n4 = Vec3::new(0.0, 0.0, -1.0);
-        let mid_90 = slerp_normals(n3, n4, 0.5, Vec3::X);
-
-        // Linear interpolation would give (0, -0.5, -0.5) with magnitude 0.707
-        // Slerp must maintain a magnitude of 1.0, so the result should be (0, -0.707, -0.707)
-        let expected_val = -2.0_f32.sqrt() / 2.0;
-        assert!(
-            (mid_90.length() - 1.0).abs() < 1e-5,
-            "Slerp must maintain unit length"
-        );
-        assert!((mid_90.y - expected_val).abs() < 1e-5, "Y should be -0.707");
-        assert!((mid_90.z - expected_val).abs() < 1e-5, "Z should be -0.707");
-
-        println!("✅ test_normal_slerp passed.");
-    }
+    
 
     #[test]
     fn deleted_test_rail_does_not_collapse_at_pin_tail() {}
@@ -999,97 +649,7 @@ mod tests {
     #[test]
     
 
-    #[test]
-    fn test_wing_tuck_offset_prevents_intersection() {
-        use crate::model::OutlineLayer;
-        let mut model = BoardModel::default();
-
-        model.outline = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 50.0),
-                Vec3::new(0.0, 0.0, 100.0),
-            ],
-            tangents1: vec![
-                Vec3::ZERO,
-                Vec3::new(10.0, 0.0, 40.0),
-                Vec3::new(0.0, 0.0, 90.0),
-            ],
-            tangents2: vec![
-                Vec3::new(0.0, 0.0, 10.0),
-                Vec3::new(10.0, 0.0, 60.0),
-                Vec3::ZERO,
-            ],
-            ..Default::default()
-        });
-
-        model.rail_outline = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(9.0, 0.0, 50.0),
-                Vec3::new(0.0, 0.0, 100.0),
-            ],
-            tangents1: vec![
-                Vec3::ZERO,
-                Vec3::new(9.0, 0.0, 40.0),
-                Vec3::new(0.0, 0.0, 90.0),
-            ],
-            tangents2: vec![
-                Vec3::new(0.0, 0.0, 10.0),
-                Vec3::new(9.0, 0.0, 60.0),
-                Vec3::ZERO,
-            ],
-            ..Default::default()
-        });
-
-        let base_outline_x = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), 75.0, 0.5).x;
-
-        let wing_ext = BezierCurveData {
-            control_points: vec![
-                Vec3::new(base_outline_x - 2.0, 0.0, 70.0),
-                Vec3::new(base_outline_x - 2.0, 0.0, 80.0),
-            ],
-            tangents1: vec![
-                Vec3::new(base_outline_x - 2.0, 0.0, 70.0),
-                Vec3::new(base_outline_x - 2.0, 0.0, 75.0),
-            ],
-            tangents2: vec![
-                Vec3::new(base_outline_x - 2.0, 0.0, 75.0),
-                Vec3::new(base_outline_x - 2.0, 0.0, 80.0),
-            ],
-            ..Default::default()
-        };
-        model.outline_layers = Some(vec![OutlineLayer {
-            name: "Wing".to_string(),
-            active: true,
-            otl_ext: wing_ext,
-            otl_int: BezierCurveData::default(),
-        }]);
-
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
-            tangents2: vec![Vec3::ZERO, Vec3::new(0., 1., 100.)],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
-            tangents2: vec![Vec3::ZERO, Vec3::new(0., -1., 100.)],
-            ..Default::default()
-        });
-
-        let profile = super::get_board_profile_at_z(&model, 75.0, 0.5);
-
-        assert!(
-            profile.tuck_x < profile.apex_x,
-            "Tuck X ({}) must remain inside Apex X ({}) to prevent self-intersection",
-            profile.tuck_x,
-            profile.apex_x
-        );
-
-        println!("✅ test_wing_tuck_offset_prevents_intersection passed.");
-    }
+    
 
     
 
@@ -1166,378 +726,17 @@ mod tests {
         assert!((profile.apex_x - 10.0).abs() < 1e-3);
     }
 
-    #[test]
-    fn test_pin_tail_uv_singularity() {
-        let mut model = BoardModel::default();
-        model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)], // X=0 at tail (pin)
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(0.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
+    
 
-        // Evaluate near the pin tail to ensure no NaNs in normals
-        let u = 0.5;
-        let z = 99.99;
-        let n = get_surface_normal_at_uvz(&model, u, z, 1.0);
-        assert!(
-            !n.is_nan(),
-            "Normal should not be NaN near pin tail singularity"
-        );
-    }
+    
 
-    #[test]
-    fn test_swallow_tail_split_normals() {
-        let mut model = BoardModel::default();
-        model.outline = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 100.0),
-                Vec3::new(0.0, 0.0, 95.0),
-            ],
-            tangents1: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 80.0),
-                Vec3::new(5.0, 0.0, 100.0),
-            ],
-            tangents2: vec![
-                Vec3::new(0.0, 0.0, 20.0),
-                Vec3::new(10.0, 0.0, 110.0),
-                Vec3::new(0.0, 0.0, 95.0),
-            ],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
+    
 
-        // The notch is at Z=95, the tip is at Z=100.
-        // At Z=98, the stringer is empty (cut out by the swallow). We evaluate the surface normal on the rail.
-        // The normal should be well defined
-        let n = get_surface_normal_at_uvz(&model, 0.5, 98.0, 1.0);
-        assert!(!n.is_nan(), "Normal should not be NaN at swallow tail rail");
-    }
+    
 
-    #[test]
-    fn test_concave_zero_crossing_artifact() {
-        let mut model = BoardModel::default();
-        // Flat outline, 10" wide
-        model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        // Flat rockers
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
+    
 
-        // Cross section with a deep concave, but the tuck returns to stringer height!
-        // P0 (stringer) = 0.0
-        // P1 (mid-bottom) = -1.0 (Deep concave)
-        // P2 (tuck) = 0.0 (Crosses zero!)
-        let cs = BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(2.5, -1.0, 0.0),
-                Vec3::new(5.0, 0.0, 0.0),
-                Vec3::new(7.5, 1.0, 0.0),
-                Vec3::new(10.0, 2.0, 0.0),
-            ],
-            tangents1: vec![Vec3::ZERO; 5],
-            tangents2: vec![Vec3::ZERO; 5],
-            ..Default::default()
-        };
-        model.cross_sections = vec![cs];
-
-        // Evaluate at Z=50 (middle of the board)
-        let blend = get_cross_section_blend_at_z(&model.cross_sections, 50.0).unwrap();
-        let t_apex = blend.t_apex;
-        let t_tuck = t_apex * 0.5;
-
-        // Verify the slice geometry actually has a concave
-        let u_test = t_tuck / 2.0; // t = 0.25 (P1)
-        let slice_pt = blend.evaluate(u_test);
-        assert!(
-            slice_pt.y < -0.1,
-            "Slice should have a concave at u=0.25. y={}",
-            slice_pt.y
-        );
-
-        // Evaluate the 3D mapped point
-        let pt = get_point_at_uv(&model, u_test, 0.5, 50.0, 0.0, 1.0);
-
-        // If the bug exists, pt.y will snap to 0.0 instead of reflecting the -1.0 concave!
-        assert!(
-            pt.y < -0.1,
-            "BUG: The concave disappeared! The bottom snapped to flat because tuck crossed zero. pt.y = {}",
-            pt.y
-        );
-    }
-
-    #[test]
-    fn test_mini_simmons_tuck_x_not_less_than_inner_x() {
-        let _ = env_logger::builder().is_test(true).try_init();
-        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
-
-        if !path.exists() {
-            println!("5'4-Mini-Simmons.brd not found.");
-            return;
-        }
-
-        let bytes = std::fs::read(&path).unwrap();
-        let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
-
-        let basic_cs = BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, -1.25, 0.0),
-                Vec3::new(6.0, -1.25, 0.0),
-                Vec3::new(9.375, 0.0, 0.0),
-                Vec3::new(6.0, 1.25, 0.0),
-                Vec3::new(0.0, 1.25, 0.0),
-            ],
-            tangents1: vec![
-                Vec3::new(0.0, -1.25, 0.0),
-                Vec3::new(4.0, -1.25, 0.0),
-                Vec3::new(9.375, -0.5, 0.0),
-                Vec3::new(8.0, 1.25, 0.0),
-                Vec3::new(2.0, 1.25, 0.0),
-            ],
-            tangents2: vec![
-                Vec3::new(2.0, -1.25, 0.0),
-                Vec3::new(8.0, -1.25, 0.0),
-                Vec3::new(9.375, 0.5, 0.0),
-                Vec3::new(4.0, 1.25, 0.0),
-                Vec3::new(0.0, 1.25, 0.0),
-            ],
-            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
-        };
-        model.cross_sections = vec![basic_cs];
-
-        let bounds = crate::geometry::get_board_bounds(&model);
-
-        // Scan the tail area
-        let steps = 100;
-        let mut violations = 0;
-
-        for i in 0..=steps {
-            let f = i as f32 / steps as f32;
-            let z = bounds.notch_z + (bounds.tip_z - bounds.notch_z) * f;
-
-            let v_outer =
-                crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
-            let profile = crate::geometry::get_board_profile_at_z(&model, z, v_outer);
-
-            let inner_x = if z > bounds.notch_z {
-                crate::geometry::evaluate_notch_inner_x(
-                    model.outline.as_ref().unwrap(),
-                    bounds.tip_t,
-                    z,
-                )
-            } else {
-                0.0
-            };
-
-            if profile.tuck_x < inner_x - 1e-4 {
-                violations += 1;
-                println!(
-                    "Z: {:.2}, inner_x: {:.4}, tuck_x: {:.4}, apex_x: {:.4}",
-                    z, inner_x, profile.tuck_x, profile.apex_x
-                );
-            }
-        }
-
-        assert_eq!(
-            violations, 0,
-            "Tuck X should never be less than Inner X (the stringer), or the mesh folds backwards!"
-        );
-    }
-
-    #[test]
-    fn test_mini_simmons_mesh_generation_diagnostics() {
-        let _ = env_logger::builder().is_test(true).try_init();
-        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
-
-        if !path.exists() {
-            println!("5'4-Mini-Simmons.brd not found.");
-            return;
-        }
-
-        let bytes = std::fs::read(&path).unwrap();
-        let mut model = crate::brd_parser::parse_brd(&bytes).unwrap();
-
-        // Standard basic cross section for meshing
-        let basic_cs = BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, -1.25, 0.0),
-                Vec3::new(6.0, -1.25, 0.0),
-                Vec3::new(9.375, 0.0, 0.0),
-                Vec3::new(6.0, 1.25, 0.0),
-                Vec3::new(0.0, 1.25, 0.0),
-            ],
-            tangents1: vec![
-                Vec3::new(0.0, -1.25, 0.0),
-                Vec3::new(4.0, -1.25, 0.0),
-                Vec3::new(9.375, -0.5, 0.0),
-                Vec3::new(8.0, 1.25, 0.0),
-                Vec3::new(2.0, 1.25, 0.0),
-            ],
-            tangents2: vec![
-                Vec3::new(2.0, -1.25, 0.0),
-                Vec3::new(8.0, -1.25, 0.0),
-                Vec3::new(9.375, 0.5, 0.0),
-                Vec3::new(4.0, 1.25, 0.0),
-                Vec3::new(0.0, 1.25, 0.0),
-            ],
-            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
-        };
-        model.cross_sections = vec![basic_cs];
-
-        let bounds = crate::geometry::get_board_bounds(&model);
-        println!("\n=== MINI SIMMONS BOUNDS ===");
-        println!("nose_z: {:.4}", bounds.nose_z);
-        println!("tip_z: {:.4}", bounds.tip_z);
-        println!("notch_z: {:.4}", bounds.notch_z);
-        println!("tip_t: {:.4}", bounds.tip_t);
-        println!(
-            "Delta (tip_z - notch_z): {:.6}",
-            bounds.tip_z - bounds.notch_z
-        );
-
-        if (bounds.tip_z - bounds.notch_z) >= 1e-3 {
-            println!("🚨 WARNING: The engine thinks this is a Swallow Tail and will generate an interior notch wall!");
-        } else {
-            println!("✅ Engine correctly identified a standard blunt/squash tail.");
-        }
-
-        let mesh = crate::mesh::generate_mesh(&model);
-        let scale = 1.0 / 12.0;
-
-        // Get all unique Z values in the generated mesh near the tail
-        let mut unique_zs: Vec<f32> = mesh
-            .vertices
-            .chunks_exact(3)
-            .map(|v| v[2] / scale)
-            .collect();
-        unique_zs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        unique_zs.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
-
-        println!("\n--- LAST 10 Z-RINGS IN GENERATED MESH ---");
-        let tail_rings = unique_zs.iter().rev().take(10).collect::<Vec<_>>();
-        for (i, z) in tail_rings.iter().enumerate() {
-            println!("Ring {}: Z = {:.5}", i, z);
-        }
-
-        assert!(
-            (bounds.tip_z - bounds.notch_z) < 1e-3,
-            "Mini Simmons is triggering the Swallow Tail logic! This is the cause of the tail bug."
-        );
-    }
-
-    #[test]
-    fn test_channel_projection_on_v_tail() {
-        use crate::model::ChannelLayer;
-        let mut model = BoardModel::default();
-        model.length = 100.0;
-        model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
-            ..Default::default()
-        });
-        model.rocker_top = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
-        model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        });
-        model.cross_sections = vec![BezierCurveData {
-            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
-            tangents1: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(5.0, -0.5, 0.0)],
-            tangents2: vec![Vec3::new(5.0, -0.5, 0.0), Vec3::new(10.0, 0.0, 0.0)],
-            ..Default::default()
-        }];
-        model.v_concave_tail = 5.0;
-
-        model.bottom_channels = Some(vec![ChannelLayer {
-            name: "V-Tail Channel".to_string(),
-            is_symmetric: true,
-            left_outline: BezierCurveData::default(),
-            right_outline: BezierCurveData {
-                control_points: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)],
-                tangents1: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 66.6667)],
-                tangents2: vec![Vec3::new(5.0, 0.0, 33.3333), Vec3::new(5.0, 0.0, 100.0)],
-                ..Default::default()
-            },
-            left_depth: BezierCurveData::default(),
-            right_depth: BezierCurveData {
-                control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
-                tangents1: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 66.6667)],
-                tangents2: vec![Vec3::new(0.0, 1.0, 33.3333), Vec3::new(0.0, 1.0, 100.0)],
-                ..Default::default()
-            },
-        }]);
-
-        let z = 75.0;
-        let u_chan = 0.25;
-        let v = 0.75;
-
-        let pt_base = super::get_point_at_uv_base(&model, u_chan, v, z, 0.0, 1.0);
-        let pt_chan = super::get_point_at_uv(&model, u_chan, v, z, 0.0, 1.0);
-
-        let dx = (pt_chan.x - pt_base.x).abs();
-        let dy = (pt_chan.y - pt_base.y).abs();
-
-        assert!(
-            dx > 0.05,
-            "Channel on V-Tail must project along the normal, moving the X coordinate. dx = {}",
-            dx
-        );
-        assert!(
-            dy > 0.05,
-            "Channel on V-Tail must project along the normal, moving the Y coordinate. dy = {}",
-            dy
-        );
-    }
+    
 }
 
 pub fn get_curve<'a>(model: &'a BoardModel, curve_name: &str) -> Option<&'a BezierCurveData> {
