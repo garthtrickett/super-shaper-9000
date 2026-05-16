@@ -180,229 +180,7 @@ fn apply_tail_type(model: &mut BoardModel) {
     }
 }
 
-fn apply_node_position(
-    model: &mut BoardModel,
-    curve_name: &str,
-    index: usize,
-    node_type: &str,
-    mut pos: Vec3,
-) {
-    if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" {
-        pos.x = 0.0;
-    }
 
-    let is_cross_section = curve_name.starts_with("crossSection_");
-    let is_outline_type = curve_name == "outline"
-        || curve_name == "apexOutline"
-        || curve_name == "railOutline"
-        || curve_name == "deckShoulder"
-        || curve_name.starts_with("outlineLayer_")
-        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
-
-    if let Some(target) = get_curve_mut(model, curve_name) {
-        if node_type == "anchor" {
-            let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
-            let is_layer = curve_name.starts_with("outlineLayer_");
-            let is_channel = curve_name.starts_with("channel_");
-            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
-                pos.x = 0.0;
-            }
-            if is_cross_section || is_outline_type {
-                if is_channel && curve_name.contains("_left_") {
-                    pos.x = pos.x.min(0.0);
-                } else if !is_channel || curve_name.contains("_right_") {
-                    pos.x = pos.x.max(0.0);
-                }
-            }
-        }
-
-        let old_anchor = target.control_points.get(index).cloned();
-        let old_t1 = target.tangents1.get(index).cloned();
-        let old_t2 = target.tangents2.get(index).cloned();
-
-        if node_type == "anchor" {
-            if let Some(old_a) = old_anchor {
-                let delta = pos - old_a;
-                target.control_points[index] = pos;
-                if old_t1.is_some() {
-                    target.tangents1[index] += delta;
-                }
-                if old_t2.is_some() {
-                    target.tangents2[index] += delta;
-                }
-            }
-        } else if node_type == "tangent1" {
-            if let (Some(old_a), Some(_)) = (old_anchor, old_t1) {
-                target.tangents1[index] = pos;
-                if let Some(old_t2_val) = old_t2 {
-                    let dir1 = pos - old_a;
-                    let len1 = dir1.length();
-                    if len1 > 0.001 {
-                        let norm1 = dir1 / len1;
-                        let orig_dist2 = (old_t2_val - old_a).length();
-                        target.tangents2[index] = old_a - (norm1 * orig_dist2);
-                    }
-                }
-            }
-        } else if node_type == "tangent2" {
-            if let (Some(old_a), Some(_)) = (old_anchor, old_t2) {
-                target.tangents2[index] = pos;
-                if let Some(old_t1_val) = old_t1 {
-                    let dir2 = pos - old_a;
-                    let len2 = dir2.length();
-                    if len2 > 0.001 {
-                        let norm2 = dir2 / len2;
-                        let orig_dist1 = (old_t1_val - old_a).length();
-                        target.tangents1[index] = old_a - (norm2 * orig_dist1);
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn apply_node_exact(
-    model: &mut BoardModel,
-    curve_name: &str,
-    index: usize,
-    anchor: Option<Vec3>,
-    tangent1: Option<Vec3>,
-    tangent2: Option<Vec3>,
-    weight: Option<f32>,
-) {
-    let is_cross_section = curve_name.starts_with("crossSection_");
-    let is_outline_type = curve_name == "outline"
-        || curve_name == "apexOutline"
-        || curve_name == "railOutline"
-        || curve_name == "deckShoulder"
-        || curve_name.starts_with("outlineLayer_")
-        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
-
-    if let Some(target) = get_curve_mut(model, curve_name) {
-        if let Some(a) = anchor {
-            let mut pos = a;
-            if curve_name == "rockerTop"
-                || curve_name == "rockerBottom"
-                || curve_name == "apexRocker"
-            {
-                pos.x = 0.0;
-            }
-            let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
-            let is_layer = curve_name.starts_with("outlineLayer_");
-            let is_channel = curve_name.starts_with("channel_");
-            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
-                pos.x = 0.0;
-            }
-            if is_cross_section || is_outline_type {
-                if is_channel && curve_name.contains("_left_") {
-                    pos.x = pos.x.min(0.0);
-                } else if !is_channel || curve_name.contains("_right_") {
-                    pos.x = pos.x.max(0.0);
-                }
-            }
-            target.control_points[index] = pos;
-        }
-        if let Some(mut t1) = tangent1 {
-            if curve_name == "rockerTop"
-                || curve_name == "rockerBottom"
-                || curve_name == "apexRocker"
-            {
-                t1.x = 0.0;
-            }
-            target.tangents1[index] = t1;
-        }
-        if let Some(mut t2) = tangent2 {
-            if curve_name == "rockerTop"
-                || curve_name == "rockerBottom"
-                || curve_name == "apexRocker"
-            {
-                t2.x = 0.0;
-            }
-            target.tangents2[index] = t2;
-        }
-        if let Some(w) = weight {
-            if target.weights.is_none() {
-                target.weights = Some(vec![1.0; target.control_points.len()]);
-            }
-            if let Some(weights) = &mut target.weights {
-                if index < weights.len() {
-                    weights[index] = w;
-                } else {
-                    weights.resize(target.control_points.len(), 1.0);
-                    weights[index] = w;
-                }
-            }
-        }
-    }
-}
-
-fn apply_continuity(
-    model: &mut BoardModel,
-    curve_name: &str,
-    index: usize,
-    level: &str,
-    master: &str,
-) {
-    if let Some(target) = get_curve_mut(model, curve_name) {
-        if index > 0 && index < target.control_points.len().saturating_sub(1) {
-            let anchor = target.control_points[index];
-            let is_t1_master = master == "tangent1";
-
-            let (t_src, mut t_tgt, f_src, f_tgt) = if is_t1_master {
-                (
-                    target.tangents1[index],
-                    target.tangents2[index],
-                    target.control_points[index - 1],
-                    target.control_points[index + 1],
-                )
-            } else {
-                (
-                    target.tangents2[index],
-                    target.tangents1[index],
-                    target.control_points[index + 1],
-                    target.control_points[index - 1],
-                )
-            };
-
-            let dir = anchor - t_src;
-            let dist_tgt = (t_tgt - anchor).length();
-
-            if (level == "G1" || level == "G2") && dir.length_squared() > 1e-6 {
-                t_tgt = anchor + dir.normalize() * dist_tgt;
-            }
-
-            if level == "G2" {
-                t_tgt = crate::bezier::solve_g2_tangent(anchor, t_src, f_src, f_tgt);
-            }
-
-            if is_t1_master {
-                target.tangents2[index] = t_tgt;
-            } else {
-                target.tangents1[index] = t_tgt;
-            }
-        }
-    }
-}
-
-fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
-    if index > 0
-        && index < target.control_points.len().saturating_sub(1)
-        && target.control_points.len() > 2
-    {
-        target.control_points.remove(index);
-        if index < target.tangents1.len() {
-            target.tangents1.remove(index);
-        }
-        if index < target.tangents2.len() {
-            target.tangents2.remove(index);
-        }
-        if let Some(weights) = &mut target.weights {
-            if index < weights.len() {
-                weights.remove(index);
-            }
-        }
-    }
-}
 
 fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3) -> Vec3 {
     let bounds = crate::geometry::get_board_bounds(model);
@@ -727,196 +505,14 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-        BoardAction::UpdateNodePosition {
-            curve,
-            index,
-            node_type,
-            position,
-        } => {
-            let pos = Vec3::from_array(position);
-            apply_node_position(model, &curve, index, &node_type, pos);
-
-            if curve.starts_with("channel_") {
-                let parts: Vec<&str> = curve.split('_').collect();
-                if parts.len() == 4 {
-                    let idx: usize = parts[1].parse().unwrap_or(0);
-                    let side = parts[2];
-                    let c_type = parts[3];
-                    let is_sym = model
-                        .bottom_channels
-                        .as_ref()
-                        .and_then(|c| c.get(idx))
-                        .is_some_and(|ch| ch.is_symmetric);
-
-                    if is_sym {
-                        let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve =
-                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
-                        let mut mirrored_pos = pos;
-                        mirrored_pos.x = -mirrored_pos.x;
-                        apply_node_position(
-                            model,
-                            &mirrored_curve,
-                            index,
-                            &node_type,
-                            mirrored_pos,
-                        );
-                    }
-                }
-            }
-        }
-        BoardAction::SelectNode { node } => {
-            model.selected_node = node;
-        }
-        BoardAction::RemoveNode { curve, index } => {
-            if let Some(target) = get_curve_mut(model, &curve) {
-                remove_curve_node(target, index);
-            }
-
-            if curve.starts_with("channel_") {
-                let parts: Vec<&str> = curve.split('_').collect();
-                if parts.len() == 4 {
-                    let idx: usize = parts[1].parse().unwrap_or(0);
-                    let side = parts[2];
-                    let c_type = parts[3];
-                    let is_sym = model
-                        .bottom_channels
-                        .as_ref()
-                        .and_then(|c| c.get(idx))
-                        .is_some_and(|ch| ch.is_symmetric);
-
-                    if is_sym {
-                        let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve =
-                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
-                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
-                            remove_curve_node(m_target, index);
-                        }
-                    }
-                }
-            }
-            model.selected_node = None;
-            push_history(model);
-        }
-        BoardAction::InsertNode { curve, t } => {
-            let mut inserted_idx = None;
-            if let Some(target) = get_curve_mut(model, &curve) {
-                inserted_idx = crate::bezier::insert_node(target, t);
-            }
-
-            if curve.starts_with("channel_") {
-                let parts: Vec<&str> = curve.split('_').collect();
-                if parts.len() == 4 {
-                    let idx: usize = parts[1].parse().unwrap_or(0);
-                    let side = parts[2];
-                    let c_type = parts[3];
-                    let is_sym = model
-                        .bottom_channels
-                        .as_ref()
-                        .and_then(|c| c.get(idx))
-                        .is_some_and(|ch| ch.is_symmetric);
-
-                    if is_sym {
-                        let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve =
-                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
-                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
-                            crate::bezier::insert_node(m_target, t);
-                        }
-                    }
-                }
-            }
-
-            if let Some(idx) = inserted_idx {
-                model.selected_node = Some(SelectedNode {
-                    curve: curve.clone(),
-                    index: idx,
-                    node_type: "anchor".to_string(),
-                });
-            }
-
-            push_history(model);
-        }
-        BoardAction::ApplyContinuity {
-            curve,
-            index,
-            level,
-            master,
-        } => {
-            let master_str = master.as_deref().unwrap_or("tangent1");
-            apply_continuity(model, &curve, index, &level, master_str);
-
-            if curve.starts_with("channel_") {
-                let parts: Vec<&str> = curve.split('_').collect();
-                if parts.len() == 4 {
-                    let idx: usize = parts[1].parse().unwrap_or(0);
-                    let side = parts[2];
-                    let c_type = parts[3];
-                    let is_sym = model
-                        .bottom_channels
-                        .as_ref()
-                        .and_then(|c| c.get(idx))
-                        .is_some_and(|ch| ch.is_symmetric);
-
-                    if is_sym {
-                        let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve =
-                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
-                        apply_continuity(model, &mirrored_curve, index, &level, master_str);
-                    }
-                }
-            }
-        }
-        BoardAction::UpdateNodeExact {
-            curve,
-            index,
-            anchor,
-            tangent1,
-            tangent2,
-            weight,
-        } => {
-            apply_node_exact(
-                model,
-                &curve,
-                index,
-                anchor.map(Vec3::from_array),
-                tangent1.map(Vec3::from_array),
-                tangent2.map(Vec3::from_array),
-                weight,
-            );
-
-            if curve.starts_with("channel_") {
-                let parts: Vec<&str> = curve.split('_').collect();
-                if parts.len() == 4 {
-                    let idx: usize = parts[1].parse().unwrap_or(0);
-                    let side = parts[2];
-                    let c_type = parts[3];
-                    let is_sym = model
-                        .bottom_channels
-                        .as_ref()
-                        .and_then(|c| c.get(idx))
-                        .is_some_and(|ch| ch.is_symmetric);
-
-                    if is_sym {
-                        let mirrored_side = if side == "left" { "right" } else { "left" };
-                        let mirrored_curve =
-                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
-                        let m_anchor = anchor.map(|a| Vec3::new(-a[0], a[1], a[2]));
-                        let m_t1 = tangent1.map(|a| Vec3::new(-a[0], a[1], a[2]));
-                        let m_t2 = tangent2.map(|a| Vec3::new(-a[0], a[1], a[2]));
-                        apply_node_exact(
-                            model,
-                            &mirrored_curve,
-                            index,
-                            m_anchor,
-                            m_t1,
-                            m_t2,
-                            weight,
-                        );
-                    }
-                }
-            }
-            push_history(model);
+                act @ (BoardAction::UpdateNodePosition { .. }
+        | BoardAction::SelectNode { .. }
+        | BoardAction::RemoveNode { .. }
+        | BoardAction::InsertNode { .. }
+        | BoardAction::ApplyContinuity { .. }
+        | BoardAction::UpdateNodeExact { .. }) => {
+            let mut nm_effects = handle_node_mutations(model, act);
+            effects.append(&mut nm_effects);
         }
                 act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
             let mut h_effects = handle_history(model, act);
@@ -1475,7 +1071,425 @@ fn handle_history(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     Vec::new()
 }
 
+fn apply_node_position(
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    node_type: &str,
+    mut pos: Vec3,
+) {
+    if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" {
+        pos.x = 0.0;
+    }
+
+    let is_cross_section = curve_name.starts_with("crossSection_");
+    let is_outline_type = curve_name == "outline"
+        || curve_name == "apexOutline"
+        || curve_name == "railOutline"
+        || curve_name == "deckShoulder"
+        || curve_name.starts_with("outlineLayer_")
+        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+
+    if let Some(target) = get_curve_mut(model, curve_name) {
+        if node_type == "anchor" {
+            let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
+            let is_layer = curve_name.starts_with("outlineLayer_");
+            let is_channel = curve_name.starts_with("channel_");
+            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+                pos.x = 0.0;
+            }
+            if is_cross_section || is_outline_type {
+                if is_channel && curve_name.contains("_left_") {
+                    pos.x = pos.x.min(0.0);
+                } else if !is_channel || curve_name.contains("_right_") {
+                    pos.x = pos.x.max(0.0);
+                }
+            }
+        }
+
+        let old_anchor = target.control_points.get(index).cloned();
+        let old_t1 = target.tangents1.get(index).cloned();
+        let old_t2 = target.tangents2.get(index).cloned();
+
+        if node_type == "anchor" {
+            if let Some(old_a) = old_anchor {
+                let delta = pos - old_a;
+                target.control_points[index] = pos;
+                if old_t1.is_some() {
+                    target.tangents1[index] += delta;
+                }
+                if old_t2.is_some() {
+                    target.tangents2[index] += delta;
+                }
+            }
+        } else if node_type == "tangent1" {
+            if let (Some(old_a), Some(_)) = (old_anchor, old_t1) {
+                target.tangents1[index] = pos;
+                if let Some(old_t2_val) = old_t2 {
+                    let dir1 = pos - old_a;
+                    let len1 = dir1.length();
+                    if len1 > 0.001 {
+                        let norm1 = dir1 / len1;
+                        let orig_dist2 = (old_t2_val - old_a).length();
+                        target.tangents2[index] = old_a - (norm1 * orig_dist2);
+                    }
+                }
+            }
+        } else if node_type == "tangent2" {
+            if let (Some(old_a), Some(_)) = (old_anchor, old_t2) {
+                target.tangents2[index] = pos;
+                if let Some(old_t1_val) = old_t1 {
+                    let dir2 = pos - old_a;
+                    let len2 = dir2.length();
+                    if len2 > 0.001 {
+                        let norm2 = dir2 / len2;
+                        let orig_dist1 = (old_t1_val - old_a).length();
+                        target.tangents1[index] = old_a - (norm2 * orig_dist1);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn apply_node_exact(
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    anchor: Option<Vec3>,
+    tangent1: Option<Vec3>,
+    tangent2: Option<Vec3>,
+    weight: Option<f32>,
+) {
+    let is_cross_section = curve_name.starts_with("crossSection_");
+    let is_outline_type = curve_name == "outline"
+        || curve_name == "apexOutline"
+        || curve_name == "railOutline"
+        || curve_name == "deckShoulder"
+        || curve_name.starts_with("outlineLayer_")
+        || (curve_name.starts_with("channel_") && curve_name.ends_with("_outline"));
+
+    if let Some(target) = get_curve_mut(model, curve_name) {
+        if let Some(a) = anchor {
+            let mut pos = a;
+            if curve_name == "rockerTop"
+                || curve_name == "rockerBottom"
+                || curve_name == "apexRocker"
+            {
+                pos.x = 0.0;
+            }
+            let is_end_node = index == 0 || index == target.control_points.len().saturating_sub(1);
+            let is_layer = curve_name.starts_with("outlineLayer_");
+            let is_channel = curve_name.starts_with("channel_");
+            if is_end_node && (is_cross_section || (is_outline_type && !is_layer && !is_channel)) {
+                pos.x = 0.0;
+            }
+            if is_cross_section || is_outline_type {
+                if is_channel && curve_name.contains("_left_") {
+                    pos.x = pos.x.min(0.0);
+                } else if !is_channel || curve_name.contains("_right_") {
+                    pos.x = pos.x.max(0.0);
+                }
+            }
+            target.control_points[index] = pos;
+        }
+        if let Some(mut t1) = tangent1 {
+            if curve_name == "rockerTop"
+                || curve_name == "rockerBottom"
+                || curve_name == "apexRocker"
+            {
+                t1.x = 0.0;
+            }
+            target.tangents1[index] = t1;
+        }
+        if let Some(mut t2) = tangent2 {
+            if curve_name == "rockerTop"
+                || curve_name == "rockerBottom"
+                || curve_name == "apexRocker"
+            {
+                t2.x = 0.0;
+            }
+            target.tangents2[index] = t2;
+        }
+        if let Some(w) = weight {
+            if target.weights.is_none() {
+                target.weights = Some(vec![1.0; target.control_points.len()]);
+            }
+            if let Some(weights) = &mut target.weights {
+                if index < weights.len() {
+                    weights[index] = w;
+                } else {
+                    weights.resize(target.control_points.len(), 1.0);
+                    weights[index] = w;
+                }
+            }
+        }
+    }
+}
+
+fn apply_continuity(
+    model: &mut BoardModel,
+    curve_name: &str,
+    index: usize,
+    level: &str,
+    master: &str,
+) {
+    if let Some(target) = get_curve_mut(model, curve_name) {
+        if index > 0 && index < target.control_points.len().saturating_sub(1) {
+            let anchor = target.control_points[index];
+            let is_t1_master = master == "tangent1";
+
+            let (t_src, mut t_tgt, f_src, f_tgt) = if is_t1_master {
+                (
+                    target.tangents1[index],
+                    target.tangents2[index],
+                    target.control_points[index - 1],
+                    target.control_points[index + 1],
+                )
+            } else {
+                (
+                    target.tangents2[index],
+                    target.tangents1[index],
+                    target.control_points[index + 1],
+                    target.control_points[index - 1],
+                )
+            };
+
+            let dir = anchor - t_src;
+            let dist_tgt = (t_tgt - anchor).length();
+
+            if (level == "G1" || level == "G2") && dir.length_squared() > 1e-6 {
+                t_tgt = anchor + dir.normalize() * dist_tgt;
+            }
+
+            if level == "G2" {
+                t_tgt = crate::bezier::solve_g2_tangent(anchor, t_src, f_src, f_tgt);
+            }
+
+            if is_t1_master {
+                target.tangents2[index] = t_tgt;
+            } else {
+                target.tangents1[index] = t_tgt;
+            }
+        }
+    }
+}
+
+fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
+    if index > 0
+        && index < target.control_points.len().saturating_sub(1)
+        && target.control_points.len() > 2
+    {
+        target.control_points.remove(index);
+        if index < target.tangents1.len() {
+            target.tangents1.remove(index);
+        }
+        if index < target.tangents2.len() {
+            target.tangents2.remove(index);
+        }
+        if let Some(weights) = &mut target.weights {
+            if index < weights.len() {
+                weights.remove(index);
+            }
+        }
+    }
+}
+
 fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+    match action {
+        BoardAction::UpdateNodePosition {
+            curve,
+            index,
+            node_type,
+            position,
+        } => {
+            let pos = Vec3::from_array(position);
+            apply_node_position(model, &curve, index, &node_type, pos);
+
+            if curve.starts_with("channel_") {
+                let parts: Vec<&str> = curve.split('_').collect();
+                if parts.len() == 4 {
+                    let idx: usize = parts[1].parse().unwrap_or(0);
+                    let side = parts[2];
+                    let c_type = parts[3];
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .is_some_and(|ch| ch.is_symmetric);
+
+                    if is_sym {
+                        let mirrored_side = if side == "left" { "right" } else { "left" };
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        let mut mirrored_pos = pos;
+                        mirrored_pos.x = -mirrored_pos.x;
+                        apply_node_position(
+                            model,
+                            &mirrored_curve,
+                            index,
+                            &node_type,
+                            mirrored_pos,
+                        );
+                    }
+                }
+            }
+        }
+        BoardAction::SelectNode { node } => {
+            model.selected_node = node;
+        }
+        BoardAction::RemoveNode { curve, index } => {
+            if let Some(target) = get_curve_mut(model, &curve) {
+                remove_curve_node(target, index);
+            }
+
+            if curve.starts_with("channel_") {
+                let parts: Vec<&str> = curve.split('_').collect();
+                if parts.len() == 4 {
+                    let idx: usize = parts[1].parse().unwrap_or(0);
+                    let side = parts[2];
+                    let c_type = parts[3];
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .is_some_and(|ch| ch.is_symmetric);
+
+                    if is_sym {
+                        let mirrored_side = if side == "left" { "right" } else { "left" };
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
+                            remove_curve_node(m_target, index);
+                        }
+                    }
+                }
+            }
+            model.selected_node = None;
+            push_history(model);
+        }
+        BoardAction::InsertNode { curve, t } => {
+            let mut inserted_idx = None;
+            if let Some(target) = get_curve_mut(model, &curve) {
+                inserted_idx = crate::bezier::insert_node(target, t);
+            }
+
+            if curve.starts_with("channel_") {
+                let parts: Vec<&str> = curve.split('_').collect();
+                if parts.len() == 4 {
+                    let idx: usize = parts[1].parse().unwrap_or(0);
+                    let side = parts[2];
+                    let c_type = parts[3];
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .is_some_and(|ch| ch.is_symmetric);
+
+                    if is_sym {
+                        let mirrored_side = if side == "left" { "right" } else { "left" };
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        if let Some(m_target) = get_curve_mut(model, &mirrored_curve) {
+                            crate::bezier::insert_node(m_target, t);
+                        }
+                    }
+                }
+            }
+
+            if let Some(idx) = inserted_idx {
+                model.selected_node = Some(SelectedNode {
+                    curve: curve.clone(),
+                    index: idx,
+                    node_type: "anchor".to_string(),
+                });
+            }
+
+            push_history(model);
+        }
+        BoardAction::ApplyContinuity {
+            curve,
+            index,
+            level,
+            master,
+        } => {
+            let master_str = master.as_deref().unwrap_or("tangent1");
+            apply_continuity(model, &curve, index, &level, master_str);
+
+            if curve.starts_with("channel_") {
+                let parts: Vec<&str> = curve.split('_').collect();
+                if parts.len() == 4 {
+                    let idx: usize = parts[1].parse().unwrap_or(0);
+                    let side = parts[2];
+                    let c_type = parts[3];
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .is_some_and(|ch| ch.is_symmetric);
+
+                    if is_sym {
+                        let mirrored_side = if side == "left" { "right" } else { "left" };
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        apply_continuity(model, &mirrored_curve, index, &level, master_str);
+                    }
+                }
+            }
+        }
+        BoardAction::UpdateNodeExact {
+            curve,
+            index,
+            anchor,
+            tangent1,
+            tangent2,
+            weight,
+        } => {
+            apply_node_exact(
+                model,
+                &curve,
+                index,
+                anchor.map(Vec3::from_array),
+                tangent1.map(Vec3::from_array),
+                tangent2.map(Vec3::from_array),
+                weight,
+            );
+
+            if curve.starts_with("channel_") {
+                let parts: Vec<&str> = curve.split('_').collect();
+                if parts.len() == 4 {
+                    let idx: usize = parts[1].parse().unwrap_or(0);
+                    let side = parts[2];
+                    let c_type = parts[3];
+                    let is_sym = model
+                        .bottom_channels
+                        .as_ref()
+                        .and_then(|c| c.get(idx))
+                        .is_some_and(|ch| ch.is_symmetric);
+
+                    if is_sym {
+                        let mirrored_side = if side == "left" { "right" } else { "left" };
+                        let mirrored_curve =
+                            format!("channel_{}_{}_{}", idx, mirrored_side, c_type);
+                        let m_anchor = anchor.map(|a| Vec3::new(-a[0], a[1], a[2]));
+                        let m_t1 = tangent1.map(|a| Vec3::new(-a[0], a[1], a[2]));
+                        let m_t2 = tangent2.map(|a| Vec3::new(-a[0], a[1], a[2]));
+                        apply_node_exact(
+                            model,
+                            &mirrored_curve,
+                            index,
+                            m_anchor,
+                            m_t1,
+                            m_t2,
+                            weight,
+                        );
+                    }
+                }
+            }
+            push_history(model);
+        }
+        _ => {}
+    }
     Vec::new()
 }
 
