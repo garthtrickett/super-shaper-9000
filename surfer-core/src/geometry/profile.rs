@@ -1,6 +1,6 @@
-use crate::model::{BezierCurveData, BoardModel};
-use glam::Vec3;
 use super::curves::*;
+use crate::model::BoardModel;
+use glam::Vec3;
 
 pub fn get_channel_profile_at_z(
     model: &BoardModel,
@@ -198,19 +198,48 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             }
         }
     }
-    let final_apex_x = apex_x.max(0.001);
+        let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
     let final_shoulder_x = shoulder_x.max(0.0).min(final_apex_x);
+
+    let rail_coeff = if dist > 0.0 {
+        let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        1.0 + (model.rail_coefficient_tail - 1.0) * ease_t
+    } else {
+        let t = ((-dist) / (mid_z - bounds.nose_z)).clamp(0.0, 1.0);
+        let ease_t = t * t * (3.0 - 2.0 * t);
+        1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
+    };
+
+    let inner_x = if z_inches > bounds.notch_z {
+        evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z_inches)
+    } else {
+        0.0
+    };
+
+    let get_local_rail_coeff = |x: f32| -> f32 {
+        let norm_x = if final_apex_x > inner_x {
+            ((x - inner_x) / (final_apex_x - inner_x)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        1.0 - (1.0 - rail_coeff) * norm_x
+    };
+
+    let apex_y_final = actual_bot_y + (apex_y - actual_bot_y) * get_local_rail_coeff(final_apex_x);
+    let tuck_y_final = actual_bot_y + (tuck_y - actual_bot_y) * get_local_rail_coeff(final_tuck_x);
+    let shoulder_y_final = actual_bot_y + (shoulder_y - actual_bot_y) * get_local_rail_coeff(final_shoulder_x);
 
     BoardProfile {
         top_y,
         bot_y: actual_bot_y,
         apex_x: final_apex_x,
-        apex_y,
+        apex_y: apex_y_final,
         tuck_x: final_tuck_x,
-        tuck_y,
+        tuck_y: tuck_y_final,
         shoulder_x: final_shoulder_x,
-        shoulder_y,
+        shoulder_y: shoulder_y_final,
         half_width: outline_pt.x.max(0.0),
         outline_tangent,
         outline_normal,
@@ -220,8 +249,8 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glam::Vec3;
     use crate::model::BezierCurveData;
+    use glam::Vec3;
 
     #[test]
     fn test_board_profile_normals() {
@@ -527,9 +556,9 @@ mod tests {
         // Test Rail Coefficient (Thinning the deck shoulder)
         let profile_base = get_board_profile_at_z(&model_base, z_tail, 0.5);
         let profile_mod = get_board_profile_at_z(&model_mod_rail, z_tail, 0.5);
-        
+
         assert!(
-            profile_mod.shoulder_y < profile_base.shoulder_y, 
+            profile_mod.shoulder_y < profile_base.shoulder_y,
             "Rail coefficient < 1.0 should aggressively thin out the foil/shoulder volume at the tail"
         );
     }

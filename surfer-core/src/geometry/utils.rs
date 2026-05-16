@@ -1,6 +1,6 @@
+use super::curves::evaluate_curve;
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
-use super::curves::evaluate_curve;
 
 pub enum EaseType {
     EaseIn,

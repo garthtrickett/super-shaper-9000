@@ -1,6 +1,6 @@
+use super::{curves::*, profile::*};
 use crate::model::BoardModel;
 use glam::Vec3;
-use super::{curves::*, profile::*};
 
 pub fn get_point_at_uv_base(
     model: &BoardModel,
@@ -764,13 +764,13 @@ mod tests {
             tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 60.0)],
             ..Default::default()
         });
-        model.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(0.0, 1.0, 60.0)], 
-            ..Default::default() 
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0.0, 1.0, 60.0)],
+            ..Default::default()
         });
-        model.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(0.0, -1.0, 60.0)], 
-            ..Default::default() 
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0.0, -1.0, 60.0)],
+            ..Default::default()
         });
 
         let bounds = get_board_bounds(&model);
@@ -786,11 +786,7 @@ mod tests {
             let profile = get_board_profile_at_z(&model, z, v_outer);
 
             let inner_x = if z > bounds.notch_z {
-                evaluate_notch_inner_x(
-                    model.outline.as_ref().unwrap(),
-                    bounds.tip_t,
-                    z,
-                )
+                evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z)
             } else {
                 0.0
             };
@@ -837,13 +833,13 @@ mod tests {
             tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 60.0)],
             ..Default::default()
         });
-        model.rocker_top = Some(BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(0.0, 1.0, 60.0)], 
-            ..Default::default() 
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0.0, 1.0, 60.0)],
+            ..Default::default()
         });
-        model.rocker_bottom = Some(BezierCurveData { 
-            control_points: vec![Vec3::ZERO, Vec3::new(0.0, -1.0, 60.0)], 
-            ..Default::default() 
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::ZERO, Vec3::new(0.0, -1.0, 60.0)],
+            ..Default::default()
         });
 
         let bounds = get_board_bounds(&model);
