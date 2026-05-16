@@ -61,35 +61,7 @@ fn get_curve_mut<'a>(
     }
 }
 
-pub fn push_history(model: &mut BoardModel) {
-    let snapshot = ManualSnapshot {
-        outline: model.outline.clone(),
-        outline_layers: model.outline_layers.clone(),
-        bottom_channels: model.bottom_channels.clone(),
-        rail_outline: model.rail_outline.clone(),
-        apex_outline: model.apex_outline.clone(),
-        rocker_top: model.rocker_top.clone(),
-        rocker_bottom: model.rocker_bottom.clone(),
-        apex_rocker: model.apex_rocker.clone(),
-        deck_shoulder: model.deck_shoulder.clone(),
-        cross_sections: model.cross_sections.clone(),
-    };
 
-    let mut history = model.history.take().unwrap_or_default();
-    let idx = model.history_index.unwrap_or(0);
-
-    if history.len() > idx + 1 {
-        history.truncate(idx + 1);
-    }
-
-    history.push(snapshot);
-    if history.len() > 50 {
-        history.remove(0);
-    }
-
-    model.history_index = Some(history.len().saturating_sub(1));
-    model.history = Some(history);
-}
 
 fn scale_curve_data_width(c: &mut BezierCurveData, factor: f32) {
     for p in &mut c.control_points {
@@ -946,46 +918,9 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-        BoardAction::SaveHistorySnapshot => {
-            push_history(model);
-        }
-        BoardAction::Undo => {
-            if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
-                if idx > 0 {
-                    idx -= 1;
-                    let snap = &history[idx];
-                    model.history_index = Some(idx);
-                    model.outline = snap.outline.clone();
-                    model.outline_layers = snap.outline_layers.clone();
-                    model.bottom_channels = snap.bottom_channels.clone();
-                    model.rail_outline = snap.rail_outline.clone();
-                    model.apex_outline = snap.apex_outline.clone();
-                    model.rocker_top = snap.rocker_top.clone();
-                    model.rocker_bottom = snap.rocker_bottom.clone();
-                    model.apex_rocker = snap.apex_rocker.clone();
-                    model.deck_shoulder = snap.deck_shoulder.clone();
-                    model.cross_sections = snap.cross_sections.clone();
-                }
-            }
-        }
-        BoardAction::Redo => {
-            if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
-                if idx + 1 < history.len() {
-                    idx += 1;
-                    let snap = &history[idx];
-                    model.history_index = Some(idx);
-                    model.outline = snap.outline.clone();
-                    model.outline_layers = snap.outline_layers.clone();
-                    model.bottom_channels = snap.bottom_channels.clone();
-                    model.rail_outline = snap.rail_outline.clone();
-                    model.apex_outline = snap.apex_outline.clone();
-                    model.rocker_top = snap.rocker_top.clone();
-                    model.rocker_bottom = snap.rocker_bottom.clone();
-                    model.apex_rocker = snap.apex_rocker.clone();
-                    model.deck_shoulder = snap.deck_shoulder.clone();
-                    model.cross_sections = snap.cross_sections.clone();
-                }
-            }
+                act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
+            let mut h_effects = handle_history(model, act);
+            effects.append(&mut h_effects);
         }
         BoardAction::ScaleWidth { factor } => {
             model.width *= factor;
@@ -1448,7 +1383,7 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
             }
             push_history(model);
         }
-        BoardAction::RemoveBottomChannel { index } => {
+                BoardAction::RemoveBottomChannel { index } => {
             if let Some(mut channels) = model.bottom_channels.take() {
                 if index < channels.len() {
                     channels.remove(index);
@@ -1460,6 +1395,100 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     }
 
     effects
+}
+
+pub fn push_history(model: &mut BoardModel) {
+    let snapshot = ManualSnapshot {
+        outline: model.outline.clone(),
+        outline_layers: model.outline_layers.clone(),
+        bottom_channels: model.bottom_channels.clone(),
+        rail_outline: model.rail_outline.clone(),
+        apex_outline: model.apex_outline.clone(),
+        rocker_top: model.rocker_top.clone(),
+        rocker_bottom: model.rocker_bottom.clone(),
+        apex_rocker: model.apex_rocker.clone(),
+        deck_shoulder: model.deck_shoulder.clone(),
+        cross_sections: model.cross_sections.clone(),
+    };
+
+    let mut history = model.history.take().unwrap_or_default();
+    let idx = model.history_index.unwrap_or(0);
+
+    if history.len() > idx + 1 {
+        history.truncate(idx + 1);
+    }
+
+    history.push(snapshot);
+    if history.len() > 50 {
+        history.remove(0);
+    }
+
+    model.history_index = Some(history.len().saturating_sub(1));
+    model.history = Some(history);
+}
+
+fn handle_history(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+    match action {
+        BoardAction::SaveHistorySnapshot => {
+            push_history(model);
+        }
+        BoardAction::Undo => {
+            if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
+                if idx > 0 {
+                    idx -= 1;
+                    let snap = &history[idx];
+                    model.history_index = Some(idx);
+                    model.outline = snap.outline.clone();
+                    model.outline_layers = snap.outline_layers.clone();
+                    model.bottom_channels = snap.bottom_channels.clone();
+                    model.rail_outline = snap.rail_outline.clone();
+                    model.apex_outline = snap.apex_outline.clone();
+                    model.rocker_top = snap.rocker_top.clone();
+                    model.rocker_bottom = snap.rocker_bottom.clone();
+                    model.apex_rocker = snap.apex_rocker.clone();
+                    model.deck_shoulder = snap.deck_shoulder.clone();
+                    model.cross_sections = snap.cross_sections.clone();
+                }
+            }
+        }
+        BoardAction::Redo => {
+            if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
+                if idx + 1 < history.len() {
+                    idx += 1;
+                    let snap = &history[idx];
+                    model.history_index = Some(idx);
+                    model.outline = snap.outline.clone();
+                    model.outline_layers = snap.outline_layers.clone();
+                    model.bottom_channels = snap.bottom_channels.clone();
+                    model.rail_outline = snap.rail_outline.clone();
+                    model.apex_outline = snap.apex_outline.clone();
+                    model.rocker_top = snap.rocker_top.clone();
+                    model.rocker_bottom = snap.rocker_bottom.clone();
+                    model.apex_rocker = snap.apex_rocker.clone();
+                    model.deck_shoulder = snap.deck_shoulder.clone();
+                    model.cross_sections = snap.cross_sections.clone();
+                }
+            }
+        }
+        _ => {}
+    }
+    Vec::new()
+}
+
+fn handle_node_mutations(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+    Vec::new()
+}
+
+fn handle_layer_toggles(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+    Vec::new()
+}
+
+fn handle_import(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+    Vec::new()
+}
+
+fn handle_parametric_scaling(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+    Vec::new()
 }
 
 #[cfg(test)]

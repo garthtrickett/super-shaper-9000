@@ -1,8 +1,8 @@
-use crate::model::BoardModel;
 use crate::geometry::{
     evaluate_bezier_at_z, evaluate_curve, evaluate_notch_inner_x, find_apex_t, find_v_at_z,
     get_cross_section_blend_at_z,
 };
+use crate::model::BoardModel;
 
 #[cfg(test)]
 mod tests {
@@ -12,10 +12,10 @@ mod tests {
     fn test_z_rings_with_wings() {
         use crate::model::{BezierCurveData, BoardModel, OutlineLayer};
         use glam::Vec3;
-        
+
         let mut model = BoardModel::default();
         model.length = 100.0;
-        
+
         let outline = BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
@@ -23,31 +23,49 @@ mod tests {
             weights: None,
         };
         model.outline = Some(outline.clone());
-        
+
         let wing_ext = BezierCurveData {
             control_points: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
             tangents1: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
             tangents2: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
             weights: None,
         };
-        
+
         model.outline_layers = Some(vec![OutlineLayer {
             name: "Wing".to_string(),
             active: true,
             otl_ext: wing_ext,
             otl_int: BezierCurveData::default(),
         }]);
-        
+
         let z_rings = compute_z_rings(&model, 0.0, 100.0, &outline);
-        
+
         // Assert that the cliff coordinates were injected around Z=70 and Z=80
-        assert!(z_rings.iter().any(|&z| (z - (70.0 - 1e-3)).abs() < 1e-5), "Missing cliff approach at 70");
-        assert!(z_rings.iter().any(|&z| (z - 70.0).abs() < 1e-5), "Missing cliff at 70");
-        assert!(z_rings.iter().any(|&z| (z - (70.0 + 1e-3)).abs() < 1e-5), "Missing cliff departure at 70");
-        
-        assert!(z_rings.iter().any(|&z| (z - (80.0 - 1e-3)).abs() < 1e-5), "Missing cliff approach at 80");
-        assert!(z_rings.iter().any(|&z| (z - 80.0).abs() < 1e-5), "Missing cliff at 80");
-        assert!(z_rings.iter().any(|&z| (z - (80.0 + 1e-3)).abs() < 1e-5), "Missing cliff departure at 80");
+        assert!(
+            z_rings.iter().any(|&z| (z - (70.0 - 1e-3)).abs() < 1e-5),
+            "Missing cliff approach at 70"
+        );
+        assert!(
+            z_rings.iter().any(|&z| (z - 70.0).abs() < 1e-5),
+            "Missing cliff at 70"
+        );
+        assert!(
+            z_rings.iter().any(|&z| (z - (70.0 + 1e-3)).abs() < 1e-5),
+            "Missing cliff departure at 70"
+        );
+
+        assert!(
+            z_rings.iter().any(|&z| (z - (80.0 - 1e-3)).abs() < 1e-5),
+            "Missing cliff approach at 80"
+        );
+        assert!(
+            z_rings.iter().any(|&z| (z - 80.0).abs() < 1e-5),
+            "Missing cliff at 80"
+        );
+        assert!(
+            z_rings.iter().any(|&z| (z - (80.0 + 1e-3)).abs() < 1e-5),
+            "Missing cliff departure at 80"
+        );
     }
 
     #[test]
@@ -232,7 +250,10 @@ pub fn compute_u_columns(
 
     let mut u_params_half = critical_norm_us.clone();
     for norm_u in adaptive_norm_us {
-        if !critical_norm_us.iter().any(|&cu| (norm_u - cu).abs() < 0.01) {
+        if !critical_norm_us
+            .iter()
+            .any(|&cu| (norm_u - cu).abs() < 0.01)
+        {
             u_params_half.push(norm_u);
         }
     }

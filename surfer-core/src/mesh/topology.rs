@@ -240,8 +240,8 @@ pub fn generate_cap(
                 let sp = &ring[j];
                 let pos = sp.pos;
                 let color = sp.color;
-                let u_tex = sp.u_tex;
-                let v_coord = sp.v_coord;
+                // let u_tex = sp.u_tex;
+                // let v_coord = sp.v_coord;
                 let side = u_columns[j].1;
 
                 let target_x = if side > 0.0 {

@@ -1,4 +1,3 @@
-use crate::geometry::*;
 use crate::model::{BoardModel, RawGeometryData};
 use glam::Vec3;
 
@@ -37,7 +36,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let right_half_cols = num_cols / 2;
     let half = right_half_cols - 1;
 
-    let surface_data = surface::build_surface(model, &z_rings, &u_columns, outline, notch_z, v_tip, scale);
+    let surface_data =
+        surface::build_surface(model, &z_rings, &u_columns, outline, notch_z, v_tip, scale);
     let grid = surface_data.grid;
     let mut vertices = surface_data.vertices;
     let mut normals = surface_data.normals;
@@ -52,7 +52,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             tip_z - notch_z
         );
     }
-    
+
     topology::generate_swallow_notch_wall(
         &grid,
         &z_rings,
@@ -103,7 +103,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         &mut indices,
     );
 
-        let volume_liters = volume::compute_volume(&grid);
+    let volume_liters = volume::compute_volume(&grid);
     log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
 
     RawGeometryData {
@@ -115,9 +115,6 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         volume_liters,
     }
 }
-
-
-
 
 #[cfg(test)]
 mod tests {

@@ -1,4 +1,6 @@
-use crate::geometry::{color_heatmap, evaluate_bezier_at_z, get_point_at_uv, get_surface_normal_at_uvz};
+use crate::geometry::{
+    color_heatmap, evaluate_bezier_at_z, get_point_at_uv, get_surface_normal_at_uvz,
+};
 use crate::model::BoardModel;
 use glam::Vec3;
 

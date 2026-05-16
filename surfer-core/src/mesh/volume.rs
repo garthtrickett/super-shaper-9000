@@ -87,7 +87,7 @@ mod tests {
 
         let grid: SurfaceGrid = vec![make_ring(0.0), make_ring(1.0)];
 
-                let vol = compute_volume(&grid);
+        let vol = compute_volume(&grid);
         assert!((vol - 28.3168).abs() < 1e-4);
     }
 
@@ -97,20 +97,41 @@ mod tests {
         // Z from 0 to 1
         // Area at Z=0 is 4.0. Area at Z=1 is 0.0.
         // Trapezoidal integration: (4 + 0) / 2 * 1.0 = 2.0 cubic units.
-        
+
         let make_ring = |z: f32, width: f32, height: f32| -> Vec<SurfacePoint> {
             vec![
-                SurfacePoint { pos: Vec3::new(-width/2.0, 0.0, z), color: Vec3::ZERO, u_tex: 0.0, v_coord: 0.0, abs_u: 0.0 },
-                SurfacePoint { pos: Vec3::new(width/2.0, 0.0, z), color: Vec3::ZERO, u_tex: 0.0, v_coord: 0.0, abs_u: 0.0 },
-                SurfacePoint { pos: Vec3::new(width/2.0, height, z), color: Vec3::ZERO, u_tex: 0.0, v_coord: 0.0, abs_u: 0.0 },
-                SurfacePoint { pos: Vec3::new(-width/2.0, height, z), color: Vec3::ZERO, u_tex: 0.0, v_coord: 0.0, abs_u: 0.0 },
+                SurfacePoint {
+                    pos: Vec3::new(-width / 2.0, 0.0, z),
+                    color: Vec3::ZERO,
+                    u_tex: 0.0,
+                    v_coord: 0.0,
+                    abs_u: 0.0,
+                },
+                SurfacePoint {
+                    pos: Vec3::new(width / 2.0, 0.0, z),
+                    color: Vec3::ZERO,
+                    u_tex: 0.0,
+                    v_coord: 0.0,
+                    abs_u: 0.0,
+                },
+                SurfacePoint {
+                    pos: Vec3::new(width / 2.0, height, z),
+                    color: Vec3::ZERO,
+                    u_tex: 0.0,
+                    v_coord: 0.0,
+                    abs_u: 0.0,
+                },
+                SurfacePoint {
+                    pos: Vec3::new(-width / 2.0, height, z),
+                    color: Vec3::ZERO,
+                    u_tex: 0.0,
+                    v_coord: 0.0,
+                    abs_u: 0.0,
+                },
             ]
         };
 
-        let grid: SurfaceGrid = vec![
-            make_ring(0.0, 2.0, 2.0),
-            make_ring(1.0, 2.0, 0.0),
-        ];
+        let grid: SurfaceGrid = vec![make_ring(0.0, 2.0, 2.0), make_ring(1.0, 2.0, 0.0)];
 
         let vol = compute_volume(&grid);
         // Expected liters: 2.0 * 28.3168 = 56.6336
