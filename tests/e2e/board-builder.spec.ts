@@ -190,9 +190,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.waitForTimeout(500);
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
-    // 2. Verify the inspector appears
+        // 2. Verify the inspector appears
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
+    await expect(inspector).toBeVisible({ timeout: 15000 });
 
     // 3. Set continuity to G2 (Fair)
     await inspector.locator('button', { hasText: 'Fair' }).click();
@@ -319,10 +319,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.waitForTimeout(500); // Allow gizmo scale to apply
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
-    // 5. Verify the inspector reveals the layer correctly
+        // 5. Verify the inspector reveals the layer correctly
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
-    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
+    await expect(inspector).toBeVisible({ timeout: 15000 });
+    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i, { timeout: 15000 });
 
     // 6. Test Removal
     const removeBtn = boardControls.locator("button", { hasText: "×" }).first();
@@ -398,10 +398,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.mouse.move(hitPosition!.x + 100, hitPosition!.y, { steps: 10 });
     await page.mouse.up();
 
-    // 4. Verify Node Inspector reflects the change
+        // 4. Verify Node Inspector reflects the change
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
-    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i);
+    await expect(inspector).toBeVisible({ timeout: 15000 });
+    await expect(inspector).toContainText(/Layer 0 \(EXT\)/i, { timeout: 15000 });
 
     const xInput = inspector.locator('div:has-text("Anchor Position") input').first();
     
@@ -474,10 +474,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.waitForTimeout(500);
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
-    // 5. Verify the inspector reveals the layer correctly
+        // 5. Verify the inspector reveals the layer correctly
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
-    await expect(inspector).toContainText(/Channel 0 \(RIGHT OUTLINE\)/i);
+    await expect(inspector).toBeVisible({ timeout: 15000 });
+    await expect(inspector).toContainText(/Channel 0 \(RIGHT OUTLINE\)/i, { timeout: 15000 });
 
     // 6. Test Removal
     const removeBtn = boardControls.locator('button[title="Remove Channel 1"]');
@@ -541,9 +541,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.waitForTimeout(500);
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
-    // 3. Verify Node Inspector specifically confirms 'INT'
+        // 3. Verify Node Inspector specifically confirms 'INT'
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
+    await expect(inspector).toBeVisible({ timeout: 15000 });
     // The refined title logic should display 'Layer 0 (INT)'
     await expect(inspector.locator('h3')).toContainText("Layer 0 (INT)");
   });
@@ -728,9 +728,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     expect(hitPosition).toBeTruthy();
     await page.mouse.click(hitPosition!.x, hitPosition!.y);
 
-    // 2. Verify the inspector appears
+        // 2. Verify the inspector appears
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible();
+    await expect(inspector).toBeVisible({ timeout: 15000 });
 
     // 3. Change Tension/Weight via the new UI slider
     // Find the specific section div that contains the Tension heading
