@@ -266,7 +266,7 @@ impl SurferEngine {
             add_curve(&self.model.deck_shoulder);
         }
 
-                if self.model.show_cross_sections.unwrap_or(true) {
+        if self.model.show_cross_sections.unwrap_or(true) {
             for cs in &self.model.cross_sections {
                 add_curve(&Some(cs.clone()));
             }
@@ -279,8 +279,8 @@ impl SurferEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glam::Vec3;
     use crate::model::BezierCurveData;
+    use glam::Vec3;
 
     #[test]
     fn test_incremental_meshing_cache_hits() {
@@ -291,7 +291,11 @@ mod tests {
         model.thickness = 3.0;
 
         model.outline = Some(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 0.0, 100.0)],
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 50.0),
+                Vec3::new(0.0, 0.0, 100.0),
+            ],
             tangents1: vec![Vec3::ZERO; 3],
             tangents2: vec![Vec3::ZERO; 3],
             ..Default::default()
@@ -320,11 +324,13 @@ mod tests {
         }];
 
         let mut engine = SurferEngine::new();
-        engine.update(BoardAction::LoadDesign { state: Box::new(model) });
+        engine.update(BoardAction::LoadDesign {
+            state: Box::new(model),
+        });
 
         // 1. First Pass (Global Rebuild)
         let mesh1 = engine.compute_mesh();
-        
+
         // Extract reference vertices from the tail (Z > 75.0)
         let scale = 1.0 / 12.0;
         let mut tail_vertices_run1 = Vec::new();
@@ -347,8 +353,14 @@ mod tests {
         });
 
         // Verify dirty state
-        assert!(!engine.dirty_state.global_rebuild, "Local mutation should not trigger global rebuild");
-        assert!(!engine.dirty_state.dirty_z_ranges.is_empty(), "Should have flagged a dirty z-range");
+        assert!(
+            !engine.dirty_state.global_rebuild,
+            "Local mutation should not trigger global rebuild"
+        );
+        assert!(
+            !engine.dirty_state.dirty_z_ranges.is_empty(),
+            "Should have flagged a dirty z-range"
+        );
 
         // 3. Second Pass (Incremental Build)
         let mesh2 = engine.compute_mesh();

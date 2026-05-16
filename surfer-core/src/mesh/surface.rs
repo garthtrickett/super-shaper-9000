@@ -25,7 +25,6 @@ pub struct SurfaceData {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub fn build_surface(
     model: &BoardModel,
     dirty: &crate::model::DirtyState,
@@ -141,11 +140,10 @@ pub fn build_surface(
         grid.push(ring);
     }
 
-    // Fast 2D to 1D Topology Extrusion
+        // Fast 2D to 1D Topology Extrusion
     let mut normals = Vec::new();
-    for i in 0..=segments_v {
-        for j in 0..num_cols {
-            let sp = &grid[i][j];
+    for ring in &grid {
+        for sp in ring {
             vertices.push(sp.pos.x);
             vertices.push(sp.pos.y);
             vertices.push(sp.pos.z);
@@ -168,4 +166,3 @@ pub fn build_surface(
         colors,
     }
 }
-    

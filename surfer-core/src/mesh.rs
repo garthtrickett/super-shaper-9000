@@ -146,7 +146,6 @@ pub fn generate_mesh(
         volume_liters,
     }
 }
-    
 
 #[cfg(test)]
 mod tests {
