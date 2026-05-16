@@ -60,8 +60,8 @@ impl MobileSurferEngine {
     }
 
     /// Calculates and returns the raw 3D mesh buffers needed to render the board natively.
-    pub fn get_mesh(&self) -> MobileGeometryData {
-        let engine = self.engine.lock().unwrap();
+        pub fn get_mesh(&self) -> MobileGeometryData {
+        let mut engine = self.engine.lock().unwrap();
         let mesh = engine.compute_mesh();
 
         MobileGeometryData {
