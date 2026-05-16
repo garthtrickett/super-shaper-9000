@@ -14,7 +14,7 @@ import "../ui/foil-graph";
 import "../ui/export-modal";
 import "../ui/import-modal";
 
-@customElement("board-builder-page"@customElement("board-builder-page")
+@customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
   private wasmCtrl = new WasmSamController(this);
   private keyboardCtrl = new KeyboardController(this, {

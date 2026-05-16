@@ -9,14 +9,14 @@ export class ExportModal extends LitElement {
     return this; // Use Light DOM to ensure Tailwind classes work
   }
 
-  private _handleClose() {
+    private _handleClose = () => {
     this.dispatchEvent(new CustomEvent("close", { bubbles: true, composed: true }));
-  }
+  };
 
-  private _handleCopy() {
+  private _handleCopy = () => {
     void navigator.clipboard.writeText(this.jsonString);
     this._handleClose();
-  }
+  };
 
   override render() {
     return html`

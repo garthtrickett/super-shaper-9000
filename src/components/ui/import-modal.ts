@@ -12,11 +12,11 @@ export class ImportModal extends LitElement {
     return this; // Use Light DOM to ensure Tailwind classes work
   }
 
-  private _handleClose() {
+    private _handleClose = () => {
     this.importJson = "";
     this.importError = "";
     this.dispatchEvent(new CustomEvent("close", { bubbles: true, composed: true }));
-  }
+  };
 
   private _handleFileUpload = async (e: Event) => {
     const input = e.target as HTMLInputElement;
