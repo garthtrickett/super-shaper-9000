@@ -121,7 +121,11 @@ pub fn push_history(model: &mut BoardModel) {
     model.history = Some(history);
 }
 
-fn handle_history(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_history(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     dirty.global_rebuild = true;
     match action {
         BoardAction::SaveHistorySnapshot => {
@@ -388,8 +392,12 @@ fn mark_node_dirty(model: &BoardModel, dirty: &mut DirtyState, curve_name: &str,
             if let Some(cs) = model.cross_sections.get(idx + 1) {
                 max_z = cs.control_points.first().map(|p| p.z).unwrap_or(max_z);
             }
-            if min_z == f32::NEG_INFINITY { min_z = -1000.0; }
-            if max_z == f32::INFINITY { max_z = 1000.0; }
+            if min_z == f32::NEG_INFINITY {
+                min_z = -1000.0;
+            }
+            if max_z == f32::INFINITY {
+                max_z = 1000.0;
+            }
             dirty.dirty_z_ranges.push((min_z - 2.0, max_z + 2.0));
         }
         return;
@@ -411,14 +419,22 @@ fn mark_node_dirty(model: &BoardModel, dirty: &mut DirtyState, curve_name: &str,
     let mut max_z = f32::NEG_INFINITY;
 
     let mut check_z = |z: f32| {
-        if z < min_z { min_z = z; }
-        if z > max_z { max_z = z; }
+        if z < min_z {
+            min_z = z;
+        }
+        if z > max_z {
+            max_z = z;
+        }
     };
 
     for i in i_prev..=i_next {
         check_z(curve.control_points[i].z);
-        if let Some(t1) = curve.tangents1.get(i) { check_z(t1.z); }
-        if let Some(t2) = curve.tangents2.get(i) { check_z(t2.z); }
+        if let Some(t1) = curve.tangents1.get(i) {
+            check_z(t1.z);
+        }
+        if let Some(t2) = curve.tangents2.get(i) {
+            check_z(t2.z);
+        }
     }
 
     if min_z != f32::INFINITY && max_z != f32::NEG_INFINITY {
@@ -446,7 +462,11 @@ fn remove_curve_node(target: &mut BezierCurveData, index: usize) {
     }
 }
 
-fn handle_node_mutations(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_node_mutations(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     match action {
         BoardAction::UpdateNodePosition {
             curve,
@@ -801,7 +821,11 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
     final_pos
 }
 
-fn handle_layer_toggles(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_layer_toggles(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     dirty.global_rebuild = true;
     match action {
         BoardAction::AddOutlineLayer => {
@@ -1183,7 +1207,11 @@ fn preserve_ui_state(old_model: &BoardModel, new_model: &mut BoardModel) {
     new_model.gizmo_scale_profile = old_model.gizmo_scale_profile;
 }
 
-fn handle_import(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_import(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     dirty.global_rebuild = true;
     let mut effects = Vec::new();
     match action {
@@ -1389,7 +1417,11 @@ fn apply_tail_type(model: &mut BoardModel) {
     }
 }
 
-fn handle_parametric_scaling(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_parametric_scaling(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     dirty.global_rebuild = true;
     match action {
         BoardAction::UpdateNumber { param, value } => match param.as_str() {
@@ -1624,12 +1656,20 @@ mod tests {
         assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 10.0);
 
         // Undo
-        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::Undo);
+        update(
+            &mut model,
+            &mut crate::model::DirtyState::default(),
+            BoardAction::Undo,
+        );
         assert_eq!(model.history_index, Some(0));
         assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 5.0);
 
         // Redo
-        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::Redo);
+        update(
+            &mut model,
+            &mut crate::model::DirtyState::default(),
+            BoardAction::Redo,
+        );
         assert_eq!(model.history_index, Some(1));
         assert_eq!(model.outline.as_ref().unwrap().control_points[1].x, 10.0);
     }
@@ -1763,7 +1803,11 @@ mod tests {
         let mut model = create_mock_model();
         assert!(model.bottom_channels.is_none());
 
-        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::AddBottomChannel);
+        update(
+            &mut model,
+            &mut crate::model::DirtyState::default(),
+            BoardAction::AddBottomChannel,
+        );
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 1);
         assert_eq!(model.bottom_channels.as_ref().unwrap()[0].name, "Channel 1");
         assert!(model.bottom_channels.as_ref().unwrap()[0].is_symmetric);
@@ -1806,7 +1850,11 @@ mod tests {
             -1.0
         );
 
-        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::RemoveBottomChannel { index: 0 });
+        update(
+            &mut model,
+            &mut crate::model::DirtyState::default(),
+            BoardAction::RemoveBottomChannel { index: 0 },
+        );
         assert_eq!(model.bottom_channels.as_ref().unwrap().len(), 0);
     }
 
@@ -1831,7 +1879,11 @@ mod tests {
     #[test]
     fn test_asymmetric_channel_update() {
         let mut model = create_mock_model();
-        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::AddBottomChannel);
+        update(
+            &mut model,
+            &mut crate::model::DirtyState::default(),
+            BoardAction::AddBottomChannel,
+        );
 
         // Unlink the channel symmetry
         model.bottom_channels.as_mut().unwrap()[0].is_symmetric = false;
@@ -1881,7 +1933,11 @@ mod tests {
         };
         model.cross_sections = vec![cs0, cs1];
 
-        update(&mut model, &mut crate::model::DirtyState::default(), BoardAction::AddCrossSection { z: 50.0 });
+        update(
+            &mut model,
+            &mut crate::model::DirtyState::default(),
+            BoardAction::AddCrossSection { z: 50.0 },
+        );
         assert_eq!(model.cross_sections.len(), 3);
         assert_eq!(model.cross_sections[1].control_points[0].z, 50.0);
     }

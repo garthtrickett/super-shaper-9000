@@ -38,7 +38,14 @@ mod tests {
             otl_int: BezierCurveData::default(),
         }]);
 
-        let z_rings = compute_z_rings(&model, &crate::model::DirtyState::default(), &crate::mesh::MeshCache::default(), 0.0, 100.0, &outline);
+        let z_rings = compute_z_rings(
+            &model,
+            &crate::model::DirtyState::default(),
+            &crate::mesh::MeshCache::default(),
+            0.0,
+            100.0,
+            &outline,
+        );
 
         // Assert that the cliff coordinates were injected around Z=70 and Z=80
         assert!(
@@ -133,7 +140,10 @@ pub fn compute_z_rings(
 
     if !dirty.global_rebuild && !cache.z_rings.is_empty() {
         for &z in &cache.z_rings {
-            let is_dirty = dirty.dirty_z_ranges.iter().any(|&(min_z, max_z)| z >= min_z && z <= max_z);
+            let is_dirty = dirty
+                .dirty_z_ranges
+                .iter()
+                .any(|&(min_z, max_z)| z >= min_z && z <= max_z);
             if !is_dirty {
                 all_z.push(z);
             }
@@ -158,7 +168,12 @@ pub fn compute_z_rings(
     let mut sample_curve = |curve: &crate::model::BezierCurveData| {
         for t in crate::bezier::adaptive_sample_t(curve, tolerance_degrees, min_dist) {
             let z = evaluate_curve(curve, t).z;
-            if dirty.global_rebuild || dirty.dirty_z_ranges.iter().any(|&(min_z, max_z)| z >= min_z && z <= max_z) {
+            if dirty.global_rebuild
+                || dirty
+                    .dirty_z_ranges
+                    .iter()
+                    .any(|&(min_z, max_z)| z >= min_z && z <= max_z)
+            {
                 all_z.push(z);
             }
         }
@@ -187,15 +202,30 @@ pub fn compute_z_rings(
             }
         }
 
-        if dirty.global_rebuild || dirty.dirty_z_ranges.iter().any(|&(min_z, max_z)| nose_z >= min_z && nose_z <= max_z) {
+        if dirty.global_rebuild
+            || dirty
+                .dirty_z_ranges
+                .iter()
+                .any(|&(min_z, max_z)| nose_z >= min_z && nose_z <= max_z)
+        {
             all_z.push(nose_z);
         }
-        if dirty.global_rebuild || dirty.dirty_z_ranges.iter().any(|&(min_z, max_z)| tip_z >= min_z && tip_z <= max_z) {
+        if dirty.global_rebuild
+            || dirty
+                .dirty_z_ranges
+                .iter()
+                .any(|&(min_z, max_z)| tip_z >= min_z && tip_z <= max_z)
+        {
             all_z.push(tip_z);
         }
 
         for &cz in &cliff_zs {
-            if dirty.global_rebuild || dirty.dirty_z_ranges.iter().any(|&(min_z, max_z)| cz >= min_z && cz <= max_z) {
+            if dirty.global_rebuild
+                || dirty
+                    .dirty_z_ranges
+                    .iter()
+                    .any(|&(min_z, max_z)| cz >= min_z && cz <= max_z)
+            {
                 all_z.push(cz - 1e-3);
                 all_z.push(cz);
                 all_z.push(cz + 1e-3);

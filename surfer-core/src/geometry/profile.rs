@@ -198,7 +198,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             }
         }
     }
-        let final_apex_x = apex_x.max(0.001);
+    let final_apex_x = apex_x.max(0.001);
     let final_tuck_x = tuck_x.max(0.0).min(final_apex_x);
     let final_shoulder_x = shoulder_x.max(0.0).min(final_apex_x);
 
@@ -229,7 +229,8 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
 
     let apex_y_final = actual_bot_y + (apex_y - actual_bot_y) * get_local_rail_coeff(final_apex_x);
     let tuck_y_final = actual_bot_y + (tuck_y - actual_bot_y) * get_local_rail_coeff(final_tuck_x);
-    let shoulder_y_final = actual_bot_y + (shoulder_y - actual_bot_y) * get_local_rail_coeff(final_shoulder_x);
+    let shoulder_y_final =
+        actual_bot_y + (shoulder_y - actual_bot_y) * get_local_rail_coeff(final_shoulder_x);
 
     BoardProfile {
         top_y,

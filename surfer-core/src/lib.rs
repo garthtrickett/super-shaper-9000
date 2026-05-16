@@ -15,8 +15,8 @@ fn init_test_logger() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-use model::{BoardAction, BoardModel, DirtyState, Effect, RawGeometryData};
 use crate::mesh::MeshCache;
+use model::{BoardAction, BoardModel, DirtyState, Effect, RawGeometryData};
 
 pub struct SurferEngine {
     model: BoardModel,

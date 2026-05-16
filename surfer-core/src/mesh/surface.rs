@@ -23,6 +23,7 @@ pub struct SurfaceData {
     pub colors: Vec<f32>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_surface(
     model: &BoardModel,
     _dirty: &crate::model::DirtyState,
