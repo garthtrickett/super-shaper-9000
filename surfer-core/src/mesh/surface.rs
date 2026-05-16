@@ -4,6 +4,7 @@ use crate::geometry::{
 use crate::model::BoardModel;
 use glam::Vec3;
 
+#[derive(Clone, Debug, Default)]
 pub struct SurfacePoint {
     pub pos: Vec3,
     pub color: Vec3,
