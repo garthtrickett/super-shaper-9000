@@ -63,122 +63,7 @@ fn get_curve_mut<'a>(
 
 
 
-fn scale_curve_data_width(c: &mut BezierCurveData, factor: f32) {
-    for p in &mut c.control_points {
-        p.x *= factor;
-    }
-    for p in &mut c.tangents1 {
-        p.x *= factor;
-    }
-    for p in &mut c.tangents2 {
-        p.x *= factor;
-    }
-}
 
-fn scale_curve_width(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if factor <= 0.0 || factor.is_nan() {
-        return;
-    }
-    if let Some(c) = curve.as_mut() {
-        scale_curve_data_width(c, factor);
-    }
-}
-
-fn scale_curve_data_thickness(c: &mut BezierCurveData, factor: f32) {
-    for p in &mut c.control_points {
-        p.y *= factor;
-    }
-    for p in &mut c.tangents1 {
-        p.y *= factor;
-    }
-    for p in &mut c.tangents2 {
-        p.y *= factor;
-    }
-}
-
-fn scale_curve_thickness(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if factor <= 0.0 || factor.is_nan() {
-        return;
-    }
-    if let Some(c) = curve.as_mut() {
-        scale_curve_data_thickness(c, factor);
-    }
-}
-
-fn scale_curve_data_length(c: &mut BezierCurveData, factor: f32) {
-    for p in &mut c.control_points {
-        p.z *= factor;
-    }
-    for p in &mut c.tangents1 {
-        p.z *= factor;
-    }
-    for p in &mut c.tangents2 {
-        p.z *= factor;
-    }
-}
-
-fn scale_curve_length(curve: &mut Option<BezierCurveData>, factor: f32) {
-    if factor <= 0.0 || factor.is_nan() {
-        return;
-    }
-    if let Some(c) = curve.as_mut() {
-        scale_curve_data_length(c, factor);
-    }
-}
-
-fn apply_tail_type(model: &mut BoardModel) {
-    let is_swallow = model.tail_type == "swallow";
-    let depth = model.swallow_depth;
-    let width = model.width;
-
-    let outline = match model.outline.as_mut() {
-        Some(o) => o,
-        None => return,
-    };
-    let len = outline.control_points.len();
-    if len < 2 {
-        return;
-    }
-
-    let last_z = outline.control_points[len - 1].z;
-    let prev_z = outline.control_points[len - 2].z;
-    let currently_swallow = last_z < prev_z - 0.1;
-
-    if is_swallow && !currently_swallow {
-        let tip_z = outline.control_points[len - 1].z;
-
-        // Old tail point becomes the prong
-        outline.control_points[len - 1].x = (width / 4.0).max(1.0);
-
-        // Add the notch
-        let notch_z = tip_z - depth;
-        let notch_pos = Vec3::new(0.0, 0.0, notch_z);
-
-        outline.control_points.push(notch_pos);
-        let incoming = notch_pos - Vec3::new(1.0, 0.0, -1.0);
-        outline.tangents1.push(incoming);
-        outline.tangents2.push(notch_pos);
-        if let Some(w) = &mut outline.weights {
-            w.push(1.0);
-        }
-    } else if !is_swallow && currently_swallow {
-        outline.control_points.pop();
-        outline.tangents1.pop();
-        outline.tangents2.pop();
-        if let Some(w) = &mut outline.weights {
-            w.pop();
-        }
-        let new_len = outline.control_points.len();
-        outline.control_points[new_len - 1].x = 0.0;
-    } else if is_swallow && currently_swallow {
-        let tip_z = outline.control_points[len - 2].z;
-        let new_notch_z = tip_z - depth;
-        let delta_z = new_notch_z - outline.control_points[len - 1].z;
-        outline.control_points[len - 1].z = new_notch_z;
-        outline.tangents1[len - 1].z += delta_z;
-        outline.tangents2[len - 1].z += delta_z;
-    }
-}
 
 
 
@@ -188,189 +73,20 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
     let mut effects = Vec::new();
 
     match action {
-        BoardAction::UpdateNumber { param, value } => match param.as_str() {
-            "length" => {
-                let factor = if model.length > 0.0 {
-                    value / model.length
-                } else {
-                    1.0
-                };
-                model.length = value;
-                scale_curve_length(&mut model.outline, factor);
-                scale_curve_length(&mut model.rail_outline, factor);
-                scale_curve_length(&mut model.apex_outline, factor);
-                scale_curve_length(&mut model.rocker_top, factor);
-                scale_curve_length(&mut model.rocker_bottom, factor);
-                scale_curve_length(&mut model.apex_rocker, factor);
-                scale_curve_length(&mut model.deck_shoulder, factor);
-                if let Some(layers) = &mut model.outline_layers {
-                    for l in layers {
-                        scale_curve_data_length(&mut l.otl_ext, factor);
-                        scale_curve_data_length(&mut l.otl_int, factor);
-                    }
-                }
-                if let Some(channels) = &mut model.bottom_channels {
-                    for ch in channels {
-                        scale_curve_data_length(&mut ch.left_outline, factor);
-                        scale_curve_data_length(&mut ch.right_outline, factor);
-                        scale_curve_data_length(&mut ch.left_depth, factor);
-                        scale_curve_data_length(&mut ch.right_depth, factor);
-                    }
-                }
-                for cs in &mut model.cross_sections {
-                    scale_curve_data_length(cs, factor);
-                }
-            }
-            "width" => {
-                let factor = if model.width > 0.0 {
-                    value / model.width
-                } else {
-                    1.0
-                };
-                model.width = value;
-                scale_curve_width(&mut model.outline, factor);
-                scale_curve_width(&mut model.rail_outline, factor);
-                scale_curve_width(&mut model.apex_outline, factor);
-                scale_curve_width(&mut model.deck_shoulder, factor);
-                scale_curve_width(&mut model.deck_shoulder, factor);
-                if let Some(layers) = &mut model.outline_layers {
-                    for l in layers {
-                        scale_curve_data_width(&mut l.otl_ext, factor);
-                        scale_curve_data_width(&mut l.otl_int, factor);
-                    }
-                }
-                if let Some(channels) = &mut model.bottom_channels {
-                    for ch in channels {
-                        scale_curve_data_width(&mut ch.left_outline, factor);
-                        scale_curve_data_width(&mut ch.right_outline, factor);
-                    }
-                }
-                for cs in &mut model.cross_sections {
-                    scale_curve_data_width(cs, factor);
-                }
-            }
-            "swallowDepth" => {
-                model.swallow_depth = value;
-                apply_tail_type(model);
-            }
-            "thickness" => {
-                let factor = if model.thickness > 0.0 {
-                    value / model.thickness
-                } else {
-                    1.0
-                };
-                model.thickness = value;
-                scale_curve_thickness(&mut model.rocker_top, factor);
-                scale_curve_thickness(&mut model.rocker_bottom, factor);
-                scale_curve_thickness(&mut model.apex_rocker, factor);
-                scale_curve_thickness(&mut model.deck_shoulder, factor);
-                scale_curve_thickness(&mut model.deck_shoulder, factor);
-                if let Some(channels) = &mut model.bottom_channels {
-                    for ch in channels {
-                        scale_curve_data_thickness(&mut ch.left_depth, factor);
-                        scale_curve_data_thickness(&mut ch.right_depth, factor);
-                    }
-                }
-                for cs in &mut model.cross_sections {
-                    scale_curve_data_thickness(cs, factor);
-                }
-            }
-            "frontFinZ" => model.front_fin_z = value,
-            "frontFinX" => model.front_fin_x = value,
-            "rearFinZ" => model.rear_fin_z = value,
-            "rearFinX" => model.rear_fin_x = value,
-            "toeAngle" => model.toe_angle = value,
-            "cantAngle" => model.cant_angle = value,
-            "mriSlicePosition" => model.mri_slice_position = Some(value),
-            "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
-            "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
-            "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
-            "gizmoScalePerspective" => model.gizmo_scale_perspective = Some(value),
-            _ => {}
-        },
-        BoardAction::UpdateString { param, value } => match param.as_str() {
-            "finSetup" => model.fin_setup = value,
-            "coreMaterial" => model.core_material = value,
-            "glassingSchedule" => model.glassing_schedule = value,
-            "tailType" => {
-                model.tail_type = value;
-                apply_tail_type(model);
-                push_history(model);
-            }
-            _ => {}
-        },
-        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
-            "showGizmos" => model.show_gizmos = Some(value),
-            "showSolidMesh" => model.show_solid_mesh = Some(value),
-            "showHeatmap" => {
-                model.show_heatmap = Some(value);
-                if value {
-                    model.show_zebra = Some(false);
-                }
-            }
-            "showZebra" => {
-                model.show_zebra = Some(value);
-                if value {
-                    model.show_heatmap = Some(false);
-                }
-            }
-            "showApexLine" => model.show_apex_line = Some(value),
-            "showOutline" => model.show_outline = Some(value),
-            "showRockerTop" => model.show_rocker_top = Some(value),
-            "showRockerBottom" => model.show_rocker_bottom = Some(value),
-            "showApexOutline" => model.show_apex_outline = Some(value),
-            "showRailOutline" => model.show_rail_outline = Some(value),
-            "showApexRocker" => model.show_apex_rocker = Some(value),
-            "showDeckShoulder" => model.show_deck_shoulder = Some(value),
-            "showCrossSections" => model.show_cross_sections = Some(value),
-            "showCurvature" => model.show_curvature = Some(value),
-            "showMriView" => {
-                model.show_mri_view = Some(value);
-                if value {
-                    model.show_zebra = Some(false);
-                }
-            }
-            _ => {}
-        },
-        BoardAction::LoadDesign { state } => {
-            *model = *state;
-            // Suppress log info for LoadDesign to avoid console spam during syncing
+        act @ (BoardAction::UpdateNumber { .. }
+        | BoardAction::UpdateString { .. }
+        | BoardAction::UpdateBoolean { .. }
+        | BoardAction::ScaleWidth { .. }
+        | BoardAction::ScaleThickness { .. }) => {
+            let mut ps_effects = handle_parametric_scaling(model, act);
+            effects.append(&mut ps_effects);
         }
-        BoardAction::SetCurves {
-            outline,
-            rail_outline,
-            apex_outline,
-            deck_shoulder,
-            rocker_top,
-            rocker_bottom,
-            apex_rocker,
-            cross_sections,
-        } => {
-            if let Some(c) = outline {
-                model.outline = Some(c);
-            }
-            if let Some(c) = deck_shoulder {
-                model.deck_shoulder = Some(c);
-            }
-            if let Some(c) = rail_outline {
-                model.rail_outline = Some(c);
-            }
-            if let Some(c) = apex_outline {
-                model.apex_outline = Some(c);
-            }
-            if let Some(c) = rocker_top {
-                model.rocker_top = Some(c);
-            }
-            if let Some(c) = rocker_bottom {
-                model.rocker_bottom = Some(c);
-            }
-            if let Some(c) = apex_rocker {
-                model.apex_rocker = Some(c);
-            }
-            if let Some(cs) = cross_sections {
-                model.cross_sections = cs;
-            }
-            push_history(model);
+        act @ (BoardAction::LoadDesign { .. }
+        | BoardAction::SetCurves { .. }
+        | BoardAction::ImportBrd { .. }
+        | BoardAction::ImportS3dx { .. }) => {
+            let mut i_effects = handle_import(model, act);
+            effects.append(&mut i_effects);
         }
         act @ (BoardAction::UpdateNodePosition { .. }
         | BoardAction::SelectNode { .. }
@@ -394,124 +110,6 @@ pub fn update(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
         | BoardAction::AddCrossSection { .. }) => {
             let mut l_effects = handle_layer_toggles(model, act);
             effects.append(&mut l_effects);
-        }
-        BoardAction::ScaleWidth { factor } => {
-            model.width *= factor;
-            scale_curve_width(&mut model.outline, factor);
-            scale_curve_width(&mut model.rail_outline, factor);
-            scale_curve_width(&mut model.apex_outline, factor);
-            if let Some(layers) = &mut model.outline_layers {
-                for l in layers {
-                    scale_curve_data_width(&mut l.otl_ext, factor);
-                    scale_curve_data_width(&mut l.otl_int, factor);
-                }
-            }
-            if let Some(channels) = &mut model.bottom_channels {
-                for ch in channels {
-                    scale_curve_data_width(&mut ch.left_outline, factor);
-                    scale_curve_data_width(&mut ch.right_outline, factor);
-                }
-            }
-            for cs in &mut model.cross_sections {
-                scale_curve_data_width(cs, factor);
-            }
-            push_history(model);
-        }
-        BoardAction::ScaleThickness { factor } => {
-            model.thickness *= factor;
-            scale_curve_thickness(&mut model.rocker_top, factor);
-            scale_curve_thickness(&mut model.rocker_bottom, factor);
-            scale_curve_thickness(&mut model.apex_rocker, factor);
-            if let Some(channels) = &mut model.bottom_channels {
-                for ch in channels {
-                    scale_curve_data_thickness(&mut ch.left_depth, factor);
-                    scale_curve_data_thickness(&mut ch.right_depth, factor);
-                }
-            }
-            for cs in &mut model.cross_sections {
-                scale_curve_data_thickness(cs, factor);
-            }
-            push_history(model);
-        }
-        BoardAction::ImportBrd { bytes } => {
-            match crate::brd_parser::parse_brd(&bytes) {
-                Ok(mut parsed_model) => {
-                    // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
-                    parsed_model.show_gizmos = model.show_gizmos;
-                    parsed_model.show_solid_mesh = model.show_solid_mesh;
-                    parsed_model.show_heatmap = model.show_heatmap;
-                    parsed_model.show_zebra = model.show_zebra;
-                    parsed_model.show_apex_line = model.show_apex_line;
-                    parsed_model.show_outline = model.show_outline;
-                    parsed_model.show_rocker_top = model.show_rocker_top;
-                    parsed_model.show_rocker_bottom = model.show_rocker_bottom;
-                    parsed_model.show_apex_outline = model.show_apex_outline;
-                    parsed_model.show_rail_outline = model.show_rail_outline;
-                    parsed_model.show_apex_rocker = model.show_apex_rocker;
-                    parsed_model.show_deck_shoulder = model.show_deck_shoulder;
-                    parsed_model.show_cross_sections = model.show_cross_sections;
-                    parsed_model.show_curvature = model.show_curvature;
-                    parsed_model.show_mri_view = model.show_mri_view;
-                    parsed_model.mri_slice_position = model.mri_slice_position;
-                    parsed_model.gizmo_scale_top = model.gizmo_scale_top;
-                    parsed_model.gizmo_scale_side = model.gizmo_scale_side;
-                    parsed_model.gizmo_scale_profile = model.gizmo_scale_profile;
-
-                    // BRD files do not contain 3D cross-sections.
-                    // We preserve the current cross-sections to allow 3D mesh generation.
-                    if parsed_model.cross_sections.is_empty() {
-                        parsed_model.cross_sections = model.cross_sections.clone();
-                    }
-
-                    *model = parsed_model;
-                    push_history(model);
-                    effects.push(Effect::LogInfo {
-                        message: "Rust Engine: BRD file imported successfully.".to_string(),
-                    });
-                }
-                Err(e) => {
-                    effects.push(Effect::LogInfo {
-                        message: format!("Rust Engine Error: Failed to parse BRD: {}", e),
-                    });
-                }
-            }
-        }
-        BoardAction::ImportS3dx { xml } => {
-            match crate::s3dx_parser::parse_s3dx(&xml) {
-                Ok(mut parsed_model) => {
-                    // Preserve UI/Viewport view states so importing doesn't randomly toggle off heatmaps etc.
-                    parsed_model.show_gizmos = model.show_gizmos;
-                    parsed_model.show_solid_mesh = model.show_solid_mesh;
-                    parsed_model.show_heatmap = model.show_heatmap;
-                    parsed_model.show_zebra = model.show_zebra;
-                    parsed_model.show_apex_line = model.show_apex_line;
-                    parsed_model.show_outline = model.show_outline;
-                    parsed_model.show_rocker_top = model.show_rocker_top;
-                    parsed_model.show_rocker_bottom = model.show_rocker_bottom;
-                    parsed_model.show_apex_outline = model.show_apex_outline;
-                    parsed_model.show_rail_outline = model.show_rail_outline;
-                    parsed_model.show_apex_rocker = model.show_apex_rocker;
-                    parsed_model.show_deck_shoulder = model.show_deck_shoulder;
-                    parsed_model.show_cross_sections = model.show_cross_sections;
-                    parsed_model.show_curvature = model.show_curvature;
-                    parsed_model.show_mri_view = model.show_mri_view;
-                    parsed_model.mri_slice_position = model.mri_slice_position;
-                    parsed_model.gizmo_scale_top = model.gizmo_scale_top;
-                    parsed_model.gizmo_scale_side = model.gizmo_scale_side;
-                    parsed_model.gizmo_scale_profile = model.gizmo_scale_profile;
-
-                    *model = parsed_model;
-                    push_history(model);
-                    effects.push(Effect::LogInfo {
-                        message: "Rust Engine: S3DX file imported successfully.".to_string(),
-                    });
-                }
-                Err(e) => {
-                    effects.push(Effect::LogInfo {
-                        message: format!("Rust Engine Error: Failed to parse S3DX: {}", e),
-                    });
-                }
-            }
         }
     }
 
@@ -1508,11 +1106,419 @@ fn handle_layer_toggles(model: &mut BoardModel, action: BoardAction) -> Vec<Effe
     Vec::new()
 }
 
+fn preserve_ui_state(old_model: &BoardModel, new_model: &mut BoardModel) {
+    new_model.show_gizmos = old_model.show_gizmos;
+    new_model.show_solid_mesh = old_model.show_solid_mesh;
+    new_model.show_heatmap = old_model.show_heatmap;
+    new_model.show_zebra = old_model.show_zebra;
+    new_model.show_apex_line = old_model.show_apex_line;
+    new_model.show_outline = old_model.show_outline;
+    new_model.show_rocker_top = old_model.show_rocker_top;
+    new_model.show_rocker_bottom = old_model.show_rocker_bottom;
+    new_model.show_apex_outline = old_model.show_apex_outline;
+    new_model.show_rail_outline = old_model.show_rail_outline;
+    new_model.show_apex_rocker = old_model.show_apex_rocker;
+    new_model.show_deck_shoulder = old_model.show_deck_shoulder;
+    new_model.show_cross_sections = old_model.show_cross_sections;
+    new_model.show_curvature = old_model.show_curvature;
+    new_model.show_mri_view = old_model.show_mri_view;
+    new_model.mri_slice_position = old_model.mri_slice_position;
+    new_model.gizmo_scale_top = old_model.gizmo_scale_top;
+    new_model.gizmo_scale_side = old_model.gizmo_scale_side;
+    new_model.gizmo_scale_profile = old_model.gizmo_scale_profile;
+}
+
 fn handle_import(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
-    Vec::new()
+    let mut effects = Vec::new();
+    match action {
+        BoardAction::LoadDesign { state } => {
+            *model = *state;
+            // Suppress log info for LoadDesign to avoid console spam during syncing
+        }
+        BoardAction::SetCurves {
+            outline,
+            rail_outline,
+            apex_outline,
+            deck_shoulder,
+            rocker_top,
+            rocker_bottom,
+            apex_rocker,
+            cross_sections,
+        } => {
+            if let Some(c) = outline {
+                model.outline = Some(c);
+            }
+            if let Some(c) = deck_shoulder {
+                model.deck_shoulder = Some(c);
+            }
+            if let Some(c) = rail_outline {
+                model.rail_outline = Some(c);
+            }
+            if let Some(c) = apex_outline {
+                model.apex_outline = Some(c);
+            }
+            if let Some(c) = rocker_top {
+                model.rocker_top = Some(c);
+            }
+            if let Some(c) = rocker_bottom {
+                model.rocker_bottom = Some(c);
+            }
+            if let Some(c) = apex_rocker {
+                model.apex_rocker = Some(c);
+            }
+            if let Some(cs) = cross_sections {
+                model.cross_sections = cs;
+            }
+            push_history(model);
+        }
+        BoardAction::ImportBrd { bytes } => {
+            match crate::brd_parser::parse_brd(&bytes) {
+                Ok(mut parsed_model) => {
+                    preserve_ui_state(model, &mut parsed_model);
+
+                    // BRD files do not contain 3D cross-sections.
+                    // We preserve the current cross-sections to allow 3D mesh generation.
+                    if parsed_model.cross_sections.is_empty() {
+                        parsed_model.cross_sections = model.cross_sections.clone();
+                    }
+
+                    *model = parsed_model;
+                    push_history(model);
+                    effects.push(Effect::LogInfo {
+                        message: "Rust Engine: BRD file imported successfully.".to_string(),
+                    });
+                }
+                Err(e) => {
+                    effects.push(Effect::LogInfo {
+                        message: format!("Rust Engine Error: Failed to parse BRD: {}", e),
+                    });
+                }
+            }
+        }
+        BoardAction::ImportS3dx { xml } => {
+            match crate::s3dx_parser::parse_s3dx(&xml) {
+                Ok(mut parsed_model) => {
+                    preserve_ui_state(model, &mut parsed_model);
+
+                    *model = parsed_model;
+                    push_history(model);
+                    effects.push(Effect::LogInfo {
+                        message: "Rust Engine: S3DX file imported successfully.".to_string(),
+                    });
+                }
+                Err(e) => {
+                    effects.push(Effect::LogInfo {
+                        message: format!("Rust Engine Error: Failed to parse S3DX: {}", e),
+                    });
+                }
+            }
+        }
+        _ => {}
+    }
+    effects
+}
+
+fn scale_curve_data_width(c: &mut BezierCurveData, factor: f32) {
+    for p in &mut c.control_points {
+        p.x *= factor;
+    }
+    for p in &mut c.tangents1 {
+        p.x *= factor;
+    }
+    for p in &mut c.tangents2 {
+        p.x *= factor;
+    }
+}
+
+fn scale_curve_width(curve: &mut Option<BezierCurveData>, factor: f32) {
+    if factor <= 0.0 || factor.is_nan() {
+        return;
+    }
+    if let Some(c) = curve.as_mut() {
+        scale_curve_data_width(c, factor);
+    }
+}
+
+fn scale_curve_data_thickness(c: &mut BezierCurveData, factor: f32) {
+    for p in &mut c.control_points {
+        p.y *= factor;
+    }
+    for p in &mut c.tangents1 {
+        p.y *= factor;
+    }
+    for p in &mut c.tangents2 {
+        p.y *= factor;
+    }
+}
+
+fn scale_curve_thickness(curve: &mut Option<BezierCurveData>, factor: f32) {
+    if factor <= 0.0 || factor.is_nan() {
+        return;
+    }
+    if let Some(c) = curve.as_mut() {
+        scale_curve_data_thickness(c, factor);
+    }
+}
+
+fn scale_curve_data_length(c: &mut BezierCurveData, factor: f32) {
+    for p in &mut c.control_points {
+        p.z *= factor;
+    }
+    for p in &mut c.tangents1 {
+        p.z *= factor;
+    }
+    for p in &mut c.tangents2 {
+        p.z *= factor;
+    }
+}
+
+fn scale_curve_length(curve: &mut Option<BezierCurveData>, factor: f32) {
+    if factor <= 0.0 || factor.is_nan() {
+        return;
+    }
+    if let Some(c) = curve.as_mut() {
+        scale_curve_data_length(c, factor);
+    }
+}
+
+fn apply_tail_type(model: &mut BoardModel) {
+    let is_swallow = model.tail_type == "swallow";
+    let depth = model.swallow_depth;
+    let width = model.width;
+
+    let outline = match model.outline.as_mut() {
+        Some(o) => o,
+        None => return,
+    };
+    let len = outline.control_points.len();
+    if len < 2 {
+        return;
+    }
+
+    let last_z = outline.control_points[len - 1].z;
+    let prev_z = outline.control_points[len - 2].z;
+    let currently_swallow = last_z < prev_z - 0.1;
+
+    if is_swallow && !currently_swallow {
+        let tip_z = outline.control_points[len - 1].z;
+
+        // Old tail point becomes the prong
+        outline.control_points[len - 1].x = (width / 4.0).max(1.0);
+
+        // Add the notch
+        let notch_z = tip_z - depth;
+        let notch_pos = Vec3::new(0.0, 0.0, notch_z);
+
+        outline.control_points.push(notch_pos);
+        let incoming = notch_pos - Vec3::new(1.0, 0.0, -1.0);
+        outline.tangents1.push(incoming);
+        outline.tangents2.push(notch_pos);
+        if let Some(w) = &mut outline.weights {
+            w.push(1.0);
+        }
+    } else if !is_swallow && currently_swallow {
+        outline.control_points.pop();
+        outline.tangents1.pop();
+        outline.tangents2.pop();
+        if let Some(w) = &mut outline.weights {
+            w.pop();
+        }
+        let new_len = outline.control_points.len();
+        outline.control_points[new_len - 1].x = 0.0;
+    } else if is_swallow && currently_swallow {
+        let tip_z = outline.control_points[len - 2].z;
+        let new_notch_z = tip_z - depth;
+        let delta_z = new_notch_z - outline.control_points[len - 1].z;
+        outline.control_points[len - 1].z = new_notch_z;
+        outline.tangents1[len - 1].z += delta_z;
+        outline.tangents2[len - 1].z += delta_z;
+    }
 }
 
 fn handle_parametric_scaling(model: &mut BoardModel, action: BoardAction) -> Vec<Effect> {
+    match action {
+        BoardAction::UpdateNumber { param, value } => match param.as_str() {
+            "length" => {
+                let factor = if model.length > 0.0 {
+                    value / model.length
+                } else {
+                    1.0
+                };
+                model.length = value;
+                scale_curve_length(&mut model.outline, factor);
+                scale_curve_length(&mut model.rail_outline, factor);
+                scale_curve_length(&mut model.apex_outline, factor);
+                scale_curve_length(&mut model.rocker_top, factor);
+                scale_curve_length(&mut model.rocker_bottom, factor);
+                scale_curve_length(&mut model.apex_rocker, factor);
+                scale_curve_length(&mut model.deck_shoulder, factor);
+                if let Some(layers) = &mut model.outline_layers {
+                    for l in layers {
+                        scale_curve_data_length(&mut l.otl_ext, factor);
+                        scale_curve_data_length(&mut l.otl_int, factor);
+                    }
+                }
+                if let Some(channels) = &mut model.bottom_channels {
+                    for ch in channels {
+                        scale_curve_data_length(&mut ch.left_outline, factor);
+                        scale_curve_data_length(&mut ch.right_outline, factor);
+                        scale_curve_data_length(&mut ch.left_depth, factor);
+                        scale_curve_data_length(&mut ch.right_depth, factor);
+                    }
+                }
+                for cs in &mut model.cross_sections {
+                    scale_curve_data_length(cs, factor);
+                }
+            }
+            "width" => {
+                let factor = if model.width > 0.0 {
+                    value / model.width
+                } else {
+                    1.0
+                };
+                model.width = value;
+                scale_curve_width(&mut model.outline, factor);
+                scale_curve_width(&mut model.rail_outline, factor);
+                scale_curve_width(&mut model.apex_outline, factor);
+                scale_curve_width(&mut model.deck_shoulder, factor);
+                if let Some(layers) = &mut model.outline_layers {
+                    for l in layers {
+                        scale_curve_data_width(&mut l.otl_ext, factor);
+                        scale_curve_data_width(&mut l.otl_int, factor);
+                    }
+                }
+                if let Some(channels) = &mut model.bottom_channels {
+                    for ch in channels {
+                        scale_curve_data_width(&mut ch.left_outline, factor);
+                        scale_curve_data_width(&mut ch.right_outline, factor);
+                    }
+                }
+                for cs in &mut model.cross_sections {
+                    scale_curve_data_width(cs, factor);
+                }
+            }
+            "swallowDepth" => {
+                model.swallow_depth = value;
+                apply_tail_type(model);
+            }
+            "thickness" => {
+                let factor = if model.thickness > 0.0 {
+                    value / model.thickness
+                } else {
+                    1.0
+                };
+                model.thickness = value;
+                scale_curve_thickness(&mut model.rocker_top, factor);
+                scale_curve_thickness(&mut model.rocker_bottom, factor);
+                scale_curve_thickness(&mut model.apex_rocker, factor);
+                scale_curve_thickness(&mut model.deck_shoulder, factor);
+                if let Some(channels) = &mut model.bottom_channels {
+                    for ch in channels {
+                        scale_curve_data_thickness(&mut ch.left_depth, factor);
+                        scale_curve_data_thickness(&mut ch.right_depth, factor);
+                    }
+                }
+                for cs in &mut model.cross_sections {
+                    scale_curve_data_thickness(cs, factor);
+                }
+            }
+            "frontFinZ" => model.front_fin_z = value,
+            "frontFinX" => model.front_fin_x = value,
+            "rearFinZ" => model.rear_fin_z = value,
+            "rearFinX" => model.rear_fin_x = value,
+            "toeAngle" => model.toe_angle = value,
+            "cantAngle" => model.cant_angle = value,
+            "mriSlicePosition" => model.mri_slice_position = Some(value),
+            "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
+            "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
+            "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
+            "gizmoScalePerspective" => model.gizmo_scale_perspective = Some(value),
+            _ => {}
+        },
+        BoardAction::UpdateString { param, value } => match param.as_str() {
+            "finSetup" => model.fin_setup = value,
+            "coreMaterial" => model.core_material = value,
+            "glassingSchedule" => model.glassing_schedule = value,
+            "tailType" => {
+                model.tail_type = value;
+                apply_tail_type(model);
+                push_history(model);
+            }
+            _ => {}
+        },
+        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
+            "showGizmos" => model.show_gizmos = Some(value),
+            "showSolidMesh" => model.show_solid_mesh = Some(value),
+            "showHeatmap" => {
+                model.show_heatmap = Some(value);
+                if value {
+                    model.show_zebra = Some(false);
+                }
+            }
+            "showZebra" => {
+                model.show_zebra = Some(value);
+                if value {
+                    model.show_heatmap = Some(false);
+                }
+            }
+            "showApexLine" => model.show_apex_line = Some(value),
+            "showOutline" => model.show_outline = Some(value),
+            "showRockerTop" => model.show_rocker_top = Some(value),
+            "showRockerBottom" => model.show_rocker_bottom = Some(value),
+            "showApexOutline" => model.show_apex_outline = Some(value),
+            "showRailOutline" => model.show_rail_outline = Some(value),
+            "showApexRocker" => model.show_apex_rocker = Some(value),
+            "showDeckShoulder" => model.show_deck_shoulder = Some(value),
+            "showCrossSections" => model.show_cross_sections = Some(value),
+            "showCurvature" => model.show_curvature = Some(value),
+            "showMriView" => {
+                model.show_mri_view = Some(value);
+                if value {
+                    model.show_zebra = Some(false);
+                }
+            }
+            _ => {}
+        },
+        BoardAction::ScaleWidth { factor } => {
+            model.width *= factor;
+            scale_curve_width(&mut model.outline, factor);
+            scale_curve_width(&mut model.rail_outline, factor);
+            scale_curve_width(&mut model.apex_outline, factor);
+            if let Some(layers) = &mut model.outline_layers {
+                for l in layers {
+                    scale_curve_data_width(&mut l.otl_ext, factor);
+                    scale_curve_data_width(&mut l.otl_int, factor);
+                }
+            }
+            if let Some(channels) = &mut model.bottom_channels {
+                for ch in channels {
+                    scale_curve_data_width(&mut ch.left_outline, factor);
+                    scale_curve_data_width(&mut ch.right_outline, factor);
+                }
+            }
+            for cs in &mut model.cross_sections {
+                scale_curve_data_width(cs, factor);
+            }
+            push_history(model);
+        }
+        BoardAction::ScaleThickness { factor } => {
+            model.thickness *= factor;
+            scale_curve_thickness(&mut model.rocker_top, factor);
+            scale_curve_thickness(&mut model.rocker_bottom, factor);
+            scale_curve_thickness(&mut model.apex_rocker, factor);
+            if let Some(channels) = &mut model.bottom_channels {
+                for ch in channels {
+                    scale_curve_data_thickness(&mut ch.left_depth, factor);
+                    scale_curve_data_thickness(&mut ch.right_depth, factor);
+                }
+            }
+            for cs in &mut model.cross_sections {
+                scale_curve_data_thickness(cs, factor);
+            }
+            push_history(model);
+        }
+        _ => {}
+    }
     Vec::new()
 }
 
