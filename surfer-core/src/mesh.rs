@@ -3,6 +3,7 @@ use crate::model::{BoardModel, RawGeometryData};
 use glam::Vec3;
 
 pub mod sampler;
+pub mod surface;
 
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     log::debug!(
@@ -34,100 +35,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let right_half_cols = num_cols / 2;
     let half = right_half_cols - 1;
 
-    let mut slice_arc_lengths = vec![0.0; segments_v + 1];
-    let mut total_arc_length = 0.0;
-    let mut last_center_pos = Vec3::ZERO;
-
-    for i in 0..=segments_v {
-        let z_inches = z_rings[i];
-        let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
-        let top_pt = evaluate_bezier_at_z(model.rocker_top.as_ref().unwrap(), z_inches, v_outer);
-        let bot_pt = evaluate_bezier_at_z(model.rocker_bottom.as_ref().unwrap(), z_inches, v_outer);
-        let cy = (top_pt.y + bot_pt.y) / 2.0;
-
-        let current_center_pos = Vec3::new(0.0, cy * scale, z_inches * scale);
-        if i > 0 {
-            total_arc_length += current_center_pos.distance(last_center_pos);
-        }
-        slice_arc_lengths[i] = total_arc_length;
-        last_center_pos = current_center_pos;
-    }
-
-    let mut vertices = Vec::new();
-    let mut colors = Vec::new();
-    let mut uvs = Vec::new();
-    let mut grid = Vec::new();
-
-    for i in 0..=segments_v {
-        let mut ring = Vec::new();
-        let z_inches = z_rings[i];
-        let v_coord = slice_arc_lengths[i] / total_arc_length;
-        let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
-
-        let inner_x = if z_inches > notch_z {
-            crate::geometry::evaluate_notch_inner_x(outline, v_tip, z_inches)
-        } else {
-            0.0
-        };
-
-        let profile = crate::geometry::get_board_profile_at_z(model, z_inches, v_outer);
-        let center_thick = (profile.top_y - profile.bot_y).max(0.001);
-        let rail_thick = (profile.apex_y - profile.bot_y).max(0.0);
-        let foil_ratio = rail_thick / center_thick;
-
-        // Map foil_ratio: ~0.25 (pinched/blue) to ~0.75 (boxy/red)
-        let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
-        let heat_color = color_heatmap(normalized_foil);
-
-        let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z_inches);
-        let t_apex = if let Some(b) = &blend { b.t_apex } else { 0.5 };
-        let t_tuck = 0.01_f32.max(t_apex * 0.5);
-        let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
-
-        for &(norm_u, side, is_stringer, u_tex) in u_columns.iter() {
-            let abs_u = sampler::norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
-            let mut point = get_point_at_uv(model, abs_u, v_outer, z_inches, inner_x, side);
-            if is_stringer {
-                point.x = inner_x;
-            }
-            point.x *= side;
-
-            ring.push((
-                Vec3::new(point.x * scale, point.y * scale, point.z * scale),
-                heat_color,
-                u_tex,
-                v_coord,
-                abs_u,
-            ));
-        }
-        grid.push(ring);
-    }
-
-    let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
-    let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
-
-    let mut normals = Vec::new();
-    for i in 0..=segments_v {
-        let z_inches = z_rings[i];
-        for j in 0..num_cols {
-            let (pos, color, u_tex, v_coord, abs_u) = grid[i][j];
-            vertices.push(pos.x);
-            vertices.push(pos.y);
-            vertices.push(pos.z);
-            colors.push(color.x);
-            colors.push(color.y);
-            colors.push(color.z);
-            uvs.push(u_tex);
-            uvs.push(v_coord);
-
-            let side = u_columns[j].1;
-            let n = crate::geometry::get_surface_normal_at_uvz(model, abs_u, z_inches, side);
-
-            normals.push(n.x);
-            normals.push(n.y);
-            normals.push(n.z);
-        }
-    }
+    let surface_data = surface::build_surface(model, &z_rings, &u_columns, outline, notch_z, v_tip, scale);
+    let grid = surface_data.grid;
+    let mut vertices = surface_data.vertices;
+    let mut normals = surface_data.normals;
+    let mut uvs = surface_data.uvs;
+    let mut colors = surface_data.colors;
 
     let mut indices = Vec::new();
     for i in 0..segments_v {
@@ -142,10 +55,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             let c = ((i + 1) * num_cols + j) as u32;
             let d = c + 1;
 
-            let pos_a = grid[i][j].0;
-            let pos_b = grid[i][j + 1].0;
-            let pos_c = grid[i + 1][j].0;
-            let pos_d = grid[i + 1][j + 1].0;
+            let pos_a = grid[i][j].pos;
+            let pos_b = grid[i][j + 1].pos;
+            let pos_c = grid[i + 1][j].pos;
+            let pos_d = grid[i + 1][j + 1].pos;
 
             // Only push valid triangles. If a ring collapses to a point at the poles,
             // we dynamically drop the degenerate zero-area triangles.
@@ -190,14 +103,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             // Right Wall
             let start_v_idx = (vertices.len() / 3) as u32;
             for i in notch_start_idx..=segments_v {
-                let p_bot = grid[i][0].0;
-                let p_top = grid[i][half].0;
+                let p_bot = grid[i][0].pos;
+                let p_top = grid[i][half].pos;
 
                 let mut n_wall = Vec3::new(-1.0, 0.0, 0.0);
 
                 if i > 0 && i < segments_v {
-                    let p_bot_prev = grid[i - 1][0].0;
-                    let p_bot_next = grid[i + 1][0].0;
+                    let p_bot_prev = grid[i - 1][0].pos;
+                    let p_bot_next = grid[i + 1][0].pos;
                     let tangent_z = (p_bot_next - p_bot_prev).normalize();
                     let tangent_y = (p_top - p_bot).normalize();
                     n_wall = tangent_y.cross(tangent_z).normalize();
@@ -207,10 +120,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 }
 
                 for hull_pt in grid[i].iter().take(half + 1) {
-                    let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
-                    let color = hull_pt.1;
-                    let u = hull_pt.2;
-                    let v_coord = hull_pt.3;
+                    let pos = Vec3::new(p_bot.x, hull_pt.pos.y, hull_pt.pos.z);
+                    let color = hull_pt.color;
+                    let u = hull_pt.u_tex;
+                    let v_coord = hull_pt.v_coord;
 
                     vertices.push(pos.x);
                     vertices.push(pos.y);
@@ -246,14 +159,14 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             // Left Wall
             let start_v_idx_left = (vertices.len() / 3) as u32;
             for i in notch_start_idx..=segments_v {
-                let p_top = grid[i][half + 1].0;
-                let p_bot = grid[i][num_cols - 1].0;
+                let p_top = grid[i][half + 1].pos;
+                let p_bot = grid[i][num_cols - 1].pos;
 
                 let mut n_wall = Vec3::new(1.0, 0.0, 0.0);
 
                 if i > 0 && i < segments_v {
-                    let p_bot_prev = grid[i - 1][num_cols - 1].0;
-                    let p_bot_next = grid[i + 1][num_cols - 1].0;
+                    let p_bot_prev = grid[i - 1][num_cols - 1].pos;
+                    let p_bot_next = grid[i + 1][num_cols - 1].pos;
                     let tangent_z = (p_bot_next - p_bot_prev).normalize();
                     let tangent_y = (p_bot - p_top).normalize();
                     n_wall = tangent_z.cross(tangent_y).normalize();
@@ -263,10 +176,10 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
                 }
 
                 for hull_pt in grid[i].iter().skip(half + 1).take(half + 1) {
-                    let pos = Vec3::new(p_bot.x, hull_pt.0.y, hull_pt.0.z);
-                    let color = hull_pt.1;
-                    let u = hull_pt.2;
-                    let v_coord = hull_pt.3;
+                    let pos = Vec3::new(p_bot.x, hull_pt.pos.y, hull_pt.pos.z);
+                    let color = hull_pt.color;
+                    let u = hull_pt.u_tex;
+                    let v_coord = hull_pt.v_coord;
 
                     vertices.push(pos.x);
                     vertices.push(pos.y);
@@ -315,7 +228,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let mut right_min_x = f32::INFINITY;
         let mut right_max_x = f32::NEG_INFINITY;
         for item in ring.iter().take(half + 1) {
-            let x = item.0.x;
+            let x = item.pos.x;
             right_min_x = right_min_x.min(x);
             right_max_x = right_max_x.max(x);
         }
@@ -331,18 +244,22 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
             // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
             let width_inches = ring_width / scale;
             let num_x_steps = (width_inches / 0.5).ceil().max(1.0) as u32;
-            let right_target_x = ring[0].0.x;
-            let right_target_y_bot = ring[0].0.y;
-            let right_target_y_top = ring[half].0.y;
+            let right_target_x = ring[0].pos.x;
+            let right_target_y_bot = ring[0].pos.y;
+            let right_target_y_top = ring[half].pos.y;
 
-            let left_target_x = ring[num_cols - 1].0.x;
-            let left_target_y_bot = ring[num_cols - 1].0.y;
-            let left_target_y_top = ring[half + 1].0.y;
+            let left_target_x = ring[num_cols - 1].pos.x;
+            let left_target_y_bot = ring[num_cols - 1].pos.y;
+            let left_target_y_top = ring[half + 1].pos.y;
 
             for step in 0..=num_x_steps {
                 let fraction = 1.0 - (step as f32 / num_x_steps as f32);
                 for j in 0..num_cols {
-                    let (pos, color, _u_tex, _v_coord, _abs_u) = ring[j];
+                    let sp = &ring[j];
+                    let pos = sp.pos;
+                    let color = sp.color;
+                    let u_tex = sp.u_tex;
+                    let v_coord = sp.v_coord;
                     let side = u_columns[j].1;
 
                     let target_x = if side > 0.0 {
@@ -353,8 +270,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
                     // To ensure the cap perfectly seals the hull on the outside, and gradually flattens
                     // to a straight vertical line at the stringer (X=0), we lerp the Y coordinate based on the fraction.
-                    let pos_bot_y = ring[if side > 0.0 { 0 } else { num_cols - 1 }].0.y;
-                    let pos_top_y = ring[if side > 0.0 { half } else { half + 1 }].0.y;
+                    let pos_bot_y = ring[if side > 0.0 { 0 } else { num_cols - 1 }].pos.y;
+                    let pos_top_y = ring[if side > 0.0 { half } else { half + 1 }].pos.y;
                     let y_frac = if (pos_top_y - pos_bot_y).abs() > 1e-5 {
                         (pos.y - pos_bot_y) / (pos_top_y - pos_bot_y)
                     } else {
@@ -481,6 +398,9 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         &mut indices,
     );
 
+    let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(model, nose_z, true);
+    let (tail_n_top, tail_n_bot) = crate::geometry::get_pole_normals(model, tip_z, false);
+
     // --- Cap Generation ---
     generate_cap(
         0,
@@ -513,8 +433,8 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let mut total_volume_cubic_feet = 0.0;
 
     for i in 0..segments_v {
-        let z0 = grid[i][0].0.z;
-        let z1 = grid[i + 1][0].0.z;
+        let z0 = grid[i][0].pos.z;
+        let z1 = grid[i + 1][0].pos.z;
         let dz = (z1 - z0).abs();
 
         let mut area0 = 0.0;
@@ -522,12 +442,12 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
 
         for j in 0..num_cols {
             let next_j = (j + 1) % num_cols;
-            let p0_a = grid[i][j].0;
-            let p0_b = grid[i][next_j].0;
+            let p0_a = grid[i][j].pos;
+            let p0_b = grid[i][next_j].pos;
             area0 += p0_a.x * p0_b.y - p0_b.x * p0_a.y;
 
-            let p1_a = grid[i + 1][j].0;
-            let p1_b = grid[i + 1][next_j].0;
+            let p1_a = grid[i + 1][j].pos;
+            let p1_b = grid[i + 1][next_j].pos;
             area1 += p1_a.x * p1_b.y - p1_b.x * p1_a.y;
         }
 
@@ -552,6 +472,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         volume_liters,
     }
 }
+
 
 
 #[cfg(test)]
