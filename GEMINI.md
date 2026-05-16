@@ -180,6 +180,8 @@ EOF
 
 ARCHITECTURAL REFINEMENTS INSPIRED BY KMP/GATEKEEPER
 
+If a feature/change warrants updating/adding new tests do that
+
 
 1. Effects-as-Data: The Reducer Returns Effects
 
