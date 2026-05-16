@@ -62,7 +62,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-    pub fn get_mesh(&self) -> Result<JsValue, JsValue> {
+    pub fn get_mesh(&mut self) -> Result<JsValue, JsValue> {
         let mesh = self.engine.compute_mesh();
         let obj = Object::new();
 

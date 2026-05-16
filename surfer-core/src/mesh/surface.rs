@@ -24,6 +24,8 @@ pub struct SurfaceData {
 
 pub fn build_surface(
     model: &BoardModel,
+    _dirty: &crate::model::DirtyState,
+    _cache: &crate::mesh::MeshCache,
     z_rings: &[f32],
     u_columns: &[(f32, f32, bool, f32)],
     outline: &crate::model::BezierCurveData,

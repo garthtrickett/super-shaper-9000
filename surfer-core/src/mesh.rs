@@ -15,7 +15,11 @@ pub struct MeshCache {
     pub grid: SurfaceGrid,
 }
 
-pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
+pub fn generate_mesh(
+    model: &BoardModel,
+    dirty: &mut crate::model::DirtyState,
+    cache: &mut MeshCache,
+) -> RawGeometryData {
     log::debug!(
         "[Rust core] generate_mesh: Rebuilding for length {:.1}",
         model.length
@@ -37,16 +41,21 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let tip_z = bounds.tip_z;
     let v_tip = bounds.tip_t;
 
-    let z_rings = sampler::compute_z_rings(model, nose_z, tip_z, outline);
+    let z_rings = sampler::compute_z_rings(model, dirty, cache, nose_z, tip_z, outline);
     let segments_v = z_rings.len() - 1;
 
-    let u_columns = sampler::compute_u_columns(model, &z_rings, outline, notch_z, v_tip);
+    let u_columns = sampler::compute_u_columns(model, dirty, cache, &z_rings, outline, notch_z, v_tip);
     let num_cols = u_columns.len();
     let right_half_cols = num_cols / 2;
     let half = right_half_cols - 1;
 
+    // Invalidate surface grid globally if U-columns length or values changed
+    if cache.u_columns.len() != u_columns.len() || cache.u_columns.iter().zip(u_columns.iter()).any(|(a, b)| (a.0 - b.0).abs() > 1e-5) {
+        dirty.global_rebuild = true;
+    }
+
     let surface_data =
-        surface::build_surface(model, &z_rings, &u_columns, outline, notch_z, v_tip, scale);
+        surface::build_surface(model, dirty, cache, &z_rings, &u_columns, outline, notch_z, v_tip, scale);
     let grid = surface_data.grid;
     let mut vertices = surface_data.vertices;
     let mut normals = surface_data.normals;
@@ -190,7 +199,7 @@ mod tests {
             ..Default::default()
         };
 
-        let mesh = generate_mesh(&model);
+        let mesh = generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
         let vertices: Vec<Vec3> = mesh
             .vertices
             .chunks_exact(3)
@@ -470,7 +479,7 @@ mod tests {
             ..Default::default()
         }];
 
-        let mesh = super::generate_mesh(&model);
+        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
 
         // Find tail vertices (z = 100.0 * scale)
         let scale = 1.0 / 12.0;
@@ -668,8 +677,8 @@ mod tests {
             ..Default::default()
         });
 
-        let mesh_pin = super::generate_mesh(&model_pintail);
-        let mesh_squash = super::generate_mesh(&model_squash);
+        let mesh_pin = super::generate_mesh(&model_pintail, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh_squash = super::generate_mesh(&model_squash, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
 
         let diff = mesh_squash.indices.len() as isize - mesh_pin.indices.len() as isize;
         assert!(

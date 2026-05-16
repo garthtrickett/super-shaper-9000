@@ -634,7 +634,9 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-        let mesh = crate::mesh::generate_mesh(&model);
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
 
         // Find the vertices at the tail (Z max)
         let scale = 1.0 / 12.0;

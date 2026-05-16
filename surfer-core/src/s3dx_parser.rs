@@ -686,7 +686,9 @@ mod tests {
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = crate::mesh::generate_mesh(&model);
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -833,7 +835,9 @@ mod tests {
         let bytes = fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = crate::mesh::generate_mesh(&model);
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
         let scale = 1.0 / 12.0;
 
         // Evaluate at multiple specific Z intervals
@@ -937,7 +941,9 @@ mod tests {
 
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        let mesh = crate::mesh::generate_mesh(&model);
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
 
         assert!(mesh.vertices.len() > 0, "Mesh should have vertices");
         assert!(mesh.indices.len() > 0, "Mesh should have indices");

@@ -49,8 +49,11 @@ impl SurferEngine {
     }
 
     /// Prove the pipeline works by generating the real mesh!
-    pub fn compute_mesh(&self) -> RawGeometryData {
-        mesh::generate_mesh(&self.model)
+    pub fn compute_mesh(&mut self) -> RawGeometryData {
+        let mesh = mesh::generate_mesh(&self.model, &mut self.dirty_state, &mut self.mesh_cache);
+        self.dirty_state.global_rebuild = false;
+        self.dirty_state.dirty_z_ranges.clear();
+        mesh
     }
 
     /// Generates a flat Float32Array-compatible buffer of [x1, y1, z1, x2, y2, z2] segments for curvature combs.
