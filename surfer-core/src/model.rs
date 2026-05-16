@@ -544,6 +544,21 @@ pub struct RawGeometryData {
     pub volume_liters: f32,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct DirtyState {
+    pub global_rebuild: bool,
+    pub dirty_z_ranges: Vec<(f32, f32)>,
+}
+
+impl Default for DirtyState {
+    fn default() -> Self {
+        Self {
+            global_rebuild: true,
+            dirty_z_ranges: Vec::new(),
+        }
+    }
+}
+
 mod serde_vec3_as_array {
     use glam::Vec3;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};

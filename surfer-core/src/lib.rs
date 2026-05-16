@@ -15,10 +15,13 @@ fn init_test_logger() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-use model::{BoardAction, BoardModel, Effect, RawGeometryData};
+use model::{BoardAction, BoardModel, DirtyState, Effect, RawGeometryData};
+use crate::mesh::MeshCache;
 
 pub struct SurferEngine {
     model: BoardModel,
+    dirty_state: DirtyState,
+    mesh_cache: MeshCache,
 }
 
 impl Default for SurferEngine {
@@ -31,6 +34,8 @@ impl SurferEngine {
     pub fn new() -> Self {
         Self {
             model: BoardModel::default(),
+            dirty_state: DirtyState::default(),
+            mesh_cache: MeshCache::default(),
         }
     }
 

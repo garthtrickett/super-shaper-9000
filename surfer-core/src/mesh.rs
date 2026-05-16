@@ -6,6 +6,15 @@ pub mod surface;
 pub mod topology;
 pub mod volume;
 
+use surface::SurfaceGrid;
+
+#[derive(Default, Clone)]
+pub struct MeshCache {
+    pub z_rings: Vec<f32>,
+    pub u_columns: Vec<(f32, f32, bool, f32)>,
+    pub grid: SurfaceGrid,
+}
+
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     log::debug!(
         "[Rust core] generate_mesh: Rebuilding for length {:.1}",
