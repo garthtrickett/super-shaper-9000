@@ -9,6 +9,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_z_rings_with_wings() {
+        use crate::model::{BezierCurveData, BoardModel, OutlineLayer};
+        use glam::Vec3;
+        
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        
+        let outline = BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            weights: None,
+        };
+        model.outline = Some(outline.clone());
+        
+        let wing_ext = BezierCurveData {
+            control_points: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
+            tangents1: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
+            tangents2: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
+            weights: None,
+        };
+        
+        model.outline_layers = Some(vec![OutlineLayer {
+            name: "Wing".to_string(),
+            active: true,
+            otl_ext: wing_ext,
+            otl_int: BezierCurveData::default(),
+        }]);
+        
+        let z_rings = compute_z_rings(&model, 0.0, 100.0, &outline);
+        
+        // Assert that the cliff coordinates were injected around Z=70 and Z=80
+        assert!(z_rings.iter().any(|&z| (z - (70.0 - 1e-3)).abs() < 1e-5), "Missing cliff approach at 70");
+        assert!(z_rings.iter().any(|&z| (z - 70.0).abs() < 1e-5), "Missing cliff at 70");
+        assert!(z_rings.iter().any(|&z| (z - (70.0 + 1e-3)).abs() < 1e-5), "Missing cliff departure at 70");
+        
+        assert!(z_rings.iter().any(|&z| (z - (80.0 - 1e-3)).abs() < 1e-5), "Missing cliff approach at 80");
+        assert!(z_rings.iter().any(|&z| (z - 80.0).abs() < 1e-5), "Missing cliff at 80");
+        assert!(z_rings.iter().any(|&z| (z - (80.0 + 1e-3)).abs() < 1e-5), "Missing cliff departure at 80");
+    }
+
+    #[test]
     fn test_abs_u_to_norm_u_and_back() {
         let t_tuck = 0.2;
         let t_apex = 0.4;
