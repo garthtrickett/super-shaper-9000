@@ -2,6 +2,8 @@ use crate::geometry::*;
 use crate::model::{BoardModel, RawGeometryData};
 use glam::Vec3;
 
+pub mod sampler;
+
 pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     log::debug!(
         "[Rust core] generate_mesh: Rebuilding for length {:.1}",
@@ -24,322 +26,13 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
     let tip_z = bounds.tip_z;
     let v_tip = bounds.tip_t;
 
-    // Adaptive Lengthwise (V) Slicing
-    let mut all_z = Vec::new();
-    let tolerance_degrees = 3.0;
-    let min_dist = 0.5;
-
-    if let Some(r_top) = &model.rocker_top {
-        for t in crate::bezier::adaptive_sample_t(r_top, tolerance_degrees, min_dist) {
-            all_z.push(evaluate_curve(r_top, t).z);
-        }
-    }
-    if let Some(r_bot) = &model.rocker_bottom {
-        for t in crate::bezier::adaptive_sample_t(r_bot, tolerance_degrees, min_dist) {
-            all_z.push(evaluate_curve(r_bot, t).z);
-        }
-    }
-    for t in crate::bezier::adaptive_sample_t(outline, tolerance_degrees, min_dist) {
-        all_z.push(evaluate_curve(outline, t).z);
-    }
-
-    let mut cliff_zs = Vec::new();
-    if let Some(layers) = &model.outline_layers {
-        for layer in layers {
-            if !layer.active {
-                continue;
-            }
-            if !layer.otl_ext.control_points.is_empty() {
-                for t in
-                    crate::bezier::adaptive_sample_t(&layer.otl_ext, tolerance_degrees, min_dist)
-                {
-                    all_z.push(evaluate_curve(&layer.otl_ext, t).z);
-                }
-                let first_z = layer.otl_ext.control_points.first().unwrap().z;
-                let last_z = layer.otl_ext.control_points.last().unwrap().z;
-                cliff_zs.push(first_z.min(last_z));
-                cliff_zs.push(first_z.max(last_z));
-            }
-            if !layer.otl_int.control_points.is_empty() {
-                for t in
-                    crate::bezier::adaptive_sample_t(&layer.otl_int, tolerance_degrees, min_dist)
-                {
-                    all_z.push(evaluate_curve(&layer.otl_int, t).z);
-                }
-            }
-        }
-    }
-
-    all_z.push(nose_z);
-    all_z.push(tip_z);
-
-    // Inject cliff offsets for sharp wings
-    for &cz in &cliff_zs {
-        all_z.push(cz - 1e-3);
-        all_z.push(cz);
-        all_z.push(cz + 1e-3);
-    }
-
-    all_z.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-    let mut z_rings = Vec::new();
-    for z in all_z {
-        let clamped = z.clamp(nose_z, tip_z);
-        if z_rings.is_empty() {
-            z_rings.push(clamped);
-        } else {
-            let last_z = *z_rings.last().unwrap();
-            let diff = clamped - last_z;
-            let is_cliff = cliff_zs
-                .iter()
-                .any(|&cz| (clamped - cz).abs() <= 1.5e-3 || (last_z - cz).abs() <= 1.5e-3);
-
-            if diff > 0.1 || (is_cliff && diff >= 1e-4) {
-                z_rings.push(clamped);
-            }
-        }
-    }
-
-    if let Some(last) = z_rings.last_mut() {
-        if (tip_z - *last).abs() > 1e-4 {
-            if tip_z - *last <= 0.1 {
-                *last = tip_z;
-            } else {
-                z_rings.push(tip_z);
-            }
-        }
-    }
-
+    let z_rings = sampler::compute_z_rings(model, nose_z, tip_z, outline);
     let segments_v = z_rings.len() - 1;
 
-    let abs_u_to_norm_u = |abs_u: f32, t_tuck: f32, t_apex: f32, t_shoulder: f32| -> f32 {
-        if abs_u <= t_tuck {
-            if t_tuck > 0.0 {
-                (abs_u / t_tuck) * 0.25
-            } else {
-                0.0
-            }
-        } else if abs_u <= t_apex {
-            if t_apex > t_tuck {
-                0.25 + ((abs_u - t_tuck) / (t_apex - t_tuck)) * 0.25
-            } else {
-                0.25
-            }
-        } else if abs_u <= t_shoulder {
-            if t_shoulder > t_apex {
-                0.5 + ((abs_u - t_apex) / (t_shoulder - t_apex)) * 0.25
-            } else {
-                0.5
-            }
-        } else if 1.0 > t_shoulder {
-            0.75 + ((abs_u - t_shoulder) / (1.0 - t_shoulder)) * 0.25
-        } else {
-            0.75
-        }
-    };
-
-    let norm_u_to_abs_u = |norm_u: f32, t_tuck: f32, t_apex: f32, t_shoulder: f32| -> f32 {
-        if norm_u <= 0.25 {
-            t_tuck * (norm_u / 0.25)
-        } else if norm_u <= 0.5 {
-            t_tuck + (t_apex - t_tuck) * ((norm_u - 0.25) / 0.25)
-        } else if norm_u <= 0.75 {
-            t_apex + (t_shoulder - t_apex) * ((norm_u - 0.5) / 0.25)
-        } else {
-            t_shoulder + (1.0 - t_shoulder) * ((norm_u - 0.75) / 0.25)
-        }
-    };
-
-    // Adaptive Crosswise (U) Columns
-    let critical_norm_us = vec![0.0, 0.25, 0.5, 0.75, 1.0];
-    let mut adaptive_norm_us = Vec::new();
-    let tolerance_degrees_u = 3.0;
-    let min_dist_u = 0.05;
-
-    let default_cs = crate::model::BezierCurveData::default();
-    let mut primary_cs = model.cross_sections.first().unwrap_or(&default_cs);
-    let mut max_width = 0.0;
-    for cs in &model.cross_sections {
-        let w = cs.control_points.iter().fold(0.0_f32, |m, p| m.max(p.x));
-        if w > max_width {
-            max_width = w;
-            primary_cs = cs;
-        }
-    }
-
-    let prim_t_apex = crate::geometry::find_apex_t(primary_cs);
-    let prim_t_tuck = 0.01_f32.max(prim_t_apex * 0.5);
-    let prim_t_shoulder = prim_t_apex + (1.0 - prim_t_apex) * 0.5;
-
-    for u in crate::bezier::adaptive_sample_t(primary_cs, tolerance_degrees_u, min_dist_u) {
-        adaptive_norm_us.push(abs_u_to_norm_u(
-            u,
-            prim_t_tuck,
-            prim_t_apex,
-            prim_t_shoulder,
-        ));
-    }
-
-    let mut u_params_half = critical_norm_us.clone();
-    for norm_u in adaptive_norm_us {
-        if !critical_norm_us
-            .iter()
-            .any(|&cu| (norm_u - cu).abs() < 0.01)
-        {
-            u_params_half.push(norm_u);
-        }
-    }
-    u_params_half.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-    let mut final_base_u = Vec::new();
-    for u in u_params_half {
-        if final_base_u.is_empty() {
-            final_base_u.push(u);
-        } else {
-            let last = *final_base_u.last().unwrap();
-            let is_critical = critical_norm_us.iter().any(|&cu| (u - cu).abs() < 1e-5);
-            if is_critical || u - last > 0.01 {
-                final_base_u.push(u);
-            }
-        }
-    }
-    let mut u_params_half = final_base_u;
-
-    // --- NEW: Channel U-parameter injection ---
-    let mut cliff_norm_us: Vec<f32> = Vec::new();
-    if let Some(channels) = &model.bottom_channels {
-        for channel in channels {
-            let outlines = [&channel.left_outline, &channel.right_outline];
-            for outline_curve in outlines {
-                if outline_curve.control_points.is_empty() {
-                    continue;
-                }
-                for z in &z_rings {
-                    let min_z = outline_curve.control_points.first().unwrap().z;
-                    let max_z = outline_curve.control_points.last().unwrap().z;
-                    if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
-                        let chan_x =
-                            crate::geometry::evaluate_bezier_at_z(outline_curve, *z, 0.5).x;
-                        // let profile = crate::geometry::get_board_profile_at_z(model, *z, 0.5);
-                        let blend = crate::geometry::get_cross_section_blend_at_z(
-                            &model.cross_sections,
-                            *z,
-                        );
-                        if let Some(b) = &blend {
-                            let inner_x = if *z > notch_z {
-                                crate::geometry::evaluate_notch_inner_x(outline, v_tip, *z)
-                            } else {
-                                0.0
-                            };
-                            let mut best_u = 0.0;
-                            let mut min_diff = f32::INFINITY;
-                            let v_outer = crate::geometry::find_v_at_z(outline, *z, 0.0, v_tip);
-                            for i in 0..=50 {
-                                let test_u = i as f32 / 50.0 * b.t_apex;
-                                let test_pt = crate::geometry::get_point_at_uv_base(
-                                    model, test_u, v_outer, *z, inner_x, 1.0,
-                                );
-                                let diff = (test_pt.x - chan_x.abs()).abs();
-                                if diff < min_diff {
-                                    min_diff = diff;
-                                    best_u = test_u;
-                                }
-                            }
-                            let mut u_search = best_u;
-                            let mut step = b.t_apex / 50.0;
-                            for _ in 0..10 {
-                                step *= 0.5;
-                                let u_left = (u_search - step).max(0.0);
-                                let u_right = (u_search + step).min(b.t_apex);
-                                let pt_left = crate::geometry::get_point_at_uv_base(
-                                    model, u_left, v_outer, *z, inner_x, 1.0,
-                                );
-                                let pt_right = crate::geometry::get_point_at_uv_base(
-                                    model, u_right, v_outer, *z, inner_x, 1.0,
-                                );
-                                if (pt_left.x - chan_x.abs()).abs() < min_diff {
-                                    min_diff = (pt_left.x - chan_x.abs()).abs();
-                                    u_search = u_left;
-                                } else if (pt_right.x - chan_x.abs()).abs() < min_diff {
-                                    min_diff = (pt_right.x - chan_x.abs()).abs();
-                                    u_search = u_right;
-                                }
-                            }
-
-                            let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
-                            let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
-                            let norm_u = abs_u_to_norm_u(u_search, t_tuck, b.t_apex, t_shoulder);
-                            cliff_norm_us.push(norm_u);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for cu in cliff_norm_us {
-        u_params_half.push((cu - 0.0001).max(0.0));
-        u_params_half.push(cu);
-        u_params_half.push((cu + 0.0001).min(1.0));
-    }
-
-    u_params_half.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let mut final_u = Vec::new();
-    for u in u_params_half {
-        if final_u.is_empty() || u - final_u.last().unwrap() > 0.00005 {
-            final_u.push(u);
-        }
-    }
-    u_params_half = final_u;
-    // --- END NEW ---
-
-    // Compute Arc Length mapping from the primary cross section to prevent UV stretching
-    let cs_arc_table = if !model.cross_sections.is_empty() {
-        crate::bezier::build_arc_length_table(primary_cs, 200)
-    } else {
-        Vec::new()
-    };
-
-    let total_cs_len = cs_arc_table.last().map(|(_, l)| *l).unwrap_or(0.0);
-
-    let get_u_tex = |norm_u: f32| -> f32 {
-        let t_val = norm_u_to_abs_u(norm_u, prim_t_tuck, prim_t_apex, prim_t_shoulder);
-        if total_cs_len <= 1e-5 || cs_arc_table.is_empty() {
-            return t_val;
-        }
-        let mut len_at_t = 0.0;
-        for i in 0..cs_arc_table.len() - 1 {
-            let (t0, l0) = cs_arc_table[i];
-            let (t1, l1) = cs_arc_table[i + 1];
-            if t_val >= t0 && t_val <= t1 {
-                let frac = if t1 > t0 {
-                    (t_val - t0) / (t1 - t0)
-                } else {
-                    0.0
-                };
-                len_at_t = l0 + frac * (l1 - l0);
-                break;
-            }
-        }
-        if t_val >= 1.0 {
-            len_at_t = total_cs_len;
-        }
-        len_at_t / total_cs_len
-    };
-
-    let mut u_columns = Vec::new();
-    let half = u_params_half.len() - 1;
-    for (idx, &u) in u_params_half.iter().enumerate() {
-        let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, 1.0, is_stringer, get_u_tex(u))); // Right side
-    }
-    // Add left side, explicitly duplicating the center stringers so the mesh can bifurcate
-    for (idx, &u) in u_params_half.iter().rev().enumerate() {
-        let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, -1.0, is_stringer, get_u_tex(u))); // Left side
-    }
+    let u_columns = sampler::compute_u_columns(model, &z_rings, outline, notch_z, v_tip);
     let num_cols = u_columns.len();
-    let right_half_cols = u_params_half.len();
+    let right_half_cols = num_cols / 2;
+    let half = right_half_cols - 1;
 
     let mut slice_arc_lengths = vec![0.0; segments_v + 1];
     let mut total_arc_length = 0.0;
@@ -392,7 +85,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
         for &(norm_u, side, is_stringer, u_tex) in u_columns.iter() {
-            let abs_u = norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
+            let abs_u = sampler::norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
             let mut point = get_point_at_uv(model, abs_u, v_outer, z_inches, inner_x, side);
             if is_stringer {
                 point.x = inner_x;
@@ -859,6 +552,7 @@ pub fn generate_mesh(model: &BoardModel) -> RawGeometryData {
         volume_liters,
     }
 }
+
 
 #[cfg(test)]
 mod tests {
