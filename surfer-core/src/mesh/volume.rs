@@ -52,36 +52,12 @@ mod tests {
         // Cross section is a square from (-0.5, -0.5) to (0.5, 0.5). Area = 1.0.
         // Volume should be 1.0 cubic unit * 28.3168 Liters
 
-        let make_ring = |z: f32| -> Vec<SurfacePoint> {
+                let make_ring = |z: f32| -> Vec<SurfacePoint> {
             vec![
-                SurfacePoint {
-                    pos: Vec3::new(-0.5, -0.5, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
-                SurfacePoint {
-                    pos: Vec3::new(0.5, -0.5, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
-                SurfacePoint {
-                    pos: Vec3::new(0.5, 0.5, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
-                SurfacePoint {
-                    pos: Vec3::new(-0.5, 0.5, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
+                SurfacePoint { pos: Vec3::new(-0.5, -0.5, z), ..Default::default() },
+                SurfacePoint { pos: Vec3::new(0.5, -0.5, z), ..Default::default() },
+                SurfacePoint { pos: Vec3::new(0.5, 0.5, z), ..Default::default() },
+                SurfacePoint { pos: Vec3::new(-0.5, 0.5, z), ..Default::default() },
             ]
         };
 
@@ -98,36 +74,12 @@ mod tests {
         // Area at Z=0 is 4.0. Area at Z=1 is 0.0.
         // Trapezoidal integration: (4 + 0) / 2 * 1.0 = 2.0 cubic units.
 
-        let make_ring = |z: f32, width: f32, height: f32| -> Vec<SurfacePoint> {
+                let make_ring = |z: f32, width: f32, height: f32| -> Vec<SurfacePoint> {
             vec![
-                SurfacePoint {
-                    pos: Vec3::new(-width / 2.0, 0.0, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
-                SurfacePoint {
-                    pos: Vec3::new(width / 2.0, 0.0, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
-                SurfacePoint {
-                    pos: Vec3::new(width / 2.0, height, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
-                SurfacePoint {
-                    pos: Vec3::new(-width / 2.0, height, z),
-                    color: Vec3::ZERO,
-                    u_tex: 0.0,
-                    v_coord: 0.0,
-                    abs_u: 0.0,
-                },
+                SurfacePoint { pos: Vec3::new(-width / 2.0, 0.0, z), ..Default::default() },
+                SurfacePoint { pos: Vec3::new(width / 2.0, 0.0, z), ..Default::default() },
+                SurfacePoint { pos: Vec3::new(width / 2.0, height, z), ..Default::default() },
+                SurfacePoint { pos: Vec3::new(-width / 2.0, height, z), ..Default::default() },
             ]
         };
 
