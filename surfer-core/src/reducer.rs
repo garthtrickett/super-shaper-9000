@@ -1996,6 +1996,37 @@ mod tests {
         assert!(!channel.right_outline.control_points.is_empty());
         assert!(!channel.right_depth.control_points.is_empty());
         assert!(!channel.left_outline.control_points.is_empty());
-        assert!(!channel.left_depth.control_points.is_empty());
+                assert!(!channel.left_depth.control_points.is_empty());
+    }
+
+    #[test]
+    fn test_node_mutation_generates_dirty_ranges() {
+        let mut model = create_mock_model();
+        let mut dirty = crate::model::DirtyState::default();
+        dirty.global_rebuild = false;
+
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO, Vec3::ZERO],
+            weights: None
+        });
+
+        let action = BoardAction::UpdateNodePosition {
+            curve: "outline".to_string(),
+            index: 1, // Middle node at Z=50
+            node_type: "anchor".to_string(),
+            position: [12.0, 0.0, 50.0],
+        };
+
+        update(&mut model, &mut dirty, action);
+
+        assert!(!dirty.global_rebuild, "Local node move should not trigger global rebuild");
+        assert!(!dirty.dirty_z_ranges.is_empty(), "Dirty ranges should be populated");
+        
+        let (min_z, max_z) = dirty.dirty_z_ranges[0];
+        // Affects segment from Node 0 (Z=0) to Node 2 (Z=100)
+        assert!(min_z <= -2.0); // 0.0 - 2.0 padding
+        assert!(max_z >= 102.0); // 100.0 + 2.0 padding
     }
 }
