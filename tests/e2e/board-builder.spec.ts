@@ -364,8 +364,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
         const hitPosition = await page.evaluate(() => {
                   type BoardViewportElement = HTMLElement & { 
-        requestUpdate?: () => void;
-        mathEngine?: any;
+                requestUpdate?: () => void;
+        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
           gizmoScaleTop?: number;
           outlineLayers?: { active?: boolean, otlExt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
