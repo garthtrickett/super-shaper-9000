@@ -261,8 +261,13 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
     const { userData, position } = e.detail;
+    
+    const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+    if (worker) {
+      worker.postMessage({ type: "DRAG_GIZMO", curve: userData.curve, index: userData.index, nodeType: userData.type, x: position[0], y: position[1], z: position[2] });
+    }
     
     this._proposeAction({
       type: "UPDATE_NODE_POSITION",
