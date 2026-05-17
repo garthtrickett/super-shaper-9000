@@ -871,12 +871,12 @@ pub async fn create_wgpu_renderer(
             .await
             .ok_or_else(|| JsValue::from_str("Failed to request WGPU adapter. WebGL/WebGPU may be unsupported or disabled in this environment."))?;
 
-        let (device, queue) = adapter
+                let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
+                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
                 },
                 None,
             )
