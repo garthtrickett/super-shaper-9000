@@ -687,28 +687,18 @@ fn handle_node_mutations(
 }
 
 fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3) -> Vec3 {
-    let bounds = crate::geometry::get_board_bounds(model);
-    let v_outer =
-        crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
-    let inner_x = if z > bounds.notch_z {
-        crate::geometry::evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, z)
-    } else {
-        0.0
-    };
+    let ctx = crate::geometry::ZRingContext::new(model, z);
 
-    let profile = crate::geometry::get_board_profile_at_z(model, z, v_outer);
-    let blend = crate::geometry::get_cross_section_blend_at_z(&model.cross_sections, z).unwrap();
+    let t_tuck = 0.01_f32.max(ctx.blend.as_ref().unwrap().t_apex * 0.5);
+    let t_shoulder = ctx.blend.as_ref().unwrap().t_apex + (1.0 - ctx.blend.as_ref().unwrap().t_apex) * 0.5;
 
-    let t_tuck = 0.01_f32.max(blend.t_apex * 0.5);
-    let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
+    let p_bot = ctx.blend.as_ref().unwrap().evaluate(0.0);
+    let p_tuck = ctx.blend.as_ref().unwrap().evaluate(t_tuck);
+    let p_apex = ctx.blend.as_ref().unwrap().evaluate(ctx.blend.as_ref().unwrap().t_apex);
+    let p_shoulder = ctx.blend.as_ref().unwrap().evaluate(t_shoulder);
+    let p_top = ctx.blend.as_ref().unwrap().evaluate(1.0);
 
-    let p_bot = blend.evaluate(0.0);
-    let p_tuck = blend.evaluate(t_tuck);
-    let p_apex = blend.evaluate(blend.t_apex);
-    let p_shoulder = blend.evaluate(t_shoulder);
-    let p_top = blend.evaluate(1.0);
-
-    let world_thick = profile.top_y - profile.bot_y;
+    let world_thick = ctx.profile.top_y - ctx.profile.bot_y;
     let local_thick = p_top.y - p_bot.y;
     let scale_y = if local_thick.abs() > 1e-5 {
         world_thick / local_thick
@@ -726,15 +716,15 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
         } else {
             t
         };
-        final_pos.x = inner_x + w_x * (profile.tuck_x - inner_x);
+        final_pos.x = ctx.inner_x + w_x * (ctx.profile.tuck_x - ctx.inner_x);
 
         let local_baseline_y = p_bot.y + t * (p_tuck.y - p_bot.y);
         let local_deviation = unmapped_pt.y - local_baseline_y;
-        let world_baseline_y = profile.bot_y + t * (profile.tuck_y - profile.bot_y);
+        let world_baseline_y = ctx.profile.bot_y + t * (ctx.profile.tuck_y - ctx.profile.bot_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
-    } else if u <= blend.t_apex {
-        let t = if blend.t_apex > t_tuck {
-            (u - t_tuck) / (blend.t_apex - t_tuck)
+    } else if u <= ctx.blend.as_ref().unwrap().t_apex {
+        let t = if ctx.blend.as_ref().unwrap().t_apex > t_tuck {
+            (u - t_tuck) / (ctx.blend.as_ref().unwrap().t_apex - t_tuck)
         } else {
             0.0
         };
@@ -743,15 +733,15 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
         } else {
             t
         };
-        final_pos.x = profile.tuck_x + w_x * (profile.apex_x - profile.tuck_x);
+        final_pos.x = ctx.profile.tuck_x + w_x * (ctx.profile.apex_x - ctx.profile.tuck_x);
 
         let local_baseline_y = p_tuck.y + t * (p_apex.y - p_tuck.y);
         let local_deviation = unmapped_pt.y - local_baseline_y;
-        let world_baseline_y = profile.tuck_y + t * (profile.apex_y - profile.tuck_y);
+        let world_baseline_y = ctx.profile.tuck_y + t * (ctx.profile.apex_y - ctx.profile.tuck_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
     } else if u <= t_shoulder {
-        let t = if t_shoulder > blend.t_apex {
-            (u - blend.t_apex) / (t_shoulder - blend.t_apex)
+        let t = if t_shoulder > ctx.blend.as_ref().unwrap().t_apex {
+            (u - ctx.blend.as_ref().unwrap().t_apex) / (t_shoulder - ctx.blend.as_ref().unwrap().t_apex)
         } else {
             0.0
         };
@@ -760,11 +750,11 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
         } else {
             t
         };
-        final_pos.x = profile.apex_x + w_x * (profile.shoulder_x - profile.apex_x);
+        final_pos.x = ctx.profile.apex_x + w_x * (ctx.profile.shoulder_x - ctx.profile.apex_x);
 
         let local_baseline_y = p_apex.y + t * (p_shoulder.y - p_apex.y);
         let local_deviation = unmapped_pt.y - local_baseline_y;
-        let world_baseline_y = profile.apex_y + t * (profile.shoulder_y - profile.apex_y);
+        let world_baseline_y = ctx.profile.apex_y + t * (ctx.profile.shoulder_y - ctx.profile.apex_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
     } else {
         let t = if 1.0 > t_shoulder {
@@ -777,44 +767,32 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
         } else {
             t
         };
-        final_pos.x = profile.shoulder_x + w_x * (inner_x - profile.shoulder_x);
+        final_pos.x = ctx.profile.shoulder_x + w_x * (ctx.inner_x - ctx.profile.shoulder_x);
 
         let local_baseline_y = p_shoulder.y + t * (p_top.y - p_shoulder.y);
         let local_deviation = unmapped_pt.y - local_baseline_y;
-        let world_baseline_y = profile.shoulder_y + t * (profile.top_y - profile.shoulder_y);
+        let world_baseline_y = ctx.profile.shoulder_y + t * (ctx.profile.top_y - ctx.profile.shoulder_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
     }
 
-    let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
-    let dist = z - mid_z;
-    let rail_coeff = if dist > 0.0 {
-        let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
-        let ease_t = t * t * (3.0 - 2.0 * t);
-        1.0 + (model.rail_coefficient_tail - 1.0) * ease_t
-    } else {
-        let t = ((-dist) / (mid_z - bounds.nose_z)).clamp(0.0, 1.0);
-        let ease_t = t * t * (3.0 - 2.0 * t);
-        1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
-    };
-
-    let norm_x_for_rail = if profile.apex_x > inner_x {
-        ((final_pos.x - inner_x) / (profile.apex_x - inner_x)).clamp(0.0, 1.0)
+    let norm_x_for_rail = if ctx.profile.apex_x > ctx.inner_x {
+        ((final_pos.x - ctx.inner_x) / (ctx.profile.apex_x - ctx.inner_x)).clamp(0.0, 1.0)
     } else {
         0.0
     };
 
-    let local_rail_coeff = 1.0 - (1.0 - rail_coeff) * norm_x_for_rail;
-    final_pos.y = profile.bot_y + (final_pos.y - profile.bot_y) * local_rail_coeff;
+    let local_rail_coeff = 1.0 - (1.0 - ctx.rail_coeff) * norm_x_for_rail;
+    final_pos.y = ctx.profile.bot_y + (final_pos.y - ctx.profile.bot_y) * local_rail_coeff;
 
-    if final_pos.x < inner_x {
-        final_pos.x = inner_x;
+    if final_pos.x < ctx.inner_x {
+        final_pos.x = ctx.inner_x;
     }
-    final_pos.y = final_pos.y.max(profile.bot_y - 5.0);
+    final_pos.y = final_pos.y.max(ctx.profile.bot_y - 5.0);
 
-    let is_nose_pole = (z - bounds.nose_z).abs() < 1e-4;
-    let is_tail_pole = (z - bounds.tip_z).abs() < 1e-4;
+    let is_nose_pole = (z - ctx.bounds.nose_z).abs() < 1e-4;
+    let is_tail_pole = (z - ctx.bounds.tip_z).abs() < 1e-4;
 
-    if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.1 {
+    if (is_nose_pole || is_tail_pole) && ctx.profile.apex_x < 0.1 {
         final_pos.x = 0.0;
     }
 

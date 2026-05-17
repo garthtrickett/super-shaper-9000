@@ -57,7 +57,7 @@ impl SurferEngine {
     }
 
     /// Generates a flat Float32Array-compatible buffer of [x1, y1, z1, x2, y2, z2] segments for curvature combs.
-    pub fn compute_slice_profile(&self, z_inches: f32) -> Vec<f32> {
+        pub fn compute_slice_profile(&self, z_inches: f32) -> Vec<f32> {
         let mut pts = Vec::new();
         let bounds = crate::geometry::get_board_bounds(&self.model);
         let outline = match &self.model.outline {
@@ -66,16 +66,9 @@ impl SurferEngine {
         };
         let v_tip = bounds.tip_t;
         let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
-        let notch_z = bounds.notch_z;
-        let inner_x = if z_inches > notch_z {
-            crate::geometry::evaluate_notch_inner_x(outline, v_tip, z_inches)
-        } else {
-            0.0
-        };
 
-        let blend =
-            crate::geometry::get_cross_section_blend_at_z(&self.model.cross_sections, z_inches);
-        let t_tuck = if let Some(b) = &blend {
+        let ctx = crate::geometry::ZRingContext::new(&self.model, z_inches);
+        let t_tuck = if let Some(b) = &ctx.blend {
             0.01_f32.max(b.t_apex * 0.5)
         } else {
             0.5
@@ -91,15 +84,14 @@ impl SurferEngine {
             } else {
                 (t_tuck * ((f - 0.5) * 2.0), 1.0)
             };
-            let pt =
-                crate::geometry::get_point_at_uv(&self.model, u, v_outer, z_inches, inner_x, side);
+            let pt = ctx.get_point_at_uv(u, side);
             pts.push(pt.x);
             pts.push(pt.y);
         }
 
         if let Some(channels) = &self.model.bottom_channels {
             pts.push(channels.len() as f32);
-            let profile = crate::geometry::get_board_profile_at_z(&self.model, z_inches, v_outer);
+            let profile = &ctx.profile;
             for channel in channels {
                 if channel.left_outline.control_points.is_empty() {
                     pts.push(0.0);

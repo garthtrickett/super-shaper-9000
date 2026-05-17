@@ -61,7 +61,121 @@ impl<'a> ZRingContext<'a> {
     }
 }
 
-pub fn get_point_at_uv_base(
+impl<'a> ZRingContext<'a> {
+    pub fn get_point_at_uv_base(&self, u: f32, side: f32) -> Vec3 {
+        let profile = &self.profile;
+        let blend = self.blend.as_ref();
+
+        if blend.is_none() {
+            let py = profile.bot_y + (profile.top_y - profile.bot_y) * u;
+            return Vec3::new(profile.half_width, py, self.z_inches);
+        }
+        let b = blend.unwrap();
+        let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+        let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
+
+        let p = b.evaluate(u);
+        let p_bot = b.evaluate(0.0);
+        let p_tuck = b.evaluate(t_tuck);
+        let p_apex = b.evaluate(b.t_apex);
+        let p_shoulder = b.evaluate(t_shoulder);
+        let p_top = b.evaluate(1.0);
+
+        let mut final_pos = Vec3::ZERO;
+        final_pos.z = self.z_inches;
+
+        let world_thick = profile.top_y - profile.bot_y;
+        let local_thick = p_top.y - p_bot.y;
+        let scale_y = if local_thick.abs() > 1e-5 {
+            world_thick / local_thick
+        } else {
+            1.0
+        };
+
+        if u <= t_tuck {
+            let t = u / t_tuck;
+            let w_x = if (p_tuck.x - p_bot.x).abs() > 1e-5 {
+                (p.x - p_bot.x) / (p_tuck.x - p_bot.x)
+            } else {
+                t
+            };
+            final_pos.x = self.inner_x + w_x * (profile.tuck_x - self.inner_x);
+
+            let local_baseline_y = p_bot.y + t * (p_tuck.y - p_bot.y);
+            let local_deviation = p.y - local_baseline_y;
+            let world_baseline_y = profile.bot_y + t * (profile.tuck_y - profile.bot_y);
+            final_pos.y = world_baseline_y + local_deviation * scale_y;
+        } else if u <= b.t_apex {
+            let t = (u - t_tuck) / (b.t_apex - t_tuck);
+            let w_x = if (p_apex.x - p_tuck.x).abs() > 1e-5 {
+                (p.x - p_tuck.x) / (p_apex.x - p_tuck.x)
+            } else {
+                t
+            };
+            final_pos.x = profile.tuck_x + w_x * (profile.apex_x - profile.tuck_x);
+
+            let local_baseline_y = p_tuck.y + t * (p_apex.y - p_tuck.y);
+            let local_deviation = p.y - local_baseline_y;
+            let world_baseline_y = profile.tuck_y + t * (profile.apex_y - profile.tuck_y);
+            final_pos.y = world_baseline_y + local_deviation * scale_y;
+        } else if u <= t_shoulder {
+            let t = (u - b.t_apex) / (t_shoulder - b.t_apex);
+            let w_x = if (p_shoulder.x - p_apex.x).abs() > 1e-5 {
+                (p.x - p_apex.x) / (p_shoulder.x - p_apex.x)
+            } else {
+                t
+            };
+            final_pos.x = profile.apex_x + w_x * (profile.shoulder_x - profile.apex_x);
+
+            let local_baseline_y = p_apex.y + t * (p_shoulder.y - p_apex.y);
+            let local_deviation = p.y - local_baseline_y;
+            let world_baseline_y = profile.apex_y + t * (profile.shoulder_y - profile.apex_y);
+            final_pos.y = world_baseline_y + local_deviation * scale_y;
+        } else {
+            let t = (u - t_shoulder) / (1.0 - t_shoulder);
+            let w_x = if (p_top.x - p_shoulder.x).abs() > 1e-5 {
+                (p.x - p_shoulder.x) / (p_top.x - p_shoulder.x)
+            } else {
+                t
+            };
+            final_pos.x = profile.shoulder_x + w_x * (self.inner_x - profile.shoulder_x);
+
+            let local_baseline_y = p_shoulder.y + t * (p_top.y - p_shoulder.y);
+            let local_deviation = p.y - local_baseline_y;
+            let world_baseline_y = profile.shoulder_y + t * (profile.top_y - profile.shoulder_y);
+            final_pos.y = world_baseline_y + local_deviation * scale_y;
+        }
+
+        let norm_x_for_rail = if profile.apex_x > self.inner_x {
+            ((final_pos.x - self.inner_x) / (profile.apex_x - self.inner_x)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        let local_rail_coeff = 1.0 - (1.0 - self.rail_coeff) * norm_x_for_rail;
+        final_pos.y = profile.bot_y + (final_pos.y - profile.bot_y) * local_rail_coeff;
+
+        if final_pos.x < self.inner_x {
+            final_pos.x = self.inner_x;
+        }
+        final_pos.y = final_pos.y.max(profile.bot_y - 5.0);
+
+        let is_nose_pole = (self.z_inches - self.bounds.nose_z).abs() < 1e-4;
+        let is_tail_pole = (self.z_inches - self.bounds.tip_z).abs() < 1e-4;
+
+        if (is_nose_pole || is_tail_pole) && profile.apex_x < 0.1 {
+            final_pos.x = 0.0;
+        }
+
+        final_pos
+    }
+
+    
+
+    
+
+    
+}
     model: &BoardModel,
     u: f32,
     v: f32,
@@ -519,6 +633,7 @@ mod tests {
     use glam::Vec3;
 
     #[test]
+        #[test]
     fn test_no_deck_y_spike_at_pin_tail() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -573,8 +688,10 @@ mod tests {
         let blend = get_cross_section_blend_at_z(&model.cross_sections, 99.0).unwrap();
         let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
 
-        let pt_99 = get_point_at_uv(&model, t_shoulder, 1.0, 99.0, 0.0, 1.0);
-        let pt_100 = get_point_at_uv(&model, t_shoulder, 1.0, 100.0, 0.0, 1.0);
+        let ctx_99 = ZRingContext::new(&model, 99.0);
+        let pt_99 = ctx_99.get_point_at_uv(t_shoulder, 1.0);
+        let ctx_100 = ZRingContext::new(&model, 100.0);
+        let pt_100 = ctx_100.get_point_at_uv(t_shoulder, 1.0);
 
         let diff_y = (pt_100.y - pt_99.y).abs();
         assert!(
@@ -586,6 +703,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_analytical_surface_normals() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -625,22 +743,25 @@ mod tests {
             ..Default::default()
         }];
 
-        let n_deck = get_surface_normal_at_uvz(&model, 1.0, 50.0, 1.0);
+        let ctx = ZRingContext::new(&model, 50.0);
+
+        let n_deck = ctx.get_surface_normal_at_uvz(1.0, 1.0);
         assert!(n_deck.y > 0.99);
         assert!(n_deck.x.abs() < 1e-4);
 
-        let n_bot = get_surface_normal_at_uvz(&model, 0.0, 50.0, 1.0);
+        let n_bot = ctx.get_surface_normal_at_uvz(0.0, 1.0);
         assert!(n_bot.y < -0.99);
         assert!(n_bot.x.abs() < 1e-4);
 
-        let n_apex = get_surface_normal_at_uvz(&model, 0.5, 50.0, 1.0);
+        let n_apex = ctx.get_surface_normal_at_uvz(0.5, 1.0);
         assert!(n_apex.x > 0.9);
 
-        let n_apex_left = get_surface_normal_at_uvz(&model, 0.5, 50.0, -1.0);
+        let n_apex_left = ctx.get_surface_normal_at_uvz(0.5, -1.0);
         assert!(n_apex_left.x < -0.9);
     }
 
     #[test]
+        #[test]
     fn test_zone_based_uv_evaluation() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -668,14 +789,16 @@ mod tests {
             ..Default::default()
         }];
 
-        let pt_bot_stringer = get_point_at_uv(&model, 0.0, 0.5, 50.0, 0.0, 1.0);
+        let ctx = ZRingContext::new(&model, 50.0);
+        let pt_bot_stringer = ctx.get_point_at_uv(0.0, 1.0);
         assert_eq!(pt_bot_stringer.x, 0.0);
 
-        let pt_top_stringer = get_point_at_uv(&model, 1.0, 0.5, 50.0, 0.0, 1.0);
+        let pt_top_stringer = ctx.get_point_at_uv(1.0, 1.0);
         assert_eq!(pt_top_stringer.x, 0.0);
     }
 
     #[test]
+        #[test]
     fn test_pin_tail_uv_singularity() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -699,11 +822,13 @@ mod tests {
 
         let u = 0.5;
         let z = 99.99;
-        let n = get_surface_normal_at_uvz(&model, u, z, 1.0);
+        let ctx = ZRingContext::new(&model, z);
+        let n = ctx.get_surface_normal_at_uvz(u, 1.0);
         assert!(!n.is_nan());
     }
 
     #[test]
+        #[test]
     fn test_swallow_tail_split_normals() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -737,11 +862,13 @@ mod tests {
             ..Default::default()
         });
 
-        let n = get_surface_normal_at_uvz(&model, 0.5, 98.0, 1.0);
+        let ctx = ZRingContext::new(&model, 98.0);
+        let n = ctx.get_surface_normal_at_uvz(0.5, 1.0);
         assert!(!n.is_nan());
     }
 
     #[test]
+        #[test]
     fn test_concave_zero_crossing_artifact() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -785,7 +912,8 @@ mod tests {
         let slice_pt = blend.evaluate(u_test);
         assert!(slice_pt.y < -0.1);
 
-        let pt = get_point_at_uv(&model, u_test, 0.5, 50.0, 0.0, 1.0);
+        let ctx = ZRingContext::new(&model, 50.0);
+        let pt = ctx.get_point_at_uv(u_test, 1.0);
         assert!(pt.y < -0.1);
     }
 
@@ -906,6 +1034,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_channel_projection_on_v_tail() {
         use crate::model::ChannelLayer;
         let mut model = BoardModel::default();
@@ -957,10 +1086,10 @@ mod tests {
 
         let z = 75.0;
         let u_chan = 0.25;
-        let v = 0.75;
 
-        let pt_base = get_point_at_uv_base(&model, u_chan, v, z, 0.0, 1.0);
-        let pt_chan = get_point_at_uv(&model, u_chan, v, z, 0.0, 1.0);
+        let ctx = ZRingContext::new(&model, z);
+        let pt_base = ctx.get_point_at_uv_base(u_chan, 1.0);
+        let pt_chan = ctx.get_point_at_uv(u_chan, 1.0);
 
         let dx = (pt_chan.x - pt_base.x).abs();
         let dy = (pt_chan.y - pt_base.y).abs();

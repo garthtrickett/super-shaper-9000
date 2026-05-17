@@ -258,32 +258,21 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn get_bottom_y_at(&self, z: f32, x: f32) -> f32 {
         let model = self.engine.get_model();
-        let bounds = surfer_core::geometry::get_board_bounds(model);
-        let outline = match &model.outline {
-            Some(o) => o,
-            None => return 0.0,
-        };
-        let v_outer = surfer_core::geometry::find_v_at_z(outline, z, 0.0, bounds.tip_t);
-        let profile = surfer_core::geometry::get_board_profile_at_z(model, z, v_outer);
-
-        let inner_x = if z > bounds.notch_z {
-            surfer_core::geometry::evaluate_notch_inner_x(outline, bounds.tip_t, z)
-        } else {
-            0.0
-        };
+        let ctx = surfer_core::geometry::ZRingContext::new(model, z);
 
         let side = if x < 0.0 { -1.0 } else { 1.0 };
         let abs_x = x.abs();
 
-        let u = if profile.half_width > 1e-4 {
-            (abs_x / profile.half_width).clamp(0.0, 1.0)
+        let u = if ctx.profile.half_width > 1e-4 {
+            (abs_x / ctx.profile.half_width).clamp(0.0, 1.0)
         } else {
             0.0
         };
 
-        let pt = surfer_core::geometry::get_point_at_uv(model, u, v_outer, z, inner_x, side);
+        let pt = ctx.get_point_at_uv(u, side);
         pt.y
     }
 
