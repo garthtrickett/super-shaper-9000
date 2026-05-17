@@ -46,48 +46,7 @@ pub fn generate_hull_indices(
     }
     indices
 }
-    grid: &SurfaceGrid,
-    segments_v: usize,
-    num_cols: usize,
-    right_half_cols: usize,
-) -> Vec<u32> {
-    let mut indices = Vec::new();
-    for i in 0..segments_v {
-        for j in 0..num_cols - 1 {
-            // Do not bridge the right and left halves at the top stringer!
-            if j == right_half_cols - 1 {
-                continue;
-            }
 
-            let a = (i * num_cols + j) as u32;
-            let b = a + 1;
-            let c = ((i + 1) * num_cols + j) as u32;
-            let d = c + 1;
-
-            let pos_a = grid[i][j].pos;
-            let pos_b = grid[i][j + 1].pos;
-            let pos_c = grid[i + 1][j].pos;
-            let pos_d = grid[i + 1][j + 1].pos;
-
-            // Only push valid triangles. If a ring collapses to a point at the poles,
-            // we dynamically drop the degenerate zero-area triangles.
-            // We use the cross product area to catch Z-collapses, U-collapses, and diagonal folds.
-            if (pos_b - pos_a).cross(pos_d - pos_a).length_squared() > 1e-16 {
-                indices.push(a);
-                indices.push(b);
-                indices.push(d);
-            }
-            if (pos_d - pos_a).cross(pos_c - pos_a).length_squared() > 1e-16 {
-                indices.push(a);
-                indices.push(d);
-                indices.push(c);
-            }
-        }
-    }
-    indices
-}
-
-#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
 pub fn generate_swallow_notch_wall(
     z_rings: &[f32],
@@ -247,149 +206,6 @@ pub fn generate_swallow_notch_wall(
         }
     }
 }
-    grid: &SurfaceGrid,
-    z_rings: &[f32],
-    segments_v: usize,
-    num_cols: usize,
-    half: usize,
-    notch_z: f32,
-    tip_z: f32,
-    v_tip: f32,
-    vertices: &mut Vec<f32>,
-    uvs: &mut Vec<f32>,
-    colors: &mut Vec<f32>,
-    normals: &mut Vec<f32>,
-    indices: &mut Vec<u32>,
-) {
-    if v_tip >= 0.999 || (tip_z - notch_z) < 1e-3 {
-        return;
-    }
-
-    let mut notch_start_idx = 0;
-    for (i, &z_inch) in z_rings.iter().enumerate() {
-        if z_inch > notch_z + 1e-4 {
-            notch_start_idx = i.saturating_sub(1);
-            break;
-        }
-    }
-
-    let num_z_steps = segments_v - notch_start_idx;
-    if num_z_steps < 1 {
-        return;
-    }
-
-    // Right Wall
-    let start_v_idx = (vertices.len() / 3) as u32;
-    for i in notch_start_idx..=segments_v {
-        let p_bot = grid[i][0].pos;
-        let p_top = grid[i][half].pos;
-
-        let mut n_wall = Vec3::new(-1.0, 0.0, 0.0);
-
-        if i > 0 && i < segments_v {
-            let p_bot_prev = grid[i - 1][0].pos;
-            let p_bot_next = grid[i + 1][0].pos;
-            let tangent_z = (p_bot_next - p_bot_prev).normalize();
-            let tangent_y = (p_top - p_bot).normalize();
-            n_wall = tangent_y.cross(tangent_z).normalize();
-            if n_wall.x > 0.0 {
-                n_wall = -n_wall;
-            }
-        }
-
-        for hull_pt in grid[i].iter().take(half + 1) {
-            let pos = Vec3::new(p_bot.x, hull_pt.pos.y, hull_pt.pos.z);
-            let color = hull_pt.color;
-            let u = hull_pt.u_tex;
-            let v_coord = hull_pt.v_coord;
-
-            vertices.push(pos.x);
-            vertices.push(pos.y);
-            vertices.push(pos.z);
-            uvs.push(u);
-            uvs.push(v_coord);
-            colors.push(color.x);
-            colors.push(color.y);
-            colors.push(color.z);
-            normals.push(n_wall.x);
-            normals.push(n_wall.y);
-            normals.push(n_wall.z);
-        }
-    }
-
-    for i in 0..num_z_steps {
-        let ring_a = start_v_idx + i as u32 * (half as u32 + 1);
-        let ring_b = start_v_idx + (i + 1) as u32 * (half as u32 + 1);
-        for j in 0..half as u32 {
-            let a = ring_a + j;
-            let b = a + 1;
-            let c = ring_b + j;
-            let d = c + 1;
-            indices.push(a);
-            indices.push(c);
-            indices.push(b);
-            indices.push(b);
-            indices.push(c);
-            indices.push(d);
-        }
-    }
-
-    // Left Wall
-    let start_v_idx_left = (vertices.len() / 3) as u32;
-    for i in notch_start_idx..=segments_v {
-        let p_top = grid[i][half + 1].pos;
-        let p_bot = grid[i][num_cols - 1].pos;
-
-        let mut n_wall = Vec3::new(1.0, 0.0, 0.0);
-
-        if i > 0 && i < segments_v {
-            let p_bot_prev = grid[i - 1][num_cols - 1].pos;
-            let p_bot_next = grid[i + 1][num_cols - 1].pos;
-            let tangent_z = (p_bot_next - p_bot_prev).normalize();
-            let tangent_y = (p_bot - p_top).normalize();
-            n_wall = tangent_z.cross(tangent_y).normalize();
-            if n_wall.x < 0.0 {
-                n_wall = -n_wall;
-            }
-        }
-
-        for hull_pt in grid[i].iter().skip(half + 1).take(half + 1) {
-            let pos = Vec3::new(p_bot.x, hull_pt.pos.y, hull_pt.pos.z);
-            let color = hull_pt.color;
-            let u = hull_pt.u_tex;
-            let v_coord = hull_pt.v_coord;
-
-            vertices.push(pos.x);
-            vertices.push(pos.y);
-            vertices.push(pos.z);
-            uvs.push(u);
-            uvs.push(v_coord);
-            colors.push(color.x);
-            colors.push(color.y);
-            colors.push(color.z);
-            normals.push(n_wall.x);
-            normals.push(n_wall.y);
-            normals.push(n_wall.z);
-        }
-    }
-
-    for i in 0..num_z_steps {
-        let ring_a = start_v_idx_left + i as u32 * (half as u32 + 1);
-        let ring_b = start_v_idx_left + (i + 1) as u32 * (half as u32 + 1);
-        for j in 0..half as u32 {
-            let a = ring_a + j;
-            let b = a + 1;
-            let c = ring_b + j;
-            let d = c + 1;
-            indices.push(a);
-            indices.push(c);
-            indices.push(b);
-            indices.push(b);
-            indices.push(c);
-            indices.push(d);
-        }
-    }
-}
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
@@ -408,19 +224,19 @@ pub fn generate_cap(
     normals: &mut Vec<f32>,
     indices: &mut Vec<u32>,
 ) {
-    let get_pos = |j| {
-        let idx = (ring_index * num_cols + j) * 3;
-        Vec3::new(vertices[idx], vertices[idx + 1], vertices[idx + 2])
-    };
-    let get_col = |j| {
-        let idx = (ring_index * num_cols + j) * 3;
-        Vec3::new(colors[idx], colors[idx + 1], colors[idx + 2])
-    };
+    let mut ring_pos = Vec::with_capacity(num_cols);
+    let mut ring_color = Vec::with_capacity(num_cols);
+    let ring_start_idx = ring_index * num_cols;
+    for j in 0..num_cols {
+        let idx = (ring_start_idx + j) * 3;
+        ring_pos.push(Vec3::new(vertices[idx], vertices[idx + 1], vertices[idx + 2]));
+        ring_color.push(Vec3::new(colors[idx], colors[idx + 1], colors[idx + 2]));
+    }
 
     let mut right_min_x = f32::INFINITY;
     let mut right_max_x = f32::NEG_INFINITY;
     for j in 0..=half {
-        let x = get_pos(j).x;
+        let x = ring_pos[j].x;
         right_min_x = right_min_x.min(x);
         right_max_x = right_max_x.max(x);
     }
@@ -436,19 +252,19 @@ pub fn generate_cap(
         // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
         let width_inches = ring_width / scale;
         let num_x_steps = (width_inches / 0.5).ceil().max(1.0) as u32;
-        let right_target_x = get_pos(0).x;
-        let right_target_y_bot = get_pos(0).y;
-        let right_target_y_top = get_pos(half).y;
+        let right_target_x = ring_pos[0].x;
+        let right_target_y_bot = ring_pos[0].y;
+        let right_target_y_top = ring_pos[half].y;
 
-        let left_target_x = get_pos(num_cols - 1).x;
-        let left_target_y_bot = get_pos(num_cols - 1).y;
-        let left_target_y_top = get_pos(half + 1).y;
+        let left_target_x = ring_pos[num_cols - 1].x;
+        let left_target_y_bot = ring_pos[num_cols - 1].y;
+        let left_target_y_top = ring_pos[half + 1].y;
 
         for step in 0..=num_x_steps {
             let fraction = 1.0 - (step as f32 / num_x_steps as f32);
             for j in 0..num_cols {
-                let pos = get_pos(j);
-                let color = get_col(j);
+                let pos = ring_pos[j];
+                let color = ring_color[j];
                 let side = u_columns[j].1;
 
                 let target_x = if side > 0.0 {
@@ -457,8 +273,8 @@ pub fn generate_cap(
                     left_target_x
                 };
 
-                let pos_bot_y = get_pos(if side > 0.0 { 0 } else { num_cols - 1 }).y;
-                let pos_top_y = get_pos(if side > 0.0 { half } else { half + 1 }).y;
+                let pos_bot_y = ring_pos[if side > 0.0 { 0 } else { num_cols - 1 }].y;
+                let pos_top_y = ring_pos[if side > 0.0 { half } else { half + 1 }].y;
                 let y_frac = if (pos_top_y - pos_bot_y).abs() > 1e-5 {
                     (pos.y - pos_bot_y) / (pos_top_y - pos_bot_y)
                 } else {
@@ -569,7 +385,6 @@ pub fn generate_cap(
         }
     }
 }
-    grid: &SurfaceGrid,
     ring_index: usize,
     fallback_mid: Vec3,
     is_nose: bool,
@@ -584,11 +399,19 @@ pub fn generate_cap(
     normals: &mut Vec<f32>,
     indices: &mut Vec<u32>,
 ) {
-    let ring = &grid[ring_index];
+    let get_pos = |j| {
+        let idx = (ring_index * num_cols + j) * 3;
+        Vec3::new(vertices[idx], vertices[idx + 1], vertices[idx + 2])
+    };
+    let get_col = |j| {
+        let idx = (ring_index * num_cols + j) * 3;
+        Vec3::new(colors[idx], colors[idx + 1], colors[idx + 2])
+    };
+
     let mut right_min_x = f32::INFINITY;
     let mut right_max_x = f32::NEG_INFINITY;
-    for item in ring.iter().take(half + 1) {
-        let x = item.pos.x;
+    for j in 0..=half {
+        let x = get_pos(j).x;
         right_min_x = right_min_x.min(x);
         right_max_x = right_max_x.max(x);
     }
@@ -604,22 +427,19 @@ pub fn generate_cap(
         // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
         let width_inches = ring_width / scale;
         let num_x_steps = (width_inches / 0.5).ceil().max(1.0) as u32;
-        let right_target_x = ring[0].pos.x;
-        let right_target_y_bot = ring[0].pos.y;
-        let right_target_y_top = ring[half].pos.y;
+        let right_target_x = get_pos(0).x;
+        let right_target_y_bot = get_pos(0).y;
+        let right_target_y_top = get_pos(half).y;
 
-        let left_target_x = ring[num_cols - 1].pos.x;
-        let left_target_y_bot = ring[num_cols - 1].pos.y;
-        let left_target_y_top = ring[half + 1].pos.y;
+        let left_target_x = get_pos(num_cols - 1).x;
+        let left_target_y_bot = get_pos(num_cols - 1).y;
+        let left_target_y_top = get_pos(half + 1).y;
 
         for step in 0..=num_x_steps {
             let fraction = 1.0 - (step as f32 / num_x_steps as f32);
             for j in 0..num_cols {
-                let sp = &ring[j];
-                let pos = sp.pos;
-                let color = sp.color;
-                // let u_tex = sp.u_tex;
-                // let v_coord = sp.v_coord;
+                let pos = get_pos(j);
+                let color = get_col(j);
                 let side = u_columns[j].1;
 
                 let target_x = if side > 0.0 {
@@ -628,10 +448,8 @@ pub fn generate_cap(
                     left_target_x
                 };
 
-                // To ensure the cap perfectly seals the hull on the outside, and gradually flattens
-                // to a straight vertical line at the stringer (X=0), we lerp the Y coordinate based on the fraction.
-                let pos_bot_y = ring[if side > 0.0 { 0 } else { num_cols - 1 }].pos.y;
-                let pos_top_y = ring[if side > 0.0 { half } else { half + 1 }].pos.y;
+                let pos_bot_y = get_pos(if side > 0.0 { 0 } else { num_cols - 1 }).y;
+                let pos_top_y = get_pos(if side > 0.0 { half } else { half + 1 }).y;
                 let y_frac = if (pos_top_y - pos_bot_y).abs() > 1e-5 {
                     (pos.y - pos_bot_y) / (pos_top_y - pos_bot_y)
                 } else {
