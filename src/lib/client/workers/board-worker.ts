@@ -36,11 +36,11 @@ init().then(async () => {
         foilData: foilData
     },[curvatureCombs.buffer, foilData.buffer]);
 
-    // Process queued messages
+        // Process queued messages sequentially to prevent &mut self borrow panics
     for (const queuedMsg of messageQueue) {
         if (self.onmessage) {
             // @ts-ignore
-            self.onmessage(queuedMsg);
+            await self.onmessage(queuedMsg);
         }
     }
     messageQueue.length = 0;

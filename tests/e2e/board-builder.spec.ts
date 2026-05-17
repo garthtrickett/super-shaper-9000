@@ -159,18 +159,21 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         viewport.requestUpdate?.();
       }
 
-      const outline = viewport.boardState.outline;
-      const cp = outline.controlPoints[1]; // Target middle control point
-      if (!cp) return null;
+            const outline = viewport.boardState.outline;
+      const cp = outline.controlPoints ? outline.controlPoints[1] : (outline as any).control_points?.[1];
+      if (!cp) throw new Error('cp not found: ' + JSON.stringify(outline));
 
       const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
-      if (!canvas) return null;
+      if (!canvas) throw new Error('canvas not found');
 
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
 
-      const worldX = cp[0] / 12;
-      const worldZ = cp[2] / 12;
+      const x = cp[0] !== undefined ? cp[0] : cp.x;
+      const z = cp[2] !== undefined ? cp[2] : cp.z;
+
+      const worldX = x / 12;
+      const worldZ = z / 12;
 
       const orthoRight = 5 * aspect;
       const orthoTop = 5;
@@ -295,16 +298,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         vp.requestUpdate?.();
       }
       
-      const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
+            const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
+      const cp = otlExt.controlPoints ? otlExt.controlPoints[0] : (otlExt as any).control_points?.[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
-      if (!canvas) return null;
+      if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
       if (cp) {
-        const ndcX = (cp[0] / 12) / (5 * aspect);
-        const ndcY = -(cp[2] / 12) / 5;
+        const x = cp[0] !== undefined ? cp[0] : cp.x;
+        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const ndcX = (x / 12) / (5 * aspect);
+        const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
         const h = rect.height / 2;
         return {
@@ -362,17 +368,20 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         vp.boardState.gizmoScaleTop = 3.0;
         vp.requestUpdate?.();
       }
-      const cp = vp.boardState.outlineLayers[0]!.otlExt.controlPoints[0];
+            const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
+      const cp = otlExt.controlPoints ? otlExt.controlPoints[0] : (otlExt as any).control_points?.[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
-      if (!canvas) return null;
+      if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       
       // Project CAD inches to normalized viewport coords using Top Ortho logic
       if (cp) {
-        const ndcX = (cp[0] / 12) / (5 * aspect);
-        const ndcY = -(cp[2] / 12) / 5;
+        const x = cp[0] !== undefined ? cp[0] : cp.x;
+        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const ndcX = (x / 12) / (5 * aspect);
+        const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
         const h = rect.height / 2;
         
@@ -450,16 +459,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         vp.boardState.gizmoScaleTop = 3.0;
         vp.requestUpdate?.();
       }
-      const cp = vp.boardState.bottomChannels[0]!.rightOutline.controlPoints[0];
+            const rightOutline = vp.boardState.bottomChannels[0]!.rightOutline;
+      const cp = rightOutline.controlPoints ? rightOutline.controlPoints[0] : (rightOutline as any).control_points?.[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
-      if (!canvas) return null;
+      if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
       if (cp) {
-        const ndcX = (cp[0] / 12) / (5 * aspect);
-        const ndcY = -(cp[2] / 12) / 5;
+        const x = cp[0] !== undefined ? cp[0] : cp.x;
+        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const ndcX = (x / 12) / (5 * aspect);
+        const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
         const h = rect.height / 2;
         return {
@@ -516,16 +528,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         vp.boardState.gizmoScaleTop = 3.0;
         vp.requestUpdate?.();
       }
-      // Target the Interior curve which is typically further IN than the exterior
-      const cp = vp.boardState.outlineLayers[0]!.otlInt.controlPoints[0];
+            // Target the Interior curve which is typically further IN than the exterior
+      const otlInt = vp.boardState.outlineLayers[0]!.otlInt;
+      const cp = otlInt.controlPoints ? otlInt.controlPoints[0] : (otlInt as any).control_points?.[0];
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
-      if (!canvas) return null;
+      if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       if (cp) {
-        const ndcX = (cp[0] / 12) / (5 * aspect);
-        const ndcY = -(cp[2] / 12) / 5;
+        const x = cp[0] !== undefined ? cp[0] : cp.x;
+        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const ndcX = (x / 12) / (5 * aspect);
+        const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
         const h = rect.height / 2;
       
@@ -713,14 +728,17 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         viewport.boardState.gizmoScaleTop = 3.0;
         viewport.requestUpdate?.();
       }
-      const cp = viewport.boardState.outline.controlPoints[1];
-      if (!cp) return null;
+            const outline = viewport.boardState.outline;
+      const cp = outline.controlPoints ? outline.controlPoints[1] : (outline as any).control_points?.[1];
+      if (!cp) throw new Error('cp not found');
       const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
-      if (!canvas) return null;
+      if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
-      const ndcX = (cp[0] / 12) / (5 * aspect);
-      const ndcY = -(cp[2] / 12) / 5;
+      const x = cp[0] !== undefined ? cp[0] : cp.x;
+      const z = cp[2] !== undefined ? cp[2] : cp.z;
+      const ndcX = (x / 12) / (5 * aspect);
+      const ndcY = -(z / 12) / 5;
       const w = rect.width / 2;
       const h = rect.height / 2;
       return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
