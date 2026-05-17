@@ -238,17 +238,6 @@ pub fn evaluate_curvature_quill(
 /// # Returns
 /// The required coordinate for `t_target` to ensure the target segment has the exact
 /// same curvature (rate of bend) as the source segment at the anchor point.
-/// Computes the exact position of a target tangent handle to achieve G2 (Curvature) continuity.
-///
-/// # Arguments
-/// * `anchor` - The knot coordinate ($K$) shared by both curve segments.
-/// * `t_source` - The tangent handle of the master segment at $K$.
-/// * `f_source` - The *far* tangent handle of the master segment.
-/// * `f_target` - The *far* tangent handle of the target segment.
-///
-/// # Returns
-/// The required coordinate for `t_target` to ensure the target segment has the exact
-/// same curvature (rate of bend) as the source segment at the anchor point.
 ///
 #[allow(clippy::type_complexity)]
 pub fn split_bezier_cubic(
