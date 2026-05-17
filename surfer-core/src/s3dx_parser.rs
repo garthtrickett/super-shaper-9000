@@ -971,10 +971,10 @@ mod tests {
         let t_apex = blend.t_apex;
         let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
-        let pt_apex = crate::geometry::get_point_at_uv(&model, t_apex, 1.0, z_test, 0.0, 1.0);
+        let ctx = crate::geometry::ZRingContext::new(&model, z_test);
+        let pt_apex = ctx.get_point_at_uv(t_apex, 1.0);
         let t_mid_rail = t_apex + (t_shoulder - t_apex) * 0.5;
-        let pt_mid_rail =
-            crate::geometry::get_point_at_uv(&model, t_mid_rail, 1.0, z_test, 0.0, 1.0);
+        let pt_mid_rail = ctx.get_point_at_uv(t_mid_rail, 1.0);
 
         assert!(
             pt_mid_rail.x > 0.0,
@@ -984,9 +984,9 @@ mod tests {
             pt_mid_rail.x <= pt_apex.x + 1e-4,
             "Mid-rail is outside the apex!"
         );
+        let pt_bot = ctx.get_point_at_uv(0.0, 1.0);
+        let pt_top = ctx.get_point_at_uv(1.0, 1.0);
 
-        let pt_bot = crate::geometry::get_point_at_uv(&model, 0.0, 1.0, z_test, 0.0, 1.0);
-        let pt_top = crate::geometry::get_point_at_uv(&model, 1.0, 1.0, z_test, 0.0, 1.0);
         assert!(
             pt_top.y - pt_bot.y > 0.0,
             "Tail thickness should not collapse to zero"
@@ -1128,8 +1128,12 @@ mod tests {
         }
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
-                let model = parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = crate::mesh::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut crate::mesh::MeshCache::default());
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = crate::mesh::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut crate::mesh::MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);

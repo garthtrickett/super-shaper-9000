@@ -60,7 +60,7 @@ impl<'a> ZRingContext<'a> {
         }
     }
 
-        pub fn get_point_at_uv_base(&self, u: f32, _side: f32) -> Vec3 {
+    pub fn get_point_at_uv_base(&self, u: f32, _side: f32) -> Vec3 {
         let profile = &self.profile;
         let blend = self.blend.as_ref();
 
@@ -245,25 +245,21 @@ impl<'a> ZRingContext<'a> {
     pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
-        if (self.z_inches - bounds.nose_z).abs() < 1e-4 {
-            if self.profile.apex_x < 0.1 {
-                let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
-                let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
-                if side < 0.0 {
-                    n.x = -n.x;
-                }
-                return n;
+                if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
+            let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
+            if side < 0.0 {
+                n.x = -n.x;
             }
+            return n;
         }
-        if (self.z_inches - bounds.tip_z).abs() < 1e-4 {
-            if self.profile.apex_x < 0.1 {
-                let (n_top, n_bot) = get_pole_normals(self.model, bounds.tip_z, false);
-                let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
-                if side < 0.0 {
-                    n.x = -n.x;
-                }
-                return n;
+        if (self.z_inches - bounds.tip_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
+            let (n_top, n_bot) = get_pole_normals(self.model, bounds.tip_z, false);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
+            if side < 0.0 {
+                n.x = -n.x;
             }
+            return n;
         }
 
         let du = 1e-4;
@@ -333,25 +329,21 @@ impl<'a> ZRingContext<'a> {
     pub fn get_surface_normal_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
-        if (self.z_inches - bounds.nose_z).abs() < 1e-4 {
-            if self.profile.apex_x < 0.1 {
-                let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
-                let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
-                if side < 0.0 {
-                    n.x = -n.x;
-                }
-                return n;
+                if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
+            let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
+            if side < 0.0 {
+                n.x = -n.x;
             }
+            return n;
         }
-        if (self.z_inches - bounds.tip_z).abs() < 1e-4 {
-            if self.profile.apex_x < 0.1 {
-                let (n_top, n_bot) = get_pole_normals(self.model, bounds.tip_z, false);
-                let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
-                if side < 0.0 {
-                    n.x = -n.x;
-                }
-                return n;
+        if (self.z_inches - bounds.tip_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
+            let (n_top, n_bot) = get_pole_normals(self.model, bounds.tip_z, false);
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
+            if side < 0.0 {
+                n.x = -n.x;
             }
+            return n;
         }
 
         let du = 1e-4;
@@ -755,7 +747,7 @@ mod tests {
         assert!(pt.y < -0.1);
     }
 
-        #[test]
+    #[test]
     fn test_z_ring_context_caching() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -784,7 +776,7 @@ mod tests {
 
         let pt = ctx.get_point_at_uv(0.5, 1.0);
         assert!(pt.x > 0.0);
-        
+
         let n = ctx.get_surface_normal_at_uvz(0.5, 1.0);
         assert!(n.length() > 0.99 && n.length() < 1.01);
     }

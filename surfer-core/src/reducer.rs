@@ -755,7 +755,8 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
 
         let local_baseline_y = p_apex.y + t * (p_shoulder.y - p_apex.y);
         let local_deviation = unmapped_pt.y - local_baseline_y;
-        let world_baseline_y = ctx.profile.apex_y + t * (ctx.profile.shoulder_y - ctx.profile.apex_y);
+        let world_baseline_y =
+            ctx.profile.apex_y + t * (ctx.profile.shoulder_y - ctx.profile.apex_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
     } else {
         let t = if 1.0 > t_shoulder {
@@ -772,7 +773,8 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
 
         let local_baseline_y = p_shoulder.y + t * (p_top.y - p_shoulder.y);
         let local_deviation = unmapped_pt.y - local_baseline_y;
-        let world_baseline_y = ctx.profile.shoulder_y + t * (ctx.profile.top_y - ctx.profile.shoulder_y);
+        let world_baseline_y =
+            ctx.profile.shoulder_y + t * (ctx.profile.top_y - ctx.profile.shoulder_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
     }
 
@@ -1744,7 +1746,7 @@ mod tests {
             tangents2: vec![Vec3::ZERO],
             ..Default::default()
         });
-                update(
+        update(
             &mut model,
             &mut crate::model::DirtyState::default(),
             BoardAction::UpdateNumber {

@@ -57,7 +57,7 @@ impl SurferEngine {
     }
 
     /// Generates a flat Float32Array-compatible buffer of [x1, y1, z1, x2, y2, z2] segments for curvature combs.
-        pub fn compute_slice_profile(&self, z_inches: f32) -> Vec<f32> {
+    pub fn compute_slice_profile(&self, z_inches: f32) -> Vec<f32> {
         let mut pts = Vec::new();
         let bounds = crate::geometry::get_board_bounds(&self.model);
         let outline = match &self.model.outline {

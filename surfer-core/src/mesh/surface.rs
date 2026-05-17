@@ -1,6 +1,4 @@
-use crate::geometry::{
-    color_heatmap, evaluate_bezier_at_z,
-};
+use crate::geometry::{color_heatmap, evaluate_bezier_at_z};
 use crate::model::BoardModel;
 use glam::Vec3;
 
@@ -97,7 +95,7 @@ pub fn build_surface(
 
         // CACHE MISS: Recalculate this specific Z-ring.
         let mut ring = Vec::with_capacity(num_cols);
-        
+
         let ctx = crate::geometry::ZRingContext::new(model, z_inches);
 
         let center_thick = (ctx.profile.top_y - ctx.profile.bot_y).max(0.001);
@@ -107,7 +105,11 @@ pub fn build_surface(
         let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
         let heat_color = color_heatmap(normalized_foil);
 
-        let t_apex = if let Some(b) = &ctx.blend { b.t_apex } else { 0.5 };
+        let t_apex = if let Some(b) = &ctx.blend {
+            b.t_apex
+        } else {
+            0.5
+        };
         let t_tuck = 0.01_f32.max(t_apex * 0.5);
         let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 

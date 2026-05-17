@@ -311,7 +311,11 @@ mod tests {
             ..Default::default()
         };
 
-                let mesh = generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
         let vertices: Vec<Vec3> = mesh
             .vertices
             .chunks_exact(3)
@@ -404,7 +408,11 @@ mod tests {
             ..Default::default()
         };
 
-                let mesh = generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         // Obtain exact analytical normals
         let (nose_n_top, nose_n_bot) = crate::geometry::get_pole_normals(&model, -35.0, true);
@@ -618,7 +626,11 @@ mod tests {
             ..Default::default()
         }];
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         // Check the thickness at the absolute nose (z = 0) and tail (z = 100)
         let scale = 1.0 / 12.0;
@@ -792,7 +804,11 @@ mod tests {
             },
         }]);
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let mut u_vals: Vec<f32> = mesh.uvs.chunks_exact(2).map(|uv| uv[0]).collect();
         u_vals.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -897,7 +913,11 @@ mod tests {
             },
         }]);
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let mut split_normals_found = false;
@@ -960,7 +980,11 @@ mod tests {
             ..Default::default()
         }];
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         // A regular pintail board has roughly X vertices. A swallow tail has the inner wall stitched in.
         // We verify that the mesh generates successfully without crashing, and has a reasonable density.
@@ -1041,7 +1065,11 @@ mod tests {
             ..Default::default()
         }];
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let target_z = 70.0 * scale;
@@ -1151,7 +1179,11 @@ mod tests {
             ..Default::default()
         }];
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let mut unique_zs: Vec<f32> = mesh
@@ -1228,7 +1260,11 @@ mod tests {
         };
         model.cross_sections = vec![cs0, cs1];
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
         let scale = 1.0 / 12.0;
         let target_z = 50.0 * scale;
         let mut best_z_diff = f32::INFINITY;
@@ -1271,8 +1307,12 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
-                let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -1358,8 +1398,12 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
-                let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         // Find degenerate triangles in the mesh
         let mut degenerate_count = 0;
@@ -1408,8 +1452,12 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
-                let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -1449,8 +1497,12 @@ mod tests {
 
         let bytes = std::fs::read(&path).unwrap();
         let content = String::from_utf8_lossy(&bytes).into_owned();
-                let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
-        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -1513,7 +1565,7 @@ mod tests {
         let u_stringer = 0.0;
         let u_tuck = 0.05; // Slightly off the stringer
 
-                let ctx = crate::geometry::ZRingContext::new(&model, bounds.nose_z);
+        let ctx = crate::geometry::ZRingContext::new(&model, bounds.nose_z);
         let n_stringer = ctx.get_surface_normal_at_uvz(u_stringer, 1.0);
         let n_tuck = ctx.get_surface_normal_at_uvz(u_tuck, 1.0);
 
@@ -1558,7 +1610,11 @@ mod tests {
             ..Default::default()
         }];
 
-                let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
         let scale = 1.0 / 12.0;
         let target_z = 100.0 * scale;
 
@@ -1608,8 +1664,12 @@ mod tests {
         }
 
         let bytes = std::fs::read(&path).unwrap();
-                let model = crate::brd_parser::parse_brd(&bytes).unwrap();
-        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let model = crate::brd_parser::parse_brd(&bytes).unwrap();
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         // 1. Check for NaN Normals (which render as pure black in WebGL)
         let mut nan_normals = 0;
@@ -1699,9 +1759,13 @@ mod tests {
             ],
             weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
         };
-                model.cross_sections = vec![basic_cs];
+        model.cross_sections = vec![basic_cs];
 
-        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
@@ -1810,9 +1874,13 @@ mod tests {
             ],
             weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
         };
-                model.cross_sections = vec![basic_cs];
+        model.cross_sections = vec![basic_cs];
 
-        let mesh = super::generate_mesh(&model, &mut crate::model::DirtyState::default(), &mut MeshCache::default());
+        let mesh = super::generate_mesh(
+            &model,
+            &mut crate::model::DirtyState::default(),
+            &mut MeshCache::default(),
+        );
 
         // Analyze cap triangles at the tail
         let scale = 1.0 / 12.0;
