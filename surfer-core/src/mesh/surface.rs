@@ -10,7 +10,6 @@ pub struct SurfaceData {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub fn build_surface(
     model: &BoardModel,
     dirty: &crate::model::DirtyState,
@@ -137,13 +136,14 @@ pub fn build_surface(
             }
         });
 
-    SurfaceData {
+        SurfaceData {
         vertices,
         normals,
         uvs,
         colors,
     }
 }
+/*
     model: &BoardModel,
     dirty: &crate::model::DirtyState,
     cache: &crate::mesh::MeshCache,
@@ -271,16 +271,17 @@ pub fn build_surface(
             colors[v_idx + 1] = heat_color.y;
             colors[v_idx + 2] = heat_color.z;
 
-            let u_idx = (i * num_cols + j) * 2;
-            uvs[u_idx] = u_tex;
-            uvs[u_idx + 1] = v_coord;
+                            let u_idx = (i * num_cols + j) * 2;
+                uvs[u_idx] = u_tex;
+                uvs[u_idx + 1] = v_coord;
+            }
+        }
+
+        SurfaceData {
+            vertices,
+            normals,
+            uvs,
+            colors,
         }
     }
-
-    SurfaceData {
-        vertices,
-        normals,
-        uvs,
-        colors,
-    }
-}
+*/
