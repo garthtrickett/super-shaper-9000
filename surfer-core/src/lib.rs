@@ -136,9 +136,10 @@ impl SurferEngine {
             Some(o) => o,
             None => return Vec::new(),
         };
-                let steps = 50;
+                        let steps = 50;
 
-        (0..=steps).into_iter().flat_map(|i| {
+        use rayon::prelude::*;
+        (0..=steps).into_par_iter().flat_map(|i| {
             let f = i as f32 / steps as f32;
             let z = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * f;
             let v_outer = crate::geometry::find_v_at_z(outline, z, 0.0, bounds.tip_t);
@@ -192,13 +193,14 @@ impl SurferEngine {
         if self.model.show_apex_rocker.unwrap_or(true) { curves_to_process.push(self.model.apex_rocker.as_ref()); }
         if self.model.show_deck_shoulder.unwrap_or(true) { curves_to_process.push(self.model.deck_shoulder.as_ref()); }
 
-                if self.model.show_cross_sections.unwrap_or(true) {
+                        if self.model.show_cross_sections.unwrap_or(true) {
             for cs in &self.model.cross_sections {
                 curves_to_process.push(Some(cs));
             }
         }
 
-        curves_to_process.into_iter().flat_map(|curve_opt| {
+        use rayon::prelude::*;
+        curves_to_process.into_par_iter().flat_map(|curve_opt| {
             let mut local_combs = Vec::new();
             if let Some(c) = curve_opt {
                 let num_segments = c.control_points.len().saturating_sub(1);

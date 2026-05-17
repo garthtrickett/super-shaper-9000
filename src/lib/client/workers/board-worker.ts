@@ -1,4 +1,4 @@
-import init, { WasmEngine } from '../wasm/surfer_wasm.js';
+import init, { WasmEngine, initThreadPool } from '../wasm/surfer_wasm.js';
 import { type BoardModel, type BoardAction, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
 import type { RustMesh } from '../../../components/3d/board-viewport';
 
@@ -6,6 +6,8 @@ let engine: WasmEngine | null = null;
 
 // Initialize the WASM module
 init().then(async () => {
+    await initThreadPool(navigator.hardwareConcurrency);
+
     engine = new WasmEngine();
     console.info("[BoardWorker] Rust WASM Engine initialized.");
 

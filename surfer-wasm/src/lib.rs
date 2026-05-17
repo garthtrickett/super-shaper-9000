@@ -3,6 +3,7 @@ use serde::Serialize;
 use surfer_core::model::BoardAction;
 use surfer_core::SurferEngine;
 use wasm_bindgen::prelude::*;
+pub use wasm_bindgen_rayon::init_thread_pool;
 
 #[derive(Serialize)]
 pub struct WasmUpdateResult<'a> {

@@ -141,3 +141,39 @@
       };
     };
 }
+{
+  description = "Super Shaper 9000 WASM + Rayon Environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs { inherit system overlays; };
+        rustToolchain = pkgs.rust-bin.nightly.latest.default.override {
+          extensions = [ "rust-src" "rust-analyzer" ];
+          targets = [ "wasm32-unknown-unknown" ];
+        };
+      in {
+        devShells.default = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            rustToolchain
+            wasm-bindgen-cli
+            bun
+            nodejs
+          ];
+          shellHook = ''
+            export RUSTFLAGS="-C target-feature=+atomics,+bulk-memory"
+            echo "\n🏄‍♂️ Super Shaper 9000 Dev Environment Loaded!"
+            echo "🦀 Rust Nightly (with rust-src) is ready for -Z build-std WASM threading.\n"
+          '';
+        };
+      }
+    );
+}
+

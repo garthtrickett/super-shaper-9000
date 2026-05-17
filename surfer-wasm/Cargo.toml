@@ -23,6 +23,5 @@ serde-wasm-bindgen = "0.6"
 js-sys = "=0.3.85"
 web-sys = "=0.3.85"
 console_error_panic_hook = "0.1.7"
-wasm-bindgen-rayon = "1.2"
 rayon = "1.10"
 
