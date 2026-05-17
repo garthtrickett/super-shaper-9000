@@ -167,7 +167,7 @@ pub fn generate_mesh(
 
             for i in 0..=steps {
                 let t = i as f32 / steps as f32;
-                let raw_p = crate::bezier::evaluate_curve(curve, t);
+                                let raw_p = crate::geometry::evaluate_curve(curve, t);
 
                 let mapped_p = if curve_name.starts_with("crossSection_") {
                     let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
