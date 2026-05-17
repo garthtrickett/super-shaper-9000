@@ -37,7 +37,11 @@ pub struct RenderState {
 }
 
 impl RenderState {
-    pub fn create_depth_texture(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
+    pub fn create_depth_texture(
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+    ) -> wgpu::TextureView {
         let size = wgpu::Extent3d {
             width: width.max(1),
             height: height.max(1),
@@ -217,7 +221,7 @@ impl WasmEngine {
         }
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn set_renderer(&mut self, renderer: WgpuRenderer) {
         self.renderer = Some(renderer.0);
         self.update_render_mesh();
@@ -231,7 +235,8 @@ impl WasmEngine {
             renderer
                 .surface
                 .configure(&renderer.device, &renderer.config);
-            renderer.depth_texture = RenderState::create_depth_texture(&renderer.device, width, height);
+            renderer.depth_texture =
+                RenderState::create_depth_texture(&renderer.device, width, height);
         }
     }
 
@@ -608,6 +613,7 @@ impl WasmEngine {
 pub struct WgpuRenderer(RenderState);
 
 #[wasm_bindgen]
+#[allow(unused_variables)]
 pub async fn create_wgpu_renderer(
     canvas: OffscreenCanvas,
     width: u32,
@@ -643,9 +649,10 @@ pub async fn create_wgpu_renderer(
             .await
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        let mut config = surface.get_default_config(&adapter, width.max(1), height.max(1))
+        let mut config = surface
+            .get_default_config(&adapter, width.max(1), height.max(1))
             .ok_or_else(|| JsValue::from_str("Failed to get surface default config"))?;
-        
+
         config.width = width.max(1);
         config.height = height.max(1);
         surface.configure(&device, &config);
