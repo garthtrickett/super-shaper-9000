@@ -680,12 +680,16 @@ fn handle_node_mutations(
             }
             push_history(model);
         }
-                _ => {}
+        _ => {}
     }
     Vec::new()
 }
 
-fn handle_parametric_scaling(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_parametric_scaling(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     match action {
         BoardAction::UpdateNumber { param, value } => {
             dirty.global_rebuild = true;
@@ -723,50 +727,54 @@ fn handle_parametric_scaling(model: &mut BoardModel, dirty: &mut DirtyState, act
                 _ => {}
             }
         }
-        BoardAction::UpdateBoolean { param, value } => {
-            match param.as_str() {
-                "showGizmos" => model.show_gizmos = Some(value),
-                "showSolidMesh" => model.show_solid_mesh = Some(value),
-                "showHeatmap" => {
-                    model.show_heatmap = Some(value);
-                    if value {
-                        model.show_zebra = Some(false);
-                    }
+        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
+            "showGizmos" => model.show_gizmos = Some(value),
+            "showSolidMesh" => model.show_solid_mesh = Some(value),
+            "showHeatmap" => {
+                model.show_heatmap = Some(value);
+                if value {
+                    model.show_zebra = Some(false);
                 }
-                "showZebra" => {
-                    model.show_zebra = Some(value);
-                    if value {
-                        model.show_heatmap = Some(false);
-                        model.show_mri_view = Some(false);
-                    }
-                }
-                "showApexLine" => model.show_apex_line = Some(value),
-                "showOutline" => model.show_outline = Some(value),
-                "showRockerTop" => model.show_rocker_top = Some(value),
-                "showRockerBottom" => model.show_rocker_bottom = Some(value),
-                "showApexOutline" => model.show_apex_outline = Some(value),
-                "showRailOutline" => model.show_rail_outline = Some(value),
-                "showApexRocker" => model.show_apex_rocker = Some(value),
-                "showDeckShoulder" => model.show_deck_shoulder = Some(value),
-                "showCrossSections" => model.show_cross_sections = Some(value),
-                "showCurvature" => model.show_curvature = Some(value),
-                "showMriView" => {
-                    model.show_mri_view = Some(value);
-                    if value {
-                        model.show_zebra = Some(false);
-                    }
-                }
-                _ => {}
             }
-        }
+            "showZebra" => {
+                model.show_zebra = Some(value);
+                if value {
+                    model.show_heatmap = Some(false);
+                    model.show_mri_view = Some(false);
+                }
+            }
+            "showApexLine" => model.show_apex_line = Some(value),
+            "showOutline" => model.show_outline = Some(value),
+            "showRockerTop" => model.show_rocker_top = Some(value),
+            "showRockerBottom" => model.show_rocker_bottom = Some(value),
+            "showApexOutline" => model.show_apex_outline = Some(value),
+            "showRailOutline" => model.show_rail_outline = Some(value),
+            "showApexRocker" => model.show_apex_rocker = Some(value),
+            "showDeckShoulder" => model.show_deck_shoulder = Some(value),
+            "showCrossSections" => model.show_cross_sections = Some(value),
+            "showCurvature" => model.show_curvature = Some(value),
+            "showMriView" => {
+                model.show_mri_view = Some(value);
+                if value {
+                    model.show_zebra = Some(false);
+                }
+            }
+            _ => {}
+        },
         BoardAction::ScaleWidth { factor } => {
             dirty.global_rebuild = true;
             model.width *= factor;
             let scale_curve_x = |curve: &mut Option<BezierCurveData>| {
                 if let Some(c) = curve.as_mut() {
-                    for p in &mut c.control_points { p.x *= factor; }
-                    for p in &mut c.tangents1 { p.x *= factor; }
-                    for p in &mut c.tangents2 { p.x *= factor; }
+                    for p in &mut c.control_points {
+                        p.x *= factor;
+                    }
+                    for p in &mut c.tangents1 {
+                        p.x *= factor;
+                    }
+                    for p in &mut c.tangents2 {
+                        p.x *= factor;
+                    }
                 }
             };
             scale_curve_x(&mut model.outline);
@@ -775,28 +783,58 @@ fn handle_parametric_scaling(model: &mut BoardModel, dirty: &mut DirtyState, act
             scale_curve_x(&mut model.deck_shoulder);
             if let Some(layers) = &mut model.outline_layers {
                 for l in layers {
-                    for p in &mut l.otl_ext.control_points { p.x *= factor; }
-                    for p in &mut l.otl_ext.tangents1 { p.x *= factor; }
-                    for p in &mut l.otl_ext.tangents2 { p.x *= factor; }
-                    for p in &mut l.otl_int.control_points { p.x *= factor; }
-                    for p in &mut l.otl_int.tangents1 { p.x *= factor; }
-                    for p in &mut l.otl_int.tangents2 { p.x *= factor; }
+                    for p in &mut l.otl_ext.control_points {
+                        p.x *= factor;
+                    }
+                    for p in &mut l.otl_ext.tangents1 {
+                        p.x *= factor;
+                    }
+                    for p in &mut l.otl_ext.tangents2 {
+                        p.x *= factor;
+                    }
+                    for p in &mut l.otl_int.control_points {
+                        p.x *= factor;
+                    }
+                    for p in &mut l.otl_int.tangents1 {
+                        p.x *= factor;
+                    }
+                    for p in &mut l.otl_int.tangents2 {
+                        p.x *= factor;
+                    }
                 }
             }
             if let Some(channels) = &mut model.bottom_channels {
                 for c in channels {
-                    for p in &mut c.left_outline.control_points { p.x *= factor; }
-                    for p in &mut c.left_outline.tangents1 { p.x *= factor; }
-                    for p in &mut c.left_outline.tangents2 { p.x *= factor; }
-                    for p in &mut c.right_outline.control_points { p.x *= factor; }
-                    for p in &mut c.right_outline.tangents1 { p.x *= factor; }
-                    for p in &mut c.right_outline.tangents2 { p.x *= factor; }
+                    for p in &mut c.left_outline.control_points {
+                        p.x *= factor;
+                    }
+                    for p in &mut c.left_outline.tangents1 {
+                        p.x *= factor;
+                    }
+                    for p in &mut c.left_outline.tangents2 {
+                        p.x *= factor;
+                    }
+                    for p in &mut c.right_outline.control_points {
+                        p.x *= factor;
+                    }
+                    for p in &mut c.right_outline.tangents1 {
+                        p.x *= factor;
+                    }
+                    for p in &mut c.right_outline.tangents2 {
+                        p.x *= factor;
+                    }
                 }
             }
             for cs in &mut model.cross_sections {
-                for p in &mut cs.control_points { p.x *= factor; }
-                for p in &mut cs.tangents1 { p.x *= factor; }
-                for p in &mut cs.tangents2 { p.x *= factor; }
+                for p in &mut cs.control_points {
+                    p.x *= factor;
+                }
+                for p in &mut cs.tangents1 {
+                    p.x *= factor;
+                }
+                for p in &mut cs.tangents2 {
+                    p.x *= factor;
+                }
             }
             push_history(model);
         }
@@ -805,29 +843,53 @@ fn handle_parametric_scaling(model: &mut BoardModel, dirty: &mut DirtyState, act
             model.thickness *= factor;
             let scale_curve_y = |curve: &mut Option<BezierCurveData>| {
                 if let Some(c) = curve.as_mut() {
-                    for p in &mut c.control_points { p.y *= factor; }
-                    for p in &mut c.tangents1 { p.y *= factor; }
-                    for p in &mut c.tangents2 { p.y *= factor; }
+                    for p in &mut c.control_points {
+                        p.y *= factor;
+                    }
+                    for p in &mut c.tangents1 {
+                        p.y *= factor;
+                    }
+                    for p in &mut c.tangents2 {
+                        p.y *= factor;
+                    }
                 }
             };
             scale_curve_y(&mut model.rocker_top);
             scale_curve_y(&mut model.rocker_bottom);
             scale_curve_y(&mut model.apex_rocker);
-            
+
             if let Some(channels) = &mut model.bottom_channels {
                 for c in channels {
-                    for p in &mut c.left_depth.control_points { p.y *= factor; }
-                    for p in &mut c.left_depth.tangents1 { p.y *= factor; }
-                    for p in &mut c.left_depth.tangents2 { p.y *= factor; }
-                    for p in &mut c.right_depth.control_points { p.y *= factor; }
-                    for p in &mut c.right_depth.tangents1 { p.y *= factor; }
-                    for p in &mut c.right_depth.tangents2 { p.y *= factor; }
+                    for p in &mut c.left_depth.control_points {
+                        p.y *= factor;
+                    }
+                    for p in &mut c.left_depth.tangents1 {
+                        p.y *= factor;
+                    }
+                    for p in &mut c.left_depth.tangents2 {
+                        p.y *= factor;
+                    }
+                    for p in &mut c.right_depth.control_points {
+                        p.y *= factor;
+                    }
+                    for p in &mut c.right_depth.tangents1 {
+                        p.y *= factor;
+                    }
+                    for p in &mut c.right_depth.tangents2 {
+                        p.y *= factor;
+                    }
                 }
             }
             for cs in &mut model.cross_sections {
-                for p in &mut cs.control_points { p.y *= factor; }
-                for p in &mut cs.tangents1 { p.y *= factor; }
-                for p in &mut cs.tangents2 { p.y *= factor; }
+                for p in &mut cs.control_points {
+                    p.y *= factor;
+                }
+                for p in &mut cs.tangents1 {
+                    p.y *= factor;
+                }
+                for p in &mut cs.tangents2 {
+                    p.y *= factor;
+                }
             }
             push_history(model);
         }
@@ -836,56 +898,93 @@ fn handle_parametric_scaling(model: &mut BoardModel, dirty: &mut DirtyState, act
     Vec::new()
 }
 
-fn handle_import(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_import(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     let mut effects = Vec::new();
     dirty.global_rebuild = true;
-    
+
     match action {
         BoardAction::LoadDesign { state } => {
             *model = *state;
             push_history(model);
         }
-        BoardAction::SetCurves { outline, rail_outline, apex_outline, rocker_top, rocker_bottom, apex_rocker, deck_shoulder, cross_sections } => {
-            if let Some(o) = outline { model.outline = Some(o); }
-            if let Some(ro) = rail_outline { model.rail_outline = Some(ro); }
-            if let Some(ao) = apex_outline { model.apex_outline = Some(ao); }
-            if let Some(rt) = rocker_top { model.rocker_top = Some(rt); }
-            if let Some(rb) = rocker_bottom { model.rocker_bottom = Some(rb); }
-            if let Some(ar) = apex_rocker { model.apex_rocker = Some(ar); }
-            if let Some(ds) = deck_shoulder { model.deck_shoulder = Some(ds); }
-            if let Some(cs) = cross_sections { model.cross_sections = cs; }
+        BoardAction::SetCurves {
+            outline,
+            rail_outline,
+            apex_outline,
+            rocker_top,
+            rocker_bottom,
+            apex_rocker,
+            deck_shoulder,
+            cross_sections,
+        } => {
+            if let Some(o) = outline {
+                model.outline = Some(o);
+            }
+            if let Some(ro) = rail_outline {
+                model.rail_outline = Some(ro);
+            }
+            if let Some(ao) = apex_outline {
+                model.apex_outline = Some(ao);
+            }
+            if let Some(rt) = rocker_top {
+                model.rocker_top = Some(rt);
+            }
+            if let Some(rb) = rocker_bottom {
+                model.rocker_bottom = Some(rb);
+            }
+            if let Some(ar) = apex_rocker {
+                model.apex_rocker = Some(ar);
+            }
+            if let Some(ds) = deck_shoulder {
+                model.deck_shoulder = Some(ds);
+            }
+            if let Some(cs) = cross_sections {
+                model.cross_sections = cs;
+            }
             push_history(model);
         }
-        BoardAction::ImportBrd { bytes } => {
-            match crate::brd_parser::parse_brd(&bytes) {
-                Ok(new_model) => {
-                    *model = new_model;
-                    push_history(model);
-                    effects.push(Effect::LogInfo { message: "Successfully imported BRD".into() });
-                }
-                Err(e) => {
-                    effects.push(Effect::LogInfo { message: format!("Failed to import BRD: {}", e) });
-                }
+        BoardAction::ImportBrd { bytes } => match crate::brd_parser::parse_brd(&bytes) {
+            Ok(new_model) => {
+                *model = new_model;
+                push_history(model);
+                effects.push(Effect::LogInfo {
+                    message: "Successfully imported BRD".into(),
+                });
             }
-        }
-        BoardAction::ImportS3dx { xml } => {
-            match crate::s3dx_parser::parse_s3dx(&xml) {
-                Ok(new_model) => {
-                    *model = new_model;
-                    push_history(model);
-                    effects.push(Effect::LogInfo { message: "Successfully imported S3DX".into() });
-                }
-                Err(e) => {
-                    effects.push(Effect::LogInfo { message: format!("Failed to import S3DX: {}", e) });
-                }
+            Err(e) => {
+                effects.push(Effect::LogInfo {
+                    message: format!("Failed to import BRD: {}", e),
+                });
             }
-        }
+        },
+        BoardAction::ImportS3dx { xml } => match crate::s3dx_parser::parse_s3dx(&xml) {
+            Ok(new_model) => {
+                *model = new_model;
+                push_history(model);
+                effects.push(Effect::LogInfo {
+                    message: "Successfully imported S3DX".into(),
+                });
+            }
+            Err(e) => {
+                effects.push(Effect::LogInfo {
+                    message: format!("Failed to import S3DX: {}", e),
+                });
+            }
+        },
         _ => {}
     }
     effects
 }
 
-fn handle_layer_toggles(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+fn handle_layer_toggles(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
     dirty.global_rebuild = true;
     match action {
         BoardAction::AddOutlineLayer => {
@@ -894,15 +993,33 @@ fn handle_layer_toggles(model: &mut BoardModel, dirty: &mut DirtyState, action: 
                 name: format!("Layer {}", layers.len()),
                 active: true,
                 otl_ext: BezierCurveData {
-                    control_points: vec![glam::Vec3::new(8.0, 0.0, 20.0), glam::Vec3::new(8.0, 0.0, 40.0)],
-                    tangents1: vec![glam::Vec3::new(8.0, 0.0, 20.0), glam::Vec3::new(8.0, 0.0, 30.0)],
-                    tangents2: vec![glam::Vec3::new(8.0, 0.0, 30.0), glam::Vec3::new(8.0, 0.0, 40.0)],
+                    control_points: vec![
+                        glam::Vec3::new(8.0, 0.0, 20.0),
+                        glam::Vec3::new(8.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(8.0, 0.0, 20.0),
+                        glam::Vec3::new(8.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(8.0, 0.0, 30.0),
+                        glam::Vec3::new(8.0, 0.0, 40.0),
+                    ],
                     weights: None,
                 },
                 otl_int: BezierCurveData {
-                    control_points: vec![glam::Vec3::new(7.0, 0.0, 20.0), glam::Vec3::new(7.0, 0.0, 40.0)],
-                    tangents1: vec![glam::Vec3::new(7.0, 0.0, 20.0), glam::Vec3::new(7.0, 0.0, 30.0)],
-                    tangents2: vec![glam::Vec3::new(7.0, 0.0, 30.0), glam::Vec3::new(7.0, 0.0, 40.0)],
+                    control_points: vec![
+                        glam::Vec3::new(7.0, 0.0, 20.0),
+                        glam::Vec3::new(7.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(7.0, 0.0, 20.0),
+                        glam::Vec3::new(7.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(7.0, 0.0, 30.0),
+                        glam::Vec3::new(7.0, 0.0, 40.0),
+                    ],
                     weights: None,
                 },
             });
@@ -930,27 +1047,63 @@ fn handle_layer_toggles(model: &mut BoardModel, dirty: &mut DirtyState, action: 
                 name: format!("Channel {}", channels.len()),
                 is_symmetric: true,
                 left_outline: BezierCurveData {
-                    control_points: vec![glam::Vec3::new(-4.0, 0.0, 20.0), glam::Vec3::new(-4.0, 0.0, 40.0)],
-                    tangents1: vec![glam::Vec3::new(-4.0, 0.0, 20.0), glam::Vec3::new(-4.0, 0.0, 30.0)],
-                    tangents2: vec![glam::Vec3::new(-4.0, 0.0, 30.0), glam::Vec3::new(-4.0, 0.0, 40.0)],
+                    control_points: vec![
+                        glam::Vec3::new(-4.0, 0.0, 20.0),
+                        glam::Vec3::new(-4.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(-4.0, 0.0, 20.0),
+                        glam::Vec3::new(-4.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(-4.0, 0.0, 30.0),
+                        glam::Vec3::new(-4.0, 0.0, 40.0),
+                    ],
                     weights: None,
                 },
                 right_outline: BezierCurveData {
-                    control_points: vec![glam::Vec3::new(4.0, 0.0, 20.0), glam::Vec3::new(4.0, 0.0, 40.0)],
-                    tangents1: vec![glam::Vec3::new(4.0, 0.0, 20.0), glam::Vec3::new(4.0, 0.0, 30.0)],
-                    tangents2: vec![glam::Vec3::new(4.0, 0.0, 30.0), glam::Vec3::new(4.0, 0.0, 40.0)],
+                    control_points: vec![
+                        glam::Vec3::new(4.0, 0.0, 20.0),
+                        glam::Vec3::new(4.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(4.0, 0.0, 20.0),
+                        glam::Vec3::new(4.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(4.0, 0.0, 30.0),
+                        glam::Vec3::new(4.0, 0.0, 40.0),
+                    ],
                     weights: None,
                 },
                 left_depth: BezierCurveData {
-                    control_points: vec![glam::Vec3::new(0.0, 0.5, 20.0), glam::Vec3::new(0.0, 0.5, 40.0)],
-                    tangents1: vec![glam::Vec3::new(0.0, 0.5, 20.0), glam::Vec3::new(0.0, 0.5, 30.0)],
-                    tangents2: vec![glam::Vec3::new(0.0, 0.5, 30.0), glam::Vec3::new(0.0, 0.5, 40.0)],
+                    control_points: vec![
+                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                        glam::Vec3::new(0.0, 0.5, 40.0),
+                    ],
                     weights: None,
                 },
                 right_depth: BezierCurveData {
-                    control_points: vec![glam::Vec3::new(0.0, 0.5, 20.0), glam::Vec3::new(0.0, 0.5, 40.0)],
-                    tangents1: vec![glam::Vec3::new(0.0, 0.5, 20.0), glam::Vec3::new(0.0, 0.5, 30.0)],
-                    tangents2: vec![glam::Vec3::new(0.0, 0.5, 30.0), glam::Vec3::new(0.0, 0.5, 40.0)],
+                    control_points: vec![
+                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                        glam::Vec3::new(0.0, 0.5, 40.0),
+                    ],
                     weights: None,
                 },
             });
@@ -971,9 +1124,15 @@ fn handle_layer_toggles(model: &mut BoardModel, dirty: &mut DirtyState, action: 
                     channel.is_symmetric = !channel.is_symmetric;
                     if channel.is_symmetric {
                         channel.left_outline = channel.right_outline.clone();
-                        for p in &mut channel.left_outline.control_points { p.x = -p.x; }
-                        for p in &mut channel.left_outline.tangents1 { p.x = -p.x; }
-                        for p in &mut channel.left_outline.tangents2 { p.x = -p.x; }
+                        for p in &mut channel.left_outline.control_points {
+                            p.x = -p.x;
+                        }
+                        for p in &mut channel.left_outline.tangents1 {
+                            p.x = -p.x;
+                        }
+                        for p in &mut channel.left_outline.tangents2 {
+                            p.x = -p.x;
+                        }
                         channel.left_depth = channel.right_depth.clone();
                     }
                 }
@@ -981,10 +1140,16 @@ fn handle_layer_toggles(model: &mut BoardModel, dirty: &mut DirtyState, action: 
         }
         BoardAction::AddCrossSection { z } => {
             let mut new_cs = model.cross_sections.first().cloned().unwrap_or_default();
-            for p in &mut new_cs.control_points { p.z = z; }
-            for p in &mut new_cs.tangents1 { p.z = z; }
-            for p in &mut new_cs.tangents2 { p.z = z; }
-            
+            for p in &mut new_cs.control_points {
+                p.z = z;
+            }
+            for p in &mut new_cs.tangents1 {
+                p.z = z;
+            }
+            for p in &mut new_cs.tangents2 {
+                p.z = z;
+            }
+
             // To be accurate, we'd copy the blend from the actual geometry at z.
             // For now, this just adds a copy of the first slice at position z.
             model.cross_sections.push(new_cs);

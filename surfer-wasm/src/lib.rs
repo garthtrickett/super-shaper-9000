@@ -28,7 +28,7 @@ pub struct RenderState {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     camera_buffers: Vec<wgpu::Buffer>,
-        camera_bind_groups: Vec<wgpu::BindGroup>,
+    camera_bind_groups: Vec<wgpu::BindGroup>,
     depth_texture: wgpu::TextureView,
     msaa_texture: wgpu::TextureView,
     line_pipeline: wgpu::RenderPipeline,
@@ -48,7 +48,7 @@ impl RenderState {
             height: height.max(1),
             depth_or_array_layers: 1,
         };
-                let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Depth Texture"),
             size,
             mip_level_count: 1,
@@ -117,8 +117,10 @@ impl RenderState {
                 mapped_at_creation: false,
             });
 
-            self.queue.write_buffer(&self.vertex_buffer, 0, vertex_bytes);
-            self.queue.write_buffer(&self.normal_buffer, 0, normal_bytes);
+            self.queue
+                .write_buffer(&self.vertex_buffer, 0, vertex_bytes);
+            self.queue
+                .write_buffer(&self.normal_buffer, 0, normal_bytes);
             self.queue.write_buffer(&self.color_buffer, 0, color_bytes);
             self.queue.write_buffer(&self.index_buffer, 0, index_bytes);
             self.num_indices = mesh.indices.len() as u32;
@@ -141,8 +143,10 @@ impl RenderState {
         });
 
         if !line_verts.is_empty() {
-            self.queue.write_buffer(&self.line_vertex_buffer, 0, line_verts);
-            self.queue.write_buffer(&self.line_color_buffer, 0, line_colors);
+            self.queue
+                .write_buffer(&self.line_vertex_buffer, 0, line_verts);
+            self.queue
+                .write_buffer(&self.line_color_buffer, 0, line_colors);
             self.num_line_vertices = (mesh.line_vertices.len() / 3) as u32;
         } else {
             self.num_line_vertices = 0;
@@ -150,17 +154,16 @@ impl RenderState {
     }
 }
 
-
 struct CameraController {
-        is_dragging: bool,
-        last_mouse: (f32, f32),
-        yaw: f32,
-        pitch: f32,
-        distance_top: f32,
-        distance_side: f32,
-        distance_profile: f32,
-        distance_persp: f32,
-        target: glam::Vec3
+    is_dragging: bool,
+    last_mouse: (f32, f32),
+    yaw: f32,
+    pitch: f32,
+    distance_top: f32,
+    distance_side: f32,
+    distance_profile: f32,
+    distance_persp: f32,
+    target: glam::Vec3,
 }
 
 impl Default for CameraController {
@@ -180,7 +183,7 @@ impl Default for CameraController {
 }
 
 impl CameraController {
-        fn build_view_projection_matrix(&self, aspect: f32) -> glam::Mat4 {
+    fn build_view_projection_matrix(&self, aspect: f32) -> glam::Mat4 {
         let x = self.distance_persp * self.pitch.cos() * self.yaw.sin();
         let y = self.distance_persp * self.pitch.sin();
         let z = self.distance_persp * self.pitch.cos() * self.yaw.cos();
@@ -208,7 +211,7 @@ impl CameraController {
     fn process_pointer_up(&mut self) {
         self.is_dragging = false;
     }
-        fn process_wheel(&mut self, dy: f32, quad: &str) {
+    fn process_wheel(&mut self, dy: f32, quad: &str) {
         let zoom = dy * 0.01;
         match quad {
             "top" => {
@@ -302,7 +305,7 @@ impl WasmEngine {
             renderer
                 .surface
                 .configure(&renderer.device, &renderer.config);
-                        renderer.depth_texture =
+            renderer.depth_texture =
                 RenderState::create_depth_texture(&renderer.device, width, height);
             renderer.msaa_texture =
                 RenderState::create_msaa_texture(&renderer.device, &renderer.config, width, height);
@@ -319,7 +322,7 @@ impl WasmEngine {
         }
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn handle_wheel(&mut self, dy: f32, quad: &str) {
         self.camera_ctrl.process_wheel(dy, quad);
     }
@@ -364,69 +367,134 @@ impl WasmEngine {
                 };
                 let aspect = vp_w / vp_h;
 
-                                                let view_proj = match q {
+                let view_proj = match q {
                     "top" => {
                         let frustum = self.camera_ctrl.distance_top / 4.0;
-                        let view = glam::Mat4::look_at_rh(glam::Vec3::new(0.0, 10.0, 0.0), glam::Vec3::ZERO, glam::Vec3::new(0.0, 0.0, -1.0));
-                        let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                        let view = glam::Mat4::look_at_rh(
+                            glam::Vec3::new(0.0, 10.0, 0.0),
+                            glam::Vec3::ZERO,
+                            glam::Vec3::new(0.0, 0.0, -1.0),
+                        );
+                        let proj = glam::Mat4::orthographic_rh(
+                            -frustum * aspect,
+                            frustum * aspect,
+                            -frustum,
+                            frustum,
+                            0.1,
+                            1000.0,
+                        );
                         proj * view
-                    },
+                    }
                     "side" => {
                         let frustum_half = self.camera_ctrl.distance_side / 4.0;
                         let stretch_y = 2.5;
                         let ortho_right = frustum_half * aspect;
                         let ortho_top = frustum_half / stretch_y;
-                        let view = glam::Mat4::look_at_rh(glam::Vec3::new(-10.0, 0.0, 0.0), glam::Vec3::ZERO, glam::Vec3::Y);
-                        let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
+                        let view = glam::Mat4::look_at_rh(
+                            glam::Vec3::new(-10.0, 0.0, 0.0),
+                            glam::Vec3::ZERO,
+                            glam::Vec3::Y,
+                        );
+                        let proj = glam::Mat4::orthographic_rh(
+                            -ortho_right,
+                            ortho_right,
+                            -ortho_top,
+                            ortho_top,
+                            0.1,
+                            1000.0,
+                        );
                         proj * view
-                    },
-                                                            "profile" => {
+                    }
+                    "profile" => {
                         let frustum = self.camera_ctrl.distance_profile / 4.0;
-                        
+
                         let mut target_z = 0.0;
-                        if let Some(cs) = self.engine.get_model().cross_sections.get(self.active_profile_slice) {
-                            target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
+                        if let Some(cs) = self
+                            .engine
+                            .get_model()
+                            .cross_sections
+                            .get(self.active_profile_slice)
+                        {
+                            target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0)
+                                * (1.0 / 12.0);
                         }
 
-                        let view = glam::Mat4::look_at_rh(glam::Vec3::new(0.0, 0.0, target_z + 1.0), glam::Vec3::new(0.0, 0.0, target_z), glam::Vec3::Y);
+                        let view = glam::Mat4::look_at_rh(
+                            glam::Vec3::new(0.0, 0.0, target_z + 1.0),
+                            glam::Vec3::new(0.0, 0.0, target_z),
+                            glam::Vec3::Y,
+                        );
                         // Tight clipping planes: near=0.9, far=1.1, so it only renders things exactly at target_z (distance 1.0 from camera)
-                        let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
+                        let proj = glam::Mat4::orthographic_rh(
+                            -frustum * aspect,
+                            frustum * aspect,
+                            -frustum,
+                            frustum,
+                            0.9,
+                            1.1,
+                        );
                         proj * view
-                    },
+                    }
                     _ => {
                         if self.is_ortho {
                             let frustum = self.camera_ctrl.distance_persp / 4.0;
-                            let x = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+                            let x = self.camera_ctrl.distance_persp
+                                * self.camera_ctrl.pitch.cos()
+                                * self.camera_ctrl.yaw.sin();
                             let y = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
-                            let z = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+                            let z = self.camera_ctrl.distance_persp
+                                * self.camera_ctrl.pitch.cos()
+                                * self.camera_ctrl.yaw.cos();
                             let pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
-                            let view = glam::Mat4::look_at_rh(pos, self.camera_ctrl.target, glam::Vec3::Y);
-                            let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                            let view =
+                                glam::Mat4::look_at_rh(pos, self.camera_ctrl.target, glam::Vec3::Y);
+                            let proj = glam::Mat4::orthographic_rh(
+                                -frustum * aspect,
+                                frustum * aspect,
+                                -frustum,
+                                frustum,
+                                0.1,
+                                1000.0,
+                            );
                             proj * view
                         } else {
                             self.camera_ctrl.build_view_projection_matrix(aspect)
                         }
-                    },
+                    }
                 };
 
                 let view_proj_array = view_proj.to_cols_array();
                 let view_proj_bytes = as_u8_slice(&view_proj_array);
                 // In single view mode, we update index 0
-                renderer.queue.write_buffer(&renderer.camera_buffers[i], 0, view_proj_bytes);
+                renderer
+                    .queue
+                    .write_buffer(&renderer.camera_buffers[i], 0, view_proj_bytes);
             }
 
-            let frame = renderer.surface.get_current_texture().map_err(|e| JsValue::from_str(&e.to_string()))?;
-            let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-            let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            let frame = renderer
+                .surface
+                .get_current_texture()
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            let view = frame
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
+            let mut encoder = renderer
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
             {
-                            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &renderer.msaa_texture,
-                    resolve_target: Some(&view),
-                    ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.1, b: 0.1, a: 1.0 }),
+                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &renderer.msaa_texture,
+                        resolve_target: Some(&view),
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.1,
+                                g: 0.1,
+                                b: 0.1,
+                                a: 1.0,
+                            }),
                             store: wgpu::StoreOp::Store,
                         },
                     })],
@@ -460,15 +528,23 @@ impl WasmEngine {
                     rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
                     rpass.set_scissor_rect(vp_x as u32, vp_y as u32, vp_w as u32, vp_h as u32);
 
-                                        let draw_solid = (q == "perspective" || (self.view_mode != "quad" && self.view_mode != "top" && self.view_mode != "side" && self.view_mode != "profile")) && self.engine.get_model().show_solid_mesh.unwrap_or(true);
-                    
+                    let draw_solid = (q == "perspective"
+                        || (self.view_mode != "quad"
+                            && self.view_mode != "top"
+                            && self.view_mode != "side"
+                            && self.view_mode != "profile"))
+                        && self.engine.get_model().show_solid_mesh.unwrap_or(true);
+
                     if draw_solid && renderer.num_indices > 0 {
                         rpass.set_pipeline(&renderer.pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
                         rpass.set_vertex_buffer(0, renderer.vertex_buffer.slice(..));
                         rpass.set_vertex_buffer(1, renderer.normal_buffer.slice(..));
                         rpass.set_vertex_buffer(2, renderer.color_buffer.slice(..));
-                        rpass.set_index_buffer(renderer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                        rpass.set_index_buffer(
+                            renderer.index_buffer.slice(..),
+                            wgpu::IndexFormat::Uint32,
+                        );
                         rpass.draw_indexed(0..renderer.num_indices, 0, 0..1);
                     }
 
@@ -586,28 +662,38 @@ impl WasmEngine {
         Ok(Float32Array::from(profile.as_slice()).into())
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn camera_pos(&self) -> js_sys::Float32Array {
-        let x =
-            self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+        let x = self.camera_ctrl.distance_persp
+            * self.camera_ctrl.pitch.cos()
+            * self.camera_ctrl.yaw.sin();
         let y = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
-        let z =
-            self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+        let z = self.camera_ctrl.distance_persp
+            * self.camera_ctrl.pitch.cos()
+            * self.camera_ctrl.yaw.cos();
         let pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
         js_sys::Float32Array::from(&[pos.x, pos.y, pos.z][..])
     }
 
     #[wasm_bindgen]
-    pub fn camera_distance_top(&self) -> f32 { self.camera_ctrl.distance_top }
-    
+    pub fn camera_distance_top(&self) -> f32 {
+        self.camera_ctrl.distance_top
+    }
+
     #[wasm_bindgen]
-    pub fn camera_distance_side(&self) -> f32 { self.camera_ctrl.distance_side }
-    
+    pub fn camera_distance_side(&self) -> f32 {
+        self.camera_ctrl.distance_side
+    }
+
     #[wasm_bindgen]
-    pub fn camera_distance_profile(&self) -> f32 { self.camera_ctrl.distance_profile }
-    
+    pub fn camera_distance_profile(&self) -> f32 {
+        self.camera_ctrl.distance_profile
+    }
+
     #[wasm_bindgen]
-    pub fn camera_distance_persp(&self) -> f32 { self.camera_ctrl.distance_persp }
+    pub fn camera_distance_persp(&self) -> f32 {
+        self.camera_ctrl.distance_persp
+    }
 
     #[wasm_bindgen]
     pub fn get_foil_stats(&self) -> Result<JsValue, JsValue> {
@@ -769,7 +855,8 @@ pub async fn create_wgpu_renderer(
     #[cfg(target_arch = "wasm32")]
     {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::GL,
+            backends: wgpu::Backends::all(),
+            // backends: wgpu::Backends::GL,
             ..Default::default()
         });
         let surface = instance
@@ -789,7 +876,7 @@ pub async fn create_wgpu_renderer(
                 &wgpu::DeviceDescriptor {
                     label: None,
                     required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                    required_limits: wgpu::Limits::default(),
                 },
                 None,
             )
@@ -952,7 +1039,7 @@ pub async fn create_wgpu_renderer(
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
-                                    primitive: wgpu::PrimitiveState {
+            primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::LineList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
@@ -968,7 +1055,7 @@ pub async fn create_wgpu_renderer(
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
-                        multisample: wgpu::MultisampleState {
+            multisample: wgpu::MultisampleState {
                 count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
@@ -1011,7 +1098,7 @@ pub async fn create_wgpu_renderer(
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
-                        primitive: wgpu::PrimitiveState {
+            primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
@@ -1031,7 +1118,7 @@ pub async fn create_wgpu_renderer(
                     clamp: 0.0,
                 },
             }),
-                        multisample: wgpu::MultisampleState {
+            multisample: wgpu::MultisampleState {
                 count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
@@ -1039,7 +1126,7 @@ pub async fn create_wgpu_renderer(
             multiview: None,
         });
 
-                let depth_texture = RenderState::create_depth_texture(&device, width, height);
+        let depth_texture = RenderState::create_depth_texture(&device, width, height);
         let msaa_texture = RenderState::create_msaa_texture(&device, &config, width, height);
 
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -1094,7 +1181,7 @@ pub async fn create_wgpu_renderer(
             color_buffer,
             index_buffer,
             num_indices: 0,
-                        camera_buffers,
+            camera_buffers,
             camera_bind_groups,
             depth_texture,
             msaa_texture,

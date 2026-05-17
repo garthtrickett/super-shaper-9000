@@ -64,7 +64,7 @@ impl MobileSurferEngine {
         let mut engine = self.engine.lock().unwrap();
         let mesh = engine.compute_mesh();
 
-                MobileGeometryData {
+        MobileGeometryData {
             vertices: mesh.vertices,
             indices: mesh.indices,
             uvs: mesh.uvs,
