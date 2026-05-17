@@ -2,6 +2,65 @@ use super::{curves::*, profile::*};
 use crate::model::BoardModel;
 use glam::Vec3;
 
+pub struct ZRingContext<'a> {
+    pub model: &'a BoardModel,
+    pub z_inches: f32,
+    pub bounds: BoardBounds,
+    pub v_outer: f32,
+    pub inner_x: f32,
+    pub profile: BoardProfile,
+    pub blend: Option<BlendResult<'a>>,
+    pub rail_coeff: f32,
+}
+
+impl<'a> ZRingContext<'a> {
+    pub fn new(model: &'a BoardModel, z_inches: f32) -> Self {
+        let bounds = get_board_bounds(model);
+
+        let v_outer = if let Some(outline) = &model.outline {
+            find_v_at_z(outline, z_inches, 0.0, bounds.tip_t)
+        } else {
+            0.0
+        };
+
+        let inner_x = if let Some(outline) = &model.outline {
+            if z_inches > bounds.notch_z {
+                evaluate_notch_inner_x(outline, bounds.tip_t, z_inches)
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        let profile = get_board_profile_at_z(model, z_inches, v_outer);
+        let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
+
+        let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+        let dist = z_inches - mid_z;
+        let rail_coeff = if dist > 0.0 {
+            let t = (dist / (bounds.tip_z - mid_z)).clamp(0.0, 1.0);
+            let ease_t = t * t * (3.0 - 2.0 * t);
+            1.0 + (model.rail_coefficient_tail - 1.0) * ease_t
+        } else {
+            let t = ((-dist) / (mid_z - bounds.nose_z)).clamp(0.0, 1.0);
+            let ease_t = t * t * (3.0 - 2.0 * t);
+            1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
+        };
+
+        Self {
+            model,
+            z_inches,
+            bounds,
+            v_outer,
+            inner_x,
+            profile,
+            blend,
+            rail_coeff,
+        }
+    }
+}
+
 pub fn get_point_at_uv_base(
     model: &BoardModel,
     u: f32,
