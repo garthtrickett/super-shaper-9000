@@ -209,9 +209,9 @@ impl WasmEngine {
         #[cfg(target_arch = "wasm32")]
         {
             let instance = wgpu::Instance::default();
-            let surface = instance
+                        let surface = instance
                 .create_surface(wgpu::SurfaceTarget::OffscreenCanvas(canvas))
-                .unwrap();
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
             let adapter = instance
                 .request_adapter(&wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::HighPerformance,
@@ -219,7 +219,7 @@ impl WasmEngine {
                     force_fallback_adapter: false,
                 })
                 .await
-                .unwrap();
+                .ok_or_else(|| JsValue::from_str("Failed to request WGPU adapter. WebGL/WebGPU may be unsupported or disabled in this environment."))?;
 
             let (device, queue) = adapter
                 .request_device(
@@ -231,9 +231,14 @@ impl WasmEngine {
                     None,
                 )
                 .await
-                .unwrap();
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-            let config = surface.get_default_config(&adapter, width, height).unwrap();
+            let mut config = surface.get_default_config(&adapter, width.max(1), height.max(1))
+                .ok_or_else(|| JsValue::from_str("Failed to get surface default config"))?;
+            
+            // Enforce explicit sizes for OffscreenCanvas to prevent panics
+            config.width = width.max(1);
+            config.height = height.max(1);
             surface.configure(&device, &config);
 
             let shader_src = r#"
