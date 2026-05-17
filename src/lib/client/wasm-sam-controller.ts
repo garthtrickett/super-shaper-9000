@@ -63,10 +63,13 @@ export class WasmSamController implements ReactiveController {
 
   hostConnected() {}
 
+
+  
   hostDisconnected() {
-    this.worker.terminate();
-    if (this.mathEngine) {
-      this.mathEngine.free();
-    }
+        this.worker.terminate();
+        if (this.mathEngine) {
+          this.mathEngine.free();
+          this.mathEngine = null;
+        }
   }
 }

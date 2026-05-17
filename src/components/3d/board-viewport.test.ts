@@ -151,30 +151,18 @@ describe("BoardViewport (3D Component)", () => {
   });
 
   describe("Stationary Node Insertion", () => {
-        it("emits add-cross-section event on ctrl-click outline", async () => {
+            it("emits add-cross-section event on ctrl-click outline", async () => {
       const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
       
       el.mathEngine = {
-        get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
-                sample_curve: () => new Float32Array(300),
-        getXOffset: () => 10,
-        get_bottom_y_at: () => 0,
-        find_closest_t: () => 0.5,
         get_point_on_curve: () => new Float32Array([1, 2, 50])
       } as any;
-
-      (el as any)._updateGeometry();
 
       const addSliceSpy = sinon.spy();
       el.addEventListener('add-cross-section', addSliceSpy);
 
-      const wireframeGroup = (el as any).wireframeGroup as THREE.Group;
-      const testLine = wireframeGroup.children.find(c => c.userData.curve === 'outline') as THREE.Line;
-      expect(testLine).to.exist;
-
-            const im = (el as any).interactionManager;
-      im.raycaster.intersectObjects = () => [{ object: testLine, distance: 10, distanceToRay: 0 }];
-      im.raycaster.ray.distanceSqToPoint = () => 0;
+      const im = (el as any).interactionManager;
+      im.findCurveAtPointer = () => ({ curveName: 'outline', t: 0.5, mirrorX: false });
       
       const canvas = el.querySelector("canvas")!;
       canvas.dispatchEvent(new PointerEvent("pointerdown", { ctrlKey: true, button: 0, clientX: 100, clientY: 100, bubbles: true }));
@@ -186,27 +174,11 @@ describe("BoardViewport (3D Component)", () => {
     it("emits insert-node event on right-click without prior hover", async () => {
       const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
       
-      el.mathEngine = {
-        get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
-                sample_curve: () => new Float32Array(300),
-        getXOffset: () => 10,
-        get_bottom_y_at: () => 0,
-        find_closest_t: () => 0.5,
-        get_point_on_curve: () => new Float32Array([1, 2, 3])
-      } as any;
-
-      (el as any)._updateGeometry();
-
       const insertSpy = sinon.spy();
       el.addEventListener('insert-node', insertSpy);
 
-      const wireframeGroup = (el as any).wireframeGroup as THREE.Group;
-      const testLine = wireframeGroup.children.find(c => c.userData.curve === 'outline') as THREE.Line;
-      expect(testLine).to.exist;
-
-            const im = (el as any).interactionManager;
-      im.raycaster.intersectObjects = () => [{ object: testLine, distance: 10, distanceToRay: 0 }];
-      im.raycaster.ray.distanceSqToPoint = () => 0;
+      const im = (el as any).interactionManager;
+      im.findCurveAtPointer = () => ({ curveName: 'outline', t: 0.5, mirrorX: false });
       
       const canvas = el.querySelector("canvas")!;
       canvas.dispatchEvent(new PointerEvent("pointerdown", { button: 2, clientX: 100, clientY: 100, bubbles: true }));
