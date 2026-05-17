@@ -689,14 +689,15 @@ fn handle_node_mutations(
 fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3) -> Vec3 {
     let ctx = crate::geometry::ZRingContext::new(model, z);
 
-    let t_tuck = 0.01_f32.max(ctx.blend.as_ref().unwrap().t_apex * 0.5);
-    let t_shoulder = ctx.blend.as_ref().unwrap().t_apex + (1.0 - ctx.blend.as_ref().unwrap().t_apex) * 0.5;
+    let blend = ctx.blend.as_ref().unwrap();
+    let t_tuck = 0.01_f32.max(blend.t_apex * 0.5);
+    let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
 
-    let p_bot = ctx.blend.as_ref().unwrap().evaluate(0.0);
-    let p_tuck = ctx.blend.as_ref().unwrap().evaluate(t_tuck);
-    let p_apex = ctx.blend.as_ref().unwrap().evaluate(ctx.blend.as_ref().unwrap().t_apex);
-    let p_shoulder = ctx.blend.as_ref().unwrap().evaluate(t_shoulder);
-    let p_top = ctx.blend.as_ref().unwrap().evaluate(1.0);
+    let p_bot = blend.evaluate(0.0);
+    let p_tuck = blend.evaluate(t_tuck);
+    let p_apex = blend.evaluate(blend.t_apex);
+    let p_shoulder = blend.evaluate(t_shoulder);
+    let p_top = blend.evaluate(1.0);
 
     let world_thick = ctx.profile.top_y - ctx.profile.bot_y;
     let local_thick = p_top.y - p_bot.y;
@@ -722,9 +723,9 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
         let local_deviation = unmapped_pt.y - local_baseline_y;
         let world_baseline_y = ctx.profile.bot_y + t * (ctx.profile.tuck_y - ctx.profile.bot_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
-    } else if u <= ctx.blend.as_ref().unwrap().t_apex {
-        let t = if ctx.blend.as_ref().unwrap().t_apex > t_tuck {
-            (u - t_tuck) / (ctx.blend.as_ref().unwrap().t_apex - t_tuck)
+    } else if u <= blend.t_apex {
+        let t = if blend.t_apex > t_tuck {
+            (u - t_tuck) / (blend.t_apex - t_tuck)
         } else {
             0.0
         };
@@ -740,8 +741,8 @@ fn map_cross_section_point(model: &BoardModel, z: f32, u: f32, unmapped_pt: Vec3
         let world_baseline_y = ctx.profile.tuck_y + t * (ctx.profile.apex_y - ctx.profile.tuck_y);
         final_pos.y = world_baseline_y + local_deviation * scale_y;
     } else if u <= t_shoulder {
-        let t = if t_shoulder > ctx.blend.as_ref().unwrap().t_apex {
-            (u - ctx.blend.as_ref().unwrap().t_apex) / (t_shoulder - ctx.blend.as_ref().unwrap().t_apex)
+        let t = if t_shoulder > blend.t_apex {
+            (u - blend.t_apex) / (t_shoulder - blend.t_apex)
         } else {
             0.0
         };

@@ -258,7 +258,6 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
     pub fn get_bottom_y_at(&self, z: f32, x: f32) -> f32 {
         let model = self.engine.get_model();
         let ctx = surfer_core::geometry::ZRingContext::new(model, z);

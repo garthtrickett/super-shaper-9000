@@ -1,5 +1,5 @@
 use crate::geometry::{
-    evaluate_bezier_at_z, evaluate_curve, evaluate_notch_inner_x, find_apex_t, find_v_at_z,
+    evaluate_bezier_at_z, evaluate_curve, evaluate_notch_inner_x, find_apex_t,
     get_cross_section_blend_at_z,
 };
 use crate::model::BoardModel;
@@ -347,15 +347,16 @@ pub fn compute_u_columns(
                     if *z >= min_z - 1e-3 && *z <= max_z + 1e-3 {
                         let chan_x = evaluate_bezier_at_z(outline_curve, *z, 0.5).x;
                         let blend = get_cross_section_blend_at_z(&model.cross_sections, *z);
-                        if let Some(b) = &blend {
-                            let inner_x = if *z > notch_z {
+                                                if let Some(b) = &blend {
+                            let _inner_x = if *z > notch_z {
                                 evaluate_notch_inner_x(outline, v_tip, *z)
                             } else {
                                 0.0
                             };
                             let mut best_u = 0.0;
                             let mut min_diff = f32::INFINITY;
-                                                        let ctx = crate::geometry::ZRingContext::new(model, *z);
+                            
+                            let ctx = crate::geometry::ZRingContext::new(model, *z);
                             for i in 0..=50 {
                                 let test_u = i as f32 / 50.0 * b.t_apex;
                                 let test_pt = ctx.get_point_at_uv_base(test_u, 1.0);
@@ -365,7 +366,7 @@ pub fn compute_u_columns(
                                     best_u = test_u;
                                 }
                             }
-                                                        let mut u_search = best_u;
+                            let mut u_search = best_u;
                             let mut step = b.t_apex / 50.0;
                             for _ in 0..10 {
                                 step *= 0.5;
