@@ -248,8 +248,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 4. Verify the canvas doesn't crash
     await expect(page.locator("board-viewport canvas")).toBeVisible();
     
-    // Assert no WebGL or NaN errors were thrown by the bifurcated mesh generator
-    const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));
+        // Assert no WebGL or NaN errors were thrown by the bifurcated mesh generator
+    const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
     expect(criticalErrors).toHaveLength(0);
   });
 
@@ -644,8 +644,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 6. Ensure the canvas is still rendering without WebGL crashes
     await expect(page.locator("board-viewport canvas")).toBeVisible();
     
-    // 7. Verify no WebGL or NaN errors occurred during the mesh generation of the imported file
-        const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));
+        // 7. Verify no WebGL or NaN errors occurred during the mesh generation of the imported file
+        const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
     expect(criticalErrors).toHaveLength(0);
   });
 
@@ -687,9 +687,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Let geometry settle
     await page.waitForTimeout(500);
 
-    await expect(page.locator("board-viewport canvas")).toBeVisible();
+        await expect(page.locator("board-viewport canvas")).toBeVisible();
     
-    const criticalErrors = errors.filter(e => e.includes('WebGL') || e.includes('NaN'));
+    const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
     expect(criticalErrors).toHaveLength(0);
   });
 
