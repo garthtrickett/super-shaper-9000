@@ -21,19 +21,19 @@ init().then(async () => {
     // Load the default initial state into the Rust engine
     engine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
     
-    // Post initial state back
+        // Post initial state back
     const initialState = engine.get_state() as BoardModel;
-        const mesh = engine.get_mesh() as RustMesh;
+    const stats = engine.get_stats() as any;
     const curvatureCombs = engine.get_curvature_combs() as Float32Array;
     const foilData = engine.get_foil_stats() as Float32Array;
     
-        (self as unknown as Worker).postMessage({
+                (self as unknown as Worker).postMessage({
         type: "STATE_UPDATED",
         state: initialState,
-        mesh: mesh,
+        stats,
         curvatureCombs: curvatureCombs,
         foilData: foilData
-    },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer, foilData.buffer]);
+    },[curvatureCombs.buffer, foilData.buffer]);
 }).catch((err: unknown) => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
     (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
@@ -78,9 +78,22 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "RESIZE_RENDERER") {
+        if (msg.type === "RESIZE_RENDERER") {
         if (isRendererReady) {
             engine.resize_renderer(msg.width, msg.height);
+        }
+        return;
+    }
+
+    if (msg.type === "POINTER_EVENT") {
+        if (isRendererReady) {
+            engine.handle_pointer(msg.eventType, msg.x, msg.y);
+        }
+        return;
+    }
+    if (msg.type === "WHEEL_EVENT") {
+        if (isRendererReady) {
+            engine.handle_wheel(msg.dy);
         }
         return;
     }
@@ -141,21 +154,19 @@ self.onmessage = async (e: MessageEvent<any>) => {
                 }
             }
 
-            // 3. Extract Mesh Buffer (Zero-Copy)
-                        const mesh = engine.get_mesh() as RustMesh;
+                        // 3. Extract Mesh Buffer (Zero-Copy)
+            const stats = engine.get_stats() as any;
             const curvatureCombs = engine.get_curvature_combs() as Float32Array;
             const foilData = engine.get_foil_stats() as Float32Array;
 
-                                                // 4. Send updated State and Mesh back to Main Thread
-            // console.info("[BoardWorker] Posting updated state. Channels:", state.bottomChannels?.length || 0);
             (self as unknown as Worker).postMessage({
                 type: "STATE_UPDATED",
                 seq: msg.seq,
                 state,
-                mesh,
+                stats,
                 curvatureCombs,
                 foilData
-            },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer, foilData.buffer]); // Transfer ownership of the buffers
+            }, [curvatureCombs.buffer, foilData.buffer]); // Transfer ownership of the buffers
 
                 } catch (err) {
             console.error("[BoardWorker] Error during proposal:", err);

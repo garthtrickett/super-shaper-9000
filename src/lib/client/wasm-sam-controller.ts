@@ -16,7 +16,7 @@ interface WorkerMessage {
 
 export class WasmSamController implements ReactiveController {
   public model?: BoardModel;
-  public mesh?: RustMesh;
+  public mesh?: { volumeLiters: number; vertexCount: number; triangleCount: number };
   public curvatureCombs?: Float32Array;
   public foilData?: Float32Array;
   public worker: Worker;
@@ -37,8 +37,8 @@ export class WasmSamController implements ReactiveController {
     this.worker.addEventListener("message", (e: MessageEvent) => {
       if (e.data.type === "STATE_UPDATED") {
         if (e.data.seq !== undefined && e.data.seq < this.currentSequence) return;
-        this.model = e.data.state;
-        this.mesh = e.data.mesh;
+                this.model = e.data.state;
+        this.mesh = e.data.stats;
         this.curvatureCombs = e.data.curvatureCombs;
         this.foilData = e.data.foilData;
         this.host.requestUpdate();

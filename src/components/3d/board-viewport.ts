@@ -1058,3 +1058,82 @@ export class BoardViewport extends LitElement {
     `;
   }
 }
+// Sovereign Core viewport (dumb glass)
+import { LitElement, html } from "lit";
+import { customElement, property, query } from "lit/decorators.js";
+import type { BoardModel } from "../pages/board-builder-page.logic";
+
+@customElement("board-viewport")
+export class BoardViewport extends LitElement {
+  @property({ type: Object }) boardState?: BoardModel;
+  @property({ type: Boolean }) isProcessing = false;
+
+  @query("#wgpu-canvas") private wgpuCanvas!: HTMLCanvasElement;
+  
+  private ro?: ResizeObserver;
+
+  protected override createRenderRoot() { return this; }
+
+  override firstUpdated() {
+    const offscreen = this.wgpuCanvas.transferControlToOffscreen();
+    this.dispatchEvent(new CustomEvent('init-renderer', {
+        detail: { canvas: offscreen, width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
+        bubbles: true,
+        composed: true
+    }));
+
+    this.ro = new ResizeObserver(() => {
+        this.dispatchEvent(new CustomEvent('resize-renderer', {
+            detail: { width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
+            bubbles: true,
+            composed: true
+        }));
+    });
+    this.ro.observe(this.wgpuCanvas);
+
+    const forwardPointerEvent = (e: PointerEvent, type: string) => {
+      this.dispatchEvent(new CustomEvent('viewport-pointer', {
+        detail: { type, x: e.clientX, y: e.clientY },
+        bubbles: true,
+        composed: true
+      }));
+    };
+
+    this.wgpuCanvas.addEventListener("pointerdown", (e) => forwardPointerEvent(e, "down"));
+    this.wgpuCanvas.addEventListener("pointermove", (e) => forwardPointerEvent(e, "move"));
+    this.wgpuCanvas.addEventListener("pointerup", (e) => forwardPointerEvent(e, "up"));
+    this.wgpuCanvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      this.dispatchEvent(new CustomEvent('viewport-wheel', {
+        detail: { dy: e.deltaY },
+        bubbles: true,
+        composed: true
+      }));
+    }, { passive: false });
+  }
+
+  override disconnectedCallback() {
+    this.ro?.disconnect();
+    super.disconnectedCallback();
+  }
+
+  public previewState(newState: BoardModel) {
+     // No-op for now in sovereign core since rust handles rendering
+  }
+
+  override render() {
+    return html`
+      <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
+      ${this.isProcessing ? html`
+        <div class="absolute bottom-3 left-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 text-blue-400 border-blue-500/30 border text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors">
+          <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Computing</span>
+        </div>
+      ` : ''}
+    `;
+  }
+}
+
