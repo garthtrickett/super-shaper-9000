@@ -536,12 +536,16 @@ pub struct BezierCurveData {
 
 #[derive(Debug, Clone, Default)]
 pub struct RawGeometryData {
-    pub vertices: Vec<f32>,
+        pub vertices: Vec<f32>,
     pub indices: Vec<u32>,
     pub uvs: Vec<f32>,
     pub colors: Vec<f32>,
     pub normals: Vec<f32>,
     pub volume_liters: f32,
+    pub line_vertices: Vec<f32>,
+    pub line_colors: Vec<f32>,
+    pub line_vertices: Vec<f32>,
+    pub line_colors: Vec<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

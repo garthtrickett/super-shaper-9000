@@ -134,8 +134,129 @@ pub fn generate_mesh(
         &mut indices,
     );
 
-    let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
+        let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
     log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
+
+    let mut line_vertices = Vec::new();
+    let mut line_colors = Vec::new();
+
+    let mut push_line = |p0: Vec3, p1: Vec3, color: Vec3| {
+        line_vertices.push(p0.x * scale);
+        line_vertices.push(p0.y * scale);
+        line_vertices.push(p0.z * scale);
+        line_colors.push(color.x);
+        line_colors.push(color.y);
+        line_colors.push(color.z);
+        line_vertices.push(p1.x * scale);
+        line_vertices.push(p1.y * scale);
+        line_vertices.push(p1.z * scale);
+        line_colors.push(color.x);
+        line_colors.push(color.y);
+        line_colors.push(color.z);
+    };
+
+    let show_gizmos = model.show_gizmos.unwrap_or(true);
+
+    let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>, color: Vec3, is_outline: bool| {
+        if let Some(curve) = curve_opt {
+            if curve.control_points.is_empty() {
+                return;
+            }
+            let pts = crate::bezier::sample_curve(curve, 100);
+            for i in 0..pts.len().saturating_sub(1) {
+                let p0 = pts[i];
+                let p1 = pts[i + 1];
+                push_line(p0, p1, color);
+                if is_outline {
+                    let mut m0 = p0;
+                    m0.x = -m0.x;
+                    let mut m1 = p1;
+                    m1.x = -m1.x;
+                    push_line(m0, m1, color);
+                }
+            }
+
+            if show_gizmos {
+                for i in 0..curve.control_points.len() {
+                    let p = curve.control_points[i];
+                    let c_anchor = Vec3::new(1.0, 1.0, 1.0);
+                    let s = 1.0;
+                    push_line(p - Vec3::X * s, p + Vec3::X * s, c_anchor);
+                    push_line(p - Vec3::Y * s, p + Vec3::Y * s, c_anchor);
+                    push_line(p - Vec3::Z * s, p + Vec3::Z * s, c_anchor);
+
+                    if is_outline {
+                        let mut mp = p;
+                        mp.x = -mp.x;
+                        push_line(mp - Vec3::X * s, mp + Vec3::X * s, c_anchor);
+                        push_line(mp - Vec3::Y * s, mp + Vec3::Y * s, c_anchor);
+                        push_line(mp - Vec3::Z * s, mp + Vec3::Z * s, c_anchor);
+                    }
+
+                    let c_tan = Vec3::new(0.4, 0.4, 1.0);
+                    if i < curve.tangents1.len() {
+                        let t1 = curve.tangents1[i];
+                        push_line(p, t1, c_tan);
+                        push_line(t1 - Vec3::X * s, t1 + Vec3::X * s, c_tan);
+                        push_line(t1 - Vec3::Y * s, t1 + Vec3::Y * s, c_tan);
+                        push_line(t1 - Vec3::Z * s, t1 + Vec3::Z * s, c_tan);
+                    }
+                    if i < curve.tangents2.len() {
+                        let t2 = curve.tangents2[i];
+                        push_line(p, t2, c_tan);
+                        push_line(t2 - Vec3::X * s, t2 + Vec3::X * s, c_tan);
+                        push_line(t2 - Vec3::Y * s, t2 + Vec3::Y * s, c_tan);
+                        push_line(t2 - Vec3::Z * s, t2 + Vec3::Z * s, c_tan);
+                    }
+                }
+            }
+        }
+    };
+
+    if model.show_outline.unwrap_or(true) {
+        add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true);
+    }
+    if model.show_rocker_top.unwrap_or(true) {
+        add_curve_lines(&model.rocker_top, Vec3::new(0.0, 1.0, 0.0), false);
+    }
+    if model.show_rocker_bottom.unwrap_or(true) {
+        add_curve_lines(&model.rocker_bottom, Vec3::new(1.0, 0.0, 0.0), false);
+    }
+    if model.show_apex_outline.unwrap_or(true) {
+        add_curve_lines(&model.apex_outline, Vec3::new(0.0, 1.0, 1.0), true);
+    }
+    if model.show_rail_outline.unwrap_or(true) {
+        add_curve_lines(&model.rail_outline, Vec3::new(1.0, 0.0, 1.0), true);
+    }
+    if model.show_apex_rocker.unwrap_or(true) {
+        add_curve_lines(&model.apex_rocker, Vec3::new(0.0, 0.5, 1.0), false);
+    }
+    if model.show_deck_shoulder.unwrap_or(true) {
+        add_curve_lines(&model.deck_shoulder, Vec3::new(1.0, 0.5, 0.0), true);
+    }
+
+    if model.show_cross_sections.unwrap_or(true) {
+        for cs in &model.cross_sections {
+            add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true);
+        }
+    }
+
+    if let Some(layers) = &model.outline_layers {
+        for l in layers {
+            if l.active {
+                add_curve_lines(&Some(l.otl_ext.clone()), Vec3::new(1.0, 1.0, 0.0), true);
+                add_curve_lines(&Some(l.otl_int.clone()), Vec3::new(1.0, 1.0, 0.0), true);
+            }
+        }
+    }
+    if let Some(channels) = &model.bottom_channels {
+        for ch in channels {
+            add_curve_lines(&Some(ch.left_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false);
+            add_curve_lines(&Some(ch.right_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false);
+            add_curve_lines(&Some(ch.left_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false);
+            add_curve_lines(&Some(ch.right_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false);
+        }
+    }
 
     RawGeometryData {
         vertices,
@@ -144,6 +265,8 @@ pub fn generate_mesh(
         colors,
         normals,
         volume_liters,
+        line_vertices,
+        line_colors,
     }
 }
 

@@ -64,13 +64,15 @@ impl MobileSurferEngine {
         let mut engine = self.engine.lock().unwrap();
         let mesh = engine.compute_mesh();
 
-        MobileGeometryData {
+                MobileGeometryData {
             vertices: mesh.vertices,
             indices: mesh.indices,
             uvs: mesh.uvs,
             colors: mesh.colors,
             normals: mesh.normals,
             volume_liters: mesh.volume_liters,
+            line_vertices: mesh.line_vertices,
+            line_colors: mesh.line_colors,
         }
     }
 }
@@ -83,4 +85,6 @@ pub struct MobileGeometryData {
     pub colors: Vec<f32>,
     pub normals: Vec<f32>,
     pub volume_liters: f32,
+    pub line_vertices: Vec<f32>,
+    pub line_colors: Vec<f32>,
 }

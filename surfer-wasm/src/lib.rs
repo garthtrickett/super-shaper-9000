@@ -60,68 +60,68 @@ impl RenderState {
         texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    fn update_mesh_buffers(&mut self, mesh: &RawGeometryData) {
-        if mesh.indices.is_empty() {
-            return;
+        fn update_mesh_buffers(&mut self, mesh: &RawGeometryData) {
+        if !mesh.indices.is_empty() {
+            let vertex_bytes = as_u8_slice(&mesh.vertices);
+            let normal_bytes = as_u8_slice(&mesh.normals);
+            let color_bytes = as_u8_slice(&mesh.colors);
+            let index_bytes = as_u8_slice(&mesh.indices);
+
+            self.vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: vertex_bytes.len() as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            self.normal_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: normal_bytes.len() as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            self.color_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: color_bytes.len() as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            self.index_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: index_bytes.len() as u64,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+
+            self.queue.write_buffer(&self.vertex_buffer, 0, vertex_bytes);
+            self.queue.write_buffer(&self.normal_buffer, 0, normal_bytes);
+            self.queue.write_buffer(&self.color_buffer, 0, color_bytes);
+            self.queue.write_buffer(&self.index_buffer, 0, index_bytes);
+            self.num_indices = mesh.indices.len() as u32;
         }
 
-        let vertex_bytes = as_u8_slice(&mesh.vertices);
-        let normal_bytes = as_u8_slice(&mesh.normals);
-        let color_bytes = as_u8_slice(&mesh.colors);
-        let index_bytes = as_u8_slice(&mesh.indices);
-
-        self.vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: vertex_bytes.len() as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        self.normal_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: normal_bytes.len() as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        self.color_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: color_bytes.len() as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        self.index_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: index_bytes.len() as u64,
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        self.queue
-            .write_buffer(&self.vertex_buffer, 0, vertex_bytes);
-        self.queue
-            .write_buffer(&self.normal_buffer, 0, normal_bytes);
-        self.queue.write_buffer(&self.color_buffer, 0, color_bytes);
-        self.queue.write_buffer(&self.index_buffer, 0, index_bytes);
-        self.num_indices = mesh.indices.len() as u32;
-
-                // Basic line/gizmo update (Mocked for testing)
-        // let line_verts: [f32; 0] = [];
-        // let line_colors: [f32; 0] = [];
-        // let lv_bytes = as_u8_slice(&line_verts);
-        // let lc_bytes = as_u8_slice(&line_colors);
+        let line_verts = as_u8_slice(&mesh.line_vertices);
+        let line_colors = as_u8_slice(&mesh.line_colors);
 
         self.line_vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: 4, // Prevent 0-size buffer creation crash in wgpu
+            size: (line_verts.len().max(4)) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         self.line_color_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: 4,
+            size: (line_colors.len().max(4)) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        self.num_line_vertices = 0;
+
+        if !line_verts.is_empty() {
+            self.queue.write_buffer(&self.line_vertex_buffer, 0, line_verts);
+            self.queue.write_buffer(&self.line_color_buffer, 0, line_colors);
+            self.num_line_vertices = (mesh.line_vertices.len() / 3) as u32;
+        } else {
+            self.num_line_vertices = 0;
+        }
     }
 }
 
@@ -419,7 +419,9 @@ impl WasmEngine {
                     rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
                     rpass.set_scissor_rect(vp_x as u32, vp_y as u32, vp_w as u32, vp_h as u32);
 
-                    if renderer.num_indices > 0 {
+                                        let draw_solid = (q == "perspective" || (self.view_mode != "quad" && self.view_mode != "top" && self.view_mode != "side" && self.view_mode != "profile")) && self.engine.get_model().show_solid_mesh.unwrap_or(true);
+                    
+                    if draw_solid && renderer.num_indices > 0 {
                         rpass.set_pipeline(&renderer.pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
                         rpass.set_vertex_buffer(0, renderer.vertex_buffer.slice(..));
@@ -909,7 +911,7 @@ pub async fn create_wgpu_renderer(
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
-            primitive: wgpu::PrimitiveState {
+                        primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::LineList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
@@ -923,7 +925,11 @@ pub async fn create_wgpu_renderer(
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: -100,
+                    slope_scale: -1.0,
+                    clamp: 0.0,
+                },
             }),
             multisample: wgpu::MultisampleState {
                 count: 1,
