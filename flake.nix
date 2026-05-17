@@ -1,13 +1,15 @@
 {
-  description = "typescript dev environment with android support";
+  description = "Super Shaper 9000 Development Environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, rust-overlay, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
     let
-      system = "aarch64-linux";
 
       # 1. Native packages (ARM)
       pkgs = import nixpkgs {
@@ -34,11 +36,18 @@
         includeSystemImages = false;
       };
 
-      androidSdk = androidComposition.androidsdk;
+            androidSdk = androidComposition.androidsdk;
+
+      overlays = [ (import rust-overlay) ];
+      pkgsWithRust = import nixpkgs { inherit system overlays; };
+      rustToolchain = pkgsWithRust.rust-bin.nightly.latest.default.override {
+        extensions = [ "rust-src" "rust-analyzer" ];
+        targets = [ "wasm32-unknown-unknown" ];
+      };
     in
     {
-      devShells.${system}.default = pkgs.mkShell {
-                nativeBuildInputs = with pkgs;[
+      devShells.default = pkgs.mkShell {
+                nativeBuildInputs = with pkgs; [
           bashInteractive
           pkg-config
           lld
@@ -63,24 +72,23 @@
           unzip
           curl
 
-                    # --- RUST / WASM ---
-                    rustc
-          cargo
-          clippy
-          rustfmt
-          rust-analyzer
+                                        # --- RUST / WASM ---
+          rustToolchain
           wasm-pack
           wasm-bindgen-cli
           binaryen
-          rustup
         ];
 
         shellHook = ''
           alias test-rust-parallel="cargo test --workspace -- --nocapture"
           alias test-e2e="bun run test:e2e"
           alias test-e2e-seq="bun run test:e2e:seq"
-          echo "🚀 Bedrock Dev Environment Loaded"
+          echo "🚀 Bedrock & Super Shaper Dev Environment Loaded"
           echo "Node: $(node --version)"
+          echo "🦀 Rust Nightly (with rust-src) is ready for -Z build-std WASM threading."
+          
+          # --- RUST TOOLCHAIN SETUP ---
+          export RUSTFLAGS="-C target-feature=+atomics,+bulk-memory"
           
           # --- PLAYWRIGHT CONFIG ---
           export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
@@ -126,54 +134,13 @@
           # but we need it visible for the x86 process).
           export LD_LIBRARY_PATH="${pkgsX86.glibc}/lib:${pkgsX86.gcc.cc.lib}/lib:${pkgsX86.zlib}/lib:$LD_LIBRARY_PATH"
 
-                    echo "✅ QEMU_LD_PREFIX set to allow unpatched x86_64 AAPT2 execution."
+                                        echo "✅ QEMU_LD_PREFIX set to allow unpatched x86_64 AAPT2 execution."
 
-                    # --- RUST TOOLCHAIN SETUP ---
-          # Ensure components are available if using rustup, otherwise Nix packages handle it
-          if command -v rustup > /dev/null; then
-            rustup target add wasm32-unknown-unknown 2>/dev/null || true
-            rustup component add clippy rustfmt 2>/dev/null || true
-          fi
-          
           # Clean up any stale gradle daemons to ensure they pick up the new env vars
           ${pkgs.gradle}/bin/gradle --stop >/dev/null 2>&1 || true
         '';
       };
-    };
-}
-{
-  description = "Super Shaper 9000 WASM + Rayon Environment";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
-
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs { inherit system overlays; };
-        rustToolchain = pkgs.rust-bin.nightly.latest.default.override {
-          extensions = [ "rust-src" "rust-analyzer" ];
-          targets = [ "wasm32-unknown-unknown" ];
-        };
-      in {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rustToolchain
-            wasm-bindgen-cli
-            bun
-            nodejs
-          ];
-          shellHook = ''
-            export RUSTFLAGS="-C target-feature=+atomics,+bulk-memory"
-            echo "\n🏄‍♂️ Super Shaper 9000 Dev Environment Loaded!"
-            echo "🦀 Rust Nightly (with rust-src) is ready for -Z build-std WASM threading.\n"
-          '';
-        };
-      }
-    );
+    }
+  );
 }
 
