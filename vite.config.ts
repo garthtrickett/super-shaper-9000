@@ -7,7 +7,11 @@ export default defineConfig({
     host: "127.0.0.1",
     allowedHosts: true,
     port: 3000,
-    strictPort: true,
+        strictPort: true,
+    headers: {
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Opener-Policy": "same-origin"
+    },
     hmr: {
       host: "127.0.0.1",
     },

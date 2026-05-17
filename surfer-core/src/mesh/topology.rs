@@ -237,7 +237,7 @@ pub fn generate_cap(
     }
 
     let mut right_min_x = f32::INFINITY;
-        let mut right_max_x = f32::NEG_INFINITY;
+    let mut right_max_x = f32::NEG_INFINITY;
     for pos in ring_pos.iter().take(half + 1) {
         let x = pos.x;
         right_min_x = right_min_x.min(x);

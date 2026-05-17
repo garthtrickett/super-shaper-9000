@@ -130,26 +130,27 @@ impl SurferEngine {
     }
 
     /// Returns a flat buffer of[z, center_thickness, rail_thickness] triplets for 2D graphing.
-    pub fn compute_foil_stats(&self) -> Vec<f32> {
-        let mut stats = Vec::new();
+        pub fn compute_foil_stats(&self) -> Vec<f32> {
         let bounds = crate::geometry::get_board_bounds(&self.model);
         let outline = match &self.model.outline {
             Some(o) => o,
-            None => return stats,
+            None => return Vec::new(),
         };
         let steps = 50;
 
-        for i in 0..=steps {
+        use rayon::prelude::*;
+        (0..=steps).into_par_iter().flat_map(|i| {
             let f = i as f32 / steps as f32;
             let z = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * f;
             let v_outer = crate::geometry::find_v_at_z(outline, z, 0.0, bounds.tip_t);
             let profile = crate::geometry::get_board_profile_at_z(&self.model, z, v_outer);
 
-            stats.push(z);
-            stats.push((profile.top_y - profile.bot_y).max(0.0)); // Center Thickness
-            stats.push((profile.apex_y - profile.bot_y).max(0.0)); // Rail Thickness
-        }
-        stats
+            vec![
+                z,
+                (profile.top_y - profile.bot_y).max(0.0), // Center Thickness
+                (profile.apex_y - profile.bot_y).max(0.0) // Rail Thickness
+            ]
+        }).collect()
     }
 
     pub fn find_closest_t(
@@ -174,18 +175,34 @@ impl SurferEngine {
     }
 
     /// Generates a flat Float32Array-compatible buffer of [x1, y1, z1, x2, y2, z2] segments for curvature combs.
-    pub fn compute_curvature_combs(&self) -> Vec<f32> {
-        let mut combs = Vec::new();
+        pub fn compute_curvature_combs(&self) -> Vec<f32> {
         if !self.model.show_curvature.unwrap_or(false) {
-            return combs;
+            return Vec::new();
         }
 
         let scale = 200.0; // Multiplier to make curvature visually legible
         let steps = 40;
         let view_scale = 1.0 / 12.0; // CAD inches to World coordinates
 
-        let mut add_curve = |curve: &Option<crate::model::BezierCurveData>| {
-            if let Some(c) = curve {
+        let mut curves_to_process = Vec::new();
+        if self.model.show_outline.unwrap_or(true) { curves_to_process.push(self.model.outline.as_ref()); }
+        if self.model.show_rocker_top.unwrap_or(true) { curves_to_process.push(self.model.rocker_top.as_ref()); }
+        if self.model.show_rocker_bottom.unwrap_or(true) { curves_to_process.push(self.model.rocker_bottom.as_ref()); }
+        if self.model.show_apex_outline.unwrap_or(true) { curves_to_process.push(self.model.apex_outline.as_ref()); }
+        if self.model.show_rail_outline.unwrap_or(true) { curves_to_process.push(self.model.rail_outline.as_ref()); }
+        if self.model.show_apex_rocker.unwrap_or(true) { curves_to_process.push(self.model.apex_rocker.as_ref()); }
+        if self.model.show_deck_shoulder.unwrap_or(true) { curves_to_process.push(self.model.deck_shoulder.as_ref()); }
+
+        if self.model.show_cross_sections.unwrap_or(true) {
+            for cs in &self.model.cross_sections {
+                curves_to_process.push(Some(cs));
+            }
+        }
+
+        use rayon::prelude::*;
+        curves_to_process.into_par_iter().flat_map(|curve_opt| {
+            let mut local_combs = Vec::new();
+            if let Some(c) = curve_opt {
                 let num_segments = c.control_points.len().saturating_sub(1);
                 for seg in 0..num_segments {
                     let p0 = c.control_points[seg];
@@ -224,47 +241,18 @@ impl SurferEngine {
 
                         let tip = pt + quill;
 
-                        combs.push(pt.x * view_scale);
-                        combs.push(pt.y * view_scale);
-                        combs.push(pt.z * view_scale);
+                        local_combs.push(pt.x * view_scale);
+                        local_combs.push(pt.y * view_scale);
+                        local_combs.push(pt.z * view_scale);
 
-                        combs.push(tip.x * view_scale);
-                        combs.push(tip.y * view_scale);
-                        combs.push(tip.z * view_scale);
+                        local_combs.push(tip.x * view_scale);
+                        local_combs.push(tip.y * view_scale);
+                        local_combs.push(tip.z * view_scale);
                     }
                 }
             }
-        };
-
-        if self.model.show_outline.unwrap_or(true) {
-            add_curve(&self.model.outline);
-        }
-        if self.model.show_rocker_top.unwrap_or(true) {
-            add_curve(&self.model.rocker_top);
-        }
-        if self.model.show_rocker_bottom.unwrap_or(true) {
-            add_curve(&self.model.rocker_bottom);
-        }
-        if self.model.show_apex_outline.unwrap_or(true) {
-            add_curve(&self.model.apex_outline);
-        }
-        if self.model.show_rail_outline.unwrap_or(true) {
-            add_curve(&self.model.rail_outline);
-        }
-        if self.model.show_apex_rocker.unwrap_or(true) {
-            add_curve(&self.model.apex_rocker);
-        }
-        if self.model.show_deck_shoulder.unwrap_or(true) {
-            add_curve(&self.model.deck_shoulder);
-        }
-
-        if self.model.show_cross_sections.unwrap_or(true) {
-            for cs in &self.model.cross_sections {
-                add_curve(&Some(cs.clone()));
-            }
-        }
-
-        combs
+            local_combs
+        }).collect()
     }
 }
 
