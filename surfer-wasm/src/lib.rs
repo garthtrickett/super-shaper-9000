@@ -952,7 +952,7 @@ pub async fn create_wgpu_renderer(
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
-                        primitive: wgpu::PrimitiveState {
+                                    primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::LineList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
@@ -966,11 +966,7 @@ pub async fn create_wgpu_renderer(
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState {
-                    constant: -100,
-                    slope_scale: -1.0,
-                    clamp: 0.0,
-                },
+                bias: wgpu::DepthBiasState::default(),
             }),
                         multisample: wgpu::MultisampleState {
                 count: 4,
@@ -1015,7 +1011,7 @@ pub async fn create_wgpu_renderer(
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
-            primitive: wgpu::PrimitiveState {
+                        primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
@@ -1029,7 +1025,11 @@ pub async fn create_wgpu_renderer(
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less,
                 stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
+                bias: wgpu::DepthBiasState {
+                    constant: 100,
+                    slope_scale: 2.0,
+                    clamp: 0.0,
+                },
             }),
                         multisample: wgpu::MultisampleState {
                 count: 4,
