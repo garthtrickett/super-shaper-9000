@@ -176,15 +176,17 @@ export class BoardViewport extends LitElement {
         let quad = "";
         let worldX = 0, worldY = 0, worldZ = 0;
 
-        if (ndcX < 0 && ndcY > 0) {
+                if (ndcX < 0 && ndcY > 0) {
             quad = "top";
-            const orthoRight = 5 * aspect;
-            const orthoTop = 5;
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance() : 20.0;
+            const orthoTop = distance / 4.0;
+            const orthoRight = orthoTop * aspect;
             worldX = (ndcX * 2 + 1) * orthoRight * 12;
             worldZ = -(ndcY * 2 - 1) * orthoTop * 12;
         } else if (ndcX < 0 && ndcY < 0) {
             quad = "side";
-            const frustumSize = 10;
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance() : 20.0;
+            const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
             const orthoRight = frustumSize * aspect / 2;
             const orthoTop = (frustumSize / 2) / stretchY;
@@ -237,11 +239,14 @@ export class BoardViewport extends LitElement {
         const ndcX = ((e.clientX - rect.left) / w) - 1.0;
                 const ndcY = 1.0 - ((e.clientY - rect.top) / h);
 
-        let worldX = 0, worldZ = 0;
+                let worldX = 0, worldZ = 0;
         const worldY = 0;
         if (ndcY > 0) {
-            worldX = (ndcX * 2 + 1) * (5 * aspect) * 12;
-            worldZ = -(ndcY * 2 - 1) * 5 * 12;
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance() : 20.0;
+            const orthoTop = distance / 4.0;
+            const orthoRight = orthoTop * aspect;
+            worldX = (ndcX * 2 + 1) * orthoRight * 12;
+            worldZ = -(ndcY * 2 - 1) * orthoTop * 12;
         }
 
         this.dispatchEvent(new CustomEvent('gizmo-dragged', {

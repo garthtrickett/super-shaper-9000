@@ -298,14 +298,15 @@ impl WasmEngine {
                 };
                 let aspect = vp_w / vp_h;
 
-                let view_proj = match q {
+                                let view_proj = match q {
                     "top" => {
+                        let frustum = self.camera_ctrl.distance / 4.0;
                         let view = glam::Mat4::look_at_rh(glam::Vec3::new(0.0, 10.0, 0.0), glam::Vec3::ZERO, glam::Vec3::new(0.0, 0.0, -1.0));
-                        let proj = glam::Mat4::orthographic_rh(-5.0 * aspect, 5.0 * aspect, -5.0, 5.0, 0.1, 1000.0);
+                        let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
                         proj * view
                     },
                     "side" => {
-                        let frustum_half = 5.0;
+                        let frustum_half = self.camera_ctrl.distance / 4.0;
                         let stretch_y = 2.5;
                         let ortho_right = frustum_half * aspect;
                         let ortho_top = frustum_half / stretch_y;
@@ -314,8 +315,9 @@ impl WasmEngine {
                         proj * view
                     },
                     "profile" => {
+                        let frustum = self.camera_ctrl.distance / 4.0;
                         let view = glam::Mat4::look_at_rh(glam::Vec3::new(0.0, 0.0, 10.0), glam::Vec3::ZERO, glam::Vec3::Y);
-                        let proj = glam::Mat4::orthographic_rh(-5.0 * aspect, 5.0 * aspect, -5.0, 5.0, 0.1, 1000.0);
+                        let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
                         proj * view
                     },
                     _ => self.camera_ctrl.build_view_projection_matrix(aspect),
@@ -505,6 +507,11 @@ impl WasmEngine {
             self.camera_ctrl.distance * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
         let pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
         js_sys::Float32Array::from(&[pos.x, pos.y, pos.z][..])
+    }
+
+        #[wasm_bindgen]
+    pub fn camera_distance(&self) -> f32 {
+        self.camera_ctrl.distance
     }
 
     #[wasm_bindgen]
