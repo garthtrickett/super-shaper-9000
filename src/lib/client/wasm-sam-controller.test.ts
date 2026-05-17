@@ -17,8 +17,11 @@ describe("WasmSamController (FFI Integration)", () => {
     
     const worker = (controller as any).worker;
     console.log("[Test] Worker instance created:", !!worker);
-    if (worker) {
-      worker.addEventListener("message", (e: MessageEvent) => console.log("[Test] Message from worker:", e.data?.type || e.data));
+        if (worker) {
+      worker.addEventListener("message", (e: MessageEvent) => {
+        console.log("[Test] Message from worker:", e.data?.type || e.data);
+        if (e.data?.type === "ERROR") throw new Error("Worker returned ERROR: " + e.data.error);
+      });
       worker.addEventListener("error", (e: ErrorEvent) => console.log("[Test] Error from worker:", e.message, e.error));
     }
 

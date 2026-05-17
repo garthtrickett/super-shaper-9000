@@ -6,7 +6,13 @@ let engine: WasmEngine | null = null;
 
 // Initialize the WASM module
 init().then(async () => {
-    await initThreadPool(navigator.hardwareConcurrency);
+    try {
+        await initThreadPool(navigator.hardwareConcurrency);
+    } catch (err) {
+        console.error("[BoardWorker] Thread pool init failed:", err);
+        (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
+        return;
+    }
 
     engine = new WasmEngine();
     console.info("[BoardWorker] Rust WASM Engine initialized.");
@@ -29,6 +35,7 @@ init().then(async () => {
     },[mesh.vertices.buffer, mesh.indices.buffer, mesh.uvs.buffer, mesh.colors.buffer, mesh.normals.buffer, curvatureCombs.buffer, foilData.buffer]);
 }).catch((err: unknown) => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
+    (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
 });
 
 self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; action?: BoardAction; seq?: number }>) => {

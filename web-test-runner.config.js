@@ -13,8 +13,17 @@ export default {
       await next();
     }
   ],
-  plugins:[
-        {
+    plugins:[
+    {
+      name: 'fix-rayon-worker-import',
+      transform(context) {
+        if (context.path && context.path.endsWith('workerHelpers.js')) {
+          const body = typeof context.body === 'string' ? context.body : context.body.toString();
+          return { body: body.replace(/import\(['"]\.\.\/\.\.\/\.\.['"]\)/g, "import('../../../surfer_wasm.js')"), type: 'js' };
+        }
+      }
+    },
+    {
       name: 'vite-wasm-url-mock',
       /** @param {{ path: string }} context */
       transform(context) {
