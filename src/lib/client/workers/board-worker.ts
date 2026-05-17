@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
-import init, { WasmEngine, initThreadPool, create_wgpu_renderer, type WgpuRenderer } from '../wasm/surfer_wasm.js';
+import init, { WasmEngine, initThreadPool, create_wgpu_renderer } from '../wasm/surfer_wasm.js';
 import { type BoardModel, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
 
 let engine: WasmEngine | null = null;
@@ -36,11 +36,10 @@ init().then(async () => {
         foilData: foilData
     },[curvatureCombs.buffer, foilData.buffer]);
 
-        // Process queued messages sequentially to prevent &mut self borrow panics
+                // Process queued messages sequentially to prevent &mut self borrow panics
     for (const queuedMsg of messageQueue) {
         if (self.onmessage) {
-            // @ts-ignore
-            await self.onmessage(queuedMsg);
+            await (self.onmessage as unknown as (e: MessageEvent) => Promise<void>)(queuedMsg);
         }
     }
     messageQueue.length = 0;

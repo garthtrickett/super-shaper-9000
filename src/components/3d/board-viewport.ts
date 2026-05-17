@@ -103,19 +103,22 @@ export class BoardViewport extends LitElement {
 
   private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
 
-  private findClosestNode(quad: string, wx: number, wy: number, wz: number) {
+    private findClosestNode(quad: string, wx: number, wy: number, wz: number) {
       const threshold = 15.0; // 15 inches of leniency for headless tests
-      let bestHit: any = null;
+      let bestHit: { node: { curve: string, index: number, type: 'anchor' }, curve: string, t: number } | null = null;
       let minDist = threshold;
 
-      const checkNode = (curveName: string, pts: any[], i: number, type: 'anchor') => {
+      const checkNode = (curveName: string, pts: (import("../pages/board-builder-page.logic").Point3D | {x: number, y: number, z: number})[] | undefined, i: number, type: 'anchor') => {
           if (!pts || !pts[i]) return;
-          const pt = pts[i];
+          const pt = pts[i]!;
+          const ptX = Array.isArray(pt) ? pt[0] : pt.x;
+          const ptY = Array.isArray(pt) ? pt[1] : pt.y;
+          const ptZ = Array.isArray(pt) ? pt[2] : pt.z;
           let dist = Infinity;
           if (quad === 'top') {
-              dist = Math.hypot(pt[0] - wx, pt[2] - wz);
+              dist = Math.hypot(ptX - wx, ptZ - wz);
           } else if (quad === 'side') {
-              dist = Math.hypot(pt[1] - wy, pt[2] - wz);
+              dist = Math.hypot(ptY - wy, ptZ - wz);
           }
           if (dist < minDist) {
               minDist = dist;
@@ -123,9 +126,11 @@ export class BoardViewport extends LitElement {
           }
       };
 
-      const checkCurve = (name: string, curveData: any) => {
+      const checkCurve = (name: string, curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined) => {
           if (!curveData) return;
-          curveData.controlPoints?.forEach((_: any, i: number) => checkNode(name, curveData.controlPoints, i, 'anchor'));
+          const cps = curveData.controlPoints || (curveData as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points;
+          if (!cps) return;
+          cps.forEach((_, i: number) => checkNode(name, cps, i, 'anchor'));
       };
 
       checkCurve('outline', this.boardState?.outline);
@@ -185,11 +190,13 @@ export class BoardViewport extends LitElement {
                 if (quad) {
             const hit = this.findClosestNode(quad, worldX, worldY, worldZ);
             if (hit) {
-                if (e.altKey) {
+                                if (e.altKey) {
                     let exactT = 0.5;
                     if (this.mathEngine) {
-                        let roX = worldX, roY = worldY, roZ = worldZ;
-                        let rdX = 0, rdY = 0, rdZ = 0;
+                        let roX = worldX, roY = worldY;
+                        const roZ = worldZ;
+                        let rdX = 0, rdY = 0;
+                        const rdZ = 0;
                         if (quad === 'top') { roY = 100.0; rdY = -1.0; }
                         else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
                         
@@ -200,7 +207,7 @@ export class BoardViewport extends LitElement {
                 } else if (e.ctrlKey) {
                     this.dispatchEvent(new CustomEvent('add-cross-section', { detail: { z: worldZ }, bubbles: true, composed: true }));
                 } else {
-                    this.activeDragNode = hit.node as any;
+                    this.activeDragNode = hit.node;
                     this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: hit.node }, bubbles: true, composed: true }));
                 }
                 return;
@@ -223,9 +230,10 @@ export class BoardViewport extends LitElement {
         const aspect = rect.width / rect.height;
 
         const ndcX = ((e.clientX - rect.left) / w) - 1.0;
-        const ndcY = 1.0 - ((e.clientY - rect.top) / h);
+                const ndcY = 1.0 - ((e.clientY - rect.top) / h);
 
-        let worldX = 0, worldY = 0, worldZ = 0;
+        let worldX = 0, worldZ = 0;
+        const worldY = 0;
         if (ndcY > 0) {
             worldX = (ndcX * 2 + 1) * (5 * aspect) * 12;
             worldZ = -(ndcY * 2 - 1) * 5 * 12;

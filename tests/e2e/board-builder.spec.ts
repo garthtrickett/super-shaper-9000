@@ -143,15 +143,16 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
                   type BoardViewportElement = HTMLElement & {
         requestUpdate?: () => void;
-        boardState?: {
+                boardState?: {
           gizmoScaleTop?: number;
           outline?: {
-            controlPoints:[number, number, number][];
+            controlPoints?: [number, number, number][];
+            control_points?: {x: number, y: number, z: number}[];
           };
         };
       };
 
-            const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
 
       if (viewport.boardState) {
@@ -159,8 +160,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         viewport.requestUpdate?.();
       }
 
-            const outline = viewport.boardState.outline;
-      const cp = outline.controlPoints ? outline.controlPoints[1] : (outline as any).control_points?.[1];
+      const outline = viewport.boardState.outline;
+      const cpList = outline.controlPoints || outline.control_points;
+      const cp = cpList ? cpList[1] : undefined;
       if (!cp) throw new Error('cp not found: ' + JSON.stringify(outline));
 
       const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
@@ -169,8 +171,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
 
-      const x = cp[0] !== undefined ? cp[0] : cp.x;
-      const z = cp[2] !== undefined ? cp[2] : cp.z;
+      const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+      const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
 
       const worldX = x / 12;
       const worldZ = z / 12;
@@ -282,12 +284,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & { 
         requestUpdate?: () => void;
-        boardState?: {
+                boardState?: {
           gizmoScaleTop?: number;
-          outlineLayers?: { active?: boolean, otlExt: { controlPoints:[number, number, number][] } }[]
+          outlineLayers?: { active?: boolean, otlExt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
       };
-            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       // Based on Rust defaults: wing_start_z = tip_z - 15.0. 
       // The wing node for Layer 0 EXT should be there.
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
@@ -298,8 +300,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         vp.requestUpdate?.();
       }
       
-            const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
-      const cp = otlExt.controlPoints ? otlExt.controlPoints[0] : (otlExt as any).control_points?.[0];
+      const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
+      const cpList = otlExt.controlPoints || otlExt.control_points;
+      const cp = cpList ? cpList[0] : undefined;
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) throw new Error('canvas not found');
@@ -307,8 +310,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
       if (cp) {
-        const x = cp[0] !== undefined ? cp[0] : cp.x;
-        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+        const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
         const ndcX = (x / 12) / (5 * aspect);
         const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
@@ -356,20 +359,21 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & { 
         requestUpdate?: () => void;
-        boardState?: {
+                boardState?: {
           gizmoScaleTop?: number;
-          outlineLayers?: { active?: boolean, otlExt: { controlPoints: [number, number, number][] } }[]
+          outlineLayers?: { active?: boolean, otlExt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
       };
-            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
       
       if (vp.boardState) {
         vp.boardState.gizmoScaleTop = 3.0;
         vp.requestUpdate?.();
       }
-            const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
-      const cp = otlExt.controlPoints ? otlExt.controlPoints[0] : (otlExt as any).control_points?.[0];
+      const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
+      const cpList = otlExt.controlPoints || otlExt.control_points;
+      const cp = cpList ? cpList[0] : undefined;
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) throw new Error('canvas not found');
@@ -378,8 +382,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       
       // Project CAD inches to normalized viewport coords using Top Ortho logic
       if (cp) {
-        const x = cp[0] !== undefined ? cp[0] : cp.x;
-        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+        const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
         const ndcX = (x / 12) / (5 * aspect);
         const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
@@ -447,20 +451,21 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
                   type BoardViewportElement = HTMLElement & { 
         requestUpdate?: () => void;
-        boardState?: {
+                boardState?: {
           gizmoScaleTop?: number;
-          bottomChannels?: { rightOutline: { controlPoints:[number, number, number][] } }[]
+          bottomChannels?: { rightOutline: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
       };
-            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
       
       if (vp.boardState) {
         vp.boardState.gizmoScaleTop = 3.0;
         vp.requestUpdate?.();
       }
-            const rightOutline = vp.boardState.bottomChannels[0]!.rightOutline;
-      const cp = rightOutline.controlPoints ? rightOutline.controlPoints[0] : (rightOutline as any).control_points?.[0];
+      const rightOutline = vp.boardState.bottomChannels[0]!.rightOutline;
+      const cpList = rightOutline.controlPoints || rightOutline.control_points;
+      const cp = cpList ? cpList[0] : undefined;
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) throw new Error('canvas not found');
@@ -468,8 +473,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
       if (cp) {
-        const x = cp[0] !== undefined ? cp[0] : cp.x;
-        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+        const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
         const ndcX = (x / 12) / (5 * aspect);
         const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
@@ -516,29 +521,30 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & { 
         requestUpdate?: () => void;
-        boardState?: {
+                boardState?: {
           gizmoScaleTop?: number;
-          outlineLayers?: { active?: boolean, otlInt: { controlPoints: [number, number, number][] } }[]
+          outlineLayers?: { active?: boolean, otlInt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
       };
-            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
       
       if (vp.boardState) {
         vp.boardState.gizmoScaleTop = 3.0;
         vp.requestUpdate?.();
       }
-            // Target the Interior curve which is typically further IN than the exterior
+      // Target the Interior curve which is typically further IN than the exterior
       const otlInt = vp.boardState.outlineLayers[0]!.otlInt;
-      const cp = otlInt.controlPoints ? otlInt.controlPoints[0] : (otlInt as any).control_points?.[0];
+      const cpList = otlInt.controlPoints || otlInt.control_points;
+      const cp = cpList ? cpList[0] : undefined;
       
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       if (cp) {
-        const x = cp[0] !== undefined ? cp[0] : cp.x;
-        const z = cp[2] !== undefined ? cp[2] : cp.z;
+        const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+        const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
         const ndcX = (x / 12) / (5 * aspect);
         const ndcY = -(z / 12) / 5;
         const w = rect.width / 2;
@@ -719,24 +725,25 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const hitPosition = await page.evaluate(() => {
                   type BoardViewportElement = HTMLElement & {
         requestUpdate?: () => void;
-        boardState?: { gizmoScaleTop?: number, outline?: { controlPoints: [number, number, number][] } };
+                boardState?: { gizmoScaleTop?: number, outline?: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } };
       };
-            const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
       
       if (viewport.boardState) {
         viewport.boardState.gizmoScaleTop = 3.0;
         viewport.requestUpdate?.();
       }
-            const outline = viewport.boardState.outline;
-      const cp = outline.controlPoints ? outline.controlPoints[1] : (outline as any).control_points?.[1];
+      const outline = viewport.boardState.outline;
+      const cpList = outline.controlPoints || outline.control_points;
+      const cp = cpList ? cpList[1] : undefined;
       if (!cp) throw new Error('cp not found');
       const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
       if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
-      const x = cp[0] !== undefined ? cp[0] : cp.x;
-      const z = cp[2] !== undefined ? cp[2] : cp.z;
+      const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+      const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
       const ndcX = (x / 12) / (5 * aspect);
       const ndcY = -(z / 12) / 5;
       const w = rect.width / 2;
