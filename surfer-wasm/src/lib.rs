@@ -46,40 +46,50 @@ impl WasmEngine {
 
     #[wasm_bindgen]
     pub async fn init_renderer(&mut self, canvas: OffscreenCanvas) -> Result<(), JsValue> {
-        let instance = wgpu::Instance::default();
-        
-        let surface = instance.create_surface(wgpu::SurfaceTarget::OffscreenCanvas(canvas))
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = canvas;
+            return Err(JsValue::from_str("WGPU rendering is only supported on the wasm32 target"));
+        }
 
-        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        }).await.ok_or_else(|| JsValue::from_str("Failed to request WGPU adapter"))?;
-
-        let (device, queue) = adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-            },
-            None,
-        ).await.map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        let mut config = surface.get_default_config(&adapter, 800, 600)
-            .ok_or_else(|| JsValue::from_str("Failed to get default surface config"))?;
+        #[cfg(target_arch = "wasm32")]
+        {
+            let instance = wgpu::Instance::default();
             
-        surface.configure(&device, &config);
+            let surface = instance.create_surface(wgpu::SurfaceTarget::OffscreenCanvas(canvas))
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        self.renderer = Some(RenderState {
-            surface,
-            device,
-            queue,
-            config,
-        });
+            let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            }).await.ok_or_else(|| JsValue::from_str("Failed to request WGPU adapter"))?;
 
-        Ok(())
+            let (device, queue) = adapter.request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                },
+                None,
+            ).await.map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+            let config = surface.get_default_config(&adapter, 800, 600)
+                .ok_or_else(|| JsValue::from_str("Failed to get default surface config"))?;
+                
+            surface.configure(&device, &config);
+
+            self.renderer = Some(RenderState {
+                surface,
+                device,
+                queue,
+                config,
+            });
+
+            Ok(())
+        }
     }
+    
 
     #[wasm_bindgen]
     pub fn resize_renderer(&mut self, width: u32, height: u32) {
