@@ -106,13 +106,11 @@ def apply_smart_replace(text, search, replace):
 
 def apply_entity_replace(text, entity_type, name, replace):
     entity_pattern = ''
-    # Polyglot support: Supports fun (Kotlin), fn (Rust), function (JS/TS)
-    # and modifiers like pub, pub(crate), async, override, etc.
     modifiers = r"(?:[a-zA-Z0-9_\(\)]+\s+)*"
     
     if entity_type == "replace_function":
         entity_pattern = r"(?:@\w+\s*)*" + modifiers + r"(?:fun|fn|function)\s+(?:<[\w\s,<>]+>\s*)?" + re.escape(name) + r"\b"
-    else: # class, interface, object, struct, trait, impl
+    else:
         entity_pattern = r"(?:@\w+\s*)*" + modifiers + r"(?:class|interface|object|struct|enum|trait|impl)\s+" + re.escape(name) + r"\b"
 
     match = re.search(entity_pattern, text)
@@ -121,23 +119,78 @@ def apply_entity_replace(text, entity_type, name, replace):
 
     start_idx = match.start()
     
-    # Find end of declaration (start of body `{` or end of line for expression body)
-    declaration_end_match = re.search(r"[{=]|\n", text[match.end():])
-    if declaration_end_match is None:
-        # It's a declaration without a body at end of file
-        return text[:start_idx] + replace
-    
-    # Check if there is a body
-    if text[match.end() + declaration_end_match.start()] == '{':
-        end_idx = find_block_end(text, match.end())
-        if end_idx == -1:
-            raise Exception(f"Could not find matching brackets for entity '{name}'")
-        return text[:start_idx] + replace + text[end_idx + 1:]
-    else: # No curly braces, it's a single-line expression or declaration
-        line_end = text.find('\n', match.end())
-        if line_end == -1:
-             line_end = len(text)
-        return text[:start_idx] + replace + text[line_end:]
+    i = match.end()
+    paren_depth = 0
+    angle_depth = 0
+    in_str = False
+    in_char = False
+    in_line_comment = False
+    in_block_comment = False
+
+    while i < len(text):
+        c = text[i]
+        next_c = text[i+1] if i+1 < len(text) else ''
+
+        if in_line_comment:
+            if c == '\n': in_line_comment = False
+            i += 1
+            continue
+        if in_block_comment:
+            if c == '*' and next_c == '/':
+                in_block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+        if in_str:
+            if c == '\\': i += 2; continue
+            if c == '"': in_str = False
+            i += 1
+            continue
+        if in_char:
+            if c == '\\': i += 2; continue
+            if c == "'": in_char = False
+            i += 1
+            continue
+
+        if c == '/' and next_c == '/':
+            in_line_comment = True
+            i += 2
+            continue
+        if c == '/' and next_c == '*':
+            in_block_comment = True
+            i += 2
+            continue
+        if c == '"':
+            in_str = True
+            i += 1
+            continue
+        if c == "'":
+            in_char = True
+            i += 1
+            continue
+
+        if c == '(': paren_depth += 1
+        elif c == ')': paren_depth -= 1
+        elif c == '<': angle_depth += 1
+        elif c == '>': angle_depth -= 1
+        
+        if paren_depth == 0 and angle_depth == 0:
+            if c == '{':
+                end_idx = find_block_end(text, i)
+                if end_idx == -1:
+                    raise Exception(f"Could not find matching closing brace for entity '{name}'")
+                return text[:start_idx] + replace + text[end_idx + 1:]
+            elif c == '=':
+                line_end = text.find('\n', i)
+                if line_end == -1: line_end = len(text)
+                return text[:start_idx] + replace + text[line_end:]
+            elif c == ';':
+                return text[:start_idx] + replace + text[i + 1:]
+        
+        i += 1
+
+    return text[:start_idx] + replace
 
 def main():
     if len(sys.argv) < 2:
