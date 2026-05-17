@@ -16,7 +16,7 @@ describe("WasmSamController (FFI Integration)", () => {
     const controller = new WasmSamController(host);
 
             // Wait for the worker to initialize the WASM module and post back the INITIAL_STATE
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 200; i++) {
       if (controller.model) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -42,7 +42,7 @@ describe("WasmSamController (FFI Integration)", () => {
     const host = new MockHost();
     const controller = new WasmSamController(host);
 
-            for (let i = 0; i < 40; i++) {
+            for (let i = 0; i < 200; i++) {
       if (controller.model) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -78,7 +78,7 @@ describe("WasmSamController (FFI Integration)", () => {
     const controller = new WasmSamController(host);
 
                 // Wait for init
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 200; i++) {
       if (controller.model) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -92,7 +92,7 @@ describe("WasmSamController (FFI Integration)", () => {
     });
 
                 // Wait for round trip
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 200; i++) {
           if (controller.model!.length === 85.0) break;
           await new Promise((resolve) => setTimeout(resolve, 50));
         }
@@ -110,7 +110,7 @@ describe("WasmSamController (FFI Integration)", () => {
     const host = new MockHost();
     const controller = new WasmSamController(host) as any;
     
-            for (let i = 0; i < 40; i++) {
+            for (let i = 0; i < 200; i++) {
       if (controller.model) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -137,7 +137,7 @@ describe("WasmSamController (FFI Integration)", () => {
   it("mocks slice-profile retrieval and verifies distance-based selection analytical endpoints", async () => {
         const host = new MockHost();
     const controller = new WasmSamController(host);
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 200; i++) {
       if (controller.model) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }

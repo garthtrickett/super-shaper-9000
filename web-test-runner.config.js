@@ -36,8 +36,9 @@ export default {
   browsers:[
     playwrightLauncher({ 
       product: 'chromium',
-      launchOptions: {
-        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+            launchOptions: {
+        executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+        args: ['--enable-features=SharedArrayBuffer']
       }
     }),
   ],
