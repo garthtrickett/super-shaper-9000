@@ -3,16 +3,24 @@ import { test, expect } from './utils/base-test';
 test.describe('Board Viewport E2E', () => {
   test.setTimeout(60000);
 
-  test('should render without WebGL errors', async ({ page }) => {
+    test('should render without WebGL errors and successfully configure sRGB surface', async ({ page }) => {
     const errors: string[] =[];
+    const infos: string[] = [];
     page.on('console', msg => {
       if (msg.type() === 'error') errors.push(msg.text());
+      if (msg.type() === 'info') infos.push(msg.text());
     });
 
         await page.goto('/');
     await expect(page.locator('board-viewport')).toBeVisible();
+    
+    await page.waitForTimeout(1000);
+
     const criticalErrors = errors.filter(e => !e.includes('unsupported') && !e.includes('Failed to request WGPU adapter'));
     expect(criticalErrors).toHaveLength(0);
+
+    const srgbConfigured = infos.some(i => i.includes('Surface format configured to sRGB'));
+    expect(srgbConfigured).toBe(true);
   });
 
   test('should render bottom channels without WebGL or NaN errors', async ({ page }) => {
