@@ -26,9 +26,17 @@ pub fn distance_ray_line(ro: Vec3, rd: Vec3, a: Vec3, b: Vec3) -> f32 {
     let d_dot = u.dot(w);
     let e_dot = v.dot(w);
     let d = a_dot * c_dot - b_dot * b_dot;
-    let sc = if d < 1e-6 { 0.0 } else { (b_dot * e_dot - c_dot * d_dot) / d };
+    let sc = if d < 1e-6 {
+        0.0
+    } else {
+        (b_dot * e_dot - c_dot * d_dot) / d
+    };
     let tc = if d < 1e-6 {
-        if b_dot > c_dot { d_dot / b_dot } else { e_dot / c_dot }
+        if b_dot > c_dot {
+            d_dot / b_dot
+        } else {
+            e_dot / c_dot
+        }
     } else {
         (a_dot * e_dot - b_dot * d_dot) / d
     };

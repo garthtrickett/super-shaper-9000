@@ -16,7 +16,7 @@ fn as_u8_slice<T>(data: &[T]) -> &[u8] {
     unsafe {
         std::slice::from_raw_parts(
             data.as_ptr() as *const u8,
-            data.len() * std::mem::size_of::<T>(),
+            std::mem::size_of_val(data),
         )
     }
 }
@@ -32,7 +32,7 @@ pub struct RenderState {
     color_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-        camera_buffer: wgpu::Buffer,
+    camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     depth_texture: wgpu::TextureView,
     line_pipeline: wgpu::RenderPipeline,
@@ -43,13 +43,15 @@ pub struct RenderState {
 
 impl RenderState {
     fn update_mesh_buffers(&mut self, mesh: &RawGeometryData) {
-        if mesh.indices.is_empty() { return; }
-        
+        if mesh.indices.is_empty() {
+            return;
+        }
+
         let vertex_bytes = as_u8_slice(&mesh.vertices);
         let normal_bytes = as_u8_slice(&mesh.normals);
         let color_bytes = as_u8_slice(&mesh.colors);
         let index_bytes = as_u8_slice(&mesh.indices);
-        
+
         self.vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: vertex_bytes.len() as u64,
@@ -75,9 +77,11 @@ impl RenderState {
             mapped_at_creation: false,
         });
 
-        self.queue.write_buffer(&self.vertex_buffer, 0, vertex_bytes);
-        self.queue.write_buffer(&self.normal_buffer, 0, normal_bytes);
-                self.queue.write_buffer(&self.color_buffer, 0, color_bytes);
+        self.queue
+            .write_buffer(&self.vertex_buffer, 0, vertex_bytes);
+        self.queue
+            .write_buffer(&self.normal_buffer, 0, normal_bytes);
+        self.queue.write_buffer(&self.color_buffer, 0, color_bytes);
         self.queue.write_buffer(&self.index_buffer, 0, index_bytes);
         self.num_indices = mesh.indices.len() as u32;
 
@@ -86,7 +90,7 @@ impl RenderState {
         let line_colors: [f32; 6] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
         let lv_bytes = as_u8_slice(&line_verts);
         let lc_bytes = as_u8_slice(&line_colors);
-        
+
         self.line_vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: lv_bytes.len() as u64,
@@ -99,8 +103,10 @@ impl RenderState {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        self.queue.write_buffer(&self.line_vertex_buffer, 0, lv_bytes);
-        self.queue.write_buffer(&self.line_color_buffer, 0, lc_bytes);
+        self.queue
+            .write_buffer(&self.line_vertex_buffer, 0, lv_bytes);
+        self.queue
+            .write_buffer(&self.line_color_buffer, 0, lc_bytes);
         self.num_line_vertices = 2;
     }
 }
@@ -133,12 +139,12 @@ impl CameraController {
         let y = self.distance * self.pitch.sin();
         let z = self.distance * self.pitch.cos() * self.yaw.cos();
         let pos = self.target + glam::Vec3::new(x, y, z);
-        
+
         let view = glam::Mat4::look_at_rh(pos, self.target, glam::Vec3::Y);
         let proj = glam::Mat4::perspective_rh(45.0_f32.to_radians(), aspect, 0.1, 1000.0);
         proj * view
     }
-    
+
     fn process_pointer_down(&mut self, x: f32, y: f32) {
         self.is_dragging = true;
         self.last_mouse = (x, y);
@@ -197,26 +203,40 @@ impl WasmEngine {
         }
     }
 
+        #[allow(unused_variables)]
     #[wasm_bindgen]
-    pub async fn init_renderer(&mut self, canvas: OffscreenCanvas, width: u32, height: u32) -> Result<(), JsValue> {
+    pub async fn init_renderer(
+        &mut self,
+        canvas: OffscreenCanvas,
+        width: u32,
+        height: u32,
+    ) -> Result<(), JsValue> {
         #[cfg(target_arch = "wasm32")]
         {
             let instance = wgpu::Instance::default();
-            let surface = instance.create_surface(wgpu::SurfaceTarget::OffscreenCanvas(canvas)).unwrap();
-            let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            }).await.unwrap();
+            let surface = instance
+                .create_surface(wgpu::SurfaceTarget::OffscreenCanvas(canvas))
+                .unwrap();
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    compatible_surface: Some(&surface),
+                    force_fallback_adapter: false,
+                })
+                .await
+                .unwrap();
 
-            let (device, queue) = adapter.request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-                },
-                None,
-            ).await.unwrap();
+            let (device, queue) = adapter
+                .request_device(
+                    &wgpu::DeviceDescriptor {
+                        label: None,
+                        required_features: wgpu::Features::empty(),
+                        required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                    },
+                    None,
+                )
+                .await
+                .unwrap();
 
             let config = surface.get_default_config(&adapter, width, height).unwrap();
             surface.configure(&device, &config);
@@ -268,19 +288,20 @@ impl WasmEngine {
                 mapped_at_creation: false,
             });
 
-            let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
+            let camera_bind_group_layout =
+                device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                    label: Some("camera_bind_group_layout"),
+                });
 
             let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &camera_bind_group_layout,
@@ -291,15 +312,17 @@ impl WasmEngine {
                 label: Some("camera_bind_group"),
             });
 
-            let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
-                push_constant_ranges: &[],
-            });
+            let render_pipeline_layout =
+                device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &[&camera_bind_group_layout],
+                    push_constant_ranges: &[],
+                });
 
-                        let line_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            let line_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("Line Shader"),
-                source: wgpu::ShaderSource::Wgsl(r#"
+                source: wgpu::ShaderSource::Wgsl(
+                    r#"
                     struct CameraUniform {
                         view_proj: mat4x4<f32>,
                     };
@@ -326,7 +349,9 @@ impl WasmEngine {
                     fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                         return vec4<f32>(in.color, 1.0);
                     }
-                "#.into()),
+                "#
+                    .into(),
+                ),
             });
 
             let line_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -443,24 +468,42 @@ impl WasmEngine {
             });
 
             let depth_texture = Self::create_depth_texture(&device, width, height);
-            
+
             let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
             let normal_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
             let color_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
-                        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: None, size: 4, usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+            let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
             let line_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
             let line_color_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
 
             self.renderer = Some(RenderState {
@@ -512,7 +555,9 @@ impl WasmEngine {
         if let Some(renderer) = &mut self.renderer {
             renderer.config.width = width.max(1);
             renderer.config.height = height.max(1);
-            renderer.surface.configure(&renderer.device, &renderer.config);
+            renderer
+                .surface
+                .configure(&renderer.device, &renderer.config);
             renderer.depth_texture = Self::create_depth_texture(&renderer.device, width, height);
         }
     }
@@ -527,13 +572,21 @@ impl WasmEngine {
         }
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn handle_wheel(&mut self, dy: f32) {
         self.camera_ctrl.process_wheel(dy);
     }
 
     #[wasm_bindgen]
-    pub fn handle_gizmo_drag(&mut self, curve_name: &str, index: usize, node_type: &str, x: f32, y: f32, z: f32) {
+    pub fn handle_gizmo_drag(
+        &mut self,
+        curve_name: &str,
+        index: usize,
+        node_type: &str,
+        x: f32,
+        y: f32,
+        z: f32,
+    ) {
         let action = surfer_core::model::BoardAction::UpdateNodePosition {
             curve: curve_name.to_string(),
             index,
@@ -548,16 +601,24 @@ impl WasmEngine {
     pub fn render(&mut self) -> Result<(), JsValue> {
         if let Some(renderer) = &mut self.renderer {
             let aspect = renderer.config.width as f32 / renderer.config.height as f32;
-                        let view_proj = self.camera_ctrl.build_view_projection_matrix(aspect);
+            let view_proj = self.camera_ctrl.build_view_projection_matrix(aspect);
             let view_proj_array = view_proj.to_cols_array();
             let view_proj_bytes = as_u8_slice(&view_proj_array);
-            renderer.queue.write_buffer(&renderer.camera_buffer, 0, view_proj_bytes);
+            renderer
+                .queue
+                .write_buffer(&renderer.camera_buffer, 0, view_proj_bytes);
 
-            let frame = renderer.surface.get_current_texture()
+            let frame = renderer
+                .surface
+                .get_current_texture()
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let view = frame
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
 
-            let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            let mut encoder = renderer
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
             {
                 let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                     label: None,
@@ -592,7 +653,10 @@ impl WasmEngine {
                     rpass.set_vertex_buffer(0, renderer.vertex_buffer.slice(..));
                     rpass.set_vertex_buffer(1, renderer.normal_buffer.slice(..));
                     rpass.set_vertex_buffer(2, renderer.color_buffer.slice(..));
-                                        rpass.set_index_buffer(renderer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    rpass.set_index_buffer(
+                        renderer.index_buffer.slice(..),
+                        wgpu::IndexFormat::Uint32,
+                    );
                     rpass.draw_indexed(0..renderer.num_indices, 0, 0..1);
                 }
 
@@ -641,9 +705,21 @@ impl WasmEngine {
     #[wasm_bindgen]
     pub fn get_stats(&self) -> Result<JsValue, JsValue> {
         let obj = Object::new();
-        Reflect::set(&obj, &JsValue::from_str("volumeLiters"), &JsValue::from_f64(self.stats.volume_liters as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("vertexCount"), &JsValue::from_f64(self.stats.vertex_count as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("triangleCount"), &JsValue::from_f64(self.stats.triangle_count as f64))?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("volumeLiters"),
+            &JsValue::from_f64(self.stats.volume_liters as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("vertexCount"),
+            &JsValue::from_f64(self.stats.vertex_count as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("triangleCount"),
+            &JsValue::from_f64(self.stats.triangle_count as f64),
+        )?;
         Ok(obj.into())
     }
 
@@ -697,11 +773,13 @@ impl WasmEngine {
         Ok(Float32Array::from(profile.as_slice()).into())
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn camera_pos(&self) -> js_sys::Float32Array {
-        let x = self.camera_ctrl.distance * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+        let x =
+            self.camera_ctrl.distance * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
         let y = self.camera_ctrl.distance * self.camera_ctrl.pitch.sin();
-        let z = self.camera_ctrl.distance * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+        let z =
+            self.camera_ctrl.distance * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
         let pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
         js_sys::Float32Array::from(&[pos.x, pos.y, pos.z][..])
     }
@@ -764,15 +842,51 @@ impl WasmEngine {
         let profile = surfer_core::geometry::get_board_profile_at_z(model, z, v_outer);
 
         let obj = Object::new();
-        Reflect::set(&obj, &JsValue::from_str("topY"), &JsValue::from_f64(profile.top_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("botY"), &JsValue::from_f64(profile.bot_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("apexX"), &JsValue::from_f64(profile.apex_x as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("apexY"), &JsValue::from_f64(profile.apex_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("tuckX"), &JsValue::from_f64(profile.tuck_x as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("tuckY"), &JsValue::from_f64(profile.tuck_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("shoulderX"), &JsValue::from_f64(profile.shoulder_x as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("shoulderY"), &JsValue::from_f64(profile.shoulder_y as f64))?;
-        Reflect::set(&obj, &JsValue::from_str("halfWidth"), &JsValue::from_f64(profile.half_width as f64))?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("topY"),
+            &JsValue::from_f64(profile.top_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("botY"),
+            &JsValue::from_f64(profile.bot_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("apexX"),
+            &JsValue::from_f64(profile.apex_x as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("apexY"),
+            &JsValue::from_f64(profile.apex_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("tuckX"),
+            &JsValue::from_f64(profile.tuck_x as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("tuckY"),
+            &JsValue::from_f64(profile.tuck_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("shoulderX"),
+            &JsValue::from_f64(profile.shoulder_x as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("shoulderY"),
+            &JsValue::from_f64(profile.shoulder_y as f64),
+        )?;
+        Reflect::set(
+            &obj,
+            &JsValue::from_str("halfWidth"),
+            &JsValue::from_f64(profile.half_width as f64),
+        )?;
         Ok(obj.into())
     }
 
