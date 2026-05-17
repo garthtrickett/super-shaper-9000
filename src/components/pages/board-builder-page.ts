@@ -60,8 +60,12 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _handleWorkerMessage = (e: MessageEvent) => {
+    private _handleWorkerMessage = (e: MessageEvent) => {
     const data = e.data as { type: string, id?: string, profile?: Float32Array, seq?: number };
+    if (data.type === "RENDERER_READY") {
+        console.info("[BoardBuilder] WGPU Renderer Ready");
+        this.dispatchEvent(new CustomEvent("wgpu-ready", { bubbles: true, composed: true }));
+    }
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
       this.isProcessing = false;
@@ -413,7 +417,7 @@ export class BoardBuilderPage extends LitElement {
           </button>
         </div>
 
-        <board-viewport 
+                <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${mesh}
@@ -421,6 +425,18 @@ export class BoardBuilderPage extends LitElement {
           .mathEngine=${this.mathEngine}
           .selectedNodeContinuity=${this._selectedNodeContinuity}
           .isProcessing=${this.isProcessing}
+          @init-renderer=${(e: CustomEvent<{canvas: OffscreenCanvas, width: number, height: number}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "INIT_RENDERER", canvas: e.detail.canvas, width: e.detail.width, height: e.detail.height }, [e.detail.canvas]);
+              }
+          }}
+          @resize-renderer=${(e: CustomEvent<{width: number, height: number}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "RESIZE_RENDERER", width: e.detail.width, height: e.detail.height });
+              }
+          }}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {
             this._proposeAction({ type: "SELECT_NODE", node: e.detail.node });
             this._selectedNodeContinuity = 'G1';

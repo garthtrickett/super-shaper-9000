@@ -4,6 +4,7 @@ use surfer_core::model::BoardAction;
 use surfer_core::SurferEngine;
 use wasm_bindgen::prelude::*;
 pub use wasm_bindgen_rayon::init_thread_pool;
+use web_sys::OffscreenCanvas;
 
 #[derive(Serialize)]
 pub struct WasmUpdateResult<'a> {
@@ -11,9 +12,17 @@ pub struct WasmUpdateResult<'a> {
     pub effects: &'a [surfer_core::model::Effect],
 }
 
+pub struct RenderState {
+    surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+}
+
 #[wasm_bindgen]
 pub struct WasmEngine {
     engine: SurferEngine,
+    renderer: Option<RenderState>,
 }
 
 impl Default for WasmEngine {
@@ -31,7 +40,90 @@ impl WasmEngine {
         let _ = console_log::init_with_level(log::Level::Info);
         Self {
             engine: SurferEngine::new(),
+            renderer: None,
         }
+    }
+
+    #[wasm_bindgen]
+    pub async fn init_renderer(&mut self, canvas: OffscreenCanvas) -> Result<(), JsValue> {
+        let instance = wgpu::Instance::default();
+        
+        let surface = instance.create_surface(wgpu::SurfaceTarget::OffscreenCanvas(canvas))
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            compatible_surface: Some(&surface),
+            force_fallback_adapter: false,
+        }).await.ok_or_else(|| JsValue::from_str("Failed to request WGPU adapter"))?;
+
+        let (device, queue) = adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+            },
+            None,
+        ).await.map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let mut config = surface.get_default_config(&adapter, 800, 600)
+            .ok_or_else(|| JsValue::from_str("Failed to get default surface config"))?;
+            
+        surface.configure(&device, &config);
+
+        self.renderer = Some(RenderState {
+            surface,
+            device,
+            queue,
+            config,
+        });
+
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn resize_renderer(&mut self, width: u32, height: u32) {
+        if let Some(renderer) = &mut self.renderer {
+            renderer.config.width = width.max(1);
+            renderer.config.height = height.max(1);
+            renderer.surface.configure(&renderer.device, &renderer.config);
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn render(&mut self) -> Result<(), JsValue> {
+        if let Some(renderer) = &mut self.renderer {
+            let frame = renderer.surface.get_current_texture()
+                .map_err(|e| JsValue::from_str(&e.to_string()))?;
+            let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+            let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            {
+                let _rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color {
+                                r: 0.945, // Slate 100
+                                g: 0.960,
+                                b: 0.976,
+                                a: 1.0,
+                            }),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                });
+            }
+
+            renderer.queue.submit(Some(encoder.finish()));
+            frame.present();
+        }
+        Ok(())
     }
 
     #[wasm_bindgen]

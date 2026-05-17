@@ -3,6 +3,7 @@ import { type BoardModel, type BoardAction, INITIAL_STATE } from '../../../compo
 import type { RustMesh } from '../../../components/3d/board-viewport';
 
 let engine: WasmEngine | null = null;
+let isRendererReady = false;
 
 // Initialize the WASM module
 init().then(async () => {
@@ -38,13 +39,52 @@ init().then(async () => {
     (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
 });
 
-self.onmessage = (e: MessageEvent<{ type: string; z?: number; id?: string; action?: BoardAction; seq?: number }>) => {
+let renderLoopActive = false;
+
+const startRenderLoop = () => {
+    if (renderLoopActive || !engine || !isRendererReady) return;
+    renderLoopActive = true;
+    
+    const loop = () => {
+        try {
+            engine!.render();
+        } catch(e) {
+            console.error("Render loop error", e);
+        }
+        requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+};
+
+self.onmessage = async (e: MessageEvent<any>) => {
     if (!engine) {
         console.warn("[BoardWorker] Engine not ready, ignoring message.");
         return;
     }
 
     const msg = e.data;
+
+    if (msg.type === "INIT_RENDERER") {
+        try {
+            await engine.init_renderer(msg.canvas);
+            engine.resize_renderer(msg.width, msg.height);
+            isRendererReady = true;
+            startRenderLoop();
+            (self as unknown as Worker).postMessage({ type: "RENDERER_READY" });
+        } catch (err) {
+            console.error("[BoardWorker] Failed to init WGPU", err);
+            (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
+        }
+        return;
+    }
+
+    if (msg.type === "RESIZE_RENDERER") {
+        if (isRendererReady) {
+            engine.resize_renderer(msg.width, msg.height);
+        }
+        return;
+    }
+
                 if (msg.type === "GET_SLICE_PROFILE") {
         const profile = engine.get_slice_profile(msg.z!) as Float32Array;
                 (self as unknown as Worker).postMessage({

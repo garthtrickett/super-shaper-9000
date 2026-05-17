@@ -47,11 +47,12 @@ pub fn build_surface(
     let mut vertices = vec![0.0; total_points * 3];
     let mut normals = vec![0.0; total_points * 3];
     let mut uvs = vec![0.0; total_points * 2];
-            let mut colors = vec![0.0; total_points * 3];
+    let mut colors = vec![0.0; total_points * 3];
 
     use rayon::prelude::*;
 
-    vertices.par_chunks_exact_mut(num_cols * 3)
+    vertices
+        .par_chunks_exact_mut(num_cols * 3)
         .zip(normals.par_chunks_exact_mut(num_cols * 3))
         .zip(uvs.par_chunks_exact_mut(num_cols * 2))
         .zip(colors.par_chunks_exact_mut(num_cols * 3))
@@ -79,10 +80,18 @@ pub fn build_surface(
                     let cache_u_offset = cache_idx * num_cols * 2;
 
                     if cache_v_offset + num_cols * 3 <= cache.vertices.len() {
-                        v_chunk.copy_from_slice(&cache.vertices[cache_v_offset..cache_v_offset + num_cols * 3]);
-                        n_chunk.copy_from_slice(&cache.normals[cache_v_offset..cache_v_offset + num_cols * 3]);
-                        c_chunk.copy_from_slice(&cache.colors[cache_v_offset..cache_v_offset + num_cols * 3]);
-                        u_chunk.copy_from_slice(&cache.uvs[cache_u_offset..cache_u_offset + num_cols * 2]);
+                        v_chunk.copy_from_slice(
+                            &cache.vertices[cache_v_offset..cache_v_offset + num_cols * 3],
+                        );
+                        n_chunk.copy_from_slice(
+                            &cache.normals[cache_v_offset..cache_v_offset + num_cols * 3],
+                        );
+                        c_chunk.copy_from_slice(
+                            &cache.colors[cache_v_offset..cache_v_offset + num_cols * 3],
+                        );
+                        u_chunk.copy_from_slice(
+                            &cache.uvs[cache_u_offset..cache_u_offset + num_cols * 2],
+                        );
 
                         for j in 0..num_cols {
                             u_chunk[j * 2 + 1] = v_coord;
@@ -108,7 +117,8 @@ pub fn build_surface(
             let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
             for (j, &(norm_u, side, is_stringer, u_tex)) in u_columns.iter().enumerate() {
-                let abs_u = crate::mesh::sampler::norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
+                let abs_u =
+                    crate::mesh::sampler::norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
                 let mut point = ctx.get_point_at_uv(abs_u, side);
                 if is_stringer {
                     point.x = ctx.inner_x;
@@ -136,7 +146,7 @@ pub fn build_surface(
             }
         });
 
-        SurfaceData {
+    SurfaceData {
         vertices,
         normals,
         uvs,

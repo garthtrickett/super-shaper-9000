@@ -25,9 +25,9 @@ export class SceneManager {
   private resizeObserver: ResizeObserver;
 
   constructor(private canvas: HTMLCanvasElement, groups: THREE.Group[]) {
-    // 1. Scene setup
+        // 1. Scene setup
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf1f5f9); // slate-100 for high contrast with white board
+    this.scene.background = null;
 
         // 2. Camera setup
     const aspect = canvas.clientWidth / canvas.clientHeight;
@@ -43,12 +43,14 @@ export class SceneManager {
 
     this.configureCameras();
 
-    // 3. Renderer setup
+        // 3. Renderer setup
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
+      alpha: true,
       powerPreference: "high-performance"
     });
+    this.renderer.setClearColor(0x000000, 0);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;

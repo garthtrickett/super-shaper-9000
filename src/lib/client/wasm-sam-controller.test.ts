@@ -11,6 +11,35 @@ class MockHost implements ReactiveControllerHost {
 }
 
 describe("WasmSamController (FFI Integration)", () => {
+    it("initializes WGPU renderer via worker", async () => {
+    const host = new MockHost();
+    const controller = new WasmSamController(host);
+    // Wait for init
+    for (let i = 0; i < 200; i++) {
+      if (controller.model) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    const canvas = document.createElement("canvas");
+    const offscreen = canvas.transferControlToOffscreen();
+    
+    const worker = (controller as any).worker as Worker;
+    const readyPromise = new Promise<string>((resolve) => {
+        worker.addEventListener("message", (e) => {
+            if (e.data.type === "RENDERER_READY") resolve("READY");
+            if (e.data.type === "ERROR") resolve("ERROR: " + e.data.error);
+        });
+    });
+
+    worker.postMessage({ type: "INIT_RENDERER", canvas: offscreen, width: 800, height: 600 }, [offscreen]);
+
+    const result = await readyPromise;
+    console.log("WGPU Init result:", result);
+    expect(result).to.be.a('string');
+    
+    controller.hostDisconnected();
+  });
+
   it("initializes and receives the shadow state from the Rust worker", async () => {
         const host = new MockHost();
     const controller = new WasmSamController(host);

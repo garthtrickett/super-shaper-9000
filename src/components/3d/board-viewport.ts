@@ -38,8 +38,10 @@ export class BoardViewport extends LitElement {
   
   protected override createRenderRoot() { return this; }
 
-  @query("canvas") private canvas!: HTMLCanvasElement;
-    @state() private maximizedView: ViewportId | null = null;
+    @query("#three-canvas") private canvas!: HTMLCanvasElement;
+  @query("#wgpu-canvas") private wgpuCanvas!: HTMLCanvasElement;
+  
+  @state() private maximizedView: ViewportId | null = null;
     @state() private isFlipped = false;
   @state() private isOrtho = false;
   @state() private activeProfileSlice = 0;
@@ -67,7 +69,7 @@ export class BoardViewport extends LitElement {
   private matHandle = new THREE.MeshBasicMaterial({ color: 0x71717a, depthTest: false });
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false });
 
-                override firstUpdated() {
+                                override firstUpdated() {
     this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup, this.curvatureGroup, this.previewGroup);
     this.sceneManager = new SceneManager(this.canvas,[this.boardContainer]);
     this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup, this.wireframeGroup, this.sliceLinesGroup);
@@ -78,6 +80,22 @@ export class BoardViewport extends LitElement {
         this.textureManager.updateZebraCanvas(this.zebraOffset);
       }
     });
+
+    const offscreen = this.wgpuCanvas.transferControlToOffscreen();
+    this.dispatchEvent(new CustomEvent('init-renderer', {
+        detail: { canvas: offscreen, width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
+        bubbles: true,
+        composed: true
+    }));
+
+    const ro = new ResizeObserver(() => {
+        this.dispatchEvent(new CustomEvent('resize-renderer', {
+            detail: { width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
+            bubbles: true,
+            composed: true
+        }));
+    });
+    ro.observe(this.wgpuCanvas);
   }
 
           override updated(changedProperties: PropertyValues) {
@@ -998,8 +1016,9 @@ export class BoardViewport extends LitElement {
         ${id === 'profile' ? renderProfileSliceSelector() : ''}
       </div>
     `;
-        return html`
-      <canvas class="block w-full h-full outline-none"></canvas>
+                return html`
+      <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none" style="z-index: 0;"></canvas>
+      <canvas id="three-canvas" class="block w-full h-full outline-none relative z-10" style="background: transparent;"></canvas>
       ${this.isProcessing ? html`
         <div class="absolute bottom-3 left-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 text-blue-400 border-blue-500/30 border text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors">
           <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
