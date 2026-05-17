@@ -136,7 +136,7 @@ export class BoardViewport extends LitElement {
 
   private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
 
-      private findClosestNode(quad: string, wx: number, wy: number, wz: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
+        private findClosestNode(quad: string, wx: number, wy: number, wz: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
       const threshold = 15.0; // 15 inches of leniency for headless tests
       let bestHit: { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null = null;
       let minDist = threshold;
@@ -152,6 +152,10 @@ export class BoardViewport extends LitElement {
               dist = Math.hypot(ptX - wx, ptZ - wz);
           } else if (quad === 'side') {
               dist = Math.hypot(ptY - wy, ptZ - wz);
+          } else if (quad === 'profile') {
+              if (curveName === `crossSection_${this.activeProfileSlice}`) {
+                  dist = Math.hypot(ptX - wx, ptY - wy);
+              }
           }
           if (dist < minDist) {
               minDist = dist;
@@ -189,7 +193,7 @@ export class BoardViewport extends LitElement {
       return bestHit;
   }
 
-  private handlePointerDown = (e: PointerEvent) => {
+    private handlePointerDown = (e: PointerEvent) => {
     try { this.wgpuCanvas.setPointerCapture(e.pointerId); } catch {}
     
     if (this.boardState) {
@@ -202,38 +206,71 @@ export class BoardViewport extends LitElement {
         const ndcY = 1.0 - ((e.clientY - rect.top) / h);
 
         let quad = "";
+        let localNdcX = ndcX;
+        let localNdcY = ndcY;
+        let localAspect = aspect;
+
+        if (this.maximizedView) {
+            quad = this.maximizedView;
+            const maxW = rect.width;
+            const maxH = rect.height;
+            localNdcX = ((e.clientX - rect.left) / maxW) * 2 - 1.0;
+            localNdcY = 1.0 - ((e.clientY - rect.top) / maxH) * 2;
+        } else {
+            if (ndcX < 0 && ndcY > 0) quad = "top";
+            else if (ndcX >= 0 && ndcY > 0) quad = "perspective";
+            else if (ndcX < 0 && ndcY <= 0) quad = "side";
+            else if (ndcX >= 0 && ndcY <= 0) quad = "profile";
+
+            localNdcX = ndcX < 0 ? ndcX * 2 + 1 : ndcX * 2 - 1;
+            localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
+        }
+
         let worldX = 0, worldY = 0, worldZ = 0;
 
-                                if (ndcX < 0 && ndcY > 0) {
-            quad = "top";
+        if (quad === "top") {
             const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_top() : 8.0;
             const orthoTop = distance / 4.0;
-            const orthoRight = orthoTop * aspect;
-            worldX = (ndcX * 2 + 1) * orthoRight * 12;
-            worldZ = -(ndcY * 2 - 1) * orthoTop * 12;
-        } else if (ndcX < 0 && ndcY < 0) {
-            quad = "side";
+            const orthoRight = orthoTop * localAspect;
+            worldX = localNdcX * orthoRight * 12;
+            worldZ = -localNdcY * orthoTop * 12;
+        } else if (quad === "side") {
             const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_side() : 8.0;
             const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
-            const orthoRight = frustumSize * aspect / 2;
+            const orthoRight = frustumSize * localAspect / 2;
             const orthoTop = (frustumSize / 2) / stretchY;
-            worldZ = -(ndcX * 2 + 1) * orthoRight * 12;
-            worldY = (ndcY * 2 + 1) * orthoTop * 12;
+            worldZ = -localNdcX * orthoRight * 12;
+            worldY = localNdcY * orthoTop * 12;
+        } else if (quad === "profile") {
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_profile() : 8.0;
+            const orthoTop = distance / 4.0;
+            const orthoRight = orthoTop * localAspect;
+            worldX = localNdcX * orthoRight * 12;
+            worldY = localNdcY * orthoTop * 12;
+            
+            let targetZ = 0.0;
+            if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
+                const pt = this.boardState.crossSections[this.activeProfileSlice].controlPoints?.[0] || 
+                           (this.boardState.crossSections[this.activeProfileSlice] as any).control_points?.[0];
+                if (pt) {
+                    targetZ = Array.isArray(pt) ? pt[2] : pt.z;
+                }
+            }
+            worldZ = targetZ;
         }
 
-                if (quad) {
+        if (quad && quad !== "perspective") {
             const hit = this.findClosestNode(quad, worldX, worldY, worldZ);
             if (hit) {
-                                if (e.altKey) {
+                if (e.altKey) {
                     let exactT = 0.5;
                     if (this.mathEngine) {
-                        let roX = worldX, roY = worldY;
-                        const roZ = worldZ;
-                        let rdX = 0, rdY = 0;
-                        const rdZ = 0;
+                        let roX = worldX, roY = worldY, roZ = worldZ;
+                        let rdX = 0, rdY = 0, rdZ = 0;
                         if (quad === 'top') { roY = 100.0; rdY = -1.0; }
                         else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
+                        else if (quad === 'profile') { roZ = worldZ - 100.0; rdZ = 1.0; }
                         
                         const t = this.mathEngine.find_closest_t(hit.curve, roX, roY, roZ, rdX, rdY, rdZ);
                         if (t >= 0.0 && t <= 1.0) exactT = t;
@@ -257,7 +294,7 @@ export class BoardViewport extends LitElement {
     this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "down", x: e.clientX, y: e.clientY }, bubbles: true, composed: true }));
   };
 
-  private handlePointerMove = (e: PointerEvent) => {
+    private handlePointerMove = (e: PointerEvent) => {
     if (this.activeDragNode) {
         const rect = this.wgpuCanvas.getBoundingClientRect();
         const w = rect.width / 2;
@@ -265,16 +302,91 @@ export class BoardViewport extends LitElement {
         const aspect = rect.width / rect.height;
 
         const ndcX = ((e.clientX - rect.left) / w) - 1.0;
-                const ndcY = 1.0 - ((e.clientY - rect.top) / h);
+        const ndcY = 1.0 - ((e.clientY - rect.top) / h);
 
-                let worldX = 0, worldZ = 0;
-        const worldY = 0;
-                if (ndcY > 0) {
+        let quad = "";
+        let localNdcX = ndcX;
+        let localNdcY = ndcY;
+        let localAspect = aspect;
+
+        if (this.maximizedView) {
+            quad = this.maximizedView;
+            const maxW = rect.width;
+            const maxH = rect.height;
+            localNdcX = ((e.clientX - rect.left) / maxW) * 2 - 1.0;
+            localNdcY = 1.0 - ((e.clientY - rect.top) / maxH) * 2;
+        } else {
+            if (ndcX < 0 && ndcY > 0) quad = "top";
+            else if (ndcX >= 0 && ndcY > 0) quad = "perspective";
+            else if (ndcX < 0 && ndcY <= 0) quad = "side";
+            else if (ndcX >= 0 && ndcY <= 0) quad = "profile";
+
+            localNdcX = ndcX < 0 ? ndcX * 2 + 1 : ndcX * 2 - 1;
+            localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
+        }
+
+        let originalPos = [0,0,0];
+        if (this.boardState) {
+            let curveData: any;
+            if (this.activeDragNode.curve === 'outline') curveData = this.boardState.outline;
+            else if (this.activeDragNode.curve === 'rockerTop') curveData = this.boardState.rockerTop;
+            else if (this.activeDragNode.curve === 'rockerBottom') curveData = this.boardState.rockerBottom;
+            else if (this.activeDragNode.curve === 'apexOutline') curveData = this.boardState.apexOutline;
+            else if (this.activeDragNode.curve === 'railOutline') curveData = this.boardState.railOutline;
+            else if (this.activeDragNode.curve === 'apexRocker') curveData = this.boardState.apexRocker;
+            else if (this.activeDragNode.curve === 'deckShoulder') curveData = this.boardState.deckShoulder;
+            else if (this.activeDragNode.curve.startsWith('crossSection_')) {
+                const idx = parseInt(this.activeDragNode.curve.split('_')[1]!, 10);
+                curveData = this.boardState.crossSections?.[idx];
+            } else if (this.activeDragNode.curve.startsWith('outlineLayer_')) {
+                const parts = this.activeDragNode.curve.split('_');
+                const idx = parseInt(parts[1]!, 10);
+                const layer = this.boardState.outlineLayers?.[idx];
+                if (layer) curveData = parts[2] === 'ext' ? layer.otlExt : layer.otlInt;
+            } else if (this.activeDragNode.curve.startsWith('channel_')) {
+                const parts = this.activeDragNode.curve.split('_');
+                const idx = parseInt(parts[1]!, 10);
+                const channel = this.boardState.bottomChannels?.[idx];
+                if (channel) {
+                    if (parts[3] === 'outline') curveData = parts[2] === 'left' ? channel.leftOutline : channel.rightOutline;
+                    if (parts[3] === 'depth') curveData = parts[2] === 'left' ? channel.leftDepth : channel.rightDepth;
+                }
+            }
+
+            if (curveData) {
+                let pts = curveData.controlPoints || curveData.control_points;
+                if (this.activeDragNode.type === 'tangent1') pts = curveData.tangents1 || curveData.tangents_1;
+                if (this.activeDragNode.type === 'tangent2') pts = curveData.tangents2 || curveData.tangents_2;
+                
+                const pt = pts?.[this.activeDragNode.index];
+                if (pt) {
+                    originalPos = Array.isArray(pt) ? pt : [pt.x, pt.y, pt.z];
+                }
+            }
+        }
+
+        let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
+
+        if (quad === "top") {
             const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_top() : 8.0;
             const orthoTop = distance / 4.0;
-            const orthoRight = orthoTop * aspect;
-            worldX = (ndcX * 2 + 1) * orthoRight * 12;
-            worldZ = -(ndcY * 2 - 1) * orthoTop * 12;
+            const orthoRight = orthoTop * localAspect;
+            worldX = localNdcX * orthoRight * 12;
+            worldZ = -localNdcY * orthoTop * 12;
+        } else if (quad === "side") {
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_side() : 8.0;
+            const frustumSize = (distance / 4.0) * 2.0;
+            const stretchY = 2.5;
+            const orthoRight = frustumSize * localAspect / 2;
+            const orthoTop = (frustumSize / 2) / stretchY;
+            worldZ = -localNdcX * orthoRight * 12;
+            worldY = localNdcY * orthoTop * 12;
+        } else if (quad === "profile") {
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_profile() : 8.0;
+            const orthoTop = distance / 4.0;
+            const orthoRight = orthoTop * localAspect;
+            worldX = localNdcX * orthoRight * 12;
+            worldY = localNdcY * orthoTop * 12;
         }
 
         this.dispatchEvent(new CustomEvent('gizmo-dragged', {
