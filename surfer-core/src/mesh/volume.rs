@@ -1,17 +1,18 @@
-use crate::mesh::surface::SurfaceGrid;
-
-pub fn compute_volume(grid: &SurfaceGrid) -> f32 {
-    if grid.is_empty() || grid[0].is_empty() {
+pub fn compute_volume(vertices: &[f32], segments_v: usize, num_cols: usize) -> f32 {
+    if segments_v == 0 || num_cols == 0 {
         return 0.0;
     }
 
-    let segments_v = grid.len() - 1;
-    let num_cols = grid[0].len();
     let mut total_volume_cubic_feet = 0.0;
 
+    let get_pos = |i: usize, j: usize| {
+        let idx = (i * num_cols + j) * 3;
+        glam::Vec3::new(vertices[idx], vertices[idx + 1], vertices[idx + 2])
+    };
+
     for i in 0..segments_v {
-        let z0 = grid[i][0].pos.z;
-        let z1 = grid[i + 1][0].pos.z;
+        let z0 = get_pos(i, 0).z;
+        let z1 = get_pos(i + 1, 0).z;
         let dz = (z1 - z0).abs();
 
         let mut area0 = 0.0;
@@ -19,12 +20,12 @@ pub fn compute_volume(grid: &SurfaceGrid) -> f32 {
 
         for j in 0..num_cols {
             let next_j = (j + 1) % num_cols;
-            let p0_a = grid[i][j].pos;
-            let p0_b = grid[i][next_j].pos;
+            let p0_a = get_pos(i, j);
+            let p0_b = get_pos(i, next_j);
             area0 += p0_a.x * p0_b.y - p0_b.x * p0_a.y;
 
-            let p1_a = grid[i + 1][j].pos;
-            let p1_b = grid[i + 1][next_j].pos;
+            let p1_a = get_pos(i + 1, j);
+            let p1_b = get_pos(i + 1, next_j);
             area1 += p1_a.x * p1_b.y - p1_b.x * p1_a.y;
         }
 
@@ -42,75 +43,46 @@ pub fn compute_volume(grid: &SurfaceGrid) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mesh::surface::SurfacePoint;
-    use glam::Vec3;
 
     #[test]
+        #[test]
     fn test_compute_volume_box() {
-        // A simple 1x1x1 box in coordinate space.
-        // Z from 0 to 1
-        // Cross section is a square from (-0.5, -0.5) to (0.5, 0.5). Area = 1.0.
-        // Volume should be 1.0 cubic unit * 28.3168 Liters
+        let mut vertices = Vec::new();
+        let num_cols = 4;
+        let segments_v = 1;
 
-        let make_ring = |z: f32| -> Vec<SurfacePoint> {
-            vec![
-                SurfacePoint {
-                    pos: Vec3::new(-0.5, -0.5, z),
-                    ..Default::default()
-                },
-                SurfacePoint {
-                    pos: Vec3::new(0.5, -0.5, z),
-                    ..Default::default()
-                },
-                SurfacePoint {
-                    pos: Vec3::new(0.5, 0.5, z),
-                    ..Default::default()
-                },
-                SurfacePoint {
-                    pos: Vec3::new(-0.5, 0.5, z),
-                    ..Default::default()
-                },
-            ]
+        let push_ring = |v: &mut Vec<f32>, z: f32| {
+            v.extend_from_slice(&[-0.5, -0.5, z]);
+            v.extend_from_slice(&[0.5, -0.5, z]);
+            v.extend_from_slice(&[0.5, 0.5, z]);
+            v.extend_from_slice(&[-0.5, 0.5, z]);
         };
 
-        let grid: SurfaceGrid = vec![make_ring(0.0), make_ring(1.0)];
+        push_ring(&mut vertices, 0.0);
+        push_ring(&mut vertices, 1.0);
 
-        let vol = compute_volume(&grid);
+        let vol = compute_volume(&vertices, segments_v, num_cols);
         assert!((vol - 28.3168).abs() < 1e-4);
     }
 
     #[test]
+        #[test]
     fn test_compute_volume_wedge() {
-        // A wedge that linearly tapers from a 2x2 square to a 2x0 line.
-        // Z from 0 to 1
-        // Area at Z=0 is 4.0. Area at Z=1 is 0.0.
-        // Trapezoidal integration: (4 + 0) / 2 * 1.0 = 2.0 cubic units.
+        let mut vertices = Vec::new();
+        let num_cols = 4;
+        let segments_v = 1;
 
-        let make_ring = |z: f32, width: f32, height: f32| -> Vec<SurfacePoint> {
-            vec![
-                SurfacePoint {
-                    pos: Vec3::new(-width / 2.0, 0.0, z),
-                    ..Default::default()
-                },
-                SurfacePoint {
-                    pos: Vec3::new(width / 2.0, 0.0, z),
-                    ..Default::default()
-                },
-                SurfacePoint {
-                    pos: Vec3::new(width / 2.0, height, z),
-                    ..Default::default()
-                },
-                SurfacePoint {
-                    pos: Vec3::new(-width / 2.0, height, z),
-                    ..Default::default()
-                },
-            ]
+        let push_ring = |v: &mut Vec<f32>, z: f32, width: f32, height: f32| {
+            v.extend_from_slice(&[-width / 2.0, 0.0, z]);
+            v.extend_from_slice(&[width / 2.0, 0.0, z]);
+            v.extend_from_slice(&[width / 2.0, height, z]);
+            v.extend_from_slice(&[-width / 2.0, height, z]);
         };
 
-        let grid: SurfaceGrid = vec![make_ring(0.0, 2.0, 2.0), make_ring(1.0, 2.0, 0.0)];
+        push_ring(&mut vertices, 0.0, 2.0, 2.0);
+        push_ring(&mut vertices, 1.0, 2.0, 0.0);
 
-        let vol = compute_volume(&grid);
-        // Expected liters: 2.0 * 28.3168 = 56.6336
+        let vol = compute_volume(&vertices, segments_v, num_cols);
         assert!((vol - 56.6336).abs() < 1e-3, "Volume mismatch: got {}", vol);
     }
 }

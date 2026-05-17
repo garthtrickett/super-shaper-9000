@@ -6,16 +6,146 @@ pub mod surface;
 pub mod topology;
 pub mod volume;
 
-use surface::SurfaceGrid;
-
+#[derive(Default, Clone)]
 #[derive(Default, Clone)]
 pub struct MeshCache {
     pub z_rings: Vec<f32>,
     pub u_columns: Vec<(f32, f32, bool, f32)>,
-    pub grid: SurfaceGrid,
+    pub vertices: Vec<f32>,
+    pub normals: Vec<f32>,
+    pub colors: Vec<f32>,
+    pub uvs: Vec<f32>,
 }
 
 pub fn generate_mesh(
+    model: &BoardModel,
+    dirty: &mut crate::model::DirtyState,
+    cache: &mut MeshCache,
+) -> RawGeometryData {
+    log::debug!(
+        "[Rust core] generate_mesh: Rebuilding for length {:.1}",
+        model.length
+    );
+    let scale = 1.0 / 12.0;
+
+    let bounds = crate::geometry::get_board_bounds(model);
+    let notch_z = bounds.notch_z;
+
+    let outline = match &model.outline {
+        Some(o) => o,
+        None => return RawGeometryData::default(),
+    };
+    if outline.control_points.is_empty() {
+        return RawGeometryData::default();
+    }
+
+    let nose_z = bounds.nose_z;
+    let tip_z = bounds.tip_z;
+    let v_tip = bounds.tip_t;
+
+    let z_rings = sampler::compute_z_rings(model, dirty, cache, nose_z, tip_z, outline);
+    let segments_v = z_rings.len().saturating_sub(1);
+
+    let u_columns =
+        sampler::compute_u_columns(model, dirty, cache, &z_rings, outline, notch_z, v_tip);
+    let num_cols = u_columns.len();
+    let right_half_cols = num_cols / 2;
+    let half = right_half_cols.saturating_sub(1);
+
+    if cache.u_columns.len() != u_columns.len()
+        || cache
+            .u_columns
+            .iter()
+            .zip(u_columns.iter())
+            .any(|(a, b)| (a.0 - b.0).abs() > 1e-5)
+    {
+        dirty.global_rebuild = true;
+    }
+
+    let surface_data = surface::build_surface(
+        model, dirty, cache, &z_rings, &u_columns, outline, notch_z, v_tip, scale,
+    );
+    let mut vertices = surface_data.vertices;
+    let mut normals = surface_data.normals;
+    let mut uvs = surface_data.uvs;
+    let mut colors = surface_data.colors;
+
+    let mut indices = topology::generate_hull_indices(&vertices, segments_v, num_cols, right_half_cols);
+
+    if (tip_z - notch_z) >= 1e-3 {
+        log::debug!(
+            "[Rust core] generate_mesh: Carving swallow tail notch (Depth: {:.2}in)",
+            tip_z - notch_z
+        );
+    }
+
+    // Save the new hull data back into the SurferEngine's MeshCache before caps are appended.
+    cache.z_rings = z_rings.clone();
+    cache.u_columns = u_columns.clone();
+    cache.vertices = vertices.clone();
+    cache.normals = normals.clone();
+    cache.colors = colors.clone();
+    cache.uvs = uvs.clone();
+
+    topology::generate_swallow_notch_wall(
+        &z_rings,
+        segments_v,
+        num_cols,
+        half,
+        notch_z,
+        tip_z,
+        v_tip,
+        &mut vertices,
+        &mut uvs,
+        &mut colors,
+        &mut normals,
+        &mut indices,
+    );
+
+    topology::generate_cap(
+        0,
+        Vec3::new(0.0, 0.0, -1.0),
+        true,
+        num_cols,
+        half,
+        right_half_cols,
+        &u_columns,
+        scale,
+        &mut vertices,
+        &mut uvs,
+        &mut colors,
+        &mut normals,
+        &mut indices,
+    );
+
+    topology::generate_cap(
+        segments_v,
+        Vec3::new(0.0, 0.0, 1.0),
+        false,
+        num_cols,
+        half,
+        right_half_cols,
+        &u_columns,
+        scale,
+        &mut vertices,
+        &mut uvs,
+        &mut colors,
+        &mut normals,
+        &mut indices,
+    );
+
+    let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
+    log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
+
+    RawGeometryData {
+        vertices,
+        indices,
+        uvs,
+        colors,
+        normals,
+        volume_liters,
+    }
+}
     model: &BoardModel,
     dirty: &mut crate::model::DirtyState,
     cache: &mut MeshCache,

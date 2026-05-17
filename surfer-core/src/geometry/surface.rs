@@ -245,7 +245,7 @@ impl<'a> ZRingContext<'a> {
     pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
-                if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
+        if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
             let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
             if side < 0.0 {
@@ -329,7 +329,7 @@ impl<'a> ZRingContext<'a> {
     pub fn get_surface_normal_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
-                if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
+        if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
             let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
             let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
             if side < 0.0 {
