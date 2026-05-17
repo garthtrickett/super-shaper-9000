@@ -525,8 +525,7 @@ impl WasmEngine {
                         (0.0, 0.0, full_w, full_h)
                     };
 
-                    rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
-                    rpass.set_scissor_rect(vp_x as u32, vp_y as u32, vp_w as u32, vp_h as u32);
+                                        rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
 
                     let draw_solid = (q == "perspective"
                         || (self.view_mode != "quad"
