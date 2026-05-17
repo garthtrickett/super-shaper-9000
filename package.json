@@ -2,7 +2,7 @@
   "name": "super-shaper-9000",
   "type": "module",
     "scripts": {
-            "build:wasm": "bash -c 'RUST_SRC=\"${RUST_SRC_PATH%/*}\"; if [ -z \"$RUST_SRC\" ]; then RUST_SRC=\"$(rustc --print sysroot)/lib/rustlib/src/rust\"; fi; if [ ! -f \"$RUST_SRC/Cargo.lock\" ] && [ ! -f \"$RUST_SRC/library/Cargo.lock\" ]; then rm -rf .rust-src && cp -rL \"$RUST_SRC\" .rust-src && chmod -R u+w .rust-src && touch .rust-src/Cargo.lock .rust-src/library/Cargo.lock && export RUST_SRC_PATH=\"$(pwd)/.rust-src/library\"; fi; cargo build -p surfer-wasm --target wasm32-unknown-unknown -Z build-std=std,panic_abort --release && wasm-bindgen target/wasm32-unknown-unknown/release/surfer_wasm.wasm --out-dir src/lib/client/wasm --target web'", 
+                "build:wasm": "rm -f .cargo/config.toml; cargo remove -p surfer-wasm wasm-bindgen-rayon || true; cargo remove -p surfer-core rayon || true; cargo build -p surfer-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/surfer_wasm.wasm --out-dir src/lib/client/wasm --target web", 
         "watch:wasm": "nodemon --watch surfer-core/src --watch surfer-wasm/src --ext rs --exec \"bun run build:wasm\"",
     "dev": "bun run build:wasm && concurrently \"vite\" \"bun run --watch src/server/index.ts\" \"bun run watch:wasm\"",
     "build": "bun run build:wasm && tsc && vite build",

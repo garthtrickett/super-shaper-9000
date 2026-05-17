@@ -48,14 +48,12 @@ pub fn build_surface(
     let mut vertices = vec![0.0; total_points * 3];
     let mut normals = vec![0.0; total_points * 3];
     let mut uvs = vec![0.0; total_points * 2];
-    let mut colors = vec![0.0; total_points * 3];
+        let mut colors = vec![0.0; total_points * 3];
 
-    use rayon::prelude::*;
-
-    vertices.par_chunks_exact_mut(num_cols * 3)
-        .zip(normals.par_chunks_exact_mut(num_cols * 3))
-        .zip(uvs.par_chunks_exact_mut(num_cols * 2))
-        .zip(colors.par_chunks_exact_mut(num_cols * 3))
+    vertices.chunks_exact_mut(num_cols * 3)
+        .zip(normals.chunks_exact_mut(num_cols * 3))
+        .zip(uvs.chunks_exact_mut(num_cols * 2))
+        .zip(colors.chunks_exact_mut(num_cols * 3))
         .enumerate()
         .for_each(|(i, (((v_chunk, n_chunk), u_chunk), c_chunk))| {
             let z_inches = z_rings[i];
