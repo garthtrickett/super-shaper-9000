@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
-import init, { WasmEngine, initThreadPool } from '../wasm/surfer_wasm.js';
+import init, { WasmEngine, initThreadPool, create_wgpu_renderer, type WgpuRenderer } from '../wasm/surfer_wasm.js';
 import { type BoardModel, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
 
 let engine: WasmEngine | null = null;
@@ -75,9 +75,10 @@ self.onmessage = async (e: MessageEvent<any>) => {
 
     const msg = e.data;
 
-        if (msg.type === "INIT_RENDERER") {
+                if (msg.type === "INIT_RENDERER") {
         try {
-            await engine.init_renderer(msg.canvas, msg.width, msg.height);
+            const renderer = await create_wgpu_renderer(msg.canvas, msg.width, msg.height);
+            engine.set_renderer(renderer);
             engine.resize_renderer(msg.width, msg.height);
             isRendererReady = true;
             startRenderLoop();
