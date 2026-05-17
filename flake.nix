@@ -40,7 +40,7 @@
 
       overlays = [ (import rust-overlay) ];
       pkgsWithRust = import nixpkgs { inherit system overlays; };
-      rustToolchain = pkgsWithRust.rust-bin.nightly.latest.default.override {
+            rustToolchain = pkgsWithRust.rust-bin.nightly."2025-11-15".default.override {
         extensions = [ "rust-src" "rust-analyzer" ];
         targets = [ "wasm32-unknown-unknown" ];
       };

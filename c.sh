@@ -68,10 +68,26 @@ SCRIPT_NAME=$(basename "$0")
 : >"$TEMP_FILE"
 trap 'rm -f "$TEMP_FILE"' EXIT
 
+# ==========================================
+# PRIORITY 0: FLAKE.NIX (TOP OF THE FILE)
+# ==========================================
+FLAKE_FILE="./flake.nix"
+if [ -f "$FLAKE_FILE" ]; then
+    log "Including top-priority file: $FLAKE_FILE"
+    {
+        echo "File: flake.nix"
+        echo "------------------------"
+        cat "$FLAKE_FILE" | cat -s
+        echo -e "\n\n"
+    } >>"$TEMP_FILE"
+else
+    warn "Special file $FLAKE_FILE not found in root. Skipping."
+fi
+
 echo "Concatenating directory files..." >>"$TEMP_FILE"
 
 # ==========================================
-# PASS 0: RUST FILES (PRIORITY)
+# PASS 1: RUST FILES (PRIORITY)
 # ==========================================
 log "Gathering Priority Rust Files..."
 echo -e "\nHERE ARE THE RUST FILES\n" >>"$TEMP_FILE"
@@ -99,16 +115,16 @@ echo "------------------------------------------" >>"$TEMP_FILE"
 log "Building file search arguments..."
 
 # 1. Start building find arguments
-# NOTE: We do NOT add (-type f) here yet.
 find_args=(.)
 
-# 2. Exclude script artifacts
+# 2. Exclude script artifacts and explicitly extracted files
 find_args+=(-not -name "$CONFIG_FILE")
 find_args+=(-not -name "$SCRIPT_NAME")
 find_args+=(-not -name "$TEMP_FILE")
 find_args+=(-not -name "$OUTPUT_FILE")
 find_args+=(-not -name "*.rs")
 find_args+=(-not -name "*.brd")
+find_args+=(-not -name "flake.nix")
 
 # 3. Add Excludes (-not -path)
 for path in "${EXCLUDES[@]}"; do
@@ -116,17 +132,14 @@ for path in "${EXCLUDES[@]}"; do
 done
 
 # 4. Add Prunes (Smart Logic with Exceptions)
-# Helper function to add prune args
 add_prune_args() {
     local arr=("${@}")
     for item in "${arr[@]}"; do
         local has_exception=false
         local exception_args=()
 
-        # Check if this prune path has any exceptions defined
         if [ ${#PRUNE_EXCEPTIONS[@]} -gt 0 ]; then
             for exc in "${PRUNE_EXCEPTIONS[@]}"; do
-                # If an exception is inside this pruned directory
                 if [[ "$exc" == "$item"/* ]]; then
                     has_exception=true
                     exception_args+=(-not -path "$exc" -not -path "$exc/*")
@@ -135,13 +148,10 @@ add_prune_args() {
         fi
 
         if [ "$has_exception" = true ]; then
-            # Let find enter the parent dir, but prune all children EXCEPT the allowed ones
             find_args+=(-path "$item/*" "${exception_args[@]}" -prune -o)
         elif [[ "$item" == *"/"* ]]; then
-            # Standard path prune
             find_args+=(-path "$item" -prune -o)
         else
-            # Standard name prune
             find_args+=(-name "$item" -prune -o)
         fi
     done
@@ -188,7 +198,6 @@ log "Starting recursive search and concatenation..."
 find "${find_args[@]}" -print0 | while IFS= read -r -d '' file; do
     if [ -d "$file" ]; then continue; fi
 
-    # Check size for logging
     if [[ "$OSTYPE" == "darwin"* ]]; then
         fsize=$(stat -f%z "$file")
     else
@@ -205,13 +214,7 @@ find "${find_args[@]}" -print0 | while IFS= read -r -d '' file; do
     {
         echo "File: $file"
         echo "------------------------"
-        # ✅ SAFELY stripped down to only remove `//` comments
-        # Multiline `/*` stripping is too dangerous for RegEx in Lit components.
-        if [[ "$file" == *.ts || "$file" == *.tsx || "$file" == *.js ]]; then
-            cat "$file" | cat -s
-        else
-            cat "$file" | cat -s
-        fi
+        cat "$file" | cat -s
         echo -e "\n\n"
     } >>"$TEMP_FILE"
 done
@@ -239,15 +242,12 @@ if [ ${#ROOT_EXTENSIONS[@]} -gt 0 ]; then
     find "${root_args[@]}" -print0 | while IFS= read -r -d '' file; do
         if [ -d "$file" ]; then continue; fi
 
-        # Skip artifacts
         case "$file" in
-            "./$OUTPUT_FILE" | "./$CONFIG_FILE" | "./$SCRIPT_NAME" | "./$TEMP_FILE") continue ;;
+            "./$OUTPUT_FILE" | "./$CONFIG_FILE" | "./$SCRIPT_NAME" | "./$TEMP_FILE" | "./flake.nix") continue ;;
         esac
 
-        # Check explicit root excludes
         skip=false
         for exclude in "${ROOT_EXCLUDES[@]}"; do
-            # shellcheck disable=SC2254
             case "$file" in
                 $exclude | ./$exclude)
                     skip=true
@@ -263,7 +263,6 @@ if [ ${#ROOT_EXTENSIONS[@]} -gt 0 ]; then
         {
             echo "File: ${file#./}"
             echo "------------------------"
-            # ✅ SAFELY stripped down to only remove `//` comments
             if [[ "$file" == *.ts || "$file" == *.tsx || "$file" == *.js ]]; then
                 sed -e '/^[[:space:]]*\/\//d' "$file" | cat -s
             else
@@ -275,26 +274,9 @@ if [ ${#ROOT_EXTENSIONS[@]} -gt 0 ]; then
 fi
 
 # ==========================================
-# FINALIZE
-# ==========================================
-#
-# ==========================================
 # SPECIAL FILE: AKU-SHAPER-DUMP
 # ==========================================
 DUMP_FILE="./aku-shaper-dump.txt"
-if [ -f "$DUMP_FILE" ]; then
-    log "Including special file: $DUMP_FILE"
-    {
-        echo "File: aku-shaper-dump.txt"
-        echo "------------------------"
-        cat "$DUMP_FILE" | cat -s
-        echo -e "\n\n"
-    } >>"$TEMP_FILE"
-else
-    warn "Special file $DUMP_FILE not found in root. Skipping."
-fi
-
-DUMP_FILE="./flake.nix"
 if [ -f "$DUMP_FILE" ]; then
     log "Including special file: $DUMP_FILE"
     {
