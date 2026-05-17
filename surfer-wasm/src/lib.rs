@@ -854,9 +854,8 @@ pub async fn create_wgpu_renderer(
 ) -> Result<WgpuRenderer, JsValue> {
     #[cfg(target_arch = "wasm32")]
     {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            // backends: wgpu::Backends::GL,
+                let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::GL,
             ..Default::default()
         });
         let surface = instance
