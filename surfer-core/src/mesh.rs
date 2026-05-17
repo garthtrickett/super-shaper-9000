@@ -1513,9 +1513,9 @@ mod tests {
         let u_stringer = 0.0;
         let u_tuck = 0.05; // Slightly off the stringer
 
-        let n_stringer =
-            crate::geometry::get_surface_normal_at_uvz(&model, u_stringer, bounds.nose_z, 1.0);
-        let n_tuck = crate::geometry::get_surface_normal_at_uvz(&model, u_tuck, bounds.nose_z, 1.0);
+                let ctx = crate::geometry::ZRingContext::new(&model, bounds.nose_z);
+        let n_stringer = ctx.get_surface_normal_at_uvz(u_stringer, 1.0);
+        let n_tuck = ctx.get_surface_normal_at_uvz(u_tuck, 1.0);
 
         let dot = n_stringer.dot(n_tuck);
         assert!(

@@ -755,6 +755,40 @@ mod tests {
         assert!(pt.y < -0.1);
     }
 
+        #[test]
+    fn test_z_ring_context_caching() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 50.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+
+        let ctx = ZRingContext::new(&model, 50.0);
+        assert_eq!(ctx.z_inches, 50.0);
+        assert_eq!(ctx.bounds.nose_z, 0.0);
+        assert_eq!(ctx.bounds.tip_z, 100.0);
+
+        let pt = ctx.get_point_at_uv(0.5, 1.0);
+        assert!(pt.x > 0.0);
+        
+        let n = ctx.get_surface_normal_at_uvz(0.5, 1.0);
+        assert!(n.length() > 0.99 && n.length() < 1.01);
+    }
+
     #[test]
     fn test_mini_simmons_tuck_x_not_less_than_inner_x() {
         let mut model = BoardModel::default();
