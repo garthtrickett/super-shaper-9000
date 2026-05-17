@@ -2,8 +2,20 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [
+    plugins: [
     tailwindcss(),
+    {
+      name: 'fix-rayon-worker-import',
+      enforce: 'pre',
+      transform(code, id) {
+        if (id.endsWith('workerHelpers.js')) {
+          return {
+            code: code.replace(/import\(['"]\.\.\/\.\.\/\.\.['"]\)/g, "import('../../../surfer_wasm.js')"),
+            map: null
+          };
+        }
+      }
+    },
     {
       name: 'isolation-headers',
       configureServer(server) {
