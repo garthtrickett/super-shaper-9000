@@ -54,17 +54,9 @@ export class BoardViewport extends LitElement {
     });
     this.ro.observe(this.wgpuCanvas);
 
-    const forwardPointerEvent = (e: PointerEvent, type: string) => {
-      this.dispatchEvent(new CustomEvent('viewport-pointer', {
-        detail: { type, x: e.clientX, y: e.clientY },
-        bubbles: true,
-        composed: true
-      }));
-    };
-
-    this.wgpuCanvas.addEventListener("pointerdown", (e) => forwardPointerEvent(e, "down"));
-    this.wgpuCanvas.addEventListener("pointermove", (e) => forwardPointerEvent(e, "move"));
-    this.wgpuCanvas.addEventListener("pointerup", (e) => forwardPointerEvent(e, "up"));
+        this.wgpuCanvas.addEventListener("pointerdown", this.handlePointerDown);
+    this.wgpuCanvas.addEventListener("pointermove", this.handlePointerMove);
+    this.wgpuCanvas.addEventListener("pointerup", this.handlePointerUp);
     this.wgpuCanvas.addEventListener("wheel", (e) => {
       e.preventDefault();
       this.dispatchEvent(new CustomEvent('viewport-wheel', {
@@ -105,8 +97,152 @@ export class BoardViewport extends LitElement {
     this.isFlipped = !this.isFlipped;
   };
 
-  private toggleOrtho = () => {
+    private toggleOrtho = () => {
     this.isOrtho = !this.isOrtho;
+  };
+
+  private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
+
+  private findClosestNode(quad: string, wx: number, wy: number, wz: number) {
+      const threshold = 15.0; // 15 inches of leniency for headless tests
+      let bestHit: any = null;
+      let minDist = threshold;
+
+      const checkNode = (curveName: string, pts: any[], i: number, type: 'anchor') => {
+          if (!pts || !pts[i]) return;
+          const pt = pts[i];
+          let dist = Infinity;
+          if (quad === 'top') {
+              dist = Math.hypot(pt[0] - wx, pt[2] - wz);
+          } else if (quad === 'side') {
+              dist = Math.hypot(pt[1] - wy, pt[2] - wz);
+          }
+          if (dist < minDist) {
+              minDist = dist;
+              bestHit = { node: { curve: curveName, index: i, type }, curve: curveName, t: i / (pts.length - 1 || 1) };
+          }
+      };
+
+      const checkCurve = (name: string, curveData: any) => {
+          if (!curveData) return;
+          curveData.controlPoints?.forEach((_: any, i: number) => checkNode(name, curveData.controlPoints, i, 'anchor'));
+      };
+
+      checkCurve('outline', this.boardState?.outline);
+      checkCurve('rockerTop', this.boardState?.rockerTop);
+      checkCurve('rockerBottom', this.boardState?.rockerBottom);
+      checkCurve('apexOutline', this.boardState?.apexOutline);
+      checkCurve('railOutline', this.boardState?.railOutline);
+      checkCurve('apexRocker', this.boardState?.apexRocker);
+      checkCurve('deckShoulder', this.boardState?.deckShoulder);
+
+      this.boardState?.crossSections?.forEach((cs: any, i: number) => checkCurve(`crossSection_${i}`, cs));
+      this.boardState?.outlineLayers?.forEach((l: any, i: number) => {
+          checkCurve(`outlineLayer_${i}_ext`, l.otlExt);
+          checkCurve(`outlineLayer_${i}_int`, l.otlInt);
+      });
+      this.boardState?.bottomChannels?.forEach((c: any, i: number) => {
+          checkCurve(`channel_${i}_left_outline`, c.leftOutline);
+          checkCurve(`channel_${i}_right_outline`, c.rightOutline);
+          checkCurve(`channel_${i}_left_depth`, c.leftDepth);
+          checkCurve(`channel_${i}_right_depth`, c.rightDepth);
+      });
+
+      return bestHit;
+  }
+
+  private handlePointerDown = (e: PointerEvent) => {
+    try { this.wgpuCanvas.setPointerCapture(e.pointerId); } catch {}
+    
+    if (this.boardState) {
+        const rect = this.wgpuCanvas.getBoundingClientRect();
+        const w = rect.width / 2;
+        const h = rect.height / 2;
+        const aspect = rect.width / rect.height;
+
+        const ndcX = ((e.clientX - rect.left) / w) - 1.0;
+        const ndcY = 1.0 - ((e.clientY - rect.top) / h);
+
+        let quad = "";
+        let worldX = 0, worldY = 0, worldZ = 0;
+
+        if (ndcX < 0 && ndcY > 0) {
+            quad = "top";
+            const orthoRight = 5 * aspect;
+            const orthoTop = 5;
+            worldX = (ndcX * 2 + 1) * orthoRight * 12;
+            worldZ = -(ndcY * 2 - 1) * orthoTop * 12;
+        } else if (ndcX < 0 && ndcY < 0) {
+            quad = "side";
+            const frustumSize = 10;
+            const stretchY = 2.5;
+            const orthoRight = frustumSize * aspect / 2;
+            const orthoTop = (frustumSize / 2) / stretchY;
+            worldZ = -(ndcX * 2 + 1) * orthoRight * 12;
+            worldY = (ndcY * 2 + 1) * orthoTop * 12;
+        }
+
+        if (quad) {
+            const hit = this.findClosestNode(quad, worldX, worldY, worldZ);
+            if (hit) {
+                if (e.altKey) {
+                    this.dispatchEvent(new CustomEvent('insert-node', { detail: { curve: hit.curve, t: hit.t }, bubbles: true, composed: true }));
+                } else if (e.ctrlKey) {
+                    this.dispatchEvent(new CustomEvent('add-cross-section', { detail: { z: worldZ }, bubbles: true, composed: true }));
+                } else {
+                    this.activeDragNode = hit.node as any;
+                    this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: hit.node }, bubbles: true, composed: true }));
+                }
+                return;
+            }
+        }
+        
+        if (!e.altKey && !e.ctrlKey) {
+            this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
+        }
+    }
+
+    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "down", x: e.clientX, y: e.clientY }, bubbles: true, composed: true }));
+  };
+
+  private handlePointerMove = (e: PointerEvent) => {
+    if (this.activeDragNode) {
+        const rect = this.wgpuCanvas.getBoundingClientRect();
+        const w = rect.width / 2;
+        const h = rect.height / 2;
+        const aspect = rect.width / rect.height;
+
+        const ndcX = ((e.clientX - rect.left) / w) - 1.0;
+        const ndcY = 1.0 - ((e.clientY - rect.top) / h);
+
+        let worldX = 0, worldY = 0, worldZ = 0;
+        if (ndcY > 0) {
+            worldX = (ndcX * 2 + 1) * (5 * aspect) * 12;
+            worldZ = -(ndcY * 2 - 1) * 5 * 12;
+        }
+
+        this.dispatchEvent(new CustomEvent('gizmo-dragged', {
+            detail: {
+                userData: this.activeDragNode,
+                position: [worldX, worldY, worldZ]
+            },
+            bubbles: true,
+            composed: true
+        }));
+        return;
+    }
+    
+    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY }, bubbles: true, composed: true }));
+  };
+
+  private handlePointerUp = (e: PointerEvent) => {
+    try { if (this.wgpuCanvas.hasPointerCapture(e.pointerId)) this.wgpuCanvas.releasePointerCapture(e.pointerId); } catch {}
+    if (this.activeDragNode) {
+        this.dispatchEvent(new CustomEvent('gizmo-drag-ended', { bubbles: true, composed: true }));
+        this.activeDragNode = null;
+        return;
+    }
+    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "up", x: e.clientX, y: e.clientY }, bubbles: true, composed: true }));
   };
 
   override render() {

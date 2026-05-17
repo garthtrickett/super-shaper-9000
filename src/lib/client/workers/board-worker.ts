@@ -4,6 +4,7 @@ import { type BoardModel, INITIAL_STATE } from '../../../components/pages/board-
 
 let engine: WasmEngine | null = null;
 let isRendererReady = false;
+const messageQueue: MessageEvent<any>[] = [];
 
 // Initialize the WASM module
 init().then(async () => {
@@ -27,13 +28,22 @@ init().then(async () => {
     const curvatureCombs = engine.get_curvature_combs() as Float32Array;
     const foilData = engine.get_foil_stats() as Float32Array;
     
-                (self as unknown as Worker).postMessage({
+                    (self as unknown as Worker).postMessage({
         type: "STATE_UPDATED",
         state: initialState,
         stats,
         curvatureCombs: curvatureCombs,
         foilData: foilData
     },[curvatureCombs.buffer, foilData.buffer]);
+
+    // Process queued messages
+    for (const queuedMsg of messageQueue) {
+        if (self.onmessage) {
+            // @ts-ignore
+            self.onmessage(queuedMsg);
+        }
+    }
+    messageQueue.length = 0;
 }).catch((err: unknown) => {
     console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
     (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
@@ -58,7 +68,8 @@ const startRenderLoop = () => {
 
 self.onmessage = async (e: MessageEvent<any>) => {
     if (!engine) {
-        console.warn("[BoardWorker] Engine not ready, ignoring message.");
+        console.warn("[BoardWorker] Engine not ready, queuing message.");
+        messageQueue.push(e);
         return;
     }
 
