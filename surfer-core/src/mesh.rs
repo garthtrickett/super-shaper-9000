@@ -69,7 +69,8 @@ pub fn generate_mesh(
     let mut uvs = surface_data.uvs;
     let mut colors = surface_data.colors;
 
-    let mut indices = topology::generate_hull_indices(&vertices, segments_v, num_cols, right_half_cols);
+    let mut indices =
+        topology::generate_hull_indices(&vertices, segments_v, num_cols, right_half_cols);
 
     if (tip_z - notch_z) >= 1e-3 {
         log::debug!(
@@ -136,7 +137,7 @@ pub fn generate_mesh(
     let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
     log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
 
-        RawGeometryData {
+    RawGeometryData {
         vertices,
         indices,
         uvs,

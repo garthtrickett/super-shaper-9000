@@ -70,25 +70,28 @@ pub fn build_surface(
             {
                 let cache_v_offset = cache_idx * num_cols * 3;
                 let cache_u_offset = cache_idx * num_cols * 2;
-                
+
                 if cache_v_offset + num_cols * 3 <= cache.vertices.len() {
                     let v_offset = i * num_cols * 3;
                     let u_offset = i * num_cols * 2;
 
-                    vertices[v_offset..v_offset + num_cols * 3]
-                        .copy_from_slice(&cache.vertices[cache_v_offset..cache_v_offset + num_cols * 3]);
-                    normals[v_offset..v_offset + num_cols * 3]
-                        .copy_from_slice(&cache.normals[cache_v_offset..cache_v_offset + num_cols * 3]);
-                    colors[v_offset..v_offset + num_cols * 3]
-                        .copy_from_slice(&cache.colors[cache_v_offset..cache_v_offset + num_cols * 3]);
-                    
+                    vertices[v_offset..v_offset + num_cols * 3].copy_from_slice(
+                        &cache.vertices[cache_v_offset..cache_v_offset + num_cols * 3],
+                    );
+                    normals[v_offset..v_offset + num_cols * 3].copy_from_slice(
+                        &cache.normals[cache_v_offset..cache_v_offset + num_cols * 3],
+                    );
+                    colors[v_offset..v_offset + num_cols * 3].copy_from_slice(
+                        &cache.colors[cache_v_offset..cache_v_offset + num_cols * 3],
+                    );
+
                     uvs[u_offset..u_offset + num_cols * 2]
                         .copy_from_slice(&cache.uvs[cache_u_offset..cache_u_offset + num_cols * 2]);
-                    
+
                     for j in 0..num_cols {
                         uvs[u_offset + j * 2 + 1] = v_coord;
                     }
-                    
+
                     continue;
                 }
             }
@@ -141,7 +144,7 @@ pub fn build_surface(
         }
     }
 
-        SurfaceData {
+    SurfaceData {
         vertices,
         normals,
         uvs,

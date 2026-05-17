@@ -208,7 +208,6 @@ pub fn generate_swallow_notch_wall(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub fn generate_cap(
     ring_index: usize,
     fallback_mid: Vec3,
@@ -229,14 +228,18 @@ pub fn generate_cap(
     let ring_start_idx = ring_index * num_cols;
     for j in 0..num_cols {
         let idx = (ring_start_idx + j) * 3;
-        ring_pos.push(Vec3::new(vertices[idx], vertices[idx + 1], vertices[idx + 2]));
+        ring_pos.push(Vec3::new(
+            vertices[idx],
+            vertices[idx + 1],
+            vertices[idx + 2],
+        ));
         ring_color.push(Vec3::new(colors[idx], colors[idx + 1], colors[idx + 2]));
     }
 
     let mut right_min_x = f32::INFINITY;
-    let mut right_max_x = f32::NEG_INFINITY;
-    for j in 0..=half {
-        let x = ring_pos[j].x;
+        let mut right_max_x = f32::NEG_INFINITY;
+    for pos in ring_pos.iter().take(half + 1) {
+        let x = pos.x;
         right_min_x = right_min_x.min(x);
         right_max_x = right_max_x.max(x);
     }
@@ -275,181 +278,6 @@ pub fn generate_cap(
 
                 let pos_bot_y = ring_pos[if side > 0.0 { 0 } else { num_cols - 1 }].y;
                 let pos_top_y = ring_pos[if side > 0.0 { half } else { half + 1 }].y;
-                let y_frac = if (pos_top_y - pos_bot_y).abs() > 1e-5 {
-                    (pos.y - pos_bot_y) / (pos_top_y - pos_bot_y)
-                } else {
-                    0.5
-                };
-
-                let target_y_bot = if side > 0.0 {
-                    right_target_y_bot
-                } else {
-                    left_target_y_bot
-                };
-                let target_y_top = if side > 0.0 {
-                    right_target_y_top
-                } else {
-                    left_target_y_top
-                };
-                let center_y = target_y_bot + (target_y_top - target_y_bot) * y_frac;
-
-                let new_x = if step == 0 {
-                    pos.x
-                } else {
-                    target_x + (pos.x - target_x) * fraction
-                };
-                let new_y = if step == 0 {
-                    pos.y
-                } else {
-                    center_y + (pos.y - center_y) * fraction
-                };
-
-                vertices.push(new_x);
-                vertices.push(new_y);
-                vertices.push(pos.z);
-
-                // Prevent UV degeneracy which poisons WebGL tangent generation and causes black holes
-                uvs.push(new_x);
-                uvs.push(new_y);
-
-                colors.push(color.x);
-                colors.push(color.y);
-                colors.push(color.z);
-
-                let blended_normal = fallback_mid;
-                normals.push(blended_normal.x);
-                normals.push(blended_normal.y);
-                normals.push(blended_normal.z);
-            }
-        }
-
-        for step in 0..num_x_steps {
-            let ring_a_start = start_vertex_index + step * (num_cols as u32);
-            let ring_b_start = start_vertex_index + (step + 1) * (num_cols as u32);
-
-            for j in 0..num_cols - 1 {
-                if j == right_half_cols - 1 {
-                    continue; // Do not bridge the right and left halves on the caps!
-                }
-
-                let a = ring_a_start + j as u32;
-                let b = a + 1;
-                let c = ring_b_start + j as u32;
-                let d = c + 1;
-
-                let pt_a = Vec3::new(
-                    vertices[a as usize * 3],
-                    vertices[a as usize * 3 + 1],
-                    vertices[a as usize * 3 + 2],
-                );
-                let pt_b = Vec3::new(
-                    vertices[b as usize * 3],
-                    vertices[b as usize * 3 + 1],
-                    vertices[b as usize * 3 + 2],
-                );
-                let pt_c = Vec3::new(
-                    vertices[c as usize * 3],
-                    vertices[c as usize * 3 + 1],
-                    vertices[c as usize * 3 + 2],
-                );
-                let pt_d = Vec3::new(
-                    vertices[d as usize * 3],
-                    vertices[d as usize * 3 + 1],
-                    vertices[d as usize * 3 + 2],
-                );
-
-                if is_nose {
-                    if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-9 {
-                        indices.push(a);
-                        indices.push(d);
-                        indices.push(b);
-                    }
-                    if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
-                        indices.push(a);
-                        indices.push(c);
-                        indices.push(d);
-                    }
-                } else {
-                    if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
-                        indices.push(a);
-                        indices.push(b);
-                        indices.push(d);
-                    }
-                    if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-9 {
-                        indices.push(a);
-                        indices.push(d);
-                        indices.push(c);
-                    }
-                }
-            }
-        }
-    }
-}
-    ring_index: usize,
-    fallback_mid: Vec3,
-    is_nose: bool,
-    num_cols: usize,
-    half: usize,
-    right_half_cols: usize,
-    u_columns: &[(f32, f32, bool, f32)],
-    scale: f32,
-    vertices: &mut Vec<f32>,
-    uvs: &mut Vec<f32>,
-    colors: &mut Vec<f32>,
-    normals: &mut Vec<f32>,
-    indices: &mut Vec<u32>,
-) {
-    let get_pos = |j| {
-        let idx = (ring_index * num_cols + j) * 3;
-        Vec3::new(vertices[idx], vertices[idx + 1], vertices[idx + 2])
-    };
-    let get_col = |j| {
-        let idx = (ring_index * num_cols + j) * 3;
-        Vec3::new(colors[idx], colors[idx + 1], colors[idx + 2])
-    };
-
-    let mut right_min_x = f32::INFINITY;
-    let mut right_max_x = f32::NEG_INFINITY;
-    for j in 0..=half {
-        let x = get_pos(j).x;
-        right_min_x = right_min_x.min(x);
-        right_max_x = right_max_x.max(x);
-    }
-    let ring_width = right_max_x - right_min_x;
-    let is_sharp = ring_width < 0.005;
-    let start_vertex_index = (vertices.len() / 3) as u32;
-
-    if is_sharp {
-        // The hull naturally closes at sharp poles and already possesses
-        // the correct slerp normals. Generating a cap here only creates
-        // zero-area degenerate triangles that cause shading artifacts.
-    } else {
-        // Standard B-Rep Surface Patch Logic for Blunt/Square Ends
-        let width_inches = ring_width / scale;
-        let num_x_steps = (width_inches / 0.5).ceil().max(1.0) as u32;
-        let right_target_x = get_pos(0).x;
-        let right_target_y_bot = get_pos(0).y;
-        let right_target_y_top = get_pos(half).y;
-
-        let left_target_x = get_pos(num_cols - 1).x;
-        let left_target_y_bot = get_pos(num_cols - 1).y;
-        let left_target_y_top = get_pos(half + 1).y;
-
-        for step in 0..=num_x_steps {
-            let fraction = 1.0 - (step as f32 / num_x_steps as f32);
-            for j in 0..num_cols {
-                let pos = get_pos(j);
-                let color = get_col(j);
-                let side = u_columns[j].1;
-
-                let target_x = if side > 0.0 {
-                    right_target_x
-                } else {
-                    left_target_x
-                };
-
-                let pos_bot_y = get_pos(if side > 0.0 { 0 } else { num_cols - 1 }).y;
-                let pos_top_y = get_pos(if side > 0.0 { half } else { half + 1 }).y;
                 let y_frac = if (pos_top_y - pos_bot_y).abs() > 1e-5 {
                     (pos.y - pos_bot_y) / (pos_top_y - pos_bot_y)
                 } else {

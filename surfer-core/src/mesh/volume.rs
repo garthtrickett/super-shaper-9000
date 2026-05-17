@@ -44,7 +44,7 @@ pub fn compute_volume(vertices: &[f32], segments_v: usize, num_cols: usize) -> f
 mod tests {
     use super::*;
 
-        #[test]
+    #[test]
     fn test_compute_volume_box() {
         let mut vertices = Vec::new();
         let num_cols = 4;
@@ -64,7 +64,7 @@ mod tests {
         assert!((vol - 28.3168).abs() < 1e-4);
     }
 
-        #[test]
+    #[test]
     fn test_compute_volume_wedge() {
         let mut vertices = Vec::new();
         let num_cols = 4;
