@@ -182,11 +182,21 @@ export class BoardViewport extends LitElement {
             worldY = (ndcY * 2 + 1) * orthoTop * 12;
         }
 
-        if (quad) {
+                if (quad) {
             const hit = this.findClosestNode(quad, worldX, worldY, worldZ);
             if (hit) {
                 if (e.altKey) {
-                    this.dispatchEvent(new CustomEvent('insert-node', { detail: { curve: hit.curve, t: hit.t }, bubbles: true, composed: true }));
+                    let exactT = 0.5;
+                    if (this.mathEngine) {
+                        let roX = worldX, roY = worldY, roZ = worldZ;
+                        let rdX = 0, rdY = 0, rdZ = 0;
+                        if (quad === 'top') { roY = 100.0; rdY = -1.0; }
+                        else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
+                        
+                        const t = this.mathEngine.find_closest_t(hit.curve, roX, roY, roZ, rdX, rdY, rdZ);
+                        if (t >= 0.0 && t <= 1.0) exactT = t;
+                    }
+                    this.dispatchEvent(new CustomEvent('insert-node', { detail: { curve: hit.curve, t: exactT }, bubbles: true, composed: true }));
                 } else if (e.ctrlKey) {
                     this.dispatchEvent(new CustomEvent('add-cross-section', { detail: { z: worldZ }, bubbles: true, composed: true }));
                 } else {
