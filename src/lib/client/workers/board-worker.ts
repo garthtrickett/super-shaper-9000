@@ -64,9 +64,9 @@ self.onmessage = async (e: MessageEvent<any>) => {
 
     const msg = e.data;
 
-    if (msg.type === "INIT_RENDERER") {
+        if (msg.type === "INIT_RENDERER") {
         try {
-            await engine.init_renderer(msg.canvas);
+            await engine.init_renderer(msg.canvas, msg.width, msg.height);
             engine.resize_renderer(msg.width, msg.height);
             isRendererReady = true;
             startRenderLoop();

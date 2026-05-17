@@ -13,12 +13,7 @@ pub struct WasmUpdateResult<'a> {
 }
 
 fn as_u8_slice<T>(data: &[T]) -> &[u8] {
-    unsafe {
-        std::slice::from_raw_parts(
-            data.as_ptr() as *const u8,
-            std::mem::size_of_val(data),
-        )
-    }
+    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, std::mem::size_of_val(data)) }
 }
 
 pub struct RenderState {
@@ -203,7 +198,7 @@ impl WasmEngine {
         }
     }
 
-        #[allow(unused_variables)]
+    #[allow(unused_variables)]
     #[wasm_bindgen]
     pub async fn init_renderer(
         &mut self,

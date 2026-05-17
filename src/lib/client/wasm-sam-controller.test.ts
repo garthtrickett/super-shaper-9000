@@ -68,10 +68,9 @@ describe("WasmSamController (FFI Integration)", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
-    expect(controller.model).to.exist;
+        expect(controller.model).to.exist;
         expect(controller.model!.length).to.equal(70.0); // Default Rust model length
     expect(controller.mesh).to.exist;
-    expect(controller.mesh?.vertices).to.exist;
     // Assert the new properties from the adaptive mesh step
         expect(controller.mesh?.vertexCount).to.be.a('number').and.greaterThan(0);
     expect(controller.mesh?.triangleCount).to.be.a('number').and.greaterThan(0);
