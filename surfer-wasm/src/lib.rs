@@ -222,6 +222,7 @@ pub struct WasmEngine {
     stats: MeshStats,
     view_mode: String,
     is_ortho: bool,
+    active_profile_slice: usize,
 }
 
 impl Default for WasmEngine {
@@ -240,9 +241,10 @@ impl WasmEngine {
             engine: SurferEngine::new(),
             renderer: None,
             camera_ctrl: CameraController::default(),
-                        stats: MeshStats::default(),
+            stats: MeshStats::default(),
             view_mode: "quad".to_string(),
             is_ortho: false,
+            active_profile_slice: 0,
         }
     }
 
@@ -254,6 +256,11 @@ impl WasmEngine {
     #[wasm_bindgen]
     pub fn set_ortho(&mut self, is_ortho: bool) {
         self.is_ortho = is_ortho;
+    }
+
+    #[wasm_bindgen]
+    pub fn set_active_profile_slice(&mut self, slice: usize) {
+        self.active_profile_slice = slice;
     }
 
     #[wasm_bindgen]
@@ -346,10 +353,17 @@ impl WasmEngine {
                         let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
                         proj * view
                     },
-                                        "profile" => {
+                                                            "profile" => {
                         let frustum = self.camera_ctrl.distance_profile / 4.0;
-                        let view = glam::Mat4::look_at_rh(glam::Vec3::new(0.0, 0.0, 10.0), glam::Vec3::ZERO, glam::Vec3::Y);
-                        let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                        
+                        let mut target_z = 0.0;
+                        if let Some(cs) = self.engine.get_model().cross_sections.get(self.active_profile_slice) {
+                            target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
+                        }
+
+                        let view = glam::Mat4::look_at_rh(glam::Vec3::new(0.0, 0.0, target_z + 1.0), glam::Vec3::new(0.0, 0.0, target_z), glam::Vec3::Y);
+                        // Tight clipping planes: near=0.9, far=1.1, so it only renders things exactly at target_z (distance 1.0 from camera)
+                        let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
                         proj * view
                     },
                     _ => {

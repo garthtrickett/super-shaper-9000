@@ -116,9 +116,16 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "SET_ORTHO") {
+        if (msg.type === "SET_ORTHO") {
         if (engine) {
             engine.set_ortho(msg.isOrtho);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_ACTIVE_PROFILE_SLICE") {
+        if (engine) {
+            engine.set_active_profile_slice(msg.slice);
         }
         return;
     }

@@ -83,6 +83,8 @@ export class BoardViewport extends LitElement {
     }, { passive: false });
   }
 
+    private _lastDispatchedSlice = -1;
+
   override updated() {
     const prevSlice = this.activeProfileSlice;
     if (this.boardState?.selectedNode?.curve.startsWith('crossSection_')) {
@@ -96,6 +98,11 @@ export class BoardViewport extends LitElement {
     }
     if (prevSlice !== this.activeProfileSlice) {
         this.requestUpdate();
+    }
+    
+    if (this.activeProfileSlice !== this._lastDispatchedSlice) {
+        this._lastDispatchedSlice = this.activeProfileSlice;
+        this.dispatchEvent(new CustomEvent('set-active-profile-slice', { detail: { slice: this.activeProfileSlice }, bubbles: true, composed: true }));
     }
   }
 
