@@ -103,14 +103,14 @@ export class BoardViewport extends LitElement {
 
   private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
 
-    private findClosestNode(quad: string, wx: number, wy: number, wz: number) {
+      private findClosestNode(quad: string, wx: number, wy: number, wz: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
       const threshold = 15.0; // 15 inches of leniency for headless tests
-      let bestHit: { node: { curve: string, index: number, type: 'anchor' }, curve: string, t: number } | null = null;
+      let bestHit: { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null = null;
       let minDist = threshold;
 
       const checkNode = (curveName: string, pts: (import("../pages/board-builder-page.logic").Point3D | {x: number, y: number, z: number})[] | undefined, i: number, type: 'anchor') => {
           if (!pts || !pts[i]) return;
-          const pt = pts[i]!;
+          const pt = pts[i];
           const ptX = Array.isArray(pt) ? pt[0] : pt.x;
           const ptY = Array.isArray(pt) ? pt[1] : pt.y;
           const ptZ = Array.isArray(pt) ? pt[2] : pt.z;
@@ -141,12 +141,12 @@ export class BoardViewport extends LitElement {
       checkCurve('apexRocker', this.boardState?.apexRocker);
       checkCurve('deckShoulder', this.boardState?.deckShoulder);
 
-      this.boardState?.crossSections?.forEach((cs: any, i: number) => checkCurve(`crossSection_${i}`, cs));
-      this.boardState?.outlineLayers?.forEach((l: any, i: number) => {
+            this.boardState?.crossSections?.forEach((cs, i: number) => checkCurve(`crossSection_${i}`, cs));
+      this.boardState?.outlineLayers?.forEach((l, i: number) => {
           checkCurve(`outlineLayer_${i}_ext`, l.otlExt);
           checkCurve(`outlineLayer_${i}_int`, l.otlInt);
       });
-      this.boardState?.bottomChannels?.forEach((c: any, i: number) => {
+      this.boardState?.bottomChannels?.forEach((c, i: number) => {
           checkCurve(`channel_${i}_left_outline`, c.leftOutline);
           checkCurve(`channel_${i}_right_outline`, c.rightOutline);
           checkCurve(`channel_${i}_left_depth`, c.leftDepth);
