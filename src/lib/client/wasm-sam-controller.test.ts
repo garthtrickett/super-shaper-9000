@@ -12,8 +12,15 @@ class MockHost implements ReactiveControllerHost {
 
 describe("WasmSamController (FFI Integration)", () => {
   it("initializes and receives the shadow state from the Rust worker", async () => {
-    const host = new MockHost();
+        const host = new MockHost();
     const controller = new WasmSamController(host);
+    
+    const worker = (controller as any).worker;
+    console.log("[Test] Worker instance created:", !!worker);
+    if (worker) {
+      worker.addEventListener("message", (e: MessageEvent) => console.log("[Test] Message from worker:", e.data?.type || e.data));
+      worker.addEventListener("error", (e: ErrorEvent) => console.log("[Test] Error from worker:", e.message, e.error));
+    }
 
             // Wait for the worker to initialize the WASM module and post back the INITIAL_STATE
     for (let i = 0; i < 200; i++) {
