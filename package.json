@@ -2,7 +2,7 @@
   "name": "super-shaper-9000",
   "type": "module",
     "scripts": {
-    "build:wasm": "cargo build -p surfer-wasm --target wasm32-unknown-unknown --release && wasm-bindgen target/wasm32-unknown-unknown/release/surfer_wasm.wasm --out-dir src/lib/client/wasm --target web",
+    "build:wasm": "cargo build -p surfer-wasm --target wasm32-unknown-unknown -Z build-std=std,panic_abort --release && wasm-bindgen target/wasm32-unknown-unknown/release/surfer_wasm.wasm --out-dir src/lib/client/wasm --target web",
         "watch:wasm": "nodemon --watch surfer-core/src --watch surfer-wasm/src --ext rs --exec \"bun run build:wasm\"",
     "dev": "bun run build:wasm && concurrently \"vite\" \"bun run --watch src/server/index.ts\" \"bun run watch:wasm\"",
     "build": "bun run build:wasm && tsc && vite build",
