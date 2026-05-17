@@ -5,10 +5,10 @@ export default defineConfig({
     plugins: [
     tailwindcss(),
     {
-      name: 'fix-rayon-worker-import',
+            name: 'fix-rayon-worker-import',
       enforce: 'pre',
       transform(code, id) {
-        if (id.endsWith('workerHelpers.js')) {
+        if (id.includes('workerHelpers.js')) {
           return {
             code: code.replace(/import\(['"]\.\.\/\.\.\/\.\.['"]\)/g, "import('../../../surfer_wasm.js')"),
             map: null
