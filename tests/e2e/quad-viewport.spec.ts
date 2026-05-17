@@ -32,21 +32,20 @@ test.describe('Quad Viewport CAD Interface', () => {
     const topLeft = { x: box!.x + box!.width * 0.40, y: box!.y + box!.height * 0.10 };
     const topRight = { x: box!.x + box!.width * 0.90, y: box!.y + box!.height * 0.10 };
 
-    // Helper to extract the exact position of the perspective camera
+        // Helper to extract the exact position of the perspective camera
     const getPerspectiveCameraPos = async () => {
       return page.evaluate<{ x: number; y: number; z: number } | null>(() => {
         type BoardViewportElement = HTMLElement & {
-          sceneManager?: {
-            cameras: {
-              perspective: {
-                position: { x: number; y: number; z: number };
-              };
-            };
+          mathEngine?: {
+            camera_pos: () => Float32Array;
           };
         };
-                const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
-        const cam = viewport?.sceneManager?.cameras?.perspective;
-        return cam ? { x: cam.position.x, y: cam.position.y, z: cam.position.z } : null;
+        const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+        if (viewport?.mathEngine?.camera_pos) {
+            const pos = viewport.mathEngine.camera_pos();
+            return { x: pos[0], y: pos[1], z: pos[2] };
+        }
+        return null;
       });
     };
 
@@ -155,40 +154,34 @@ test.describe('Quad Viewport CAD Interface', () => {
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.mouse.down();
 
-            // Capture the wireframe vertex before moving
-        const initialOutlineX = await page.evaluate<number>(() => {
+                // Capture the wireframe vertex before moving
+    const initialOutlineX = await page.evaluate<number>(() => {
       type ViewportElement = HTMLElement & {
-        wireframeGroup: {
-          children: Array<{
-            userData: { curve: string; mirrorX: boolean };
-            geometry: { attributes: { position: { array: number[] | Float32Array } } };
-          }>;
-        };
+        mathEngine?: {
+          get_point_on_curve: (curve: string, t: number) => Float32Array;
+        }
       };
       const vp = document.querySelector('board-viewport') as unknown as ViewportElement | null;
-      if (!vp) return 0;
-      const line = vp.wireframeGroup.children.find((c) => c.userData.curve === 'outline' && !c.userData.mirrorX);
-      return line ? (line.geometry.attributes.position.array[50 * 3] as number || 0) : 0;
+      if (!vp || !vp.mathEngine) return 0;
+      const pt = vp.mathEngine.get_point_on_curve('outline', 0.5);
+      return pt ? pt[0] : 0;
     });
 
         // Drag it inwards to dramatically narrow the board
     await page.mouse.move(hitPosition!.x - 40, hitPosition!.y, { steps: 10 });
     await page.waitForTimeout(200); // Give the event loop a moment to catch up
 
-    // Verify the real-time preview modified the wireframe buffer BEFORE mouseup
-        const previewOutlineX = await page.evaluate<number>(() => {
+        // Verify the real-time preview modified the wireframe buffer BEFORE mouseup
+    const previewOutlineX = await page.evaluate<number>(() => {
       type ViewportElement = HTMLElement & {
-        wireframeGroup: {
-          children: Array<{
-            userData: { curve: string; mirrorX: boolean };
-            geometry: { attributes: { position: { array: number[] | Float32Array } } };
-          }>;
-        };
+        mathEngine?: {
+          get_point_on_curve: (curve: string, t: number) => Float32Array;
+        }
       };
       const vp = document.querySelector('board-viewport') as unknown as ViewportElement | null;
-      if (!vp) return 0;
-      const line = vp.wireframeGroup.children.find((c) => c.userData.curve === 'outline' && !c.userData.mirrorX);
-      return line ? (line.geometry.attributes.position.array[50 * 3] as number || 0) : 0;
+      if (!vp || !vp.mathEngine) return 0;
+      const pt = vp.mathEngine.get_point_on_curve('outline', 0.5);
+      return pt ? pt[0] : 0;
     });
 
     expect(previewOutlineX).not.toEqual(initialOutlineX);
@@ -252,15 +245,28 @@ test.describe('Quad Viewport CAD Interface', () => {
             worldY = profile.apexY / 12;
         }
 
-                const camera = vp.sceneManager.cameras[camName];
-        const vec = camera.position.clone();
-        vec.set(worldX, worldY, worldZ);
-        vec.project(camera);
-
-        const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
+                        const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
         if (!canvas) return null;
 
         const rect = canvas.getBoundingClientRect();
+        const aspect = rect.width / rect.height;
+        const frustumSize = 10;
+        const orthoRight = frustumSize * aspect / 2;
+        const orthoTop = frustumSize / 2;
+
+        let ndcX = 0, ndcY = 0;
+        if (camName === 'top') {
+            ndcX = worldX / orthoRight;
+            ndcY = -worldZ / orthoTop;
+        } else if (camName === 'side') {
+            ndcX = -worldZ / orthoRight;
+            ndcY = worldY / (orthoTop / 2.5);
+        } else if (camName === 'profile') {
+            ndcX = worldX / orthoRight;
+            ndcY = worldY / (orthoTop / 2.5);
+        }
+        const vec = { x: ndcX, y: ndcY };
+
         const w = rect.width / 2;
         const h = rect.height / 2;
         

@@ -23,7 +23,7 @@ init().then(async () => {
     
         // Post initial state back
     const initialState = engine.get_state() as BoardModel;
-    const stats = engine.get_stats() as any;
+    const stats = engine.get_stats();
     const curvatureCombs = engine.get_curvature_combs() as Float32Array;
     const foilData = engine.get_foil_stats() as Float32Array;
     
@@ -91,15 +91,22 @@ self.onmessage = async (e: MessageEvent<any>) => {
         }
         return;
     }
-    if (msg.type === "WHEEL_EVENT") {
+        if (msg.type === "WHEEL_EVENT") {
         if (isRendererReady) {
             engine.handle_wheel(msg.dy);
         }
         return;
     }
 
+    if (msg.type === "DRAG_GIZMO") {
+        if (engine) {
+            engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z);
+        }
+        return;
+    }
+
                 if (msg.type === "GET_SLICE_PROFILE") {
-        const profile = engine.get_slice_profile(msg.z!) as Float32Array;
+        const profile = engine.get_slice_profile(msg.z) as Float32Array;
                 (self as unknown as Worker).postMessage({
             type: "SLICE_PROFILE_RESULT",
             id: msg.id,
@@ -155,7 +162,7 @@ self.onmessage = async (e: MessageEvent<any>) => {
             }
 
                         // 3. Extract Mesh Buffer (Zero-Copy)
-            const stats = engine.get_stats() as any;
+            const stats = engine.get_stats();
             const curvatureCombs = engine.get_curvature_combs() as Float32Array;
             const foilData = engine.get_foil_stats() as Float32Array;
 

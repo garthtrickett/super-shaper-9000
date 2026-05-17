@@ -2,6 +2,41 @@ use super::curves::evaluate_curve;
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
+pub fn intersect_ray_sphere(ro: Vec3, rd: Vec3, center: Vec3, radius: f32) -> Option<f32> {
+    let oc = ro - center;
+    let b = oc.dot(rd);
+    let c = oc.dot(oc) - radius * radius;
+    let d = b * b - c;
+    if d > 0.0 {
+        let t = -b - d.sqrt();
+        if t > 0.0 {
+            return Some(t);
+        }
+    }
+    None
+}
+
+pub fn distance_ray_line(ro: Vec3, rd: Vec3, a: Vec3, b: Vec3) -> f32 {
+    let u = rd;
+    let v = b - a;
+    let w = ro - a;
+    let a_dot = u.dot(u);
+    let b_dot = u.dot(v);
+    let c_dot = v.dot(v);
+    let d_dot = u.dot(w);
+    let e_dot = v.dot(w);
+    let d = a_dot * c_dot - b_dot * b_dot;
+    let sc = if d < 1e-6 { 0.0 } else { (b_dot * e_dot - c_dot * d_dot) / d };
+    let tc = if d < 1e-6 {
+        if b_dot > c_dot { d_dot / b_dot } else { e_dot / c_dot }
+    } else {
+        (a_dot * e_dot - b_dot * d_dot) / d
+    };
+    let tc = tc.clamp(0.0, 1.0);
+    let d_vec = w + u * sc - v * tc;
+    d_vec.length()
+}
+
 pub enum EaseType {
     EaseIn,
     EaseOut,

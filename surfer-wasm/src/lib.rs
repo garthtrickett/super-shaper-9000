@@ -32,9 +32,13 @@ pub struct RenderState {
     color_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-    camera_buffer: wgpu::Buffer,
+        camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     depth_texture: wgpu::TextureView,
+    line_pipeline: wgpu::RenderPipeline,
+    line_vertex_buffer: wgpu::Buffer,
+    line_color_buffer: wgpu::Buffer,
+    num_line_vertices: u32,
 }
 
 impl RenderState {
@@ -73,9 +77,31 @@ impl RenderState {
 
         self.queue.write_buffer(&self.vertex_buffer, 0, vertex_bytes);
         self.queue.write_buffer(&self.normal_buffer, 0, normal_bytes);
-        self.queue.write_buffer(&self.color_buffer, 0, color_bytes);
+                self.queue.write_buffer(&self.color_buffer, 0, color_bytes);
         self.queue.write_buffer(&self.index_buffer, 0, index_bytes);
         self.num_indices = mesh.indices.len() as u32;
+
+        // Basic line/gizmo update (Mocked for testing)
+        let line_verts: [f32; 6] = [0.0, 0.0, -10.0, 0.0, 0.0, 10.0];
+        let line_colors: [f32; 6] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+        let lv_bytes = as_u8_slice(&line_verts);
+        let lc_bytes = as_u8_slice(&line_colors);
+        
+        self.line_vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: lv_bytes.len() as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.line_color_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: lc_bytes.len() as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue.write_buffer(&self.line_vertex_buffer, 0, lv_bytes);
+        self.queue.write_buffer(&self.line_color_buffer, 0, lc_bytes);
+        self.num_line_vertices = 2;
     }
 }
 
@@ -271,6 +297,92 @@ impl WasmEngine {
                 push_constant_ranges: &[],
             });
 
+                        let line_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Line Shader"),
+                source: wgpu::ShaderSource::Wgsl(r#"
+                    struct CameraUniform {
+                        view_proj: mat4x4<f32>,
+                    };
+                    @group(0) @binding(0)
+                    var<uniform> camera: CameraUniform;
+
+                    struct VertexOutput {
+                        @builtin(position) clip_position: vec4<f32>,
+                        @location(0) color: vec3<f32>,
+                    };
+
+                    @vertex
+                    fn vs_main(
+                        @location(0) position: vec3<f32>,
+                        @location(1) color: vec3<f32>,
+                    ) -> VertexOutput {
+                        var out: VertexOutput;
+                        out.color = color;
+                        out.clip_position = camera.view_proj * vec4<f32>(position, 1.0);
+                        return out;
+                    }
+
+                    @fragment
+                    fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+                        return vec4<f32>(in.color, 1.0);
+                    }
+                "#.into()),
+            });
+
+            let line_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Line Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &line_shader,
+                    entry_point: "vs_main",
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    buffers: &[
+                        wgpu::VertexBufferLayout {
+                            array_stride: 12,
+                            step_mode: wgpu::VertexStepMode::Vertex,
+                            attributes: &wgpu::vertex_attr_array![0 => Float32x3],
+                        },
+                        wgpu::VertexBufferLayout {
+                            array_stride: 12,
+                            step_mode: wgpu::VertexStepMode::Vertex,
+                            attributes: &wgpu::vertex_attr_array![1 => Float32x3],
+                        },
+                    ],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &line_shader,
+                    entry_point: "fs_main",
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::LineList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: wgpu::TextureFormat::Depth24Plus,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            });
+
             let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Render Pipeline"),
                 layout: Some(&render_pipeline_layout),
@@ -341,11 +453,21 @@ impl WasmEngine {
             let color_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
             });
-            let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: None, size: 4, usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+            });
+            let line_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
+            });
+            let line_color_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: None, size: 4, usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, mapped_at_creation: false,
             });
 
             self.renderer = Some(RenderState {
+                line_pipeline,
+                line_vertex_buffer,
+                line_color_buffer,
+                num_line_vertices: 0,
                 surface,
                 device,
                 queue,
@@ -405,9 +527,21 @@ impl WasmEngine {
         }
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn handle_wheel(&mut self, dy: f32) {
         self.camera_ctrl.process_wheel(dy);
+    }
+
+    #[wasm_bindgen]
+    pub fn handle_gizmo_drag(&mut self, curve_name: &str, index: usize, node_type: &str, x: f32, y: f32, z: f32) {
+        let action = surfer_core::model::BoardAction::UpdateNodePosition {
+            curve: curve_name.to_string(),
+            index,
+            node_type: node_type.to_string(),
+            position: [x, y, z],
+        };
+        self.engine.update(action);
+        self.update_render_mesh();
     }
 
     #[wasm_bindgen]
@@ -458,8 +592,16 @@ impl WasmEngine {
                     rpass.set_vertex_buffer(0, renderer.vertex_buffer.slice(..));
                     rpass.set_vertex_buffer(1, renderer.normal_buffer.slice(..));
                     rpass.set_vertex_buffer(2, renderer.color_buffer.slice(..));
-                    rpass.set_index_buffer(renderer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                                        rpass.set_index_buffer(renderer.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
                     rpass.draw_indexed(0..renderer.num_indices, 0, 0..1);
+                }
+
+                if renderer.num_line_vertices > 0 {
+                    rpass.set_pipeline(&renderer.line_pipeline);
+                    rpass.set_bind_group(0, &renderer.camera_bind_group, &[]);
+                    rpass.set_vertex_buffer(0, renderer.line_vertex_buffer.slice(..));
+                    rpass.set_vertex_buffer(1, renderer.line_color_buffer.slice(..));
+                    rpass.draw(0..renderer.num_line_vertices, 0..1);
                 }
             }
 
@@ -553,6 +695,15 @@ impl WasmEngine {
     pub fn get_slice_profile(&self, z: f32) -> Result<JsValue, JsValue> {
         let profile = self.engine.compute_slice_profile(z);
         Ok(Float32Array::from(profile.as_slice()).into())
+    }
+
+        #[wasm_bindgen]
+    pub fn camera_pos(&self) -> js_sys::Float32Array {
+        let x = self.camera_ctrl.distance * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+        let y = self.camera_ctrl.distance * self.camera_ctrl.pitch.sin();
+        let z = self.camera_ctrl.distance * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+        let pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
+        js_sys::Float32Array::from(&[pos.x, pos.y, pos.z][..])
     }
 
     #[wasm_bindgen]
