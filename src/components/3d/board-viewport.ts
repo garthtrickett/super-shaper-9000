@@ -57,10 +57,26 @@ export class BoardViewport extends LitElement {
         this.wgpuCanvas.addEventListener("pointerdown", this.handlePointerDown);
     this.wgpuCanvas.addEventListener("pointermove", this.handlePointerMove);
     this.wgpuCanvas.addEventListener("pointerup", this.handlePointerUp);
-    this.wgpuCanvas.addEventListener("wheel", (e) => {
+        this.wgpuCanvas.addEventListener("wheel", (e) => {
       e.preventDefault();
+      const rect = this.wgpuCanvas.getBoundingClientRect();
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+      const ndcX = ((e.clientX - rect.left) / w) - 1.0;
+      const ndcY = 1.0 - ((e.clientY - rect.top) / h);
+      
+      let quad = "perspective";
+      if (this.maximizedView) {
+        quad = this.maximizedView;
+      } else {
+        if (ndcX < 0 && ndcY > 0) quad = "top";
+        else if (ndcX >= 0 && ndcY > 0) quad = "perspective";
+        else if (ndcX < 0 && ndcY <= 0) quad = "side";
+        else if (ndcX >= 0 && ndcY <= 0) quad = "profile";
+      }
+
       this.dispatchEvent(new CustomEvent('viewport-wheel', {
-        detail: { dy: e.deltaY },
+        detail: { dy: e.deltaY, quad },
         bubbles: true,
         composed: true
       }));
@@ -176,16 +192,16 @@ export class BoardViewport extends LitElement {
         let quad = "";
         let worldX = 0, worldY = 0, worldZ = 0;
 
-                if (ndcX < 0 && ndcY > 0) {
+                                if (ndcX < 0 && ndcY > 0) {
             quad = "top";
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance() : 20.0;
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_top() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * aspect;
             worldX = (ndcX * 2 + 1) * orthoRight * 12;
             worldZ = -(ndcY * 2 - 1) * orthoTop * 12;
         } else if (ndcX < 0 && ndcY < 0) {
             quad = "side";
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance() : 20.0;
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_side() : 8.0;
             const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
             const orthoRight = frustumSize * aspect / 2;
@@ -241,8 +257,8 @@ export class BoardViewport extends LitElement {
 
                 let worldX = 0, worldZ = 0;
         const worldY = 0;
-        if (ndcY > 0) {
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance() : 20.0;
+                if (ndcY > 0) {
+            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_top() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * aspect;
             worldX = (ndcX * 2 + 1) * orthoRight * 12;

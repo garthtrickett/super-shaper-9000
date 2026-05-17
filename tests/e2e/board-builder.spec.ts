@@ -178,7 +178,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const worldX = x / 12;
       const worldZ = z / 12;
 
-      const dist = viewport.mathEngine ? (viewport.mathEngine as any).camera_distance() : 20.0;
+            const dist = viewport.mathEngine ? (viewport.mathEngine as any).camera_distance_top() : 8.0;
       const orthoTop = dist / 4.0;
       const orthoRight = orthoTop * aspect;
 
@@ -315,7 +315,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       if (cp) {
         const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
         const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-        const dist = vp.mathEngine ? vp.mathEngine.camera_distance() : 20.0;
+                const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
         const orthoTop = dist / 4.0;
         const orthoRight = orthoTop * aspect;
         const ndcX = (x / 12) / orthoRight;
@@ -758,7 +758,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const aspect = rect.width / rect.height;
       const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
       const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-      const dist = viewport.mathEngine ? viewport.mathEngine.camera_distance() : 20.0;
+            const dist = viewport.mathEngine ? viewport.mathEngine.camera_distance_top() : 8.0;
       const orthoTop = dist / 4.0;
       const orthoRight = orthoTop * aspect;
       const ndcX = (x / 12) / orthoRight;
@@ -810,10 +810,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(viewport.locator("canvas")).toBeVisible();
     await page.waitForTimeout(1000);
 
-    // Test Top Ortho View (Top-Left Quadrant)
+        // Test Top Ortho View (Top-Left Quadrant)
         const topHitPosition = await page.evaluate(() => {
       type BoardViewportElement = HTMLElement & {
-                mathEngine?: { get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance(): number; };
+                mathEngine?: { get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.mathEngine) return null;
@@ -830,8 +830,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
 
-            // Manual projection for top-left quadrant
-      const dist = vp.mathEngine ? vp.mathEngine.camera_distance() : 20.0;
+                        // Manual projection for top-left quadrant
+      const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
       const orthoTop = dist / 4.0;
       const orthoRight = orthoTop * aspect;
       const ndcX = worldX / orthoRight;
@@ -891,8 +891,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
 
-            // Manual projection for bottom-left quadrant (Side view)
-      const dist = vp.mathEngine ? vp.mathEngine.camera_distance() : 20.0;
+                        // Manual projection for bottom-left quadrant (Side view)
+      const dist = vp.mathEngine ? vp.mathEngine.camera_distance_side() : 8.0;
       const frustumSize = (dist / 4.0) * 2.0;
       const stretchY = 2.5;
       const orthoRight = frustumSize * aspect / 2;

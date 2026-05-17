@@ -102,9 +102,9 @@ self.onmessage = async (e: MessageEvent<any>) => {
         }
         return;
     }
-            if (msg.type === "WHEEL_EVENT") {
+                        if (msg.type === "WHEEL_EVENT") {
         if (isRendererReady) {
-            engine.handle_wheel(msg.dy);
+            engine.handle_wheel(msg.dy, msg.quad);
         }
         return;
     }
