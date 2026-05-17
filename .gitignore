@@ -36,3 +36,4 @@ infra/**/*.tfvars
 # Rust / Cargo
 /target/
 Cargo.lock
+.rust-src/

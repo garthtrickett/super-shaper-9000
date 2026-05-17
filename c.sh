@@ -294,6 +294,19 @@ else
     warn "Special file $DUMP_FILE not found in root. Skipping."
 fi
 
+DUMP_FILE="./flake.nix"
+if [ -f "$DUMP_FILE" ]; then
+    log "Including special file: $DUMP_FILE"
+    {
+        echo "File: aku-shaper-dump.txt"
+        echo "------------------------"
+        cat "$DUMP_FILE" | cat -s
+        echo -e "\n\n"
+    } >>"$TEMP_FILE"
+else
+    warn "Special file $DUMP_FILE not found in root. Skipping."
+fi
+
 mv "$TEMP_FILE" "$OUTPUT_FILE"
 trap - EXIT
 
