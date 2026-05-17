@@ -29,20 +29,20 @@ export interface RustMesh {
 
 @customElement("board-viewport")
 export class BoardViewport extends LitElement {
-    @property({ type: Object }) boardState?: BoardModel;
+  @property({ type: Object }) boardState?: BoardModel;
   @property({ type: Object }) meshData?: RustMesh;
-      @property({ type: Object }) curvatureCombs?: Float32Array;
+  @property({ type: Object }) curvatureCombs?: Float32Array;
   @property({ attribute: false }) mathEngine?: WasmEngine;
   @property({ type: String }) selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
   @property({ type: Boolean }) isProcessing = false;
   
   protected override createRenderRoot() { return this; }
 
-    @query("#three-canvas") private canvas!: HTMLCanvasElement;
+  @query("#three-canvas") private canvas!: HTMLCanvasElement;
   @query("#wgpu-canvas") private wgpuCanvas!: HTMLCanvasElement;
   
   @state() private maximizedView: ViewportId | null = null;
-    @state() private isFlipped = false;
+  @state() private isFlipped = false;
   @state() private isOrtho = false;
   @state() private activeProfileSlice = 0;
 
@@ -56,11 +56,12 @@ export class BoardViewport extends LitElement {
   private finGroup = new THREE.Group();
   private gizmoGroup = new THREE.Group();
   private annotationGroup = new THREE.Group();
-    private sliceLinesGroup = new THREE.Group();
-    private apexLineGroup = new THREE.Group();
+  private sliceLinesGroup = new THREE.Group();
+  private apexLineGroup = new THREE.Group();
   private curvatureGroup = new THREE.Group();
   private previewGroup = new THREE.Group();
-    private zebraOffset = 0;
+  private zebraOffset = 0;
+  private ro?: ResizeObserver;
   
   @state() private hoverPreview: { curve: string, t: number, mirrorX: boolean } | null = null;
   private mriClippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1000);
@@ -69,7 +70,7 @@ export class BoardViewport extends LitElement {
   private matHandle = new THREE.MeshBasicMaterial({ color: 0x71717a, depthTest: false });
   private matSelected = new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false });
 
-                                override firstUpdated() {
+  override firstUpdated() {
     this.boardContainer.add(this.wireframeGroup, this.solidGroup, this.finGroup, this.gizmoGroup, this.annotationGroup, this.sliceLinesGroup, this.apexLineGroup, this.curvatureGroup, this.previewGroup);
     this.sceneManager = new SceneManager(this.canvas,[this.boardContainer]);
     this.interactionManager = new InteractionManager(this, this.canvas, this.sceneManager.cameras, this.sceneManager.controls, this.gizmoGroup, this.wireframeGroup, this.sliceLinesGroup);
@@ -88,17 +89,37 @@ export class BoardViewport extends LitElement {
         composed: true
     }));
 
-    const ro = new ResizeObserver(() => {
+    this.ro = new ResizeObserver(() => {
         this.dispatchEvent(new CustomEvent('resize-renderer', {
             detail: { width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
             bubbles: true,
             composed: true
         }));
     });
-    ro.observe(this.wgpuCanvas);
+    this.ro.observe(this.wgpuCanvas);
+
+    const forwardPointerEvent = (e: PointerEvent, type: string) => {
+      this.dispatchEvent(new CustomEvent('viewport-pointer', {
+        detail: { type, x: e.clientX, y: e.clientY },
+        bubbles: true,
+        composed: true
+      }));
+    };
+
+    this.wgpuCanvas.addEventListener("pointerdown", (e) => forwardPointerEvent(e, "down"));
+    this.wgpuCanvas.addEventListener("pointermove", (e) => forwardPointerEvent(e, "move"));
+    this.wgpuCanvas.addEventListener("pointerup", (e) => forwardPointerEvent(e, "up"));
+    this.wgpuCanvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      this.dispatchEvent(new CustomEvent('viewport-wheel', {
+        detail: { dy: e.deltaY },
+        bubbles: true,
+        composed: true
+      }));
+    }, { passive: false });
   }
 
-          override updated(changedProperties: PropertyValues) {
+  override updated(changedProperties: PropertyValues) {
     if (changedProperties.has("curvatureCombs") && this.curvatureCombs) {
       CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
     }
@@ -117,7 +138,7 @@ export class BoardViewport extends LitElement {
         this.requestUpdate();
     }
 
-                if ((changedProperties.has("boardState") || changedProperties.has("mathEngine")) && this.boardState) {
+    if ((changedProperties.has("boardState") || changedProperties.has("mathEngine")) && this.boardState) {
       this.interactionManager?.setBoardState(this.boardState);
       const oldState = changedProperties.get("boardState") as BoardModel | undefined;
       let needsFullGeometryUpdate = false;
@@ -137,9 +158,9 @@ export class BoardViewport extends LitElement {
           }
 
           if (changed) {
-                        if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker', 'deckShoulder', 'outlineLayers', 'bottomChannels'].includes(k)) {
+            if (['outline', 'rockerTop', 'rockerBottom', 'crossSections', 'apexOutline', 'railOutline', 'apexRocker', 'deckShoulder', 'outlineLayers', 'bottomChannels'].includes(k)) {
               isManualDragUpdate = true;
-                        } else if (!['selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition', 'gizmoScaleTop', 'gizmoScaleSide', 'gizmoScaleProfile'].includes(k)) {
+            } else if (!['selectedNode', 'showGizmos', 'showSolidMesh', 'showHeatmap', 'showZebra', 'showApexLine', 'showCurvature', 'showMriView', 'mriSlicePosition', 'gizmoScaleTop', 'gizmoScaleSide', 'gizmoScaleProfile'].includes(k)) {
               needsFullGeometryUpdate = true;
               isManualDragUpdate = false;
               break;
@@ -150,7 +171,7 @@ export class BoardViewport extends LitElement {
         needsFullGeometryUpdate = true;
       }
 
-            let shouldUpdateSolidMesh = false;
+      let shouldUpdateSolidMesh = false;
       if (changedProperties.has("meshData") && this.meshData) {
         shouldUpdateSolidMesh = true;
       }
@@ -160,7 +181,7 @@ export class BoardViewport extends LitElement {
       this.finGroup.scale.set(1, 1, 1);
       this.annotationGroup.scale.set(1, 1, 1);
 
-            if (needsFullGeometryUpdate || changedProperties.has("mathEngine")) {
+      if (needsFullGeometryUpdate || changedProperties.has("mathEngine")) {
         clearTimeout(this.geometryUpdateDebounceId);
         void this._updateGeometry();
       } else if (isManualDragUpdate) {
@@ -178,10 +199,10 @@ export class BoardViewport extends LitElement {
         if (oldState?.showSolidMesh !== this.boardState.showSolidMesh) this.solidGroup.visible = this.boardState.showSolidMesh !== false;
         if (JSON.stringify(oldState?.selectedNode) !== JSON.stringify(this.boardState.selectedNode)) this.updateGizmoHighlights();
         if (oldState?.showApexLine !== this.boardState.showApexLine) this.apexLineGroup.visible = !!this.boardState.showApexLine;
-                if (oldState?.showCurvature !== this.boardState.showCurvature) {
+        if (oldState?.showCurvature !== this.boardState.showCurvature) {
           CurvatureBuilder.build(this.curvatureGroup, this.curvatureCombs, 1/12);
         }
-                        if (oldState?.gizmoScaleTop !== this.boardState.gizmoScaleTop ||
+        if (oldState?.gizmoScaleTop !== this.boardState.gizmoScaleTop ||
             oldState?.gizmoScaleSide !== this.boardState.gizmoScaleSide ||
             oldState?.gizmoScaleProfile !== this.boardState.gizmoScaleProfile ||
             oldState?.gizmoScalePerspective !== this.boardState.gizmoScalePerspective) {
@@ -206,7 +227,7 @@ export class BoardViewport extends LitElement {
     }
   }
 
-    private _updateSolidMeshOnly() {
+  private _updateSolidMeshOnly() {
     if (!this.meshData) return;
     const scale = 1 / 12;
     while (this.solidGroup.children.length > 0) {
@@ -218,7 +239,7 @@ export class BoardViewport extends LitElement {
     this.buildSolidMeshFromRust(this.meshData, scale);
   }
 
-        private _updateGeometry() {
+  private _updateGeometry() {
     if (!this.boardState) return;
     const mathEngine = this.mathEngine;
     if (!mathEngine) return; // Wait for WASM to initialize
@@ -244,7 +265,7 @@ export class BoardViewport extends LitElement {
       this.buildSolidMeshFromRust(this.meshData, scale);
     }
     
-        FinBuilder.build(this.finGroup, this.boardState, mathEngine, scale);
+    FinBuilder.build(this.finGroup, this.boardState, mathEngine, scale);
     if (!this.interactionManager?.isDragging()) {
       GizmoBuilder.build(this.gizmoGroup, this.boardState, mathEngine, scale, this.matAnchor, this.matHandle, this.activeProfileSlice);
     }
@@ -257,11 +278,11 @@ export class BoardViewport extends LitElement {
     this.updateGizmoHighlights();
   }
   
-        private buildWireframe(mathEngine: WasmEngine, scale: number) {
+  private buildWireframe(mathEngine: WasmEngine, scale: number) {
     const matOutline = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
     const matRocker = new THREE.LineBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.85 });
 
-                const projectY = (curveName: string, p: Point3D): Point3D => {
+    const projectY = (curveName: string, p: Point3D): Point3D => {
       if (!this.boardState) return p;
       const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { topY: number, botY: number, apexY: number, tuckY: number, shoulderY: number };
 
@@ -286,7 +307,7 @@ export class BoardViewport extends LitElement {
       ? this.sampleBezierCurve(this.boardState.rockerBottom, 100)
       :[];
 
-                const buildLine = (
+    const buildLine = (
       pts: [number, number, number][],
       mat: THREE.Material,
       layerIndex: number,
@@ -300,20 +321,20 @@ export class BoardViewport extends LitElement {
         vertices[i * 3 + 1] = p[1] * scale;
         vertices[i * 3 + 2] = p[2] * scale;
       });
-                geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        if (pts.length === 0) geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 0);
-        const line = new THREE.Line(geometry, mat);
-        line.layers.set(layerIndex);
-        line.userData = { isCurveLine: true, curve: curveName, mirrorX };
-        return line;
+      geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      if (pts.length === 0) geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 0);
+      const line = new THREE.Line(geometry, mat);
+      line.layers.set(layerIndex);
+      line.userData = { isCurveLine: true, curve: curveName, mirrorX };
+      return line;
     };
     
-        const matApexOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
+    const matApexOutline = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
     const matRailOutline = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
-        const matApexRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
+    const matApexRocker = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
     const matDeckShoulder = new THREE.LineBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.85 });
 
-        const activeApexOutline = this.boardState?.apexOutline && this.boardState.apexOutline.controlPoints.length > 0
+    const activeApexOutline = this.boardState?.apexOutline && this.boardState.apexOutline.controlPoints.length > 0
       ? this.sampleBezierCurve(this.boardState.apexOutline, 100).map((p) => projectY("apexOutline", p))
       : activeOutline.map((p) => {
           const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { apexX: number, apexY: number };
@@ -344,10 +365,9 @@ export class BoardViewport extends LitElement {
           return [profile.shoulderX, profile.shoulderY, p[2]] as Point3D;
         });
 
-        if (this.boardState?.showOutline !== false) {
+    if (this.boardState?.showOutline !== false) {
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, false, 'outline'));
       this.wireframeGroup.add(buildLine(activeOutline, matOutline, 1, true, 'outline'));
-      
     }
 
     if (activeApexOutline && this.boardState?.showApexOutline !== false) {
@@ -363,7 +383,7 @@ export class BoardViewport extends LitElement {
     if (this.boardState?.showRockerTop !== false) this.wireframeGroup.add(buildLine(activeRockerTop, matRocker, 2, false, 'rockerTop'));
     if (this.boardState?.showRockerBottom !== false) this.wireframeGroup.add(buildLine(activeRockerBottom, matRocker, 2, false, 'rockerBottom'));
 
-                                if (activeApexRocker && this.boardState?.showApexRocker !== false) {
+    if (activeApexRocker && this.boardState?.showApexRocker !== false) {
       this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, false, 'apexRocker'));
       this.wireframeGroup.add(buildLine(activeApexRocker, matApexRocker, 2, true, 'apexRocker'));
     }
@@ -374,14 +394,14 @@ export class BoardViewport extends LitElement {
       this.wireframeGroup.add(buildLine(activeDeckShoulder, matDeckShoulder, 2, false, 'deckShoulder'));
     }
 
-        if (this.boardState?.bottomChannels) {
+    if (this.boardState?.bottomChannels) {
       const matChannelOutline = new THREE.LineDashedMaterial({ color: 0x10b981, dashSize: 0.5 * scale, gapSize: 0.25 * scale, transparent: true, opacity: 0.6 });
       const matChannelDepth = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.4 });
       
       this.boardState.bottomChannels.forEach((channel, idx) => {
-                const drawOutline = (curveData: BezierCurveData, curveName: string) => {
+        const drawOutline = (curveData: BezierCurveData, curveName: string) => {
            if (curveData && curveData.controlPoints.length > 0) {
-                            const sampledOutline = this.sampleBezierCurve(curveData, 50).map(p => {
+              const sampledOutline = this.sampleBezierCurve(curveData, 50).map(p => {
                  const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { topY: number, botY: number, apexY: number, tuckY: number };
                  return[p[0], profile.botY, p[2]] as Point3D;
               });
@@ -392,7 +412,7 @@ export class BoardViewport extends LitElement {
         };
         const drawDepth = (curveData: BezierCurveData, curveName: string) => {
            if (curveData && curveData.controlPoints.length > 0) {
-                            const sampledDepth = this.sampleBezierCurve(curveData, 50).map(p => {
+              const sampledDepth = this.sampleBezierCurve(curveData, 50).map(p => {
                  const profile = mathEngine.get_profile_at_z(p[2]) as unknown as { topY: number, botY: number, apexY: number, tuckY: number };
                  return[p[0], profile.botY - 2.0 + p[1], p[2]] as Point3D;
               });
@@ -407,7 +427,7 @@ export class BoardViewport extends LitElement {
       });
     }
 
-        if (this.boardState && this.boardState.showOutline !== false && this.boardState.outlineLayers) {
+    if (this.boardState && this.boardState.showOutline !== false && this.boardState.outlineLayers) {
       this.boardState.outlineLayers.forEach((layer, idx) => {
         if (layer.active === false) return;
         if (layer.otlExt?.controlPoints?.length > 0) {
@@ -424,19 +444,19 @@ export class BoardViewport extends LitElement {
     }
   }
   
-      private buildSolidMeshFromRust(meshData: RustMesh, _scale: number) {
+  private buildSolidMeshFromRust(meshData: RustMesh, _scale: number) {
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.BufferAttribute(meshData.vertices, 3));
     geom.setAttribute('uv', new THREE.BufferAttribute(meshData.uvs, 2));
     geom.setIndex(new THREE.BufferAttribute(meshData.indices, 1));
     geom.setAttribute('normal', new THREE.BufferAttribute(meshData.normals, 3));
 
-        if (meshData.colors && meshData.colors.length > 0) {
+    if (meshData.colors && meshData.colors.length > 0) {
       geom.setAttribute('color', new THREE.BufferAttribute(meshData.colors, 3));
     }
 
     const { map, bumpMap } = this.textureManager.getBoardTextures();
-        const standardMat = new THREE.MeshPhysicalMaterial({ 
+    const standardMat = new THREE.MeshPhysicalMaterial({ 
       map, bumpMap, bumpScale: 0.005, roughness: 0.4, metalness: 0.0, 
       clearcoat: 1.0, clearcoatRoughness: 0.05, ior: 1.5, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
@@ -456,18 +476,16 @@ export class BoardViewport extends LitElement {
     if (this.boardState!.showHeatmap) activeMat = heatmapMat;
     else if (this.boardState!.showZebra) activeMat = zebraMat;
     const mesh = new THREE.Mesh(geom, activeMat);
-        mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.layers.set(0);
     this.solidGroup.add(mesh);
 
-        const capMat = new THREE.MeshBasicMaterial({ color: 0x475569, side: THREE.BackSide, clippingPlanes:[this.mriClippingPlane] });
+    const capMat = new THREE.MeshBasicMaterial({ color: 0x475569, side: THREE.BackSide, clippingPlanes:[this.mriClippingPlane] });
     const capMesh = new THREE.Mesh(geom, capMat);
     capMesh.layers.set(0);
     this.solidGroup.add(capMesh);
   }
 
-  
-
-    private buildApexLine(mathEngine: WasmEngine, scale: number) {
+  private buildApexLine(mathEngine: WasmEngine, scale: number) {
     while (this.apexLineGroup.children.length > 0) {
       const child = this.apexLineGroup.children[0] as THREE.Line;
       child.geometry.dispose();
@@ -503,32 +521,32 @@ export class BoardViewport extends LitElement {
     this.apexLineGroup.visible = !!this.boardState?.showApexLine;
   }
 
-    private buildSliceLines(mathEngine: WasmEngine, scale: number) {
+  private buildSliceLines(mathEngine: WasmEngine, scale: number) {
     while (this.sliceLinesGroup.children.length > 0) {
       const child = this.sliceLinesGroup.children[0] as THREE.Line;
       child.geometry.dispose(); (child.material as THREE.Material).dispose();
       this.sliceLinesGroup.remove(child);
     }
     const crossSections = this.boardState!.crossSections ||[];
-        if (this.boardState?.showCrossSections !== false) {
+    if (this.boardState?.showCrossSections !== false) {
       crossSections.forEach((cs, idx) => {
         const curveName = `crossSection_${idx}`;
         const pts: THREE.Vector3[] = this.sampleBezierCurve(cs, 40).map(p => {
           const worldY = this.getZHeight(curveName, p[1], p[2], mathEngine);
           return new THREE.Vector3(p[0]*scale, worldY*scale, p[2]*scale);
         });
-                        const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z));
+        const leftPts = pts.map(p => new THREE.Vector3(-p.x, p.y, p.z));
         const color = new THREE.Color(0x334155); // Darker Slate-700
         const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6, depthWrite: false });
         
         const targetLayer = idx === this.activeProfileSlice ? 3 : 4;
 
-                const lineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+        const lineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
         lineRight.layers.set(targetLayer);
         lineRight.userData = { isSlice: true, curveName, defaultColor: color.getHex(), isCurveLine: true, curve: curveName, mirrorX: false };
         this.sliceLinesGroup.add(lineRight);
 
-                const lineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftPts), mat);
+        const lineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftPts), mat);
         lineLeft.layers.set(targetLayer);
         lineLeft.userData = { isSlice: true, curveName, defaultColor: color.getHex(), isCurveLine: true, curve: curveName, mirrorX: true };
         this.sliceLinesGroup.add(lineLeft);
@@ -536,13 +554,14 @@ export class BoardViewport extends LitElement {
     }
   }
   
-              override connectedCallback() {
+  override connectedCallback() {
     super.connectedCallback();
     this.addEventListener('gizmo-dragging', this._handleGizmoDragging as EventListener);
     this.addEventListener('gizmo-drag-ended', this._handleGizmoDragEnded as EventListener);
   }
 
   override disconnectedCallback() {
+    this.ro?.disconnect();
     this.removeEventListener('gizmo-dragging', this._handleGizmoDragging as EventListener);
     this.removeEventListener('gizmo-drag-ended', this._handleGizmoDragEnded as EventListener);
     super.disconnectedCallback();
@@ -682,7 +701,7 @@ export class BoardViewport extends LitElement {
           const mirrorX = line.userData.mirrorX as boolean;
           const positions = line.geometry.attributes.position?.array as Float32Array;
           
-                    if (positions.length === projected.length * 3) {
+          if (positions.length === projected.length * 3) {
              for (let i = 0; i < projected.length; i++) {
                const p = projected[i];
                if (!p) continue;
@@ -701,7 +720,7 @@ export class BoardViewport extends LitElement {
     }
   };
 
-    public getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
+  public getZHeight(curveName: string, yInches: number, zInches: number, mathEngine: WasmEngine): number {
     if (!this.boardState) return yInches;
     const profile = mathEngine.get_profile_at_z(zInches) as { topY: number, botY: number, apexY: number, tuckY: number };
     if (['outline', 'apexOutline'].includes(curveName)) {
@@ -719,7 +738,7 @@ export class BoardViewport extends LitElement {
     if (curveName.startsWith('channel_') && curveName.endsWith('_depth')) {
       return profile.botY - 2.0 + yInches;
     }
-        if (curveName.startsWith('crossSection_')) {
+    if (curveName.startsWith('crossSection_')) {
       const idx = parseInt(curveName.split('_')[1] || "0", 10);
       const cs = this.boardState.crossSections?.[idx];
       if (cs && cs.controlPoints.length > 0) {
@@ -733,18 +752,16 @@ export class BoardViewport extends LitElement {
     return yInches;
   }
 
-
-  
-          private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40): [number, number, number][] {
-        if (!this.mathEngine) return[];
-         
-        const flat = this.mathEngine.sample_curve(bezier, steps) as unknown as Float32Array;
-        const pts: [number, number, number][] =[];
-        for (let i = 0; i < flat.length; i += 3) {
-            pts.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]);
-        }
-        return pts;
+  private sampleBezierCurve(bezier: BezierCurveData, steps: number = 40): [number, number, number][] {
+    if (!this.mathEngine) return[];
+     
+    const flat = this.mathEngine.sample_curve(bezier, steps) as unknown as Float32Array;
+    const pts: [number, number, number][] =[];
+    for (let i = 0; i < flat.length; i += 3) {
+        pts.push([flat[i]!, flat[i + 1]!, flat[i + 2]!]);
     }
+    return pts;
+  }
 
   public getXOffset(curveName: string, xInches: number, zInches: number, mathEngine: WasmEngine): number {
       if (curveName === 'apexRocker') {
@@ -754,7 +771,7 @@ export class BoardViewport extends LitElement {
       return xInches;
   }
 
-    public previewState(newState: BoardModel) {
+  public previewState(newState: BoardModel) {
     if (!this.mathEngine) return;
     
     const scaleX = newState.width / (this.boardState?.width || 1);
@@ -775,8 +792,8 @@ export class BoardViewport extends LitElement {
     }
     this.buildWireframe(this.mathEngine, scale);
 
-        // Update Gizmos
-        if (oldState?.gizmoScaleTop !== newState.gizmoScaleTop ||
+    // Update Gizmos
+    if (oldState?.gizmoScaleTop !== newState.gizmoScaleTop ||
         oldState?.gizmoScaleSide !== newState.gizmoScaleSide ||
         oldState?.gizmoScaleProfile !== newState.gizmoScaleProfile ||
         oldState?.gizmoScalePerspective !== newState.gizmoScalePerspective) {
@@ -820,7 +837,7 @@ export class BoardViewport extends LitElement {
       }
       if (!this.hoverPreview || !this.mathEngine) return;
 
-            const { curve, t, mirrorX } = this.hoverPreview;
+      const { curve, t, mirrorX } = this.hoverPreview;
       const ptRaw = this.mathEngine.get_point_on_curve(curve, t) as Float32Array | undefined;
       if (!ptRaw) return;
 
@@ -833,9 +850,9 @@ export class BoardViewport extends LitElement {
 
       if (mirrorX) x = -x;
 
-                  const scale = 1/12;
+      const scale = 1/12;
       const isCrossSection = curve.startsWith('crossSection_');
-            const isSideView = curve === 'rockerTop' || curve === 'rockerBottom' || curve === 'apexRocker' || (curve.startsWith('channel_') && curve.endsWith('_depth'));
+      const isSideView = curve === 'rockerTop' || curve === 'rockerBottom' || curve === 'apexRocker' || (curve.startsWith('channel_') && curve.endsWith('_depth'));
       const isTopView = !isCrossSection && !isSideView;
       
       let scaleX = 1.0;
@@ -852,7 +869,7 @@ export class BoardViewport extends LitElement {
           userScale = this.boardState?.gizmoScaleTop ?? 1.0;
       }
 
-            if (isCrossSection) {
+      if (isCrossSection) {
           scaleX = (1.0 / 3.5) * userScale;
           scaleY = (1.0 / 3.5) * userScale;
           scaleZ = (1.0 / 3.5) * userScale;
@@ -879,11 +896,11 @@ export class BoardViewport extends LitElement {
       this.previewGroup.add(mesh);
   }
 
-        private _updateGizmoPositionsFromState() {
+  private _updateGizmoPositionsFromState() {
     const mathEngine = this.mathEngine;
     if (!this.boardState || !mathEngine) return;
     const scale = 1 / 12;
-        const gizmosByUserData = new Map<string, THREE.Mesh[]>();
+    const gizmosByUserData = new Map<string, THREE.Mesh[]>();
     this.gizmoGroup.children.forEach(child => {
       if (child instanceof THREE.Mesh && child.userData.isGizmo) {
         const { curve, index, type } = child.userData;
@@ -893,12 +910,12 @@ export class BoardViewport extends LitElement {
       }
     });
 
-        const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
+    const updatePositionsForCurve = (curveData: BezierCurveData | undefined, curveName: string) => {
       if (!curveData) return;
-            curveData.controlPoints.forEach((cp, i) => {
+      curveData.controlPoints.forEach((cp, i) => {
         const cpY = this.getZHeight(curveName, cp[1], cp[2], mathEngine);
         const cpX = this.getXOffset(curveName, cp[0], cp[2], mathEngine);
-                gizmosByUserData.get(`${curveName}-${i}-anchor`)?.forEach(mesh => {
+        gizmosByUserData.get(`${curveName}-${i}-anchor`)?.forEach(mesh => {
             mesh.position.set(cpX * scale, cpY * scale, cp[2] * scale);
         });
         
@@ -927,14 +944,14 @@ export class BoardViewport extends LitElement {
     updatePositionsForCurve(this.boardState.rockerBottom, 'rockerBottom');
     updatePositionsForCurve(this.boardState.apexOutline, 'apexOutline');
     updatePositionsForCurve(this.boardState.railOutline, 'railOutline');
-                updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
-        updatePositionsForCurve(this.boardState.deckShoulder, 'deckShoulder');
+    updatePositionsForCurve(this.boardState.apexRocker, 'apexRocker');
+    updatePositionsForCurve(this.boardState.deckShoulder, 'deckShoulder');
     this.boardState.crossSections?.forEach((cs, idx) => updatePositionsForCurve(cs, `crossSection_${idx}`));
-        this.boardState.outlineLayers?.forEach((layer, idx) => {
+    this.boardState.outlineLayers?.forEach((layer, idx) => {
         updatePositionsForCurve(layer.otlExt, `outlineLayer_${idx}_ext`);
         updatePositionsForCurve(layer.otlInt, `outlineLayer_${idx}_int`);
     });
-        this.boardState.bottomChannels?.forEach((channel, idx) => {
+    this.boardState.bottomChannels?.forEach((channel, idx) => {
         updatePositionsForCurve(channel.leftOutline, `channel_${idx}_left_outline`);
         updatePositionsForCurve(channel.rightOutline, `channel_${idx}_right_outline`);
         updatePositionsForCurve(channel.leftDepth, `channel_${idx}_left_depth`);
@@ -956,7 +973,7 @@ export class BoardViewport extends LitElement {
       if (ud.isSlice) {
         const mat = (child as THREE.Line).material as THREE.LineBasicMaterial;
         const isSelected = selected && selected.curve === ud.curveName;
-                mat.color.setHex(isSelected ? 0xffffff : (ud.defaultColor as number));
+        mat.color.setHex(isSelected ? 0xffffff : (ud.defaultColor as number));
         mat.opacity = isSelected ? 1.0 : 0.5; // Increased from 0.15
         child.renderOrder = isSelected ? 999 : 0;
       }
@@ -973,7 +990,7 @@ export class BoardViewport extends LitElement {
     if (this.interactionManager) this.interactionManager.setMaximizedView(view);
   }
 
-    private toggleFlip = () => {
+  private toggleFlip = () => {
     this.isFlipped = !this.isFlipped;
     this.boardContainer.rotation.z = this.isFlipped ? Math.PI : 0;
     this.boardContainer.updateMatrixWorld(true);
@@ -984,7 +1001,7 @@ export class BoardViewport extends LitElement {
     this.sceneManager.toggleOrtho();
   };
 
-    override render() {
+  override render() {
     const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l-5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
     const collapseIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>`;
     
@@ -1016,7 +1033,8 @@ export class BoardViewport extends LitElement {
         ${id === 'profile' ? renderProfileSliceSelector() : ''}
       </div>
     `;
-                return html`
+
+    return html`
       <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none" style="z-index: 0;"></canvas>
       <canvas id="three-canvas" class="block w-full h-full outline-none relative z-10" style="background: transparent;"></canvas>
       ${this.isProcessing ? html`
@@ -1028,7 +1046,7 @@ export class BoardViewport extends LitElement {
           <span>Computing</span>
         </div>
       ` : ''}
-                        <div class="absolute bottom-3 right-3 z-20 pointer-events-auto flex gap-2">
+      <div class="absolute bottom-3 right-3 z-20 pointer-events-auto flex gap-2">
         <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
           <span>Ortho</span>
@@ -1046,7 +1064,7 @@ export class BoardViewport extends LitElement {
             <div class="border-r border-zinc-800/80">${renderQuadrantOverlay('side', 'Side')}</div>
             <div>${renderQuadrantOverlay('profile', 'Profile')}</div>
           </div>
-                                ` : html`
+        ` : html`
           <div class="w-full h-full relative pointer-events-none">
             <button type="button" @click=${() => this.toggleMaximize(null)} class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto transition-colors border border-zinc-800 cursor-pointer" title="Restore View">
               <span>${this.maximizedView}</span> ${collapseIcon}
@@ -1058,82 +1076,3 @@ export class BoardViewport extends LitElement {
     `;
   }
 }
-// Sovereign Core viewport (dumb glass)
-import { LitElement, html } from "lit";
-import { customElement, property, query } from "lit/decorators.js";
-import type { BoardModel } from "../pages/board-builder-page.logic";
-
-@customElement("board-viewport")
-export class BoardViewport extends LitElement {
-  @property({ type: Object }) boardState?: BoardModel;
-  @property({ type: Boolean }) isProcessing = false;
-
-  @query("#wgpu-canvas") private wgpuCanvas!: HTMLCanvasElement;
-  
-  private ro?: ResizeObserver;
-
-  protected override createRenderRoot() { return this; }
-
-  override firstUpdated() {
-    const offscreen = this.wgpuCanvas.transferControlToOffscreen();
-    this.dispatchEvent(new CustomEvent('init-renderer', {
-        detail: { canvas: offscreen, width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
-        bubbles: true,
-        composed: true
-    }));
-
-    this.ro = new ResizeObserver(() => {
-        this.dispatchEvent(new CustomEvent('resize-renderer', {
-            detail: { width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
-            bubbles: true,
-            composed: true
-        }));
-    });
-    this.ro.observe(this.wgpuCanvas);
-
-    const forwardPointerEvent = (e: PointerEvent, type: string) => {
-      this.dispatchEvent(new CustomEvent('viewport-pointer', {
-        detail: { type, x: e.clientX, y: e.clientY },
-        bubbles: true,
-        composed: true
-      }));
-    };
-
-    this.wgpuCanvas.addEventListener("pointerdown", (e) => forwardPointerEvent(e, "down"));
-    this.wgpuCanvas.addEventListener("pointermove", (e) => forwardPointerEvent(e, "move"));
-    this.wgpuCanvas.addEventListener("pointerup", (e) => forwardPointerEvent(e, "up"));
-    this.wgpuCanvas.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      this.dispatchEvent(new CustomEvent('viewport-wheel', {
-        detail: { dy: e.deltaY },
-        bubbles: true,
-        composed: true
-      }));
-    }, { passive: false });
-  }
-
-  override disconnectedCallback() {
-    this.ro?.disconnect();
-    super.disconnectedCallback();
-  }
-
-  public previewState(newState: BoardModel) {
-     // No-op for now in sovereign core since rust handles rendering
-  }
-
-  override render() {
-    return html`
-      <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
-      ${this.isProcessing ? html`
-        <div class="absolute bottom-3 left-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 text-blue-400 border-blue-500/30 border text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors">
-          <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span>Computing</span>
-        </div>
-      ` : ''}
-    `;
-  }
-}
-
