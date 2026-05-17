@@ -544,8 +544,6 @@ pub struct RawGeometryData {
     pub volume_liters: f32,
     pub line_vertices: Vec<f32>,
     pub line_colors: Vec<f32>,
-    pub line_vertices: Vec<f32>,
-    pub line_colors: Vec<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

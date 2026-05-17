@@ -157,15 +157,45 @@ pub fn generate_mesh(
 
     let show_gizmos = model.show_gizmos.unwrap_or(true);
 
-    let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>, color: Vec3, is_outline: bool| {
+        let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>, color: Vec3, is_outline: bool, curve_name: &str| {
         if let Some(curve) = curve_opt {
             if curve.control_points.is_empty() {
                 return;
             }
-            let pts = crate::bezier::sample_curve(curve, 100);
-            for i in 0..pts.len().saturating_sub(1) {
-                let p0 = pts[i];
-                let p1 = pts[i + 1];
+            let steps = 100;
+            let mut mapped_pts = Vec::with_capacity(steps + 1);
+
+            for i in 0..=steps {
+                let t = i as f32 / steps as f32;
+                let raw_p = crate::bezier::evaluate_curve(curve, t);
+
+                let mapped_p = if curve_name.starts_with("crossSection_") {
+                    let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                    crate::geometry::map_slice_local_to_world(model, z, t, raw_p)
+                } else if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" || curve_name.starts_with("channel_") {
+                    raw_p
+                } else {
+                    let v_outer = crate::geometry::find_v_at_z(
+                        model.outline.as_ref().unwrap(),
+                        raw_p.z,
+                        0.0,
+                        bounds.tip_t,
+                    );
+                    let profile = crate::geometry::get_board_profile_at_z(model, raw_p.z, v_outer);
+                    match curve_name {
+                        "outline" | "apexOutline" => Vec3::new(raw_p.x, profile.apex_y, raw_p.z),
+                        "railOutline" => Vec3::new(raw_p.x, profile.tuck_y, raw_p.z),
+                        "deckShoulder" => Vec3::new(raw_p.x, profile.shoulder_y, raw_p.z),
+                        _ if curve_name.starts_with("outlineLayer_") => Vec3::new(raw_p.x, profile.apex_y, raw_p.z),
+                        _ => raw_p,
+                    }
+                };
+                mapped_pts.push(mapped_p);
+            }
+
+            for i in 0..steps {
+                let p0 = mapped_pts[i];
+                let p1 = mapped_pts[i + 1];
                 push_line(p0, p1, color);
                 if is_outline {
                     let mut m0 = p0;
@@ -177,8 +207,39 @@ pub fn generate_mesh(
             }
 
             if show_gizmos {
+                let num_segments = curve.control_points.len().saturating_sub(1);
+                let num_segments_f = num_segments as f32;
+
                 for i in 0..curve.control_points.len() {
-                    let p = curve.control_points[i];
+                    let raw_p = curve.control_points[i];
+                    let t = if num_segments > 0 { i as f32 / num_segments_f } else { 0.0 };
+                    
+                    let map_point = |t: f32, raw_p: Vec3| -> Vec3 {
+                        if curve_name.starts_with("crossSection_") {
+                            let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                            crate::geometry::map_slice_local_to_world(model, z, t, raw_p)
+                        } else if curve_name == "rockerTop" || curve_name == "rockerBottom" || curve_name == "apexRocker" || curve_name.starts_with("channel_") {
+                            raw_p
+                        } else {
+                            let v_outer = crate::geometry::find_v_at_z(
+                                model.outline.as_ref().unwrap(),
+                                raw_p.z,
+                                0.0,
+                                bounds.tip_t,
+                            );
+                            let profile = crate::geometry::get_board_profile_at_z(model, raw_p.z, v_outer);
+                            match curve_name {
+                                "outline" | "apexOutline" => Vec3::new(raw_p.x, profile.apex_y, raw_p.z),
+                                "railOutline" => Vec3::new(raw_p.x, profile.tuck_y, raw_p.z),
+                                "deckShoulder" => Vec3::new(raw_p.x, profile.shoulder_y, raw_p.z),
+                                _ if curve_name.starts_with("outlineLayer_") => Vec3::new(raw_p.x, profile.apex_y, raw_p.z),
+                                _ => raw_p,
+                            }
+                        }
+                    };
+
+                    let p = map_point(t, raw_p);
+
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
                     let s = 1.0;
                     push_line(p - Vec3::X * s, p + Vec3::X * s, c_anchor);
@@ -195,18 +256,20 @@ pub fn generate_mesh(
 
                     let c_tan = Vec3::new(0.4, 0.4, 1.0);
                     if i < curve.tangents1.len() {
-                        let t1 = curve.tangents1[i];
-                        push_line(p, t1, c_tan);
-                        push_line(t1 - Vec3::X * s, t1 + Vec3::X * s, c_tan);
-                        push_line(t1 - Vec3::Y * s, t1 + Vec3::Y * s, c_tan);
-                        push_line(t1 - Vec3::Z * s, t1 + Vec3::Z * s, c_tan);
+                        let t_idx = if i > 0 { i as f32 - 0.33 } else { 0.0 } / num_segments_f;
+                        let t1_mapped = map_point(t_idx.max(0.0), curve.tangents1[i]);
+                        push_line(p, t1_mapped, c_tan);
+                        push_line(t1_mapped - Vec3::X * s, t1_mapped + Vec3::X * s, c_tan);
+                        push_line(t1_mapped - Vec3::Y * s, t1_mapped + Vec3::Y * s, c_tan);
+                        push_line(t1_mapped - Vec3::Z * s, t1_mapped + Vec3::Z * s, c_tan);
                     }
                     if i < curve.tangents2.len() {
-                        let t2 = curve.tangents2[i];
-                        push_line(p, t2, c_tan);
-                        push_line(t2 - Vec3::X * s, t2 + Vec3::X * s, c_tan);
-                        push_line(t2 - Vec3::Y * s, t2 + Vec3::Y * s, c_tan);
-                        push_line(t2 - Vec3::Z * s, t2 + Vec3::Z * s, c_tan);
+                        let t_idx = if i < num_segments { i as f32 + 0.33 } else { 1.0 } / num_segments_f;
+                        let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
+                        push_line(p, t2_mapped, c_tan);
+                        push_line(t2_mapped - Vec3::X * s, t2_mapped + Vec3::X * s, c_tan);
+                        push_line(t2_mapped - Vec3::Y * s, t2_mapped + Vec3::Y * s, c_tan);
+                        push_line(t2_mapped - Vec3::Z * s, t2_mapped + Vec3::Z * s, c_tan);
                     }
                 }
             }
@@ -214,47 +277,54 @@ pub fn generate_mesh(
     };
 
     if model.show_outline.unwrap_or(true) {
-        add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true);
+        add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true, "outline");
     }
     if model.show_rocker_top.unwrap_or(true) {
-        add_curve_lines(&model.rocker_top, Vec3::new(0.0, 1.0, 0.0), false);
+        add_curve_lines(&model.rocker_top, Vec3::new(0.0, 1.0, 0.0), false, "rockerTop");
     }
     if model.show_rocker_bottom.unwrap_or(true) {
-        add_curve_lines(&model.rocker_bottom, Vec3::new(1.0, 0.0, 0.0), false);
+        add_curve_lines(&model.rocker_bottom, Vec3::new(1.0, 0.0, 0.0), false, "rockerBottom");
     }
     if model.show_apex_outline.unwrap_or(true) {
-        add_curve_lines(&model.apex_outline, Vec3::new(0.0, 1.0, 1.0), true);
+        add_curve_lines(&model.apex_outline, Vec3::new(0.0, 1.0, 1.0), true, "apexOutline");
     }
     if model.show_rail_outline.unwrap_or(true) {
-        add_curve_lines(&model.rail_outline, Vec3::new(1.0, 0.0, 1.0), true);
+        add_curve_lines(&model.rail_outline, Vec3::new(1.0, 0.0, 1.0), true, "railOutline");
     }
     if model.show_apex_rocker.unwrap_or(true) {
-        add_curve_lines(&model.apex_rocker, Vec3::new(0.0, 0.5, 1.0), false);
+        add_curve_lines(&model.apex_rocker, Vec3::new(0.0, 0.5, 1.0), false, "apexRocker");
     }
     if model.show_deck_shoulder.unwrap_or(true) {
-        add_curve_lines(&model.deck_shoulder, Vec3::new(1.0, 0.5, 0.0), true);
+        add_curve_lines(&model.deck_shoulder, Vec3::new(1.0, 0.5, 0.0), true, "deckShoulder");
     }
 
     if model.show_cross_sections.unwrap_or(true) {
-        for cs in &model.cross_sections {
-            add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true);
+        for (i, cs) in model.cross_sections.iter().enumerate() {
+            let name = format!("crossSection_{}", i);
+            add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name);
         }
     }
 
     if let Some(layers) = &model.outline_layers {
-        for l in layers {
+        for (i, l) in layers.iter().enumerate() {
             if l.active {
-                add_curve_lines(&Some(l.otl_ext.clone()), Vec3::new(1.0, 1.0, 0.0), true);
-                add_curve_lines(&Some(l.otl_int.clone()), Vec3::new(1.0, 1.0, 0.0), true);
+                let name_ext = format!("outlineLayer_{}_ext", i);
+                let name_int = format!("outlineLayer_{}_int", i);
+                add_curve_lines(&Some(l.otl_ext.clone()), Vec3::new(1.0, 1.0, 0.0), true, &name_ext);
+                add_curve_lines(&Some(l.otl_int.clone()), Vec3::new(1.0, 1.0, 0.0), true, &name_int);
             }
         }
     }
     if let Some(channels) = &model.bottom_channels {
-        for ch in channels {
-            add_curve_lines(&Some(ch.left_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false);
-            add_curve_lines(&Some(ch.right_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false);
-            add_curve_lines(&Some(ch.left_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false);
-            add_curve_lines(&Some(ch.right_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false);
+        for (i, ch) in channels.iter().enumerate() {
+            let n_lo = format!("channel_{}_left_outline", i);
+            let n_ro = format!("channel_{}_right_outline", i);
+            let n_ld = format!("channel_{}_left_depth", i);
+            let n_rd = format!("channel_{}_right_depth", i);
+            add_curve_lines(&Some(ch.left_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false, &n_lo);
+            add_curve_lines(&Some(ch.right_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false, &n_ro);
+            add_curve_lines(&Some(ch.left_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false, &n_ld);
+            add_curve_lines(&Some(ch.right_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false, &n_rd);
         }
     }
 
