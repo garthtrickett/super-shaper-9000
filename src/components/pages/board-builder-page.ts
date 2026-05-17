@@ -6,7 +6,6 @@ import { KeyboardController } from "../../lib/client/keyboard-controller";
 import initWasm, { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
 import { INITIAL_STATE, type BoardModel, type BoardAction } from "./board-builder-page.logic";
 import "../3d/board-viewport";
-import type { BoardViewport } from "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
 import "../ui/bottom-contour-editor";
@@ -37,13 +36,13 @@ export class BoardBuilderPage extends LitElement {
     this.wasmCtrl.propose(action);
   }
 
-  private _previewAction(action: BoardAction) {
+    private _previewAction(action: BoardAction) {
     if (!this.mathEngine) return;
     try {
       const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
-      const viewport = this.shadowRoot?.querySelector('board-viewport') as BoardViewport | null;
+      const viewport = this.shadowRoot?.querySelector('board-viewport') as unknown as { boardState: BoardModel };
       if (viewport && result.state) {
-        viewport.previewState(result.state);
+        viewport.boardState = result.state;
       }
     } catch (err) {
       console.error("[BoardBuilder] Preview failed:", err);

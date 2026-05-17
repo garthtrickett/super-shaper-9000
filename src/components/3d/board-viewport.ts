@@ -1,7 +1,6 @@
 // File: src/components/3d/board-viewport.ts
 import { LitElement, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
-import type { PropertyValues } from "lit";
 import type { BoardModel } from "../pages/board-builder-page.logic";
 import type { WasmEngine } from "../../lib/client/wasm/surfer_wasm.js";
 
@@ -18,7 +17,7 @@ export interface RustMesh {
   triangleCount: number;
 }
 
-@customElement("board-viewport"@customElement("board-viewport")
+@customElement("board-viewport")
 export class BoardViewport extends LitElement {
   @property({ type: Object }) boardState?: BoardModel;
   @property({ type: Object }) meshData?: RustMesh;
@@ -76,7 +75,7 @@ export class BoardViewport extends LitElement {
     }, { passive: false });
   }
 
-  override updated(changedProperties: PropertyValues) {
+  override updated() {
     const prevSlice = this.activeProfileSlice;
     if (this.boardState?.selectedNode?.curve.startsWith('crossSection_')) {
         const idx = parseInt(this.boardState.selectedNode.curve.split('_')[1] || "0", 10);
@@ -97,8 +96,6 @@ export class BoardViewport extends LitElement {
     super.disconnectedCallback();
   }
 
-  public previewState(newState: BoardModel) {
-  }
 
   private toggleMaximize(view: ViewportId | null) {
     this.maximizedView = view;

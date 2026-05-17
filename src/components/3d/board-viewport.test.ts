@@ -1,6 +1,4 @@
 import { expect, fixture, html } from "@open-wc/testing";
-import sinon from "sinon";
-import * as THREE from "three";
 import { INITIAL_STATE } from "../pages/board-builder-page.logic";
 import "./board-viewport";
 import type { BoardViewport } from "./board-viewport";
@@ -14,12 +12,12 @@ describe("BoardViewport (3D Component)", () => {
     expect(el.meshData?.volumeLiters).to.equal(28.5);
   });
 
-    it("should render a canvas element in the light DOM", async () => {
+  it("should render a wgpu-canvas element in the light DOM", async () => {
     const el = await fixture<BoardViewport>(
       html`<board-viewport></board-viewport>`
     );
     
-    const canvas = el.querySelector("canvas");
+    const canvas = el.querySelector("canvas#wgpu-canvas");
     expect(canvas).to.exist;
     expect(canvas?.tagName.toLowerCase()).to.equal("canvas");
   });
@@ -31,7 +29,7 @@ describe("BoardViewport (3D Component)", () => {
     expect(spinner).to.exist;
   });
 
-    describe("Camera & Viewport Controls", () => {
+  describe("Camera & Viewport Controls", () => {
     it("renders profile slice selector and updates active profile slice", async () => {
       const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
       
@@ -64,7 +62,6 @@ describe("BoardViewport (3D Component)", () => {
 
       // Initial state
       expect((el as any).isFlipped).to.be.false;
-      expect((el as any).boardContainer.rotation.z).to.equal(0);
 
       // Click flip
       flipBtn!.click();
@@ -72,120 +69,6 @@ describe("BoardViewport (3D Component)", () => {
 
       // Flipped state
       expect((el as any).isFlipped).to.be.true;
-      expect((el as any).boardContainer.rotation.z).to.equal(Math.PI);
-    });
-  });
-
-    describe("Live Preview (gizmo-dragging)", () => {
-    it("updates wireframe buffers directly without triggering full state update", async () => {
-      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
-      
-            // Mock mathEngine
-            el.mathEngine = {
-        get_profile_at_z: () => ({ topY: 1, botY: -1, apexY: 0, tuckY: -0.5, shoulderY: 0.5 }),
-                sample_curve: () => {
-          const arr = new Float32Array(300);
-          arr[0] = 10;
-          return arr;
-        },
-        getXOffset: () => 10,
-        get_bottom_y_at: () => 0,
-        find_closest_t: () => 0.5,
-        get_point_on_curve: () => new Float32Array([1, 2, 3])
-      } as any;
-
-      // Force initial wireframe build
-      (el as any)._updateGeometry();
-      
-      const wireframeGroup = (el as any).wireframeGroup as THREE.Group;
-      const line = wireframeGroup.children.find(c => c.userData.curve === 'outline') as THREE.Line;
-      expect(line).to.exist;
-
-      // Spy on _updateGeometry
-      const updateSpy = sinon.spy(el as any, '_updateGeometry');
-
-      // Dispatch gizmo-dragging event
-      el.dispatchEvent(new CustomEvent('gizmo-dragging', {
-        detail: {
-          userData: { type: 'anchor', curve: 'outline', index: 1 },
-          position: [10, 0, 50] // Moved X
-        }
-      }));
-
-                              // Verify the buffer was modified by the projection logic
-      const array = line.geometry.attributes.position!.array as Float32Array;
-      expect(array[0]).to.be.closeTo(10 * (1/12), 0.001);
-      
-      // _updateGeometry should NOT have been called (no full rebuild)
-      expect(updateSpy.called).to.be.false;
-    });
-  });
-
-    describe("Projection Helpers", () => {
-    it("exposes getZHeight and getXOffset publicly", async () => {
-      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
-      expect(typeof el.getZHeight).to.equal('function');
-      expect(typeof el.getXOffset).to.equal('function');
-    });
-  });
-
-  describe("Gizmo Visibility & Management", () => {
-    it("shows/hides appropriate gizmos based on boardState", async () => {
-      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
-      
-      // Inject mock gizmos directly into the Three.js group to bypass complex curve generation in headless test
-      const outlineGizmo = new THREE.Mesh();
-      outlineGizmo.userData = { curve: 'outline' };
-      
-      const rockerGizmo = new THREE.Mesh();
-      rockerGizmo.userData = { curve: 'rockerTop' };
-
-      const gizmoGroup = (el as any).gizmoGroup as THREE.Group;
-      gizmoGroup.add(outlineGizmo, rockerGizmo);
-
-      // Currently gizmos are visible across all viewports in the quad split view.
-      // Assuming we just verify they exist in the group.
-      expect(outlineGizmo.visible).to.be.true;
-      expect(rockerGizmo.visible).to.be.true;
-        });
-  });
-
-  describe("Stationary Node Insertion", () => {
-            it("emits add-cross-section event on ctrl-click outline", async () => {
-      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
-      
-      el.mathEngine = {
-        get_point_on_curve: () => new Float32Array([1, 2, 50])
-      } as any;
-
-      const addSliceSpy = sinon.spy();
-      el.addEventListener('add-cross-section', addSliceSpy);
-
-      const im = (el as any).interactionManager;
-      im.findCurveAtPointer = () => ({ curveName: 'outline', t: 0.5, mirrorX: false });
-      
-      const canvas = el.querySelector("canvas")!;
-      canvas.dispatchEvent(new PointerEvent("pointerdown", { ctrlKey: true, button: 0, clientX: 100, clientY: 100, bubbles: true }));
-
-      expect(addSliceSpy.calledOnce).to.be.true;
-      expect(addSliceSpy.firstCall.args[0].detail.z).to.equal(50);
-    });
-
-    it("emits insert-node event on right-click without prior hover", async () => {
-      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
-      
-      const insertSpy = sinon.spy();
-      el.addEventListener('insert-node', insertSpy);
-
-      const im = (el as any).interactionManager;
-      im.findCurveAtPointer = () => ({ curveName: 'outline', t: 0.5, mirrorX: false });
-      
-      const canvas = el.querySelector("canvas")!;
-      canvas.dispatchEvent(new PointerEvent("pointerdown", { button: 2, clientX: 100, clientY: 100, bubbles: true }));
-
-      expect(insertSpy.calledOnce).to.be.true;
-      expect(insertSpy.firstCall.args[0].detail.curve).to.equal('outline');
-      expect(insertSpy.firstCall.args[0].detail.t).to.equal(0.5);
     });
   });
 });

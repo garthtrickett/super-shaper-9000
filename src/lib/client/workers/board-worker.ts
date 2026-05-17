@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 import init, { WasmEngine, initThreadPool } from '../wasm/surfer_wasm.js';
-import { type BoardModel, type BoardAction, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
-import type { RustMesh } from '../../../components/3d/board-viewport';
+import { type BoardModel, INITIAL_STATE } from '../../../components/pages/board-builder-page.logic';
 
 let engine: WasmEngine | null = null;
 let isRendererReady = false;
