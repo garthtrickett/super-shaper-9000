@@ -89,8 +89,13 @@ export class BoardViewport extends LitElement {
   }
 
 
-  private toggleMaximize(view: ViewportId | null) {
+    private toggleMaximize(view: ViewportId | null) {
     this.maximizedView = view;
+    this.dispatchEvent(new CustomEvent('set-view-mode', {
+        detail: { mode: view || "quad" },
+        bubbles: true,
+        composed: true
+    }));
   }
 
   private toggleFlip = () => {

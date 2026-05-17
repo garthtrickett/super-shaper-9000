@@ -102,9 +102,16 @@ self.onmessage = async (e: MessageEvent<any>) => {
         }
         return;
     }
-        if (msg.type === "WHEEL_EVENT") {
+            if (msg.type === "WHEEL_EVENT") {
         if (isRendererReady) {
             engine.handle_wheel(msg.dy);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_VIEW_MODE") {
+        if (engine) {
+            engine.set_view_mode(msg.mode);
         }
         return;
     }
