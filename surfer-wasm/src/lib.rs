@@ -28,8 +28,9 @@ pub struct RenderState {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     camera_buffers: Vec<wgpu::Buffer>,
-    camera_bind_groups: Vec<wgpu::BindGroup>,
+        camera_bind_groups: Vec<wgpu::BindGroup>,
     depth_texture: wgpu::TextureView,
+    msaa_texture: wgpu::TextureView,
     line_pipeline: wgpu::RenderPipeline,
     line_vertex_buffer: wgpu::Buffer,
     line_color_buffer: wgpu::Buffer,
@@ -47,11 +48,11 @@ impl RenderState {
             height: height.max(1),
             depth_or_array_layers: 1,
         };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+                let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Depth Texture"),
             size,
             mip_level_count: 1,
-            sample_count: 1,
+            sample_count: 4,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Depth24Plus,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -60,7 +61,31 @@ impl RenderState {
         texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-        fn update_mesh_buffers(&mut self, mesh: &RawGeometryData) {
+    pub fn create_msaa_texture(
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        width: u32,
+        height: u32,
+    ) -> wgpu::TextureView {
+        let size = wgpu::Extent3d {
+            width: width.max(1),
+            height: height.max(1),
+            depth_or_array_layers: 1,
+        };
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("MSAA Texture"),
+            size,
+            mip_level_count: 1,
+            sample_count: 4,
+            dimension: wgpu::TextureDimension::D2,
+            format: config.format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+        texture.create_view(&wgpu::TextureViewDescriptor::default())
+    }
+
+    fn update_mesh_buffers(&mut self, mesh: &RawGeometryData) {
         if !mesh.indices.is_empty() {
             let vertex_bytes = as_u8_slice(&mesh.vertices);
             let normal_bytes = as_u8_slice(&mesh.normals);
@@ -277,8 +302,10 @@ impl WasmEngine {
             renderer
                 .surface
                 .configure(&renderer.device, &renderer.config);
-            renderer.depth_texture =
+                        renderer.depth_texture =
                 RenderState::create_depth_texture(&renderer.device, width, height);
+            renderer.msaa_texture =
+                RenderState::create_msaa_texture(&renderer.device, &renderer.config, width, height);
         }
     }
 
@@ -393,12 +420,12 @@ impl WasmEngine {
             let mut encoder = renderer.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
             {
-                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
+                            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &renderer.msaa_texture,
+                    resolve_target: Some(&view),
+                    ops: wgpu::Operations {
                             load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.1, g: 0.1, b: 0.1, a: 1.0 }),
                             store: wgpu::StoreOp::Store,
                         },
@@ -945,8 +972,8 @@ pub async fn create_wgpu_renderer(
                     clamp: 0.0,
                 },
             }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
+                        multisample: wgpu::MultisampleState {
+                count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -1004,15 +1031,16 @@ pub async fn create_wgpu_renderer(
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
+                        multisample: wgpu::MultisampleState {
+                count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
         });
 
-        let depth_texture = RenderState::create_depth_texture(&device, width, height);
+                let depth_texture = RenderState::create_depth_texture(&device, width, height);
+        let msaa_texture = RenderState::create_msaa_texture(&device, &config, width, height);
 
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -1066,9 +1094,10 @@ pub async fn create_wgpu_renderer(
             color_buffer,
             index_buffer,
             num_indices: 0,
-            camera_buffers,
+                        camera_buffers,
             camera_bind_groups,
             depth_texture,
+            msaa_texture,
         }))
     }
     #[cfg(not(target_arch = "wasm32"))]
