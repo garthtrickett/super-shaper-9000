@@ -453,10 +453,16 @@ export class BoardBuilderPage extends LitElement {
                   worker.postMessage({ type: "WHEEL_EVENT", dy: e.detail.dy, quad: e.detail.quad });
               }
           }}
-          @set-view-mode=${(e: CustomEvent<{mode: string}>) => {
+                    @set-view-mode=${(e: CustomEvent<{mode: string}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_VIEW_MODE", mode: e.detail.mode });
+              }
+          }}
+          @set-ortho=${(e: CustomEvent<{isOrtho: boolean}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "SET_ORTHO", isOrtho: e.detail.isOrtho });
               }
           }}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {

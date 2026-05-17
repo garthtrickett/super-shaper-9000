@@ -118,8 +118,13 @@ export class BoardViewport extends LitElement {
     this.isFlipped = !this.isFlipped;
   };
 
-    private toggleOrtho = () => {
+      private toggleOrtho = () => {
     this.isOrtho = !this.isOrtho;
+    this.dispatchEvent(new CustomEvent('set-ortho', {
+        detail: { isOrtho: this.isOrtho },
+        bubbles: true,
+        composed: true
+    }));
   };
 
   private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
@@ -312,12 +317,18 @@ export class BoardViewport extends LitElement {
       `;
     };
 
-    const renderQuadrantOverlay = (id: ViewportId, label: string) => html`
+        const renderQuadrantOverlay = (id: ViewportId, label: string) => html`
       <div class="relative w-full h-full pointer-events-none">
         <button type="button" @click=${() => this.toggleMaximize(id)} class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-[10px] font-bold text-zinc-400 hover:text-white uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto transition-colors border border-zinc-800 cursor-pointer" title="Maximize ${label}">
           <span>${label}</span> ${expandIcon}
         </button>
         ${id === 'profile' ? renderProfileSliceSelector() : ''}
+        ${id === 'perspective' ? html`
+          <button type="button" @click=${this.toggleOrtho} class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+            <span>Ortho</span>
+          </button>
+        ` : ''}
       </div>
     `;
 
@@ -332,11 +343,7 @@ export class BoardViewport extends LitElement {
           <span>Computing</span>
         </div>
       ` : ''}
-      <div class="absolute bottom-3 right-3 z-20 pointer-events-auto flex gap-2">
-        <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-          <span>Ortho</span>
-        </button>
+            <div class="absolute bottom-3 right-3 z-20 pointer-events-auto flex gap-2">
         <button type="button" @click=${this.toggleFlip} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isFlipped ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Flip Board">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
           <span>Flip</span>
@@ -352,10 +359,16 @@ export class BoardViewport extends LitElement {
           </div>
         ` : html`
           <div class="w-full h-full relative pointer-events-none">
-            <button type="button" @click=${() => this.toggleMaximize(null)} class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto transition-colors border border-zinc-800 cursor-pointer" title="Restore View">
+                        <button type="button" @click=${() => this.toggleMaximize(null)} class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-[10px] font-bold text-blue-400 hover:text-blue-300 uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto transition-colors border border-zinc-800 cursor-pointer" title="Restore View">
               <span>${this.maximizedView}</span> ${collapseIcon}
             </button>
             ${this.maximizedView === 'profile' ? renderProfileSliceSelector() : ''}
+            ${this.maximizedView === 'perspective' ? html`
+              <button type="button" @click=${this.toggleOrtho} class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                <span>Ortho</span>
+              </button>
+            ` : ''}
           </div>
         `}
       </div>

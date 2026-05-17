@@ -104,10 +104,10 @@ impl RenderState {
         self.num_indices = mesh.indices.len() as u32;
 
                 // Basic line/gizmo update (Mocked for testing)
-        let line_verts: [f32; 0] = [];
-        let line_colors: [f32; 0] = [];
-        let lv_bytes = as_u8_slice(&line_verts);
-        let lc_bytes = as_u8_slice(&line_colors);
+        // let line_verts: [f32; 0] = [];
+        // let line_colors: [f32; 0] = [];
+        // let lv_bytes = as_u8_slice(&line_verts);
+        // let lc_bytes = as_u8_slice(&line_colors);
 
         self.line_vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -125,13 +125,17 @@ impl RenderState {
     }
 }
 
+
 struct CameraController {
-    is_dragging: bool,
-    last_mouse: (f32, f32),
-    yaw: f32,
-    pitch: f32,
-    distance: f32,
-    target: glam::Vec3,
+        is_dragging: bool,
+        last_mouse: (f32, f32),
+        yaw: f32,
+        pitch: f32,
+        distance_top: f32,
+        distance_side: f32,
+        distance_profile: f32,
+        distance_persp: f32,
+        target: glam::Vec3
 }
 
 impl Default for CameraController {
@@ -217,6 +221,7 @@ pub struct WasmEngine {
     camera_ctrl: CameraController,
     stats: MeshStats,
     view_mode: String,
+    is_ortho: bool,
 }
 
 impl Default for WasmEngine {
@@ -235,14 +240,20 @@ impl WasmEngine {
             engine: SurferEngine::new(),
             renderer: None,
             camera_ctrl: CameraController::default(),
-            stats: MeshStats::default(),
+                        stats: MeshStats::default(),
             view_mode: "quad".to_string(),
+            is_ortho: false,
         }
     }
 
     #[wasm_bindgen]
     pub fn set_view_mode(&mut self, mode: &str) {
         self.view_mode = mode.to_string();
+    }
+
+    #[wasm_bindgen]
+    pub fn set_ortho(&mut self, is_ortho: bool) {
+        self.is_ortho = is_ortho;
     }
 
     #[wasm_bindgen]
@@ -335,13 +346,26 @@ impl WasmEngine {
                         let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
                         proj * view
                     },
-                    "profile" => {
+                                        "profile" => {
                         let frustum = self.camera_ctrl.distance_profile / 4.0;
                         let view = glam::Mat4::look_at_rh(glam::Vec3::new(0.0, 0.0, 10.0), glam::Vec3::ZERO, glam::Vec3::Y);
                         let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
                         proj * view
                     },
-                    _ => self.camera_ctrl.build_view_projection_matrix(aspect),
+                    _ => {
+                        if self.is_ortho {
+                            let frustum = self.camera_ctrl.distance_persp / 4.0;
+                            let x = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+                            let y = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
+                            let z = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+                            let pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
+                            let view = glam::Mat4::look_at_rh(pos, self.camera_ctrl.target, glam::Vec3::Y);
+                            let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                            proj * view
+                        } else {
+                            self.camera_ctrl.build_view_projection_matrix(aspect)
+                        }
+                    },
                 };
 
                 let view_proj_array = view_proj.to_cols_array();

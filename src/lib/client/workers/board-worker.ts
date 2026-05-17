@@ -109,9 +109,16 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "SET_VIEW_MODE") {
+        if (msg.type === "SET_VIEW_MODE") {
         if (engine) {
             engine.set_view_mode(msg.mode);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_ORTHO") {
+        if (engine) {
+            engine.set_ortho(msg.isOrtho);
         }
         return;
     }
