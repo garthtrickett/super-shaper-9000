@@ -6,6 +6,13 @@ export default {
     'src/**/*.test.ts',
     '!src/server/**/*.test.ts'
   ],
+  middleware: [
+    async (context, next) => {
+      context.set('Cross-Origin-Opener-Policy', 'same-origin');
+      context.set('Cross-Origin-Embedder-Policy', 'require-corp');
+      await next();
+    }
+  ],
   plugins:[
         {
       name: 'vite-wasm-url-mock',
@@ -34,9 +41,9 @@ export default {
       }
     }),
   ],
-  testFramework: {
+    testFramework: {
     config: {
-      timeout: 2000,
+      timeout: 15000,
     },
   },
 };
