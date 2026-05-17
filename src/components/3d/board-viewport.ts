@@ -208,7 +208,7 @@ export class BoardViewport extends LitElement {
         let quad = "";
         let localNdcX = ndcX;
         let localNdcY = ndcY;
-        let localAspect = aspect;
+        const localAspect = aspect;
 
         if (this.maximizedView) {
             quad = this.maximizedView;
@@ -228,14 +228,15 @@ export class BoardViewport extends LitElement {
 
         let worldX = 0, worldY = 0, worldZ = 0;
 
+                type EngineExt = { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
         if (quad === "top") {
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_top() : 8.0;
+            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_top() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * localAspect;
             worldX = localNdcX * orthoRight * 12;
             worldZ = -localNdcY * orthoTop * 12;
         } else if (quad === "side") {
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_side() : 8.0;
+            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_side() : 8.0;
             const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
             const orthoRight = frustumSize * localAspect / 2;
@@ -243,7 +244,7 @@ export class BoardViewport extends LitElement {
             worldZ = -localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
         } else if (quad === "profile") {
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_profile() : 8.0;
+            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_profile() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * localAspect;
             worldX = localNdcX * orthoRight * 12;
@@ -251,10 +252,11 @@ export class BoardViewport extends LitElement {
             
             let targetZ = 0.0;
             if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
-                const pt = this.boardState.crossSections[this.activeProfileSlice].controlPoints?.[0] || 
-                           (this.boardState.crossSections[this.activeProfileSlice] as any).control_points?.[0];
+                const cs = this.boardState.crossSections[this.activeProfileSlice]!;
+                const pt = cs.controlPoints?.[0] || 
+                           (cs as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points?.[0];
                 if (pt) {
-                    targetZ = Array.isArray(pt) ? pt[2] : pt.z;
+                    targetZ = Array.isArray(pt) ? pt[2] : (pt as {z: number}).z;
                 }
             }
             worldZ = targetZ;
@@ -307,7 +309,7 @@ export class BoardViewport extends LitElement {
         let quad = "";
         let localNdcX = ndcX;
         let localNdcY = ndcY;
-        let localAspect = aspect;
+        const localAspect = aspect;
 
         if (this.maximizedView) {
             quad = this.maximizedView;
@@ -325,9 +327,9 @@ export class BoardViewport extends LitElement {
             localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
         }
 
-        let originalPos = [0,0,0];
+                let originalPos = [0,0,0];
         if (this.boardState) {
-            let curveData: any;
+            let curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined;
             if (this.activeDragNode.curve === 'outline') curveData = this.boardState.outline;
             else if (this.activeDragNode.curve === 'rockerTop') curveData = this.boardState.rockerTop;
             else if (this.activeDragNode.curve === 'rockerBottom') curveData = this.boardState.rockerBottom;
@@ -354,27 +356,29 @@ export class BoardViewport extends LitElement {
             }
 
             if (curveData) {
-                let pts = curveData.controlPoints || curveData.control_points;
-                if (this.activeDragNode.type === 'tangent1') pts = curveData.tangents1 || curveData.tangents_1;
-                if (this.activeDragNode.type === 'tangent2') pts = curveData.tangents2 || curveData.tangents_2;
+                const cdAny = curveData as unknown as { control_points?: {x: number, y: number, z: number}[], tangents_1?: {x: number, y: number, z: number}[], tangents_2?: {x: number, y: number, z: number}[] };
+                let pts = curveData.controlPoints || cdAny.control_points;
+                if (this.activeDragNode.type === 'tangent1') pts = curveData.tangents1 || cdAny.tangents_1;
+                if (this.activeDragNode.type === 'tangent2') pts = curveData.tangents2 || cdAny.tangents_2;
                 
                 const pt = pts?.[this.activeDragNode.index];
                 if (pt) {
-                    originalPos = Array.isArray(pt) ? pt : [pt.x, pt.y, pt.z];
+                    originalPos = Array.isArray(pt) ? pt : [(pt as {x: number}).x, (pt as {y: number}).y, (pt as {z: number}).z];
                 }
             }
         }
 
         let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
 
+                type EngineExt = { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
         if (quad === "top") {
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_top() : 8.0;
+            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_top() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * localAspect;
             worldX = localNdcX * orthoRight * 12;
             worldZ = -localNdcY * orthoTop * 12;
         } else if (quad === "side") {
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_side() : 8.0;
+            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_side() : 8.0;
             const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
             const orthoRight = frustumSize * localAspect / 2;
@@ -382,7 +386,7 @@ export class BoardViewport extends LitElement {
             worldZ = -localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
         } else if (quad === "profile") {
-            const distance = this.mathEngine ? (this.mathEngine as any).camera_distance_profile() : 8.0;
+            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_profile() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * localAspect;
             worldX = localNdcX * orthoRight * 12;
