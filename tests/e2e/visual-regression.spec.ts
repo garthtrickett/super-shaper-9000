@@ -68,22 +68,8 @@ test.describe('Visual Regression', () => {
     // Wait for material to apply
     await page.waitForTimeout(1000);
 
-    // 4. Freeze Zebra animation for deterministic screenshots
-    await page.evaluate(() => {
-      type BoardViewportElement = HTMLElement & {
-        zebraOffset: number;
-        textureManager?: {
-          updateZebraCanvas: (offset: number) => void;
-        };
-      };
-      
-            const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
-      if (vp && vp.textureManager) {
-        vp.zebraOffset = 0;
-        vp.textureManager.updateZebraCanvas(0);
-        vp.textureManager.updateZebraCanvas = () => {}; // disable future updates
-      }
-    });
+        // Zebra animation is now handled in WGPU. We wait for it to settle.
+    await page.waitForTimeout(500);
 
     // Let the canvas render the frozen frame
     await page.waitForTimeout(500);
