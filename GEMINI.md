@@ -84,8 +84,8 @@ Use this for the majority of edits. It is whitespace-agnostic.
 **2. `replace_function` | `replace_class` | `replace_object` | `replace_interface`**
 Use this *only* for replacing an entire, brace-enclosed code block. 
 
-*   🚨 **CRITICAL KOTLIN EXCEPTION:** The `replace_class`, `replace_interface`, and `replace_function` strategies **WILL FAIL** if the target does not have opening and closing curly braces `{ ... }`. 
-*   **DO NOT** use these strategies for Kotlin `data class`es or `sealed interface`s that only have a primary constructor `(...)` and no body. You **MUST** use `smart_replace` for these.
+*   **Fully supports TypeScript & Rust!** The patcher automatically handles modifiers (`private`, `public`, `async`, `override`, `pub(crate)`), arrow functions (`private myFunc = () => {`), and property getters/setters (`get name() {`).
+*   🚨 **CRITICAL EXCEPTIONS:** These strategies **WILL FAIL** if the target does not have opening and closing curly braces `{ ... }`. **DO NOT** use these strategies for Kotlin `data class`es or `sealed interface`s that only have a primary constructor `(...)` and no body. You **MUST** use `smart_replace` for these.
 *   **Best Practice:**
     *   Provide the full name of the entity in the `\"name\"` field.
     *   Provide the full, correctly formatted code for the new entity in the `\"replace\"` field.

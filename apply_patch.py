@@ -105,13 +105,16 @@ def apply_smart_replace(text, search, replace):
     raise Exception("Could not find a match for smart_replace block. Searched for:\n" + search)
 
 def apply_entity_replace(text, entity_type, name, replace):
-    entity_pattern = ''
+        # Support decorators with arguments, e.g., @customElement("my-el")
+    decorators = r"(?:@\w+(?:\([^)]*\))?\s*)*"
+    # Support modifiers like private, public, async, override, pub(crate), etc.
     modifiers = r"(?:[a-zA-Z0-9_\(\)]+\s+)*"
     
     if entity_type == "replace_function":
-        entity_pattern = r"(?:@\w+\s*)*" + modifiers + r"(?:fun|fn|function)\s+(?:<[\w\s,<>]+>\s*)?" + re.escape(name) + r"\b"
+        # Lookahead for '(' (or '=...(' for arrow functions) handles TS methods without 'function' keyword
+        entity_pattern = decorators + modifiers + r"(?:(?:fun|fn|function|get|set)\s+)?(?:<[^>]+>\s*)?" + re.escape(name) + r"(?=\s*(?:=\s*)?\()"
     else:
-        entity_pattern = r"(?:@\w+\s*)*" + modifiers + r"(?:class|interface|object|struct|enum|trait|impl)\s+" + re.escape(name) + r"\b"
+        entity_pattern = decorators + modifiers + r"(?:class|interface|object|struct|enum|trait|impl)\s+(?:<[^>]+>\s*)?" + re.escape(name) + r"\b"
 
     match = re.search(entity_pattern, text)
     if not match:
@@ -175,16 +178,12 @@ def apply_entity_replace(text, entity_type, name, replace):
         elif c == '<': angle_depth += 1
         elif c == '>': angle_depth -= 1
         
-        if paren_depth == 0 and angle_depth == 0:
+                if paren_depth == 0 and angle_depth == 0:
             if c == '{':
                 end_idx = find_block_end(text, i)
                 if end_idx == -1:
                     raise Exception(f"Could not find matching closing brace for entity '{name}'")
                 return text[:start_idx] + replace + text[end_idx + 1:]
-            elif c == '=':
-                line_end = text.find('\n', i)
-                if line_end == -1: line_end = len(text)
-                return text[:start_idx] + replace + text[line_end:]
             elif c == ';':
                 return text[:start_idx] + replace + text[i + 1:]
         
