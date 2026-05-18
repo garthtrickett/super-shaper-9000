@@ -327,7 +327,8 @@ impl WasmEngine {
         self.camera_ctrl.process_wheel(dy, quad);
     }
 
-        #[wasm_bindgen]
+        #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen]
     pub fn handle_gizmo_drag(
         &mut self,
         curve_name: &str,
@@ -385,7 +386,7 @@ impl WasmEngine {
                 } else {
                     (full_w, full_h)
                 };
-                                let aspect = vp_w / vp_h;
+                let aspect = vp_w / vp_h;
 
                 let cam_pos;
                 let view_proj = match q {
@@ -413,11 +414,7 @@ impl WasmEngine {
                         let ortho_right = frustum_half * aspect;
                         let ortho_top = frustum_half / stretch_y;
                         cam_pos = glam::Vec3::new(-10.0, 0.0, 0.0);
-                        let view = glam::Mat4::look_at_rh(
-                            cam_pos,
-                            glam::Vec3::ZERO,
-                            glam::Vec3::Y,
-                        );
+                        let view = glam::Mat4::look_at_rh(cam_pos, glam::Vec3::ZERO, glam::Vec3::Y);
                         let proj = glam::Mat4::orthographic_rh(
                             -ortho_right,
                             ortho_right,
@@ -460,15 +457,22 @@ impl WasmEngine {
                         proj * view
                     }
                     _ => {
-                        let x = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+                        let x = self.camera_ctrl.distance_persp
+                            * self.camera_ctrl.pitch.cos()
+                            * self.camera_ctrl.yaw.sin();
                         let y = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
-                        let z = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+                        let z = self.camera_ctrl.distance_persp
+                            * self.camera_ctrl.pitch.cos()
+                            * self.camera_ctrl.yaw.cos();
                         cam_pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
-                        
+
                         if self.is_ortho {
                             let frustum = self.camera_ctrl.distance_persp / 4.0;
-                            let view =
-                                glam::Mat4::look_at_rh(cam_pos, self.camera_ctrl.target, glam::Vec3::Y);
+                            let view = glam::Mat4::look_at_rh(
+                                cam_pos,
+                                self.camera_ctrl.target,
+                                glam::Vec3::Y,
+                            );
                             let proj = glam::Mat4::orthographic_rh(
                                 -frustum * aspect,
                                 frustum * aspect,
@@ -485,20 +489,34 @@ impl WasmEngine {
                 };
 
                 let view_proj_array = view_proj.to_cols_array();
-                
+
                 let mut uniform_data = [0.0f32; 24]; // 16 (mat4) + 4 (vec4) + 4 (vec4) = 24 floats = 96 bytes
                 uniform_data[0..16].copy_from_slice(&view_proj_array);
                 uniform_data[16..19].copy_from_slice(&cam_pos.to_array());
                 uniform_data[19] = 1.0;
-                
+
                 let model = self.engine.get_model();
                 let bounds = surfer_core::geometry::get_board_bounds(model);
-                let mri_z = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * (model.mri_slice_position.unwrap_or(50.0) / 100.0);
+                let mri_z = bounds.nose_z
+                    + (bounds.tip_z - bounds.nose_z)
+                        * (model.mri_slice_position.unwrap_or(50.0) / 100.0);
                 let mri_z_world = mri_z * (1.0 / 12.0);
 
-                uniform_data[20] = if model.show_heatmap.unwrap_or(false) { 1.0 } else { 0.0 };
-                uniform_data[21] = if model.show_zebra.unwrap_or(false) { 1.0 } else { 0.0 };
-                uniform_data[22] = if model.show_mri_view.unwrap_or(false) { 1.0 } else { 0.0 };
+                uniform_data[20] = if model.show_heatmap.unwrap_or(false) {
+                    1.0
+                } else {
+                    0.0
+                };
+                uniform_data[21] = if model.show_zebra.unwrap_or(false) {
+                    1.0
+                } else {
+                    0.0
+                };
+                uniform_data[22] = if model.show_mri_view.unwrap_or(false) {
+                    1.0
+                } else {
+                    0.0
+                };
                 uniform_data[23] = mri_z_world;
 
                 let uniform_bytes = as_u8_slice(&uniform_data);
@@ -562,7 +580,7 @@ impl WasmEngine {
                         (0.0, 0.0, full_w, full_h)
                     };
 
-                                        rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
+                    rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
 
                     let draw_solid = (q == "perspective"
                         || (self.view_mode != "quad"
@@ -677,7 +695,7 @@ impl WasmEngine {
             .unwrap_or(-1.0)
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> js_sys::Float32Array {
         if let Some(pt) = self.engine.get_point_on_curve(curve_name, t) {
             js_sys::Float32Array::from(&pt[..])
@@ -720,13 +738,22 @@ impl WasmEngine {
         self.camera_ctrl.distance_profile
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn camera_distance_persp(&self) -> f32 {
         self.camera_ctrl.distance_persp
     }
 
-        #[wasm_bindgen]
-    pub fn unproject_to_plane(&self, quad: &str, ndc_x: f32, ndc_y: f32, aspect: f32, orig_x: f32, orig_y: f32, orig_z: f32) -> js_sys::Float32Array {
+    #[wasm_bindgen]
+    pub fn unproject_to_plane(
+        &self,
+        quad: &str,
+        ndc_x: f32,
+        ndc_y: f32,
+        aspect: f32,
+        orig_x: f32,
+        orig_y: f32,
+        orig_z: f32,
+    ) -> js_sys::Float32Array {
         let view_proj = match quad {
             "top" => {
                 let frustum = self.camera_ctrl.distance_top / 4.0;
@@ -735,7 +762,14 @@ impl WasmEngine {
                     glam::Vec3::ZERO,
                     glam::Vec3::new(0.0, 0.0, -1.0),
                 );
-                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                let proj = glam::Mat4::orthographic_rh(
+                    -frustum * aspect,
+                    frustum * aspect,
+                    -frustum,
+                    frustum,
+                    0.1,
+                    1000.0,
+                );
                 proj * view
             }
             "side" => {
@@ -748,13 +782,25 @@ impl WasmEngine {
                     glam::Vec3::ZERO,
                     glam::Vec3::Y,
                 );
-                let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
+                let proj = glam::Mat4::orthographic_rh(
+                    -ortho_right,
+                    ortho_right,
+                    -ortho_top,
+                    ortho_top,
+                    0.1,
+                    1000.0,
+                );
                 proj * view
             }
             "profile" => {
                 let frustum = self.camera_ctrl.distance_profile / 4.0;
                 let mut target_z = 0.0;
-                if let Some(cs) = self.engine.get_model().cross_sections.get(self.active_profile_slice) {
+                if let Some(cs) = self
+                    .engine
+                    .get_model()
+                    .cross_sections
+                    .get(self.active_profile_slice)
+                {
                     target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
                 }
                 let view = glam::Mat4::look_at_rh(
@@ -762,18 +808,36 @@ impl WasmEngine {
                     glam::Vec3::new(0.0, 0.0, target_z),
                     glam::Vec3::Y,
                 );
-                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
+                let proj = glam::Mat4::orthographic_rh(
+                    -frustum * aspect,
+                    frustum * aspect,
+                    -frustum,
+                    frustum,
+                    0.9,
+                    1.1,
+                );
                 proj * view
             }
             _ => {
                 if self.is_ortho {
                     let frustum = self.camera_ctrl.distance_persp / 4.0;
-                    let x_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+                    let x_pos = self.camera_ctrl.distance_persp
+                        * self.camera_ctrl.pitch.cos()
+                        * self.camera_ctrl.yaw.sin();
                     let y_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
-                    let z_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+                    let z_pos = self.camera_ctrl.distance_persp
+                        * self.camera_ctrl.pitch.cos()
+                        * self.camera_ctrl.yaw.cos();
                     let pos = self.camera_ctrl.target + glam::Vec3::new(x_pos, y_pos, z_pos);
                     let view = glam::Mat4::look_at_rh(pos, self.camera_ctrl.target, glam::Vec3::Y);
-                    let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                    let proj = glam::Mat4::orthographic_rh(
+                        -frustum * aspect,
+                        frustum * aspect,
+                        -frustum,
+                        frustum,
+                        0.1,
+                        1000.0,
+                    );
                     proj * view
                 } else {
                     self.camera_ctrl.build_view_projection_matrix(aspect)
@@ -782,19 +846,23 @@ impl WasmEngine {
         };
 
         let inv_vp = view_proj.inverse();
-        
+
         let ndc_near = glam::Vec4::new(ndc_x, ndc_y, 0.1, 1.0);
         let ndc_far = glam::Vec4::new(ndc_x, ndc_y, 0.9, 1.0);
-        
+
         let world_near = inv_vp * ndc_near;
         let world_far = inv_vp * ndc_far;
-        
+
         let ro = world_near.truncate() / world_near.w;
         let rf = world_far.truncate() / world_far.w;
         let rd = (rf - ro).normalize();
 
-        let orig_world = glam::Vec3::new(orig_x * (1.0 / 12.0), orig_y * (1.0 / 12.0), orig_z * (1.0 / 12.0));
-        
+        let orig_world = glam::Vec3::new(
+            orig_x * (1.0 / 12.0),
+            orig_y * (1.0 / 12.0),
+            orig_z * (1.0 / 12.0),
+        );
+
         let n = if quad == "top" {
             glam::Vec3::Y
         } else if quad == "side" {
@@ -802,15 +870,19 @@ impl WasmEngine {
         } else if quad == "profile" {
             glam::Vec3::Z
         } else {
-            let cx = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+            let cx = self.camera_ctrl.distance_persp
+                * self.camera_ctrl.pitch.cos()
+                * self.camera_ctrl.yaw.sin();
             let cy = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
-            let cz = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+            let cz = self.camera_ctrl.distance_persp
+                * self.camera_ctrl.pitch.cos()
+                * self.camera_ctrl.yaw.cos();
             glam::Vec3::new(cx, cy, cz).normalize()
         };
-        
+
         let denom = n.dot(rd);
         let mut res = [orig_x, orig_y, orig_z];
-        
+
         if denom.abs() > 1e-6 {
             let t = (orig_world - ro).dot(n) / denom;
             let hit = ro + rd * t;
@@ -818,12 +890,19 @@ impl WasmEngine {
             res[1] = hit.y * 12.0;
             res[2] = hit.z * 12.0;
         }
-        
+
         js_sys::Float32Array::from(&res[..])
     }
 
     #[wasm_bindgen]
-    pub fn project_to_screen(&self, quad: &str, x: f32, y: f32, z: f32, aspect: f32) -> js_sys::Float32Array {
+    pub fn project_to_screen(
+        &self,
+        quad: &str,
+        x: f32,
+        y: f32,
+        z: f32,
+        aspect: f32,
+    ) -> js_sys::Float32Array {
         let view_proj = match quad {
             "top" => {
                 let frustum = self.camera_ctrl.distance_top / 4.0;
@@ -832,7 +911,14 @@ impl WasmEngine {
                     glam::Vec3::ZERO,
                     glam::Vec3::new(0.0, 0.0, -1.0),
                 );
-                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                let proj = glam::Mat4::orthographic_rh(
+                    -frustum * aspect,
+                    frustum * aspect,
+                    -frustum,
+                    frustum,
+                    0.1,
+                    1000.0,
+                );
                 proj * view
             }
             "side" => {
@@ -845,13 +931,25 @@ impl WasmEngine {
                     glam::Vec3::ZERO,
                     glam::Vec3::Y,
                 );
-                let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
+                let proj = glam::Mat4::orthographic_rh(
+                    -ortho_right,
+                    ortho_right,
+                    -ortho_top,
+                    ortho_top,
+                    0.1,
+                    1000.0,
+                );
                 proj * view
             }
             "profile" => {
                 let frustum = self.camera_ctrl.distance_profile / 4.0;
                 let mut target_z = 0.0;
-                if let Some(cs) = self.engine.get_model().cross_sections.get(self.active_profile_slice) {
+                if let Some(cs) = self
+                    .engine
+                    .get_model()
+                    .cross_sections
+                    .get(self.active_profile_slice)
+                {
                     target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
                 }
                 let view = glam::Mat4::look_at_rh(
@@ -859,18 +957,36 @@ impl WasmEngine {
                     glam::Vec3::new(0.0, 0.0, target_z),
                     glam::Vec3::Y,
                 );
-                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
+                let proj = glam::Mat4::orthographic_rh(
+                    -frustum * aspect,
+                    frustum * aspect,
+                    -frustum,
+                    frustum,
+                    0.9,
+                    1.1,
+                );
                 proj * view
             }
             _ => {
                 if self.is_ortho {
                     let frustum = self.camera_ctrl.distance_persp / 4.0;
-                    let x_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+                    let x_pos = self.camera_ctrl.distance_persp
+                        * self.camera_ctrl.pitch.cos()
+                        * self.camera_ctrl.yaw.sin();
                     let y_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
-                    let z_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+                    let z_pos = self.camera_ctrl.distance_persp
+                        * self.camera_ctrl.pitch.cos()
+                        * self.camera_ctrl.yaw.cos();
                     let pos = self.camera_ctrl.target + glam::Vec3::new(x_pos, y_pos, z_pos);
                     let view = glam::Mat4::look_at_rh(pos, self.camera_ctrl.target, glam::Vec3::Y);
-                    let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                    let proj = glam::Mat4::orthographic_rh(
+                        -frustum * aspect,
+                        frustum * aspect,
+                        -frustum,
+                        frustum,
+                        0.1,
+                        1000.0,
+                    );
                     proj * view
                 } else {
                     self.camera_ctrl.build_view_projection_matrix(aspect)
@@ -878,7 +994,8 @@ impl WasmEngine {
             }
         };
 
-        let clip = view_proj * glam::Vec4::new(x * (1.0 / 12.0), y * (1.0 / 12.0), z * (1.0 / 12.0), 1.0);
+        let clip =
+            view_proj * glam::Vec4::new(x * (1.0 / 12.0), y * (1.0 / 12.0), z * (1.0 / 12.0), 1.0);
         let mut res = [0.0, 0.0, 2.0];
         if clip.w > 0.0 {
             res[0] = clip.x / clip.w;
@@ -1047,7 +1164,7 @@ pub async fn create_wgpu_renderer(
 ) -> Result<WgpuRenderer, JsValue> {
     #[cfg(target_arch = "wasm32")]
     {
-                let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::GL,
             ..Default::default()
         });
@@ -1063,7 +1180,7 @@ pub async fn create_wgpu_renderer(
             .await
             .ok_or_else(|| JsValue::from_str("Failed to request WGPU adapter. WebGL/WebGPU may be unsupported or disabled in this environment."))?;
 
-                let (device, queue) = adapter
+        let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
@@ -1155,7 +1272,7 @@ pub async fn create_wgpu_renderer(
             source: wgpu::ShaderSource::Wgsl(shader_src.into()),
         });
 
-                let camera_bind_group_layout =
+        let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
@@ -1170,7 +1287,7 @@ pub async fn create_wgpu_renderer(
                 label: Some("camera_bind_group_layout"),
             });
 
-                let mut camera_buffers = Vec::new();
+        let mut camera_buffers = Vec::new();
         let mut camera_bind_groups = Vec::new();
         for i in 0..4 {
             let buf = device.create_buffer(&wgpu::BufferDescriptor {

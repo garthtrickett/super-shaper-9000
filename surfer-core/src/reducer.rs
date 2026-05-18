@@ -688,15 +688,39 @@ fn handle_node_mutations(
 fn scale_curves_in_model(model: &mut BoardModel, sx: f32, sy: f32, sz: f32) {
     let scale_opt = |curve: &mut Option<BezierCurveData>| {
         if let Some(c) = curve.as_mut() {
-            for p in &mut c.control_points { p.x *= sx; p.y *= sy; p.z *= sz; }
-            for p in &mut c.tangents1 { p.x *= sx; p.y *= sy; p.z *= sz; }
-            for p in &mut c.tangents2 { p.x *= sx; p.y *= sy; p.z *= sz; }
+            for p in &mut c.control_points {
+                p.x *= sx;
+                p.y *= sy;
+                p.z *= sz;
+            }
+            for p in &mut c.tangents1 {
+                p.x *= sx;
+                p.y *= sy;
+                p.z *= sz;
+            }
+            for p in &mut c.tangents2 {
+                p.x *= sx;
+                p.y *= sy;
+                p.z *= sz;
+            }
         }
     };
     let scale_req = |curve: &mut BezierCurveData| {
-        for p in &mut curve.control_points { p.x *= sx; p.y *= sy; p.z *= sz; }
-        for p in &mut curve.tangents1 { p.x *= sx; p.y *= sy; p.z *= sz; }
-        for p in &mut curve.tangents2 { p.x *= sx; p.y *= sy; p.z *= sz; }
+        for p in &mut curve.control_points {
+            p.x *= sx;
+            p.y *= sy;
+            p.z *= sz;
+        }
+        for p in &mut curve.tangents1 {
+            p.x *= sx;
+            p.y *= sy;
+            p.z *= sz;
+        }
+        for p in &mut curve.tangents2 {
+            p.x *= sx;
+            p.y *= sy;
+            p.z *= sz;
+        }
     };
 
     scale_opt(&mut model.outline);
@@ -734,52 +758,86 @@ fn handle_parametric_scaling(
     action: BoardAction,
 ) -> Vec<Effect> {
     match action {
-        BoardAction::UpdateNumber { param, value } => {
-            match param.as_str() {
-                "length" => { 
-                    if model.length > 0.0 && value > 0.0 {
-                        let factor = value / model.length;
-                        scale_curves_in_model(model, 1.0, 1.0, factor);
-                    }
-                    model.length = value; 
-                    dirty.global_rebuild = true; 
-                },
-                "width" => { 
-                    if model.width > 0.0 && value > 0.0 {
-                        let factor = value / model.width;
-                        scale_curves_in_model(model, factor, 1.0, 1.0);
-                    }
-                    model.width = value; 
-                    dirty.global_rebuild = true; 
-                },
-                "thickness" => { 
-                    if model.thickness > 0.0 && value > 0.0 {
-                        let factor = value / model.thickness;
-                        scale_curves_in_model(model, 1.0, factor, 1.0);
-                    }
-                    model.thickness = value; 
-                    dirty.global_rebuild = true; 
-                },
-                "frontFinZ" => { model.front_fin_z = value; dirty.global_rebuild = true; },
-                "frontFinX" => { model.front_fin_x = value; dirty.global_rebuild = true; },
-                "rearFinZ" => { model.rear_fin_z = value; dirty.global_rebuild = true; },
-                "rearFinX" => { model.rear_fin_x = value; dirty.global_rebuild = true; },
-                "toeAngle" => { model.toe_angle = value; dirty.global_rebuild = true; },
-                "cantAngle" => { model.cant_angle = value; dirty.global_rebuild = true; },
-                "swallowDepth" => { model.swallow_depth = value; dirty.global_rebuild = true; },
-                "vConcaveTail" => { model.v_concave_tail = value; dirty.global_rebuild = true; },
-                "vConcaveNose" => { model.v_concave_nose = value; dirty.global_rebuild = true; },
-                "railCoefficientTail" => { model.rail_coefficient_tail = value; dirty.global_rebuild = true; },
-                "railCoefficientNose" => { model.rail_coefficient_nose = value; dirty.global_rebuild = true; },
-                "thicknessZStretch" => { model.thickness_z_stretch = value; dirty.global_rebuild = true; },
-                "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
-                "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
-                "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
-                "gizmoScalePerspective" => model.gizmo_scale_perspective = Some(value),
-                "mriSlicePosition" => model.mri_slice_position = Some(value),
-                _ => {}
+        BoardAction::UpdateNumber { param, value } => match param.as_str() {
+            "length" => {
+                if model.length > 0.0 && value > 0.0 {
+                    let factor = value / model.length;
+                    scale_curves_in_model(model, 1.0, 1.0, factor);
+                }
+                model.length = value;
+                dirty.global_rebuild = true;
             }
-        }
+            "width" => {
+                if model.width > 0.0 && value > 0.0 {
+                    let factor = value / model.width;
+                    scale_curves_in_model(model, factor, 1.0, 1.0);
+                }
+                model.width = value;
+                dirty.global_rebuild = true;
+            }
+            "thickness" => {
+                if model.thickness > 0.0 && value > 0.0 {
+                    let factor = value / model.thickness;
+                    scale_curves_in_model(model, 1.0, factor, 1.0);
+                }
+                model.thickness = value;
+                dirty.global_rebuild = true;
+            }
+            "frontFinZ" => {
+                model.front_fin_z = value;
+                dirty.global_rebuild = true;
+            }
+            "frontFinX" => {
+                model.front_fin_x = value;
+                dirty.global_rebuild = true;
+            }
+            "rearFinZ" => {
+                model.rear_fin_z = value;
+                dirty.global_rebuild = true;
+            }
+            "rearFinX" => {
+                model.rear_fin_x = value;
+                dirty.global_rebuild = true;
+            }
+            "toeAngle" => {
+                model.toe_angle = value;
+                dirty.global_rebuild = true;
+            }
+            "cantAngle" => {
+                model.cant_angle = value;
+                dirty.global_rebuild = true;
+            }
+            "swallowDepth" => {
+                model.swallow_depth = value;
+                dirty.global_rebuild = true;
+            }
+            "vConcaveTail" => {
+                model.v_concave_tail = value;
+                dirty.global_rebuild = true;
+            }
+            "vConcaveNose" => {
+                model.v_concave_nose = value;
+                dirty.global_rebuild = true;
+            }
+            "railCoefficientTail" => {
+                model.rail_coefficient_tail = value;
+                dirty.global_rebuild = true;
+            }
+            "railCoefficientNose" => {
+                model.rail_coefficient_nose = value;
+                dirty.global_rebuild = true;
+            }
+            "thicknessZStretch" => {
+                model.thickness_z_stretch = value;
+                dirty.global_rebuild = true;
+            }
+            "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
+            "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
+            "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
+            "gizmoScalePerspective" => model.gizmo_scale_perspective = Some(value),
+            "mriSlicePosition" => model.mri_slice_position = Some(value),
+            _ => {}
+        },
         BoardAction::UpdateString { param, value } => {
             dirty.global_rebuild = true;
             match param.as_str() {

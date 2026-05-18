@@ -215,7 +215,7 @@ pub fn generate_mesh(
                 }
             }
 
-                        if show_gizmos {
+            if show_gizmos {
                 let num_segments = curve.control_points.len().saturating_sub(1);
                 let num_segments_f = num_segments as f32;
 
@@ -273,14 +273,14 @@ pub fn generate_mesh(
                         }
                     };
 
-                                        let p = map_point(t, raw_p);
+                    let p = map_point(t, raw_p);
 
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
                     push_line(p - Vec3::X * s, p + Vec3::X * s, c_anchor);
                     push_line(p - Vec3::Y * s, p + Vec3::Y * s, c_anchor);
                     push_line(p - Vec3::Z * s, p + Vec3::Z * s, c_anchor);
 
-                                        if is_outline {
+                    if is_outline {
                         let c_mirrored_anchor = Vec3::new(0.35, 0.35, 0.35); // Dark grey
                         let mut mp = p;
                         mp.x = -mp.x;

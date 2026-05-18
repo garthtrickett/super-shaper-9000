@@ -171,7 +171,7 @@ impl SurferEngine {
         ))
     }
 
-        pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
+    pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
         let curve = crate::geometry::get_curve(&self.model, curve_name)?;
         let pt = crate::geometry::evaluate_curve(curve, t);
         Some([pt.x, pt.y, pt.z])
