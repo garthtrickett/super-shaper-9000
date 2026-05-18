@@ -26,10 +26,13 @@ export class BoardBuilderPage extends LitElement {
   @state() private showExportModal = false;
   @state() private showImportModal = false;
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
-  @state() private showContourEditor = false;
+    @state() private showContourEditor = false;
   @state() private contourZPosition = 20.0;
   @state() private contourSliceData?: Float32Array;
   @state() private isProcessing = false;
+
+  private _workerBusyWithDrag = false;
+  private _pendingDragDetail: any = null;
 
   private _proposeAction(action: BoardAction) {
     this.isProcessing = true;
@@ -64,6 +67,14 @@ export class BoardBuilderPage extends LitElement {
     if (data.type === "RENDERER_READY") {
         console.info("[BoardBuilder] WGPU Renderer Ready");
         this.dispatchEvent(new CustomEvent("wgpu-ready", { bubbles: true, composed: true }));
+    }
+        if (data.type === "GIZMO_DRAG_COMPLETE") {
+      this._workerBusyWithDrag = false;
+      if (this._pendingDragDetail) {
+        const detail = this._pendingDragDetail;
+        this._pendingDragDetail = null;
+        this._sendGizmoDragToWorker(detail);
+      }
     }
     if (data.type === "SLICE_PROFILE_RESULT" && data.id === "contour-editor") {
       this.contourSliceData = data.profile;
@@ -260,14 +271,27 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-      private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
-    const { userData, position } = e.detail;
-    
+        private _sendGizmoDragToWorker(detail: any) {
+    this._workerBusyWithDrag = true;
     const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
     if (worker) {
-      worker.postMessage({ type: "DRAG_GIZMO", curve: userData.curve, index: userData.index, nodeType: userData.type, x: position[0], y: position[1], z: position[2], continuity: this._selectedNodeContinuity });
+      worker.postMessage({
+        type: "DRAG_GIZMO",
+        curve: detail.userData.curve,
+        index: detail.userData.index,
+        nodeType: detail.userData.type,
+        x: detail.position[0],
+        y: detail.position[1],
+        z: detail.position[2],
+        continuity: this._selectedNodeContinuity
+      });
     }
+  }
+
+    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+    const { userData, position } = e.detail;
     
+    // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
     if (this.mathEngine && (this.mathEngine as any).propose_state_only) {
         (this.mathEngine as any).propose_state_only({
             type: "UPDATE_NODE_POSITION",
@@ -286,18 +310,14 @@ export class BoardBuilderPage extends LitElement {
             });
         }
     }
-  }
 
-  override render() {
-    const state = this.wasmCtrl.model || INITIAL_STATE;
-    const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
-    const curvatureCombs = (this.wasmCtrl as unknown as { curvatureCombs?: Float32Array }).curvatureCombs;
-    const foilData = (this.wasmCtrl as unknown as { foilData?: Float32Array }).foilData;
-
-    return html`
-      ${this.showExportModal ? html`
-        <export-modal 
-          .jsonString=${JSON.stringify(state, null, 2)} 
+    // Throttle worker calls to prevent message queue buildup and lag on large mouse movements
+    if (!this._workerBusyWithDrag) {
+        this._sendGizmoDragToWorker(e.detail);
+    } else {
+        this._pendingDragDetail = e.detail; // Override with the freshest mouse position
+    }
+  } 
           @close=${() => this.showExportModal = false}>
         </export-modal>
       ` : ''}
@@ -494,7 +514,8 @@ export class BoardBuilderPage extends LitElement {
           }}
           @insert-node=${(e: CustomEvent<{curve: string, t: number}>) => this._proposeAction({ type: "INSERT_NODE", curve: e.detail.curve, t: e.detail.t })}
           @add-cross-section=${(e: CustomEvent<{z: number}>) => this._proposeAction({ type: "ADD_CROSS_SECTION", z: e.detail.z })}
-                    @gizmo-drag-ended=${(e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] | null }>) => {
+                              @gizmo-drag-ended=${(e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] | null }>) => {
+              this._pendingDragDetail = null; // Clear pending throttled frames so it doesn't fire after the final PROPOSE action
               if (e.detail.position) {
                   this._proposeAction({
                       type: "UPDATE_NODE_POSITION",

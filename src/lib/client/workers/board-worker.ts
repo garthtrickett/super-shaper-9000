@@ -131,8 +131,9 @@ self.onmessage = async (e: MessageEvent<any>) => {
     }
 
         if (msg.type === "DRAG_GIZMO") {
-        if (engine) {
+                if (engine) {
             engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z, msg.continuity || "G0");
+            (self as unknown as Worker).postMessage({ type: "GIZMO_DRAG_COMPLETE" });
         }
         return;
     }
