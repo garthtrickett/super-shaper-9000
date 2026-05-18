@@ -443,10 +443,13 @@ export class BoardBuilderPage extends LitElement {
                   worker.postMessage({ type: "RESIZE_RENDERER", width: e.detail.width, height: e.detail.height });
               }
           }}
-          @viewport-pointer=${(e: CustomEvent<{type: string, x: number, y: number}>) => {
+                    @viewport-pointer=${(e: CustomEvent<{type: string, x: number, y: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "POINTER_EVENT", eventType: e.detail.type, x: e.detail.x, y: e.detail.y });
+              }
+              if (this.mathEngine) {
+                  this.mathEngine.handle_pointer(e.detail.type, e.detail.x, e.detail.y);
               }
           }}
                                         @viewport-wheel=${(e: CustomEvent<{dy: number, quad: string}>) => {
@@ -454,11 +457,17 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "WHEEL_EVENT", dy: e.detail.dy, quad: e.detail.quad });
               }
+              if (this.mathEngine) {
+                  this.mathEngine.handle_wheel(e.detail.dy, e.detail.quad);
+              }
           }}
                     @set-view-mode=${(e: CustomEvent<{mode: string}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_VIEW_MODE", mode: e.detail.mode });
+              }
+              if (this.mathEngine) {
+                  this.mathEngine.set_view_mode(e.detail.mode);
               }
           }}
                     @set-ortho=${(e: CustomEvent<{isOrtho: boolean}>) => {
@@ -466,11 +475,17 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_ORTHO", isOrtho: e.detail.isOrtho });
               }
+              if (this.mathEngine) {
+                  this.mathEngine.set_ortho(e.detail.isOrtho);
+              }
           }}
           @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_ACTIVE_PROFILE_SLICE", slice: e.detail.slice });
+              }
+              if (this.mathEngine) {
+                  this.mathEngine.set_active_profile_slice(e.detail.slice);
               }
           }}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {

@@ -899,7 +899,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const orthoRight = frustumSize * aspect / 2;
       const orthoTop = (frustumSize / 2) / stretchY;
       
-      const ndcX = -worldZ / orthoRight; // In side view, Z is horizontal (inverted)
+            const ndcX = worldZ / orthoRight; // In side view, +Z is to the right
       const ndcY = worldY / orthoTop; // And Y is vertical
 
       const w = rect.width / 2;

@@ -54,9 +54,10 @@ export class BoardViewport extends LitElement {
     });
     this.ro.observe(this.wgpuCanvas);
 
-        this.wgpuCanvas.addEventListener("pointerdown", this.handlePointerDown);
+            this.wgpuCanvas.addEventListener("pointerdown", this.handlePointerDown);
     this.wgpuCanvas.addEventListener("pointermove", this.handlePointerMove);
     this.wgpuCanvas.addEventListener("pointerup", this.handlePointerUp);
+    this.wgpuCanvas.addEventListener("pointercancel", this.handlePointerUp);
         this.wgpuCanvas.addEventListener("wheel", (e) => {
       e.preventDefault();
       const rect = this.wgpuCanvas.getBoundingClientRect();
@@ -398,19 +399,19 @@ export class BoardViewport extends LitElement {
             const orthoRight = orthoTop * localAspect;
             worldX = localNdcX * orthoRight * 12;
             worldZ = -localNdcY * orthoTop * 12;
-        } else if (quad === "side") {
+                } else if (quad === "side") {
             const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_side() : 8.0;
             const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
             const orthoRight = frustumSize * localAspect / 2;
             const orthoTop = (frustumSize / 2) / stretchY;
-            worldZ = -localNdcX * orthoRight * 12;
+            worldZ = localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
         } else if (quad === "profile") {
             const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_profile() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * localAspect;
-            worldX = localNdcX * orthoRight * 12;
+            worldX = -localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
         }
 
@@ -486,7 +487,7 @@ export class BoardViewport extends LitElement {
     `;
 
     return html`
-      <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none" style="z-index: 0;"></canvas>
+            <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
       ${this.isProcessing ? html`
         <div class="absolute bottom-3 left-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 text-blue-400 border-blue-500/30 border text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors">
           <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
