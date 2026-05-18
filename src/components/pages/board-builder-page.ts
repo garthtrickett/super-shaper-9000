@@ -31,8 +31,8 @@ export class BoardBuilderPage extends LitElement {
   @state() private contourSliceData?: Float32Array;
   @state() private isProcessing = false;
 
-  private _workerBusyWithDrag = false;
-  private _pendingDragDetail: any = null;
+    private _workerBusyWithDrag = false;
+  private _pendingDragDetail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] } | null = null;
 
     private _proposeAction(action: BoardAction) {
     if (action.type !== "SELECT_NODE" && action.type !== "SAVE_HISTORY_SNAPSHOT") {
@@ -281,7 +281,7 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-        private _sendGizmoDragToWorker(detail: any) {
+          private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }) {
     this._workerBusyWithDrag = true;
     const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
     if (worker) {
@@ -301,9 +301,10 @@ export class BoardBuilderPage extends LitElement {
       private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
     const { userData, position } = e.detail;
     
-    // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
-    if (this.mathEngine && (this.mathEngine as any).propose_state_only) {
-        (this.mathEngine as any).propose_state_only({
+        // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
+    type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
+    if (this.mathEngine && (this.mathEngine as unknown as MathEngineExt).propose_state_only) {
+        (this.mathEngine as unknown as MathEngineExt).propose_state_only({
             type: "UPDATE_NODE_POSITION",
             curve: userData.curve,
             nodeType: userData.type,
@@ -311,7 +312,7 @@ export class BoardBuilderPage extends LitElement {
             position: position
         });
         if (this._selectedNodeContinuity !== 'G0' && (userData.type === 'tangent1' || userData.type === 'tangent2')) {
-            (this.mathEngine as any).propose_state_only({
+            (this.mathEngine as unknown as MathEngineExt).propose_state_only({
                 type: 'APPLY_CONTINUITY',
                 curve: userData.curve,
                 index: userData.index,

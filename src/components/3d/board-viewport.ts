@@ -144,7 +144,7 @@ export class BoardViewport extends LitElement {
 
       const checkNode = (curveName: string, pts: (import("../pages/board-builder-page.logic").Point3D | {x: number, y: number, z: number})[] | undefined, i: number, type: 'anchor'|'tangent1'|'tangent2', isSymmetrical: boolean) => {
           if (!pts || !pts[i]) return;
-          const pt = pts[i]!;
+          const pt = pts[i];
           const ptX = Array.isArray(pt) ? pt[0] : pt.x;
           const ptY = Array.isArray(pt) ? pt[1] : pt.y;
           const ptZ = Array.isArray(pt) ? pt[2] : pt.z;
@@ -423,12 +423,12 @@ export class BoardViewport extends LitElement {
             const orthoRight = orthoTop * localAspect;
             worldX = -localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
-        } else if (quad === "perspective") {
-            if (this.mathEngine && (this.mathEngine as any).unproject_to_plane) {
-                const pt = (this.mathEngine as any).unproject_to_plane(quad, localNdcX, localNdcY, localAspect, originalPos[0], originalPos[1], originalPos[2]);
-                worldX = pt[0];
-                worldY = pt[1];
-                worldZ = pt[2];
+        } else         if (quad === "perspective") {
+            if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
+                const pt = (this.mathEngine as unknown as EngineExt).unproject_to_plane(quad, localNdcX, localNdcY, localAspect, originalPos[0], originalPos[1], originalPos[2]);
+                worldX = pt[0]!;
+                worldY = pt[1]!;
+                worldZ = pt[2]!;
             }
         }
 
