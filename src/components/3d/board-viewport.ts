@@ -348,7 +348,7 @@ export class BoardViewport extends LitElement {
             localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
         }
 
-                let originalPos = [0,0,0];
+                        let originalPos: [number, number, number] = [0, 0, 0];
         if (this.boardState) {
             let curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined;
             if (this.activeDragNode.curve === 'outline') curveData = this.boardState.outline;
@@ -384,7 +384,7 @@ export class BoardViewport extends LitElement {
                 
                 const pt = pts?.[this.activeDragNode.index];
                 if (pt) {
-                    originalPos = Array.isArray(pt) ? pt : [(pt as {x: number}).x, (pt as {y: number}).y, (pt as {z: number}).z];
+                    originalPos = Array.isArray(pt) ? [pt[0] ?? 0, pt[1] ?? 0, pt[2] ?? 0] : [(pt as {x: number}).x, (pt as {y: number}).y, (pt as {z: number}).z];
                 }
             }
         }
@@ -414,7 +414,7 @@ export class BoardViewport extends LitElement {
             worldY = localNdcY * orthoTop * 12;
         }
 
-                this.lastDragPosition = [worldX, worldY, worldZ];
+        this.lastDragPosition = [worldX, worldY, worldZ];
         this.dispatchEvent(new CustomEvent('gizmo-dragged', {
             detail: {
                 userData: this.activeDragNode,
