@@ -106,12 +106,12 @@ export class NodeInspector extends LitElement {
     this._dispatchPreviewWeight(val);
   }
 
-  private _handleAnchorChange(axis: 0|1|2, val: number) {
+    private _handleAnchorChange(axis: 0|1|2, val: number) {
     const sel = this.boardState.selectedNode!;
     const curveData = this._getTargetCurve()!;
     const oldA = curveData.controlPoints[sel.index]!;
-    const oldT1 = curveData.tangents1[sel.index]!;
-    const oldT2 = curveData.tangents2[sel.index]!;
+    const oldT1 = curveData.tangents1?.[sel.index] ?? [...oldA];
+    const oldT2 = curveData.tangents2?.[sel.index] ?? [...oldA];
 
     const newA: Point3D = [...oldA];
     newA[axis] = val;
@@ -129,13 +129,16 @@ export class NodeInspector extends LitElement {
     }));
   }
 
-  private _handleTangentChange(isT1: boolean, prop: 'len' | 'ang', val: number) {
+    private _handleTangentChange(isT1: boolean, prop: 'len' | 'ang', val: number) {
     const sel = this.boardState.selectedNode!;
     const curveData = this._getTargetCurve()!;
     const anc = curveData.controlPoints[sel.index]!;
 
-    const t1Polar = this._getPolar(sel.curve, curveData.tangents1[sel.index]!, anc);
-    const t2Polar = this._getPolar(sel.curve, curveData.tangents2[sel.index]!, anc);
+    const t1Raw = curveData.tangents1?.[sel.index] ?? [...anc];
+    const t2Raw = curveData.tangents2?.[sel.index] ?? [...anc];
+
+    const t1Polar = this._getPolar(sel.curve, t1Raw, anc);
+    const t2Polar = this._getPolar(sel.curve, t2Raw, anc);
 
     if (isT1) {
       t1Polar[prop] = val;
@@ -205,14 +208,16 @@ export class NodeInspector extends LitElement {
     const curveData = this._getTargetCurve();
     if (!sel || !curveData) return html``;
 
-    const anc = curveData.controlPoints[sel.index]!;
-    const t1 = curveData.tangents1[sel.index]!;
-    const t2 = curveData.tangents2[sel.index]!;
+        const anc = curveData.controlPoints?.[sel.index];
+    if (!anc) return html``;
+
+    const t1 = curveData.tangents1?.[sel.index] ?? [...anc];
+    const t2 = curveData.tangents2?.[sel.index] ?? [...anc];
 
     const t1Polar = this._getPolar(sel.curve, t1, anc);
     const t2Polar = this._getPolar(sel.curve, t2, anc);
 
-        const isOutline = sel.curve === 'outline' || sel.curve === 'deckShoulder';
+    const isOutline = sel.curve === 'outline' || sel.curve === 'deckShoulder';
     const isRocker = sel.curve.startsWith('rocker') || sel.curve === 'apexRocker';
     const isSlice = sel.curve.startsWith('crossSection');
     const isEndNode = sel.index === 0 || sel.index === curveData.controlPoints.length - 1;
@@ -344,20 +349,25 @@ export class NodeInspector extends LitElement {
           </div>
         </div>`}
 
-        <div class="mb-4">
+                <div class="mb-4">
           <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Tangents (Handles)</h4>
           
           <div class="grid grid-cols-2 gap-4">
+            ${sel.index !== 0 ? html`
             <div class="bg-zinc-950/50 p-2 rounded border border-zinc-800">
               <span class="block text-[10px] text-zinc-500 mb-2 uppercase font-bold tracking-widest">Incoming (T1)</span>
               ${renderInput('Angle', t1Polar.ang, false, (v) => this._handleTangentChange(true, 'ang', v))}
               ${renderInput('Length', t1Polar.len, false, (v) => this._handleTangentChange(true, 'len', v))}
             </div>
+            ` : html`<div></div>`}
+            
+            ${sel.index !== curveData.controlPoints.length - 1 ? html`
             <div class="bg-zinc-950/50 p-2 rounded border border-zinc-800">
               <span class="block text-[10px] text-zinc-500 mb-2 uppercase font-bold tracking-widest">Outgoing (T2)</span>
               ${renderInput('Angle', t2Polar.ang, false, (v) => this._handleTangentChange(false, 'ang', v))}
               ${renderInput('Length', t2Polar.len, false, (v) => this._handleTangentChange(false, 'len', v))}
             </div>
+            ` : html`<div></div>`}
           </div>
         </div>
       </div>

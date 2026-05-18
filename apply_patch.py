@@ -178,7 +178,7 @@ def apply_entity_replace(text, entity_type, name, replace):
         elif c == '<': angle_depth += 1
         elif c == '>': angle_depth -= 1
         
-                if paren_depth == 0 and angle_depth == 0:
+        if paren_depth == 0 and angle_depth == 0:
             if c == '{':
                 end_idx = find_block_end(text, i)
                 if end_idx == -1:
