@@ -136,30 +136,30 @@ export class BoardViewport extends LitElement {
 
   private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
 
-        private findClosestNode(quad: string, wx: number, wy: number, wz: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
-      const threshold = 15.0; // 15 inches of leniency for headless tests
+            private findClosestNode(quad: string, ndcX: number, ndcY: number, aspect: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
+      const threshold = 0.05;
       let bestHit: { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null = null;
       let minDist = threshold;
 
       const checkNode = (curveName: string, pts: (import("../pages/board-builder-page.logic").Point3D | {x: number, y: number, z: number})[] | undefined, i: number, type: 'anchor') => {
           if (!pts || !pts[i]) return;
-          const pt = pts[i];
+          const pt = pts[i]!;
           const ptX = Array.isArray(pt) ? pt[0] : pt.x;
           const ptY = Array.isArray(pt) ? pt[1] : pt.y;
           const ptZ = Array.isArray(pt) ? pt[2] : pt.z;
-          let dist = Infinity;
-          if (quad === 'top') {
-              dist = Math.hypot(ptX - wx, ptZ - wz);
-          } else if (quad === 'side') {
-              dist = Math.hypot(ptY - wy, ptZ - wz);
-          } else if (quad === 'profile') {
-              if (curveName === `crossSection_${this.activeProfileSlice}`) {
-                  dist = Math.hypot(ptX - wx, ptY - wy);
+
+          type EngineExt = { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+          if (this.mathEngine) {
+              const proj = (this.mathEngine as unknown as EngineExt).project_to_screen(quad, ptX, ptY, ptZ, aspect);
+              if (proj[2]! < 1.0) {
+                  const dx = (proj[0]! - ndcX) * aspect;
+                  const dy = (proj[1]! - ndcY);
+                  const dist = Math.hypot(dx, dy);
+                  if (dist < minDist) {
+                      minDist = dist;
+                      bestHit = { node: { curve: curveName, index: i, type }, curve: curveName, t: i / (pts.length - 1 || 1) };
+                  }
               }
-          }
-          if (dist < minDist) {
-              minDist = dist;
-              bestHit = { node: { curve: curveName, index: i, type }, curve: curveName, t: i / (pts.length - 1 || 1) };
           }
       };
 
@@ -178,7 +178,7 @@ export class BoardViewport extends LitElement {
       checkCurve('apexRocker', this.boardState?.apexRocker);
       checkCurve('deckShoulder', this.boardState?.deckShoulder);
 
-            this.boardState?.crossSections?.forEach((cs, i: number) => checkCurve(`crossSection_${i}`, cs));
+      this.boardState?.crossSections?.forEach((cs, i: number) => checkCurve(`crossSection_${i}`, cs));
       this.boardState?.outlineLayers?.forEach((l, i: number) => {
           checkCurve(`outlineLayer_${i}_ext`, l.otlExt);
           checkCurve(`outlineLayer_${i}_int`, l.otlInt);
