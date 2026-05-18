@@ -387,11 +387,13 @@ impl WasmEngine {
                 };
                 let aspect = vp_w / vp_h;
 
+                                let mut cam_pos = glam::Vec3::ZERO;
                 let view_proj = match q {
                     "top" => {
                         let frustum = self.camera_ctrl.distance_top / 4.0;
+                        cam_pos = glam::Vec3::new(0.0, 10.0, 0.0);
                         let view = glam::Mat4::look_at_rh(
-                            glam::Vec3::new(0.0, 10.0, 0.0),
+                            cam_pos,
                             glam::Vec3::ZERO,
                             glam::Vec3::new(0.0, 0.0, -1.0),
                         );
@@ -410,8 +412,9 @@ impl WasmEngine {
                         let stretch_y = 2.5;
                         let ortho_right = frustum_half * aspect;
                         let ortho_top = frustum_half / stretch_y;
+                        cam_pos = glam::Vec3::new(-10.0, 0.0, 0.0);
                         let view = glam::Mat4::look_at_rh(
-                            glam::Vec3::new(-10.0, 0.0, 0.0),
+                            cam_pos,
                             glam::Vec3::ZERO,
                             glam::Vec3::Y,
                         );
@@ -439,8 +442,9 @@ impl WasmEngine {
                                 * (1.0 / 12.0);
                         }
 
+                        cam_pos = glam::Vec3::new(0.0, 0.0, target_z + 1.0);
                         let view = glam::Mat4::look_at_rh(
-                            glam::Vec3::new(0.0, 0.0, target_z + 1.0),
+                            cam_pos,
                             glam::Vec3::new(0.0, 0.0, target_z),
                             glam::Vec3::Y,
                         );
@@ -456,18 +460,15 @@ impl WasmEngine {
                         proj * view
                     }
                     _ => {
+                        let x = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+                        let y = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
+                        let z = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+                        cam_pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
+                        
                         if self.is_ortho {
                             let frustum = self.camera_ctrl.distance_persp / 4.0;
-                            let x = self.camera_ctrl.distance_persp
-                                * self.camera_ctrl.pitch.cos()
-                                * self.camera_ctrl.yaw.sin();
-                            let y = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
-                            let z = self.camera_ctrl.distance_persp
-                                * self.camera_ctrl.pitch.cos()
-                                * self.camera_ctrl.yaw.cos();
-                            let pos = self.camera_ctrl.target + glam::Vec3::new(x, y, z);
                             let view =
-                                glam::Mat4::look_at_rh(pos, self.camera_ctrl.target, glam::Vec3::Y);
+                                glam::Mat4::look_at_rh(cam_pos, self.camera_ctrl.target, glam::Vec3::Y);
                             let proj = glam::Mat4::orthographic_rh(
                                 -frustum * aspect,
                                 frustum * aspect,
@@ -484,11 +485,27 @@ impl WasmEngine {
                 };
 
                 let view_proj_array = view_proj.to_cols_array();
-                let view_proj_bytes = as_u8_slice(&view_proj_array);
+                
+                let mut uniform_data = [0.0f32; 24]; // 16 (mat4) + 4 (vec4) + 4 (vec4) = 24 floats = 96 bytes
+                uniform_data[0..16].copy_from_slice(&view_proj_array);
+                uniform_data[16..19].copy_from_slice(&cam_pos.to_array());
+                uniform_data[19] = 1.0;
+                
+                let model = self.engine.get_model();
+                let bounds = surfer_core::geometry::get_board_bounds(model);
+                let mri_z = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * (model.mri_slice_position.unwrap_or(50.0) / 100.0);
+                let mri_z_world = mri_z * (1.0 / 12.0);
+
+                uniform_data[20] = if model.show_heatmap.unwrap_or(false) { 1.0 } else { 0.0 };
+                uniform_data[21] = if model.show_zebra.unwrap_or(false) { 1.0 } else { 0.0 };
+                uniform_data[22] = if model.show_mri_view.unwrap_or(false) { 1.0 } else { 0.0 };
+                uniform_data[23] = mri_z_world;
+
+                let uniform_bytes = as_u8_slice(&uniform_data);
                 // In single view mode, we update index 0
                 renderer
                     .queue
-                    .write_buffer(&renderer.camera_buffers[i], 0, view_proj_bytes);
+                    .write_buffer(&renderer.camera_buffers[i], 0, uniform_bytes);
             }
 
             let frame = renderer
@@ -1067,8 +1084,10 @@ pub async fn create_wgpu_renderer(
         surface.configure(&device, &config);
 
         let shader_src = r#"
-            struct CameraUniform {
+                        struct CameraUniform {
                 view_proj: mat4x4<f32>,
+                camera_pos: vec4<f32>,
+                display_settings: vec4<f32>,
             };
             @group(0) @binding(0)
             var<uniform> camera: CameraUniform;
@@ -1077,6 +1096,7 @@ pub async fn create_wgpu_renderer(
                 @builtin(position) clip_position: vec4<f32>,
                 @location(0) color: vec3<f32>,
                 @location(1) normal: vec3<f32>,
+                @location(2) world_pos: vec3<f32>,
             };
 
             @vertex
@@ -1088,16 +1108,45 @@ pub async fn create_wgpu_renderer(
                 var out: VertexOutput;
                 out.color = color;
                 out.normal = normal;
+                out.world_pos = position;
                 out.clip_position = camera.view_proj * vec4<f32>(position, 1.0);
                 return out;
             }
 
             @fragment
             fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-                let light_dir = normalize(vec3<f32>(1.0, 2.0, 3.0));
-                let ambient = 0.3;
-                let diffuse = max(dot(in.normal, light_dir), 0.0) * 0.7;
-                return vec4<f32>(in.color * (ambient + diffuse), 1.0);
+                let show_heatmap = camera.display_settings.x > 0.5;
+                let show_zebra = camera.display_settings.y > 0.5;
+                let show_mri = camera.display_settings.z > 0.5;
+                let mri_z = camera.display_settings.w;
+
+                if (show_mri) {
+                    let dist = abs(in.world_pos.z - mri_z);
+                    if (dist > 0.05) {
+                        discard;
+                    }
+                }
+
+                let normal = normalize(in.normal);
+                let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);
+
+                if (show_zebra) {
+                    let reflection = reflect(-view_dir, normal);
+                    let stripe = fract(reflection.y * 10.0);
+                    let intensity = smoothstep(0.4, 0.6, stripe);
+                    return vec4<f32>(vec3<f32>(intensity), 1.0);
+                } else if (show_heatmap) {
+                    let light_dir = normalize(vec3<f32>(1.0, 2.0, 3.0));
+                    let ambient = 0.3;
+                    let diffuse = max(dot(normal, light_dir), 0.0) * 0.7;
+                    return vec4<f32>(in.color * (ambient + diffuse), 1.0);
+                } else {
+                    let light_dir = normalize(vec3<f32>(1.0, 2.0, 3.0));
+                    let ambient = 0.5;
+                    let diffuse = max(dot(normal, light_dir), 0.0) * 0.5;
+                    let base_color = vec3<f32>(0.9, 0.9, 0.9);
+                    return vec4<f32>(base_color * (ambient + diffuse), 1.0);
+                }
             }
         "#;
 
@@ -1121,12 +1170,12 @@ pub async fn create_wgpu_renderer(
                 label: Some("camera_bind_group_layout"),
             });
 
-        let mut camera_buffers = Vec::new();
+                let mut camera_buffers = Vec::new();
         let mut camera_bind_groups = Vec::new();
         for i in 0..4 {
             let buf = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("Camera Buffer {}", i)),
-                size: 64,
+                size: 96,
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -1153,8 +1202,10 @@ pub async fn create_wgpu_renderer(
             label: Some("Line Shader"),
             source: wgpu::ShaderSource::Wgsl(
                 r#"
-                struct CameraUniform {
+                                struct CameraUniform {
                     view_proj: mat4x4<f32>,
+                    camera_pos: vec4<f32>,
+                    display_settings: vec4<f32>,
                 };
                 @group(0) @binding(0)
                 var<uniform> camera: CameraUniform;

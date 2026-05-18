@@ -41,13 +41,22 @@ export class BoardBuilderPage extends LitElement {
     this.wasmCtrl.propose(action);
   }
 
-    private _previewAction(action: BoardAction) {
+      private _previewAction(action: BoardAction) {
     if (!this.mathEngine) return;
     try {
       const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
       const viewport = this.shadowRoot?.querySelector('board-viewport') as unknown as { boardState: BoardModel };
       if (viewport && result.state) {
         viewport.boardState = result.state;
+      }
+
+      // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly
+      if (action.type === "UPDATE_NUMBER" && 
+          (action.param === "mriSlicePosition" || action.param.startsWith("gizmoScale"))) {
+          const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+          if (worker) {
+              worker.postMessage({ type: "PROPOSE", action, seq: this.wasmCtrl.currentSequence });
+          }
       }
     } catch (err) {
       console.error("[BoardBuilder] Preview failed:", err);
