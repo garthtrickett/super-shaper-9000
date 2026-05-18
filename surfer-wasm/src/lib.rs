@@ -29,12 +29,12 @@ pub struct RenderState {
     num_indices: u32,
     camera_buffers: Vec<wgpu::Buffer>,
     camera_bind_groups: Vec<wgpu::BindGroup>,
-    depth_texture: wgpu::TextureView,
+        depth_texture: wgpu::TextureView,
     msaa_texture: wgpu::TextureView,
     line_pipeline: wgpu::RenderPipeline,
-    line_vertex_buffer: wgpu::Buffer,
-    line_color_buffer: wgpu::Buffer,
-    num_line_vertices: u32,
+    line_vertex_buffers: Vec<wgpu::Buffer>,
+    line_color_buffers: Vec<wgpu::Buffer>,
+    num_line_vertices: [u32; 4],
 }
 
 impl RenderState {
@@ -85,7 +85,7 @@ impl RenderState {
         texture.create_view(&wgpu::TextureViewDescriptor::default())
     }
 
-    fn update_mesh_buffers(&mut self, mesh: &RawGeometryData) {
+        fn update_mesh_buffers(&mut self, mesh: &RawGeometryData) {
         if !mesh.indices.is_empty() {
             let vertex_bytes = as_u8_slice(&mesh.vertices);
             let normal_bytes = as_u8_slice(&mesh.normals);
@@ -125,25 +125,32 @@ impl RenderState {
             self.queue.write_buffer(&self.index_buffer, 0, index_bytes);
             self.num_indices = mesh.indices.len() as u32;
         }
+    }
 
-                let empty_vec: Vec<f32> = Vec::new();
-        let line_verts = as_u8_slice(&empty_vec);
-        let line_colors = as_u8_slice(&empty_vec);
+    fn update_line_buffers(&mut self, idx: usize, line_vertices: &[f32], line_colors: &[f32]) {
+        let line_verts = as_u8_slice(line_vertices);
+        let line_cols = as_u8_slice(line_colors);
 
-        self.line_vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+        self.line_vertex_buffers[idx] = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: (line_verts.len().max(4)) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        self.line_color_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+        self.line_color_buffers[idx] = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: (line_colors.len().max(4)) as u64,
+            size: (line_cols.len().max(4)) as u64,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
-        self.num_line_vertices = 0;
+        if !line_verts.is_empty() {
+            self.queue.write_buffer(&self.line_vertex_buffers[idx], 0, line_verts);
+            self.queue.write_buffer(&self.line_color_buffers[idx], 0, line_cols);
+            self.num_line_vertices[idx] = (line_vertices.len() / 3) as u32;
+        } else {
+            self.num_line_vertices[idx] = 0;
+        }
     }
 }
 
@@ -279,9 +286,24 @@ impl WasmEngine {
         self.is_ortho = is_ortho;
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_active_profile_slice(&mut self, slice: usize) {
         self.active_profile_slice = slice;
+        if let Some(renderer) = &mut self.renderer {
+            let (lv_prof, lc_prof) = surfer_core::mesh::generate_lines_for_view(
+                self.engine.get_model(),
+                "profile",
+                self.active_profile_slice,
+            );
+            renderer.update_line_buffers(3, &lv_prof, &lc_prof);
+            
+            let (lv_persp, lc_persp) = surfer_core::mesh::generate_lines_for_view(
+                self.engine.get_model(),
+                "perspective",
+                self.active_profile_slice,
+            );
+            renderer.update_line_buffers(1, &lv_persp, &lc_persp);
+        }
     }
 
     #[wasm_bindgen]
@@ -595,12 +617,20 @@ impl WasmEngine {
                         rpass.draw_indexed(0..renderer.num_indices, 0, 0..1);
                     }
 
-                    if renderer.num_line_vertices > 0 {
+                                        let view_idx = match q {
+                        "top" => 0,
+                        "perspective" => 1,
+                        "side" => 2,
+                        "profile" => 3,
+                        _ => 1,
+                    };
+
+                    if renderer.num_line_vertices[view_idx] > 0 {
                         rpass.set_pipeline(&renderer.line_pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
-                        rpass.set_vertex_buffer(0, renderer.line_vertex_buffer.slice(..));
-                        rpass.set_vertex_buffer(1, renderer.line_color_buffer.slice(..));
-                        rpass.draw(0..renderer.num_line_vertices, 0..1);
+                        rpass.set_vertex_buffer(0, renderer.line_vertex_buffers[view_idx].slice(..));
+                        rpass.set_vertex_buffer(1, renderer.line_color_buffers[view_idx].slice(..));
+                        rpass.draw(0..renderer.num_line_vertices[view_idx], 0..1);
                     }
                 }
             }
@@ -627,7 +657,7 @@ impl WasmEngine {
         Ok(serde_wasm_bindgen::to_value(&res)?)
     }
 
-    fn update_render_mesh(&mut self) {
+        fn update_render_mesh(&mut self) {
         let mesh = self.engine.compute_mesh();
         self.stats.vertex_count = mesh.vertices.len() / 3;
         self.stats.triangle_count = mesh.indices.len() / 3;
@@ -635,6 +665,15 @@ impl WasmEngine {
 
         if let Some(renderer) = &mut self.renderer {
             renderer.update_mesh_buffers(&mesh);
+            let views = ["top", "perspective", "side", "profile"];
+            for (i, view_id) in views.iter().enumerate() {
+                let (lv, lc) = surfer_core::mesh::generate_lines_for_view(
+                    self.engine.get_model(),
+                    view_id,
+                    self.active_profile_slice,
+                );
+                renderer.update_line_buffers(i, &lv, &lc);
+            }
         }
     }
 
@@ -1484,30 +1523,35 @@ pub async fn create_wgpu_renderer(
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: 4,
             usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let line_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 4,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let line_color_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: 4,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        
+        let mut line_vertex_buffers = Vec::new();
+        let mut line_color_buffers = Vec::new();
+        for _ in 0..4 {
+            line_vertex_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+            line_color_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+        }
 
         Ok(WgpuRenderer(RenderState {
             line_pipeline,
-            line_vertex_buffer,
-            line_color_buffer,
-            num_line_vertices: 0,
+            line_vertex_buffers,
+            line_color_buffers,
+            num_line_vertices: [0; 4],
             surface,
             device,
             queue,

@@ -60,9 +60,10 @@ impl MobileSurferEngine {
     }
 
     /// Calculates and returns the raw 3D mesh buffers needed to render the board natively.
-    pub fn get_mesh(&self) -> MobileGeometryData {
+        pub fn get_mesh(&self) -> MobileGeometryData {
         let mut engine = self.engine.lock().unwrap();
         let mesh = engine.compute_mesh();
+        let (line_vertices, line_colors) = surfer_core::mesh::generate_lines_for_view(engine.get_model(), "perspective", 0);
 
         MobileGeometryData {
             vertices: mesh.vertices,
@@ -70,9 +71,9 @@ impl MobileSurferEngine {
             uvs: mesh.uvs,
             colors: mesh.colors,
             normals: mesh.normals,
-                        volume_liters: mesh.volume_liters,
-            line_vertices: Vec::new(),
-            line_colors: Vec::new(),
+            volume_liters: mesh.volume_liters,
+            line_vertices,
+            line_colors,
         }
     }
 }
