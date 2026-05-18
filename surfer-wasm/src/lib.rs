@@ -714,6 +714,103 @@ impl WasmEngine {
         self.camera_ctrl.distance_persp
     }
 
+        #[wasm_bindgen]
+    pub fn unproject_to_plane(&self, quad: &str, ndc_x: f32, ndc_y: f32, aspect: f32, orig_x: f32, orig_y: f32, orig_z: f32) -> js_sys::Float32Array {
+        let view_proj = match quad {
+            "top" => {
+                let frustum = self.camera_ctrl.distance_top / 4.0;
+                let view = glam::Mat4::look_at_rh(
+                    glam::Vec3::new(0.0, 10.0, 0.0),
+                    glam::Vec3::ZERO,
+                    glam::Vec3::new(0.0, 0.0, -1.0),
+                );
+                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                proj * view
+            }
+            "side" => {
+                let frustum_half = self.camera_ctrl.distance_side / 4.0;
+                let stretch_y = 2.5;
+                let ortho_right = frustum_half * aspect;
+                let ortho_top = frustum_half / stretch_y;
+                let view = glam::Mat4::look_at_rh(
+                    glam::Vec3::new(-10.0, 0.0, 0.0),
+                    glam::Vec3::ZERO,
+                    glam::Vec3::Y,
+                );
+                let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
+                proj * view
+            }
+            "profile" => {
+                let frustum = self.camera_ctrl.distance_profile / 4.0;
+                let mut target_z = 0.0;
+                if let Some(cs) = self.engine.get_model().cross_sections.get(self.active_profile_slice) {
+                    target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
+                }
+                let view = glam::Mat4::look_at_rh(
+                    glam::Vec3::new(0.0, 0.0, target_z + 1.0),
+                    glam::Vec3::new(0.0, 0.0, target_z),
+                    glam::Vec3::Y,
+                );
+                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
+                proj * view
+            }
+            _ => {
+                if self.is_ortho {
+                    let frustum = self.camera_ctrl.distance_persp / 4.0;
+                    let x_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+                    let y_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
+                    let z_pos = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+                    let pos = self.camera_ctrl.target + glam::Vec3::new(x_pos, y_pos, z_pos);
+                    let view = glam::Mat4::look_at_rh(pos, self.camera_ctrl.target, glam::Vec3::Y);
+                    let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                    proj * view
+                } else {
+                    self.camera_ctrl.build_view_projection_matrix(aspect)
+                }
+            }
+        };
+
+        let inv_vp = view_proj.inverse();
+        
+        let ndc_near = glam::Vec4::new(ndc_x, ndc_y, 0.1, 1.0);
+        let ndc_far = glam::Vec4::new(ndc_x, ndc_y, 0.9, 1.0);
+        
+        let world_near = inv_vp * ndc_near;
+        let world_far = inv_vp * ndc_far;
+        
+        let ro = world_near.truncate() / world_near.w;
+        let rf = world_far.truncate() / world_far.w;
+        let rd = (rf - ro).normalize();
+
+        let orig_world = glam::Vec3::new(orig_x * (1.0 / 12.0), orig_y * (1.0 / 12.0), orig_z * (1.0 / 12.0));
+        
+        let n = if quad == "top" {
+            glam::Vec3::Y
+        } else if quad == "side" {
+            glam::Vec3::X
+        } else if quad == "profile" {
+            glam::Vec3::Z
+        } else {
+            let cx = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
+            let cy = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.sin();
+            let cz = self.camera_ctrl.distance_persp * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
+            glam::Vec3::new(cx, cy, cz).normalize()
+        };
+        
+        let denom = n.dot(rd);
+        let mut res = [orig_x, orig_y, orig_z];
+        
+        if denom.abs() > 1e-6 {
+            let t = (orig_world - ro).dot(n) / denom;
+            let hit = ro + rd * t;
+            res[0] = hit.x * 12.0;
+            res[1] = hit.y * 12.0;
+            res[2] = hit.z * 12.0;
+        }
+        
+        js_sys::Float32Array::from(&res[..])
+    }
+
     #[wasm_bindgen]
     pub fn project_to_screen(&self, quad: &str, x: f32, y: f32, z: f32, aspect: f32) -> js_sys::Float32Array {
         let view_proj = match quad {

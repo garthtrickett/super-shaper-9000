@@ -390,16 +390,22 @@ export class BoardViewport extends LitElement {
             }
         }
 
-        let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
+                let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
 
-                type EngineExt = { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
+        type EngineExt = { 
+            camera_distance_top(): number; 
+            camera_distance_side(): number; 
+            camera_distance_profile(): number; 
+            unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array;
+            find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; 
+        };
         if (quad === "top") {
             const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_top() : 8.0;
             const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * localAspect;
             worldX = localNdcX * orthoRight * 12;
             worldZ = -localNdcY * orthoTop * 12;
-                } else if (quad === "side") {
+        } else if (quad === "side") {
             const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_side() : 8.0;
             const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
@@ -413,6 +419,13 @@ export class BoardViewport extends LitElement {
             const orthoRight = orthoTop * localAspect;
             worldX = -localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
+        } else if (quad === "perspective") {
+            if (this.mathEngine && (this.mathEngine as any).unproject_to_plane) {
+                const pt = (this.mathEngine as any).unproject_to_plane(quad, localNdcX, localNdcY, localAspect, originalPos[0], originalPos[1], originalPos[2]);
+                worldX = pt[0];
+                worldY = pt[1];
+                worldZ = pt[2];
+            }
         }
 
         this.lastDragPosition = [worldX, worldY, worldZ];
