@@ -262,10 +262,14 @@ export class BoardViewport extends LitElement {
             worldZ = targetZ;
         }
 
-        if (quad && quad !== "perspective") {
-            const hit = this.findClosestNode(quad, worldX, worldY, worldZ);
+                if (quad) {
+            const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
             if (hit) {
                 if (e.altKey) {
+                    if (quad === "perspective") {
+                        console.info("Node insertion requires an orthographic view to determine placement depth.");
+                        return;
+                    }
                     let exactT = 0.5;
                     if (this.mathEngine) {
                         let roX = worldX, roY = worldY, roZ = worldZ;
@@ -288,7 +292,7 @@ export class BoardViewport extends LitElement {
             }
         }
         
-                if (quad !== "perspective" && !e.altKey && !e.ctrlKey) {
+                        if (!e.altKey && !e.ctrlKey) {
             this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
         }
     }
