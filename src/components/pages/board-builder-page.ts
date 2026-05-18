@@ -288,7 +288,7 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+      private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
     const { userData, position } = e.detail;
     
     // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
@@ -317,7 +317,18 @@ export class BoardBuilderPage extends LitElement {
     } else {
         this._pendingDragDetail = e.detail; // Override with the freshest mouse position
     }
-  } 
+  }
+
+  override render() {
+    const state = this.wasmCtrl.model || INITIAL_STATE;
+    const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
+    const curvatureCombs = (this.wasmCtrl as unknown as { curvatureCombs?: Float32Array }).curvatureCombs;
+    const foilData = (this.wasmCtrl as unknown as { foilData?: Float32Array }).foilData;
+
+    return html`
+      ${this.showExportModal ? html`
+        <export-modal 
+          .jsonString=${JSON.stringify(state, null, 2)} 
           @close=${() => this.showExportModal = false}>
         </export-modal>
       ` : ''}

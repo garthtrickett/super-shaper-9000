@@ -173,10 +173,14 @@ def apply_entity_replace(text, entity_type, name, replace):
             i += 1
             continue
 
-        if c == '(': paren_depth += 1
+                if c == '(': paren_depth += 1
         elif c == ')': paren_depth -= 1
         elif c == '<': angle_depth += 1
-        elif c == '>': angle_depth -= 1
+        elif c == '>':
+            if i > 0 and text[i-1] == '=':
+                pass # Ignore => arrows in TypeScript so we don't break brace parsing
+            else:
+                angle_depth = max(0, angle_depth - 1)
         
         if paren_depth == 0 and angle_depth == 0:
             if c == '{':
