@@ -70,9 +70,9 @@ impl MobileSurferEngine {
             uvs: mesh.uvs,
             colors: mesh.colors,
             normals: mesh.normals,
-            volume_liters: mesh.volume_liters,
-            line_vertices: mesh.line_vertices,
-            line_colors: mesh.line_colors,
+                        volume_liters: mesh.volume_liters,
+            line_vertices: Vec::new(),
+            line_colors: Vec::new(),
         }
     }
 }

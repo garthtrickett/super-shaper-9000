@@ -126,8 +126,9 @@ impl RenderState {
             self.num_indices = mesh.indices.len() as u32;
         }
 
-        let line_verts = as_u8_slice(&mesh.line_vertices);
-        let line_colors = as_u8_slice(&mesh.line_colors);
+                let empty_vec: Vec<f32> = Vec::new();
+        let line_verts = as_u8_slice(&empty_vec);
+        let line_colors = as_u8_slice(&empty_vec);
 
         self.line_vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -142,15 +143,7 @@ impl RenderState {
             mapped_at_creation: false,
         });
 
-        if !line_verts.is_empty() {
-            self.queue
-                .write_buffer(&self.line_vertex_buffer, 0, line_verts);
-            self.queue
-                .write_buffer(&self.line_color_buffer, 0, line_colors);
-            self.num_line_vertices = (mesh.line_vertices.len() / 3) as u32;
-        } else {
-            self.num_line_vertices = 0;
-        }
+        self.num_line_vertices = 0;
     }
 }
 
@@ -327,7 +320,7 @@ impl WasmEngine {
         self.camera_ctrl.process_wheel(dy, quad);
     }
 
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn handle_gizmo_drag(
         &mut self,
@@ -743,6 +736,7 @@ impl WasmEngine {
         self.camera_ctrl.distance_persp
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn unproject_to_plane(
         &self,

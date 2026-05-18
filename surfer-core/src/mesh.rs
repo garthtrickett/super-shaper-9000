@@ -134,9 +134,26 @@ pub fn generate_mesh(
         &mut indices,
     );
 
-    let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
+        let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
     log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
 
+    RawGeometryData {
+        vertices,
+        indices,
+        uvs,
+        colors,
+        normals,
+        volume_liters,
+    }
+}
+
+pub fn generate_lines_for_view(
+    model: &BoardModel,
+    view_id: &str,
+    active_slice: usize,
+) -> (Vec<f32>, Vec<f32>) {
+    let scale = 1.0 / 12.0;
+    let bounds = crate::geometry::get_board_bounds(model);
     let mut line_vertices = Vec::new();
     let mut line_colors = Vec::new();
 
@@ -315,128 +332,74 @@ pub fn generate_mesh(
         }
     };
 
-    if model.show_outline.unwrap_or(true) {
-        add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true, "outline");
-    }
-    if model.show_rocker_top.unwrap_or(true) {
-        add_curve_lines(
-            &model.rocker_top,
-            Vec3::new(0.0, 1.0, 0.0),
-            false,
-            "rockerTop",
-        );
-    }
-    if model.show_rocker_bottom.unwrap_or(true) {
-        add_curve_lines(
-            &model.rocker_bottom,
-            Vec3::new(1.0, 0.0, 0.0),
-            false,
-            "rockerBottom",
-        );
-    }
-    if model.show_apex_outline.unwrap_or(true) {
-        add_curve_lines(
-            &model.apex_outline,
-            Vec3::new(0.0, 1.0, 1.0),
-            true,
-            "apexOutline",
-        );
-    }
-    if model.show_rail_outline.unwrap_or(true) {
-        add_curve_lines(
-            &model.rail_outline,
-            Vec3::new(1.0, 0.0, 1.0),
-            true,
-            "railOutline",
-        );
-    }
-    if model.show_apex_rocker.unwrap_or(true) {
-        add_curve_lines(
-            &model.apex_rocker,
-            Vec3::new(0.0, 0.5, 1.0),
-            false,
-            "apexRocker",
-        );
-    }
-    if model.show_deck_shoulder.unwrap_or(true) {
-        add_curve_lines(
-            &model.deck_shoulder,
-            Vec3::new(1.0, 0.5, 0.0),
-            true,
-            "deckShoulder",
-        );
-    }
-
-    if model.show_cross_sections.unwrap_or(true) {
-        for (i, cs) in model.cross_sections.iter().enumerate() {
-            let name = format!("crossSection_{}", i);
-            add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name);
+        if view_id == "top" || view_id == "perspective" {
+        if view_id == "top" || model.show_outline.unwrap_or(true) {
+            add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true, "outline");
         }
-    }
-
-    if let Some(layers) = &model.outline_layers {
-        for (i, l) in layers.iter().enumerate() {
-            if l.active {
-                let name_ext = format!("outlineLayer_{}_ext", i);
-                let name_int = format!("outlineLayer_{}_int", i);
-                add_curve_lines(
-                    &Some(l.otl_ext.clone()),
-                    Vec3::new(1.0, 1.0, 0.0),
-                    true,
-                    &name_ext,
-                );
-                add_curve_lines(
-                    &Some(l.otl_int.clone()),
-                    Vec3::new(1.0, 1.0, 0.0),
-                    true,
-                    &name_int,
-                );
+        if view_id == "top" || model.show_apex_outline.unwrap_or(true) {
+            add_curve_lines(&model.apex_outline, Vec3::new(0.0, 1.0, 1.0), true, "apexOutline");
+        }
+        if view_id == "top" || model.show_rail_outline.unwrap_or(true) {
+            add_curve_lines(&model.rail_outline, Vec3::new(1.0, 0.0, 1.0), true, "railOutline");
+        }
+        if view_id == "top" || model.show_deck_shoulder.unwrap_or(true) {
+            add_curve_lines(&model.deck_shoulder, Vec3::new(1.0, 0.5, 0.0), true, "deckShoulder");
+        }
+        if let Some(layers) = &model.outline_layers {
+            for (i, l) in layers.iter().enumerate() {
+                if l.active {
+                    let name_ext = format!("outlineLayer_{}_ext", i);
+                    let name_int = format!("outlineLayer_{}_int", i);
+                    add_curve_lines(&Some(l.otl_ext.clone()), Vec3::new(1.0, 1.0, 0.0), true, &name_ext);
+                    add_curve_lines(&Some(l.otl_int.clone()), Vec3::new(1.0, 1.0, 0.0), true, &name_int);
+                }
+            }
+        }
+        if let Some(channels) = &model.bottom_channels {
+            for (i, ch) in channels.iter().enumerate() {
+                let n_lo = format!("channel_{}_left_outline", i);
+                let n_ro = format!("channel_{}_right_outline", i);
+                add_curve_lines(&Some(ch.left_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false, &n_lo);
+                add_curve_lines(&Some(ch.right_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false, &n_ro);
             }
         }
     }
-    if let Some(channels) = &model.bottom_channels {
-        for (i, ch) in channels.iter().enumerate() {
-            let n_lo = format!("channel_{}_left_outline", i);
-            let n_ro = format!("channel_{}_right_outline", i);
-            let n_ld = format!("channel_{}_left_depth", i);
-            let n_rd = format!("channel_{}_right_depth", i);
-            add_curve_lines(
-                &Some(ch.left_outline.clone()),
-                Vec3::new(0.0, 1.0, 1.0),
-                false,
-                &n_lo,
-            );
-            add_curve_lines(
-                &Some(ch.right_outline.clone()),
-                Vec3::new(0.0, 1.0, 1.0),
-                false,
-                &n_ro,
-            );
-            add_curve_lines(
-                &Some(ch.left_depth.clone()),
-                Vec3::new(1.0, 0.5, 0.0),
-                false,
-                &n_ld,
-            );
-            add_curve_lines(
-                &Some(ch.right_depth.clone()),
-                Vec3::new(1.0, 0.5, 0.0),
-                false,
-                &n_rd,
-            );
+
+    if view_id == "side" || view_id == "perspective" {
+        if view_id == "side" || model.show_rocker_top.unwrap_or(true) {
+            add_curve_lines(&model.rocker_top, Vec3::new(0.0, 1.0, 0.0), false, "rockerTop");
+        }
+        if view_id == "side" || model.show_rocker_bottom.unwrap_or(true) {
+            add_curve_lines(&model.rocker_bottom, Vec3::new(1.0, 0.0, 0.0), false, "rockerBottom");
+        }
+        if view_id == "side" || model.show_apex_rocker.unwrap_or(true) {
+            add_curve_lines(&model.apex_rocker, Vec3::new(0.0, 0.5, 1.0), false, "apexRocker");
+        }
+        if let Some(channels) = &model.bottom_channels {
+            for (i, ch) in channels.iter().enumerate() {
+                let n_ld = format!("channel_{}_left_depth", i);
+                let n_rd = format!("channel_{}_right_depth", i);
+                add_curve_lines(&Some(ch.left_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false, &n_ld);
+                add_curve_lines(&Some(ch.right_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false, &n_rd);
+            }
         }
     }
 
-    RawGeometryData {
-        vertices,
-        indices,
-        uvs,
-        colors,
-        normals,
-        volume_liters,
-        line_vertices,
-        line_colors,
+    if view_id == "profile" || view_id == "perspective" {
+        if view_id == "profile" {
+            if let Some(cs) = model.cross_sections.get(active_slice) {
+                let name = format!("crossSection_{}", active_slice);
+                add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name);
+            }
+        } else if model.show_cross_sections.unwrap_or(true) {
+            for (i, cs) in model.cross_sections.iter().enumerate() {
+                let name = format!("crossSection_{}", i);
+                add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name);
+            }
+        }
     }
+
+    (line_vertices, line_colors)
 }
 
 #[cfg(test)]
@@ -1020,6 +983,39 @@ mod tests {
             diff
         );
         println!("✅ test_squash_tail_tessellation_density passed.");
+    }
+
+        #[test]
+    fn test_generate_lines_for_view_filtering() {
+        let mut model = BoardModel::default();
+        
+        // Define only a top rocker
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        
+        // Add one cross section to the model
+        model.cross_sections.push(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 50.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 1.0, 50.0)],
+            tangents1: vec![Vec3::ZERO, Vec3::ZERO, Vec3::ZERO],
+            tangents2: vec![Vec3::ZERO, Vec3::ZERO, Vec3::ZERO],
+            ..Default::default()
+        });
+        
+        // "top" view should have 0 lines since only rockerTop and a cross section are defined
+        let (top_verts, _) = super::generate_lines_for_view(&model, "top", 0);
+        assert_eq!(top_verts.len(), 0, "Top view should output 0 lines for a model with only top rocker and cross section");
+
+        // "side" view should have lines from rockerTop
+        let (side_verts, _) = super::generate_lines_for_view(&model, "side", 0);
+        assert!(side_verts.len() > 0, "Side view should have lines from top rocker");
+
+        // "profile" view should only have lines from active slice
+        let (profile_verts, _) = super::generate_lines_for_view(&model, "profile", 0);
+        assert!(profile_verts.len() > 0, "Profile view should have lines from active slice");
     }
 
     #[test]
