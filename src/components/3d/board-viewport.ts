@@ -288,7 +288,7 @@ export class BoardViewport extends LitElement {
             }
         }
         
-        if (!e.altKey && !e.ctrlKey) {
+                if (quad !== "perspective" && !e.altKey && !e.ctrlKey) {
             this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
         }
     }
