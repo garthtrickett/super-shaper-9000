@@ -385,9 +385,9 @@ impl WasmEngine {
                 } else {
                     (full_w, full_h)
                 };
-                let aspect = vp_w / vp_h;
+                                let aspect = vp_w / vp_h;
 
-                let mut cam_pos = glam::Vec3::ZERO;
+                let cam_pos;
                 let view_proj = match q {
                     "top" => {
                         let frustum = self.camera_ctrl.distance_top / 4.0;

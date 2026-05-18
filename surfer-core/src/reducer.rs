@@ -66,159 +66,20 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::UpdateString { .. }
         | BoardAction::UpdateBoolean { .. }
         | BoardAction::ScaleWidth { .. }
-        | BoardAction::ScaleThickness { .. }) => fn scale_curves_in_model(model: &mut BoardModel, sx: f32, sy: f32, sz: f32) {
-    let mut scale_opt = |curve: &mut Option<BezierCurveData>| {
-        if let Some(c) = curve.as_mut() {
-            for p in &mut c.control_points { p.x *= sx; p.y *= sy; p.z *= sz; }
-            for p in &mut c.tangents1 { p.x *= sx; p.y *= sy; p.z *= sz; }
-            for p in &mut c.tangents2 { p.x *= sx; p.y *= sy; p.z *= sz; }
+        | BoardAction::ScaleThickness { .. }) => handle_parametric_scaling(model, dirty, act),
+        act @ (BoardAction::LoadDesign { .. }
+        | BoardAction::SetCurves { .. }
+        | BoardAction::ImportBrd { .. }
+        | BoardAction::ImportS3dx { .. }) => handle_import(model, dirty, act),
+        act @ (BoardAction::UpdateNodePosition { .. }
+        | BoardAction::SelectNode { .. }
+        | BoardAction::RemoveNode { .. }
+        | BoardAction::InsertNode { .. }
+        | BoardAction::ApplyContinuity { .. }
+        | BoardAction::UpdateNodeExact { .. }) => handle_node_mutations(model, dirty, act),
+        act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
+            handle_history(model, dirty, act)
         }
-    };
-    let mut scale_req = |curve: &mut BezierCurveData| {
-        for p in &mut curve.control_points { p.x *= sx; p.y *= sy; p.z *= sz; }
-        for p in &mut curve.tangents1 { p.x *= sx; p.y *= sy; p.z *= sz; }
-        for p in &mut curve.tangents2 { p.x *= sx; p.y *= sy; p.z *= sz; }
-    };
-
-    scale_opt(&mut model.outline);
-    scale_opt(&mut model.rail_outline);
-    scale_opt(&mut model.apex_outline);
-    scale_opt(&mut model.deck_shoulder);
-    scale_opt(&mut model.rocker_top);
-    scale_opt(&mut model.rocker_bottom);
-    scale_opt(&mut model.apex_rocker);
-
-    if let Some(layers) = &mut model.outline_layers {
-        for l in layers {
-            scale_req(&mut l.otl_ext);
-            scale_req(&mut l.otl_int);
-        }
-    }
-
-    if let Some(channels) = &mut model.bottom_channels {
-        for c in channels {
-            scale_req(&mut c.left_outline);
-            scale_req(&mut c.right_outline);
-            scale_req(&mut c.left_depth);
-            scale_req(&mut c.right_depth);
-        }
-    }
-
-    for cs in &mut model.cross_sections {
-        scale_req(cs);
-    }
-}
-
-fn handle_parametric_scaling(
-    model: &mut BoardModel,
-    dirty: &mut DirtyState,
-    action: BoardAction,
-) -> Vec<Effect> {
-    match action {
-        BoardAction::UpdateNumber { param, value } => {
-            match param.as_str() {
-                "length" => { 
-                    if model.length > 0.0 && value > 0.0 {
-                        let factor = value / model.length;
-                        scale_curves_in_model(model, 1.0, 1.0, factor);
-                    }
-                    model.length = value; 
-                    dirty.global_rebuild = true; 
-                },
-                "width" => { 
-                    if model.width > 0.0 && value > 0.0 {
-                        let factor = value / model.width;
-                        scale_curves_in_model(model, factor, 1.0, 1.0);
-                    }
-                    model.width = value; 
-                    dirty.global_rebuild = true; 
-                },
-                "thickness" => { 
-                    if model.thickness > 0.0 && value > 0.0 {
-                        let factor = value / model.thickness;
-                        scale_curves_in_model(model, 1.0, factor, 1.0);
-                    }
-                    model.thickness = value; 
-                    dirty.global_rebuild = true; 
-                },
-                "frontFinZ" => { model.front_fin_z = value; dirty.global_rebuild = true; },
-                "frontFinX" => { model.front_fin_x = value; dirty.global_rebuild = true; },
-                "rearFinZ" => { model.rear_fin_z = value; dirty.global_rebuild = true; },
-                "rearFinX" => { model.rear_fin_x = value; dirty.global_rebuild = true; },
-                "toeAngle" => { model.toe_angle = value; dirty.global_rebuild = true; },
-                "cantAngle" => { model.cant_angle = value; dirty.global_rebuild = true; },
-                "swallowDepth" => { model.swallow_depth = value; dirty.global_rebuild = true; },
-                "vConcaveTail" => { model.v_concave_tail = value; dirty.global_rebuild = true; },
-                "vConcaveNose" => { model.v_concave_nose = value; dirty.global_rebuild = true; },
-                "railCoefficientTail" => { model.rail_coefficient_tail = value; dirty.global_rebuild = true; },
-                "railCoefficientNose" => { model.rail_coefficient_nose = value; dirty.global_rebuild = true; },
-                "thicknessZStretch" => { model.thickness_z_stretch = value; dirty.global_rebuild = true; },
-                "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
-                "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
-                "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
-                "gizmoScalePerspective" => model.gizmo_scale_perspective = Some(value),
-                "mriSlicePosition" => model.mri_slice_position = Some(value),
-                _ => {}
-            }
-        }
-        BoardAction::UpdateString { param, value } => {
-            dirty.global_rebuild = true;
-            match param.as_str() {
-                "finSetup" => model.fin_setup = value,
-                "coreMaterial" => model.core_material = value,
-                "glassingSchedule" => model.glassing_schedule = value,
-                "tailType" => model.tail_type = value,
-                _ => {}
-            }
-        }
-        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
-            "showGizmos" => model.show_gizmos = Some(value),
-            "showSolidMesh" => model.show_solid_mesh = Some(value),
-            "showHeatmap" => {
-                model.show_heatmap = Some(value);
-                if value {
-                    model.show_zebra = Some(false);
-                }
-            }
-            "showZebra" => {
-                model.show_zebra = Some(value);
-                if value {
-                    model.show_heatmap = Some(false);
-                    model.show_mri_view = Some(false);
-                }
-            }
-            "showOutline" => model.show_outline = Some(value),
-            "showRockerTop" => model.show_rocker_top = Some(value),
-            "showRockerBottom" => model.show_rocker_bottom = Some(value),
-            "showApexOutline" => model.show_apex_outline = Some(value),
-            "showRailOutline" => model.show_rail_outline = Some(value),
-            "showApexRocker" => model.show_apex_rocker = Some(value),
-            "showDeckShoulder" => model.show_deck_shoulder = Some(value),
-            "showCrossSections" => model.show_cross_sections = Some(value),
-            "showMriView" => {
-                model.show_mri_view = Some(value);
-                if value {
-                    model.show_zebra = Some(false);
-                }
-            }
-            _ => {}
-        },
-        BoardAction::ScaleWidth { factor } => {
-            dirty.global_rebuild = true;
-            model.width *= factor;
-            scale_curves_in_model(model, factor, 1.0, 1.0);
-            push_history(model);
-        }
-        BoardAction::ScaleThickness { factor } => {
-            dirty.global_rebuild = true;
-            model.thickness *= factor;
-            scale_curves_in_model(model, 1.0, factor, 1.0);
-            push_history(model);
-        }
-        _ => {}
-    }
-    Vec::new()
-}
         act @ (BoardAction::AddOutlineLayer
         | BoardAction::RemoveOutlineLayer { .. }
         | BoardAction::ToggleOutlineLayer { .. }
@@ -824,17 +685,81 @@ fn handle_node_mutations(
     Vec::new()
 }
 
+fn scale_curves_in_model(model: &mut BoardModel, sx: f32, sy: f32, sz: f32) {
+    let scale_opt = |curve: &mut Option<BezierCurveData>| {
+        if let Some(c) = curve.as_mut() {
+            for p in &mut c.control_points { p.x *= sx; p.y *= sy; p.z *= sz; }
+            for p in &mut c.tangents1 { p.x *= sx; p.y *= sy; p.z *= sz; }
+            for p in &mut c.tangents2 { p.x *= sx; p.y *= sy; p.z *= sz; }
+        }
+    };
+    let scale_req = |curve: &mut BezierCurveData| {
+        for p in &mut curve.control_points { p.x *= sx; p.y *= sy; p.z *= sz; }
+        for p in &mut curve.tangents1 { p.x *= sx; p.y *= sy; p.z *= sz; }
+        for p in &mut curve.tangents2 { p.x *= sx; p.y *= sy; p.z *= sz; }
+    };
+
+    scale_opt(&mut model.outline);
+    scale_opt(&mut model.rail_outline);
+    scale_opt(&mut model.apex_outline);
+    scale_opt(&mut model.deck_shoulder);
+    scale_opt(&mut model.rocker_top);
+    scale_opt(&mut model.rocker_bottom);
+    scale_opt(&mut model.apex_rocker);
+
+    if let Some(layers) = &mut model.outline_layers {
+        for l in layers {
+            scale_req(&mut l.otl_ext);
+            scale_req(&mut l.otl_int);
+        }
+    }
+
+    if let Some(channels) = &mut model.bottom_channels {
+        for c in channels {
+            scale_req(&mut c.left_outline);
+            scale_req(&mut c.right_outline);
+            scale_req(&mut c.left_depth);
+            scale_req(&mut c.right_depth);
+        }
+    }
+
+    for cs in &mut model.cross_sections {
+        scale_req(cs);
+    }
+}
+
 fn handle_parametric_scaling(
     model: &mut BoardModel,
     dirty: &mut DirtyState,
     action: BoardAction,
 ) -> Vec<Effect> {
     match action {
-                BoardAction::UpdateNumber { param, value } => {
+        BoardAction::UpdateNumber { param, value } => {
             match param.as_str() {
-                "length" => { model.length = value; dirty.global_rebuild = true; },
-                "width" => { model.width = value; dirty.global_rebuild = true; },
-                "thickness" => { model.thickness = value; dirty.global_rebuild = true; },
+                "length" => { 
+                    if model.length > 0.0 && value > 0.0 {
+                        let factor = value / model.length;
+                        scale_curves_in_model(model, 1.0, 1.0, factor);
+                    }
+                    model.length = value; 
+                    dirty.global_rebuild = true; 
+                },
+                "width" => { 
+                    if model.width > 0.0 && value > 0.0 {
+                        let factor = value / model.width;
+                        scale_curves_in_model(model, factor, 1.0, 1.0);
+                    }
+                    model.width = value; 
+                    dirty.global_rebuild = true; 
+                },
+                "thickness" => { 
+                    if model.thickness > 0.0 && value > 0.0 {
+                        let factor = value / model.thickness;
+                        scale_curves_in_model(model, 1.0, factor, 1.0);
+                    }
+                    model.thickness = value; 
+                    dirty.global_rebuild = true; 
+                },
                 "frontFinZ" => { model.front_fin_z = value; dirty.global_rebuild = true; },
                 "frontFinX" => { model.front_fin_x = value; dirty.global_rebuild = true; },
                 "rearFinZ" => { model.rear_fin_z = value; dirty.global_rebuild = true; },
@@ -874,7 +799,7 @@ fn handle_parametric_scaling(
                     model.show_zebra = Some(false);
                 }
             }
-                        "showZebra" => {
+            "showZebra" => {
                 model.show_zebra = Some(value);
                 if value {
                     model.show_heatmap = Some(false);
@@ -888,7 +813,7 @@ fn handle_parametric_scaling(
             "showRailOutline" => model.show_rail_outline = Some(value),
             "showApexRocker" => model.show_apex_rocker = Some(value),
             "showDeckShoulder" => model.show_deck_shoulder = Some(value),
-                        "showCrossSections" => model.show_cross_sections = Some(value),
+            "showCrossSections" => model.show_cross_sections = Some(value),
             "showMriView" => {
                 model.show_mri_view = Some(value);
                 if value {
@@ -900,133 +825,13 @@ fn handle_parametric_scaling(
         BoardAction::ScaleWidth { factor } => {
             dirty.global_rebuild = true;
             model.width *= factor;
-            let scale_curve_x = |curve: &mut Option<BezierCurveData>| {
-                if let Some(c) = curve.as_mut() {
-                    for p in &mut c.control_points {
-                        p.x *= factor;
-                    }
-                    for p in &mut c.tangents1 {
-                        p.x *= factor;
-                    }
-                    for p in &mut c.tangents2 {
-                        p.x *= factor;
-                    }
-                }
-            };
-            scale_curve_x(&mut model.outline);
-            scale_curve_x(&mut model.rail_outline);
-            scale_curve_x(&mut model.apex_outline);
-            scale_curve_x(&mut model.deck_shoulder);
-            if let Some(layers) = &mut model.outline_layers {
-                for l in layers {
-                    for p in &mut l.otl_ext.control_points {
-                        p.x *= factor;
-                    }
-                    for p in &mut l.otl_ext.tangents1 {
-                        p.x *= factor;
-                    }
-                    for p in &mut l.otl_ext.tangents2 {
-                        p.x *= factor;
-                    }
-                    for p in &mut l.otl_int.control_points {
-                        p.x *= factor;
-                    }
-                    for p in &mut l.otl_int.tangents1 {
-                        p.x *= factor;
-                    }
-                    for p in &mut l.otl_int.tangents2 {
-                        p.x *= factor;
-                    }
-                }
-            }
-            if let Some(channels) = &mut model.bottom_channels {
-                for c in channels {
-                    for p in &mut c.left_outline.control_points {
-                        p.x *= factor;
-                    }
-                    for p in &mut c.left_outline.tangents1 {
-                        p.x *= factor;
-                    }
-                    for p in &mut c.left_outline.tangents2 {
-                        p.x *= factor;
-                    }
-                    for p in &mut c.right_outline.control_points {
-                        p.x *= factor;
-                    }
-                    for p in &mut c.right_outline.tangents1 {
-                        p.x *= factor;
-                    }
-                    for p in &mut c.right_outline.tangents2 {
-                        p.x *= factor;
-                    }
-                }
-            }
-            for cs in &mut model.cross_sections {
-                for p in &mut cs.control_points {
-                    p.x *= factor;
-                }
-                for p in &mut cs.tangents1 {
-                    p.x *= factor;
-                }
-                for p in &mut cs.tangents2 {
-                    p.x *= factor;
-                }
-            }
+            scale_curves_in_model(model, factor, 1.0, 1.0);
             push_history(model);
         }
         BoardAction::ScaleThickness { factor } => {
             dirty.global_rebuild = true;
             model.thickness *= factor;
-            let scale_curve_y = |curve: &mut Option<BezierCurveData>| {
-                if let Some(c) = curve.as_mut() {
-                    for p in &mut c.control_points {
-                        p.y *= factor;
-                    }
-                    for p in &mut c.tangents1 {
-                        p.y *= factor;
-                    }
-                    for p in &mut c.tangents2 {
-                        p.y *= factor;
-                    }
-                }
-            };
-            scale_curve_y(&mut model.rocker_top);
-            scale_curve_y(&mut model.rocker_bottom);
-            scale_curve_y(&mut model.apex_rocker);
-
-            if let Some(channels) = &mut model.bottom_channels {
-                for c in channels {
-                    for p in &mut c.left_depth.control_points {
-                        p.y *= factor;
-                    }
-                    for p in &mut c.left_depth.tangents1 {
-                        p.y *= factor;
-                    }
-                    for p in &mut c.left_depth.tangents2 {
-                        p.y *= factor;
-                    }
-                    for p in &mut c.right_depth.control_points {
-                        p.y *= factor;
-                    }
-                    for p in &mut c.right_depth.tangents1 {
-                        p.y *= factor;
-                    }
-                    for p in &mut c.right_depth.tangents2 {
-                        p.y *= factor;
-                    }
-                }
-            }
-            for cs in &mut model.cross_sections {
-                for p in &mut cs.control_points {
-                    p.y *= factor;
-                }
-                for p in &mut cs.tangents1 {
-                    p.y *= factor;
-                }
-                for p in &mut cs.tangents2 {
-                    p.y *= factor;
-                }
-            }
+            scale_curves_in_model(model, 1.0, factor, 1.0);
             push_history(model);
         }
         _ => {}
