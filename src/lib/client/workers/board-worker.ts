@@ -130,9 +130,9 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "DRAG_GIZMO") {
+        if (msg.type === "DRAG_GIZMO") {
         if (engine) {
-            engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z);
+            engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z, msg.continuity || "G0");
         }
         return;
     }

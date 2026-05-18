@@ -260,30 +260,31 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+      private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
     const { userData, position } = e.detail;
     
     const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
     if (worker) {
-      worker.postMessage({ type: "DRAG_GIZMO", curve: userData.curve, index: userData.index, nodeType: userData.type, x: position[0], y: position[1], z: position[2] });
+      worker.postMessage({ type: "DRAG_GIZMO", curve: userData.curve, index: userData.index, nodeType: userData.type, x: position[0], y: position[1], z: position[2], continuity: this._selectedNodeContinuity });
     }
     
-    this._proposeAction({
-      type: "UPDATE_NODE_POSITION",
-      curve: userData.curve,
-      nodeType: userData.type,
-      index: userData.index,
-      position: position
-    });
-
-    if (this._selectedNodeContinuity !== 'G0' && (userData.type === 'tangent1' || userData.type === 'tangent2')) {
-      this._proposeAction({
-        type: 'APPLY_CONTINUITY',
-        curve: userData.curve,
-        index: userData.index,
-        level: this._selectedNodeContinuity,
-        master: userData.type
-      });
+    if (this.mathEngine && (this.mathEngine as any).propose_state_only) {
+        (this.mathEngine as any).propose_state_only({
+            type: "UPDATE_NODE_POSITION",
+            curve: userData.curve,
+            nodeType: userData.type,
+            index: userData.index,
+            position: position
+        });
+        if (this._selectedNodeContinuity !== 'G0' && (userData.type === 'tangent1' || userData.type === 'tangent2')) {
+            (this.mathEngine as any).propose_state_only({
+                type: 'APPLY_CONTINUITY',
+                curve: userData.curve,
+                index: userData.index,
+                level: this._selectedNodeContinuity,
+                master: userData.type
+            });
+        }
     }
   }
 
@@ -478,7 +479,27 @@ export class BoardBuilderPage extends LitElement {
           }}
           @insert-node=${(e: CustomEvent<{curve: string, t: number}>) => this._proposeAction({ type: "INSERT_NODE", curve: e.detail.curve, t: e.detail.t })}
           @add-cross-section=${(e: CustomEvent<{z: number}>) => this._proposeAction({ type: "ADD_CROSS_SECTION", z: e.detail.z })}
-          @gizmo-drag-ended=${() => this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" })}
+                    @gizmo-drag-ended=${(e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] | null }>) => {
+              if (e.detail.position) {
+                  this._proposeAction({
+                      type: "UPDATE_NODE_POSITION",
+                      curve: e.detail.userData.curve,
+                      nodeType: e.detail.userData.type,
+                      index: e.detail.userData.index,
+                      position: e.detail.position
+                  });
+                  if (this._selectedNodeContinuity !== 'G0' && (e.detail.userData.type === 'tangent1' || e.detail.userData.type === 'tangent2')) {
+                      this._proposeAction({
+                          type: 'APPLY_CONTINUITY',
+                          curve: e.detail.userData.curve,
+                          index: e.detail.userData.index,
+                          level: this._selectedNodeContinuity,
+                          master: e.detail.userData.type
+                      });
+                  }
+              }
+              this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" });
+          }}
           @gizmo-dragged=${this._handleGizmoDrag}
         ></board-viewport>
 

@@ -327,7 +327,7 @@ impl WasmEngine {
         self.camera_ctrl.process_wheel(dy, quad);
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn handle_gizmo_drag(
         &mut self,
         curve_name: &str,
@@ -336,6 +336,7 @@ impl WasmEngine {
         x: f32,
         y: f32,
         z: f32,
+        continuity: &str,
     ) {
         let action = surfer_core::model::BoardAction::UpdateNodePosition {
             curve: curve_name.to_string(),
@@ -344,7 +345,26 @@ impl WasmEngine {
             position: [x, y, z],
         };
         self.engine.update(action);
+
+        if continuity != "G0" && (node_type == "tangent1" || node_type == "tangent2") {
+            let cont_action = surfer_core::model::BoardAction::ApplyContinuity {
+                curve: curve_name.to_string(),
+                index,
+                level: continuity.to_string(),
+                master: Some(node_type.to_string()),
+            };
+            self.engine.update(cont_action);
+        }
+
         self.update_render_mesh();
+    }
+
+    #[wasm_bindgen]
+    pub fn propose_state_only(&mut self, action_js: JsValue) -> Result<(), JsValue> {
+        let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        self.engine.update(action);
+        Ok(())
     }
 
     #[wasm_bindgen]

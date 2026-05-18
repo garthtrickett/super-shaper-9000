@@ -49,10 +49,14 @@ export class WasmSamController implements ReactiveController {
   propose(action: BoardAction) {
     this.currentSequence++;
     
-    // Keep local math engine perfectly in sync with the worker's reality
+        // Keep local math engine perfectly in sync with the worker's reality
     if (this.mathEngine) {
       try {
-        this.mathEngine.propose(action);
+        if ((this.mathEngine as any).propose_state_only) {
+            (this.mathEngine as any).propose_state_only(action);
+        } else {
+            this.mathEngine.propose(action);
+        }
       } catch (e) {
         console.error("Math engine failed to process action:", e);
       }
