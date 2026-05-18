@@ -137,7 +137,7 @@ export class BoardViewport extends LitElement {
     private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
   private lastDragPosition: [number, number, number] | null = null;
 
-                    private findClosestNode(quad: string, ndcX: number, ndcY: number, aspect: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
+                      private findClosestNode(quad: string, ndcX: number, ndcY: number, aspect: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
       const threshold = 0.05;
       let bestHit: { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null = null;
       let minDist = threshold;
@@ -185,67 +185,6 @@ export class BoardViewport extends LitElement {
           if (t2s) {
               t2s.forEach((_, i: number) => checkNode(name, t2s, i, 'tangent2', isSymmetrical));
           }
-      };
-
-      checkCurve('outline', this.boardState?.outline, true);
-      checkCurve('rockerTop', this.boardState?.rockerTop, false);
-      checkCurve('rockerBottom', this.boardState?.rockerBottom, false);
-      checkCurve('apexOutline', this.boardState?.apexOutline, true);
-      checkCurve('railOutline', this.boardState?.railOutline, true);
-      checkCurve('apexRocker', this.boardState?.apexRocker, false);
-      checkCurve('deckShoulder', this.boardState?.deckShoulder, true);
-
-      this.boardState?.crossSections?.forEach((cs, i: number) => checkCurve(`crossSection_${i}`, cs, true));
-      this.boardState?.outlineLayers?.forEach((l, i: number) => {
-          checkCurve(`outlineLayer_${i}_ext`, l.otlExt, true);
-          checkCurve(`outlineLayer_${i}_int`, l.otlInt, true);
-      });
-      this.boardState?.bottomChannels?.forEach((c, i: number) => {
-          checkCurve(`channel_${i}_left_outline`, c.leftOutline, false);
-          checkCurve(`channel_${i}_right_outline`, c.rightOutline, false);
-          checkCurve(`channel_${i}_left_depth`, c.leftDepth, false);
-          checkCurve(`channel_${i}_right_depth`, c.rightDepth, false);
-      });
-
-      return bestHit;
-  } | null {
-      const threshold = 0.05;
-      let bestHit: { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null = null;
-      let minDist = threshold;
-
-      const checkNode = (curveName: string, pts: (import("../pages/board-builder-page.logic").Point3D | {x: number, y: number, z: number})[] | undefined, i: number, type: 'anchor', isSymmetrical: boolean) => {
-          if (!pts || !pts[i]) return;
-          const pt = pts[i]!;
-          const ptX = Array.isArray(pt) ? pt[0] : pt.x;
-          const ptY = Array.isArray(pt) ? pt[1] : pt.y;
-          const ptZ = Array.isArray(pt) ? pt[2] : pt.z;
-
-          // For symmetrical curves, ignore any nodes on the left side of the board.
-          if (isSymmetrical && ptX < -1e-4) {
-              return;
-          }
-
-          type EngineExt = { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
-          if (this.mathEngine) {
-              const proj = (this.mathEngine as unknown as EngineExt).project_to_screen(quad, ptX, ptY, ptZ, aspect);
-              // Check if point is in front of the camera (z < 1 in NDC)
-              if (proj[2]! < 1.0) {
-                  const dx = (proj[0]! - ndcX) * aspect;
-                  const dy = (proj[1]! - ndcY);
-                  const dist = Math.hypot(dx, dy);
-                  if (dist < minDist) {
-                      minDist = dist;
-                      bestHit = { node: { curve: curveName, index: i, type }, curve: curveName, t: i / (pts.length - 1 || 1) };
-                  }
-              }
-          }
-      };
-
-      const checkCurve = (name: string, curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined, isSymmetrical: boolean) => {
-          if (!curveData) return;
-          const cps = curveData.controlPoints || (curveData as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points;
-          if (!cps) return;
-          cps.forEach((_, i: number) => checkNode(name, cps, i, 'anchor', isSymmetrical));
       };
 
       checkCurve('outline', this.boardState?.outline, true);
