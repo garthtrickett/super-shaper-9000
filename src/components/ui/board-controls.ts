@@ -166,11 +166,11 @@ export class BoardControls extends LitElement {
             const finalVal = this._dragValues[key];
             if (finalVal !== undefined) this._dispatchNumber(key, finalVal);
           }}
-                    @input=${(e: Event) => {
+                              @input=${(e: Event) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             this._dragValues[key] = val;
             this.requestUpdate();
-            if (key === "mriSlicePosition" || key.startsWith("gizmoScale")) {
+            if (key === "mriSlicePosition") {
               this._dispatchPreviewNumber(key, val);
             }
           }}

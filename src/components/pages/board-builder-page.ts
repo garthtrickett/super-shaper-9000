@@ -50,9 +50,8 @@ export class BoardBuilderPage extends LitElement {
         viewport.boardState = result.state;
       }
 
-      // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly
-      if (action.type === "UPDATE_NUMBER" && 
-          (action.param === "mriSlicePosition" || action.param.startsWith("gizmoScale"))) {
+            // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly
+      if (action.type === "UPDATE_NUMBER" && action.param === "mriSlicePosition") {
           const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
           if (worker) {
               worker.postMessage({ type: "PROPOSE", action, seq: this.wasmCtrl.currentSequence });
