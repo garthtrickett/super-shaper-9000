@@ -82,7 +82,7 @@ test.describe('Visual Regression', () => {
     }
 
         // 6. Screenshot the viewport
-        await expect(viewport).toHaveScreenshot('zebra-flow-golden.png', {
+                await expect(viewport).toHaveScreenshot('zebra-flow-smart-filter.png', {
       maxDiffPixels: 150000, 
       threshold: 0.5,
       timeout: 15000,

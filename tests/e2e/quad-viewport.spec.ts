@@ -10,7 +10,7 @@ test.describe('Quad Viewport CAD Interface', () => {
   });
 
   test('should render the four-quadrant layout', async ({ page }) => {
-        await expect(page).toHaveScreenshot('quad-view-baseline.png', { 
+            await expect(page).toHaveScreenshot('quad-view-smart-filter.png', { 
       maxDiffPixels: 150000,
       mask:[page.locator('button[title*="Flip"]')],
       timeout: 15000
