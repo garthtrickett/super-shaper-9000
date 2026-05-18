@@ -986,16 +986,21 @@ mod tests {
     }
 
         #[test]
+        #[test]
     fn test_generate_lines_for_view_filtering() {
         let mut model = BoardModel::default();
         
-        // Define only a top rocker
+        // Define a top rocker
         model.rocker_top = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO],
             ..Default::default()
         });
+
+        // Provide empty base curves to prevent engine panics during evaluation
+        model.rocker_bottom = Some(BezierCurveData::default());
+        model.outline = Some(BezierCurveData::default());
         
         // Add one cross section to the model
         model.cross_sections.push(BezierCurveData {
