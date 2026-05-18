@@ -302,16 +302,21 @@ export class BoardViewport extends LitElement {
                     this.dispatchEvent(new CustomEvent('insert-node', { detail: { curve: hit.curve, t: exactT }, bubbles: true, composed: true }));
                 } else if (e.ctrlKey) {
                     this.dispatchEvent(new CustomEvent('add-cross-section', { detail: { z: worldZ }, bubbles: true, composed: true }));
-                } else {
+                                } else {
                     this.activeDragNode = hit.node;
-                    this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: hit.node }, bubbles: true, composed: true }));
+                    const sel = this.boardState?.selectedNode;
+                    if (!sel || sel.curve !== hit.node.curve || sel.index !== hit.node.index || sel.type !== hit.node.type) {
+                        this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: hit.node }, bubbles: true, composed: true }));
+                    }
                 }
                 return;
             }
         }
         
                         if (!e.altKey && !e.ctrlKey) {
-            this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
+            if (this.boardState?.selectedNode) {
+                this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
+            }
         }
     }
 

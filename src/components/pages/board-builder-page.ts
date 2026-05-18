@@ -34,8 +34,10 @@ export class BoardBuilderPage extends LitElement {
   private _workerBusyWithDrag = false;
   private _pendingDragDetail: any = null;
 
-  private _proposeAction(action: BoardAction) {
-    this.isProcessing = true;
+    private _proposeAction(action: BoardAction) {
+    if (action.type !== "SELECT_NODE" && action.type !== "SAVE_HISTORY_SNAPSHOT") {
+      this.isProcessing = true;
+    }
     this.wasmCtrl.propose(action);
   }
 
