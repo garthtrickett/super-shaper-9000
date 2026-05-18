@@ -35,8 +35,7 @@ export const BoardModelSchema = S.Struct({
   showGizmos: S.optional(S.Boolean),
   showSolidMesh: S.optional(S.Boolean),
   showHeatmap: S.optional(S.Boolean),
-  showZebra: S.optional(S.Boolean),
-  showApexLine: S.optional(S.Boolean),
+    showZebra: S.optional(S.Boolean),
   showOutline: S.optional(S.Boolean),
   showRockerTop: S.optional(S.Boolean),
   showRockerBottom: S.optional(S.Boolean),
@@ -44,8 +43,7 @@ export const BoardModelSchema = S.Struct({
   showRailOutline: S.optional(S.Boolean),
     showApexRocker: S.optional(S.Boolean),
   showDeckShoulder: S.optional(S.Boolean),
-  showCrossSections: S.optional(S.Boolean),
-  showCurvature: S.optional(S.Boolean),
+    showCrossSections: S.optional(S.Boolean),
   showMriView: S.optional(S.Boolean),
   mriSlicePosition: S.optional(S.Number),
   selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
@@ -131,8 +129,7 @@ export interface BoardModel {
   showGizmos?: boolean;
   showSolidMesh?: boolean;
   showHeatmap?: boolean;
-  showZebra?: boolean;
-  showApexLine?: boolean;
+    showZebra?: boolean;
   showOutline?: boolean;
   showRockerTop?: boolean;
   showRockerBottom?: boolean;
@@ -140,8 +137,7 @@ export interface BoardModel {
   showRailOutline?: boolean;
     showApexRocker?: boolean;
   showDeckShoulder?: boolean;
-  showCrossSections?: boolean;
-  showCurvature?: boolean;
+    showCrossSections?: boolean;
   showMriView?: boolean;
   mriSlicePosition?: number;
   selectedNode?: SelectedNode | null;
@@ -214,8 +210,7 @@ export const INITIAL_STATE: BoardModel = {
   showGizmos: true,
   showSolidMesh: true,
   showHeatmap: false,
-  showZebra: false,
-  showApexLine: false,
+    showZebra: false,
   showOutline: true,
   showRockerTop: true,
   showRockerBottom: true,
@@ -223,8 +218,7 @@ export const INITIAL_STATE: BoardModel = {
   showRailOutline: true,
     showApexRocker: true,
   showDeckShoulder: true,
-  showCrossSections: true,
-  showCurvature: false,
+    showCrossSections: true,
   showMriView: false,
   mriSlicePosition: 50.0,
   selectedNode: null,

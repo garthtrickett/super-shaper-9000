@@ -21,7 +21,6 @@ export interface RustMesh {
 export class BoardViewport extends LitElement {
   @property({ type: Object }) boardState?: BoardModel;
   @property({ type: Object }) meshData?: RustMesh;
-  @property({ type: Object }) curvatureCombs?: Float32Array;
   @property({ attribute: false }) mathEngine?: WasmEngine;
   @property({ type: String }) selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
   @property({ type: Boolean }) isProcessing = false;

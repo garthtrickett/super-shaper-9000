@@ -22,8 +22,7 @@ export class BoardControls extends LitElement {
     @property({ type: Boolean }) showGizmos = true;
   @property({ type: Boolean }) showSolidMesh = true;
   @property({ type: Boolean }) showHeatmap = false;
-  @property({ type: Boolean }) showZebra = false;
-  @property({ type: Boolean }) showApexLine = false;
+    @property({ type: Boolean }) showZebra = false;
   @property({ type: Boolean }) showOutline = true;
   @property({ type: Boolean }) showRockerTop = true;
   @property({ type: Boolean }) showRockerBottom = true;
@@ -35,8 +34,7 @@ export class BoardControls extends LitElement {
     @property({ type: Number }) gizmoScaleTop = 1.0;
   @property({ type: Number }) gizmoScaleSide = 1.0;
   @property({ type: Number }) gizmoScaleProfile = 1.0;
-  @property({ type: Number }) gizmoScalePerspective = 1.0;
-  @property({ type: Boolean }) showCurvature = false;
+    @property({ type: Number }) gizmoScalePerspective = 1.0;
   @property({ type: Boolean }) showMriView = false;
       @property({ type: Number }) mriSlicePosition = 50.0;
       @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];
@@ -277,31 +275,7 @@ export class BoardControls extends LitElement {
             />
           </label>
 
-          <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showApexLine ? 'ring-1 ring-emerald-400/50' : ''}">
-            <div class="flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M12 12h.01"></path></svg>
-                            <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Rail Apex</span>
-            </div>
-                        <input 
-              type="checkbox" 
-              .checked=${live(this.showApexLine)} 
-              @change=${(e: Event) => this._dispatchBoolean('showApexLine', (e.target as HTMLInputElement).checked)} 
-              class="w-3 h-3 accent-emerald-400 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
-            />
-          </label>
-
-          <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showCurvature ? 'ring-1 ring-fuchsia-500/50' : ''}">
-            <div class="flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5 text-fuchsia-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-              <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">Curvature</span>
-            </div>
-                        <input 
-              type="checkbox" 
-              .checked=${live(this.showCurvature)} 
-              @change=${(e: Event) => this._dispatchBoolean('showCurvature', (e.target as HTMLInputElement).checked)} 
-                            class="w-3 h-3 accent-fuchsia-500 rounded bg-zinc-900 border-zinc-700 cursor-pointer" 
-            />
-          </label>
+          
 
           <label class="flex flex-col items-center justify-center p-2 bg-zinc-950 rounded-lg border border-zinc-800 cursor-pointer hover:border-zinc-700 transition shadow-inner text-center gap-2 ${this.showMriView ? 'ring-1 ring-cyan-400/50' : ''}">
             <div class="flex items-center gap-1.5">

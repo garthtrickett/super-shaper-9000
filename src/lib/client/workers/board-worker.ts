@@ -23,18 +23,16 @@ init().then(async () => {
     engine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
     
         // Post initial state back
-    const initialState = engine.get_state() as BoardModel;
+        const initialState = engine.get_state() as BoardModel;
     const stats = engine.get_stats();
-    const curvatureCombs = engine.get_curvature_combs() as Float32Array;
     const foilData = engine.get_foil_stats() as Float32Array;
     
                     (self as unknown as Worker).postMessage({
         type: "STATE_UPDATED",
         state: initialState,
         stats,
-        curvatureCombs: curvatureCombs,
         foilData: foilData
-    },[curvatureCombs.buffer, foilData.buffer]);
+    },[foilData.buffer]);
 
                 // Process queued messages sequentially to prevent &mut self borrow panics
     for (const queuedMsg of messageQueue) {
@@ -194,9 +192,8 @@ self.onmessage = async (e: MessageEvent<any>) => {
                 }
             }
 
-                        // 3. Extract Mesh Buffer (Zero-Copy)
+                                    // 3. Extract Mesh Buffer (Zero-Copy)
             const stats = engine.get_stats();
-            const curvatureCombs = engine.get_curvature_combs() as Float32Array;
             const foilData = engine.get_foil_stats() as Float32Array;
 
             (self as unknown as Worker).postMessage({
@@ -204,9 +201,8 @@ self.onmessage = async (e: MessageEvent<any>) => {
                 seq: msg.seq,
                 state,
                 stats,
-                curvatureCombs,
                 foilData
-            }, [curvatureCombs.buffer, foilData.buffer]); // Transfer ownership of the buffers
+            }, [foilData.buffer]); // Transfer ownership of the buffers
 
                 } catch (err) {
             console.error("[BoardWorker] Error during proposal:", err);

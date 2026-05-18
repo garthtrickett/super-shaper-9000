@@ -73,10 +73,9 @@ describe("WasmSamController (FFI Integration)", () => {
     expect(controller.mesh).to.exist;
     // Assert the new properties from the adaptive mesh step
         expect(controller.mesh?.vertexCount).to.be.a('number').and.greaterThan(0);
-    expect(controller.mesh?.triangleCount).to.be.a('number').and.greaterThan(0);
+        expect(controller.mesh?.triangleCount).to.be.a('number').and.greaterThan(0);
     expect(controller.mesh?.volumeLiters).to.be.a('number').and.greaterThan(0);
-    expect(controller.curvatureCombs).to.exist;
-        expect((controller as any).foilData).to.exist;
+    expect((controller as any).foilData).to.exist;
     expect((controller as any).foilData).to.be.instanceOf(Float32Array);
     expect((controller as any).foilData!.length).to.be.greaterThan(0);
 
@@ -103,11 +102,10 @@ describe("WasmSamController (FFI Integration)", () => {
     // Spoof an outdated worker message
     (controller as any).worker.dispatchEvent(new MessageEvent("message", {
       data: {
-        type: "STATE_UPDATED",
+                type: "STATE_UPDATED",
         seq: 0, // Lower than current sequence
         state: { ...controller.model, length: 100.0 },
         mesh: controller.mesh,
-        curvatureCombs: controller.curvatureCombs,
         foilData: controller.foilData
       }
     }));
@@ -143,8 +141,7 @@ describe("WasmSamController (FFI Integration)", () => {
           await new Promise((resolve) => setTimeout(resolve, 50));
         }
 
-            expect(controller.model!.length).to.equal(85.0);
-    expect(controller.curvatureCombs).to.exist;
+                        expect(controller.model!.length).to.equal(85.0);
     expect((controller as any).foilData).to.exist;
         // Sometimes the vertex count doesn't change exactly, so we just expect it to exist
     expect(controller.mesh?.vertexCount).to.be.greaterThan(0);

@@ -171,108 +171,10 @@ impl SurferEngine {
         ))
     }
 
-    pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
+        pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
         let curve = crate::geometry::get_curve(&self.model, curve_name)?;
         let pt = crate::geometry::evaluate_curve(curve, t);
         Some([pt.x, pt.y, pt.z])
-    }
-
-    /// Generates a flat Float32Array-compatible buffer of [x1, y1, z1, x2, y2, z2] segments for curvature combs.
-    pub fn compute_curvature_combs(&self) -> Vec<f32> {
-        if !self.model.show_curvature.unwrap_or(false) {
-            return Vec::new();
-        }
-
-        let scale = 200.0; // Multiplier to make curvature visually legible
-        let steps = 40;
-        let view_scale = 1.0 / 12.0; // CAD inches to World coordinates
-
-        let mut curves_to_process = Vec::new();
-        if self.model.show_outline.unwrap_or(true) {
-            curves_to_process.push(self.model.outline.as_ref());
-        }
-        if self.model.show_rocker_top.unwrap_or(true) {
-            curves_to_process.push(self.model.rocker_top.as_ref());
-        }
-        if self.model.show_rocker_bottom.unwrap_or(true) {
-            curves_to_process.push(self.model.rocker_bottom.as_ref());
-        }
-        if self.model.show_apex_outline.unwrap_or(true) {
-            curves_to_process.push(self.model.apex_outline.as_ref());
-        }
-        if self.model.show_rail_outline.unwrap_or(true) {
-            curves_to_process.push(self.model.rail_outline.as_ref());
-        }
-        if self.model.show_apex_rocker.unwrap_or(true) {
-            curves_to_process.push(self.model.apex_rocker.as_ref());
-        }
-        if self.model.show_deck_shoulder.unwrap_or(true) {
-            curves_to_process.push(self.model.deck_shoulder.as_ref());
-        }
-
-        if self.model.show_cross_sections.unwrap_or(true) {
-            for cs in &self.model.cross_sections {
-                curves_to_process.push(Some(cs));
-            }
-        }
-
-        use rayon::prelude::*;
-        curves_to_process
-            .into_par_iter()
-            .flat_map(|curve_opt| {
-                let mut local_combs = Vec::new();
-                if let Some(c) = curve_opt {
-                    let num_segments = c.control_points.len().saturating_sub(1);
-                    for seg in 0..num_segments {
-                        let p0 = c.control_points[seg];
-                        let p1 = c.control_points[seg + 1];
-                        let t0 = c
-                            .tangents2
-                            .get(seg)
-                            .copied()
-                            .unwrap_or_else(|| p0.lerp(p1, 1.0 / 3.0));
-                        let t1 = c
-                            .tangents1
-                            .get(seg + 1)
-                            .copied()
-                            .unwrap_or_else(|| p0.lerp(p1, 2.0 / 3.0));
-
-                        let weights = c.weights.as_ref().and_then(|w| {
-                            if w.len() > seg + 1 {
-                                Some((w[seg], 1.0, 1.0, w[seg + 1]))
-                            } else {
-                                None
-                            }
-                        });
-
-                        for i in 0..=steps {
-                            let t = i as f32 / steps as f32;
-                            let pt = if let Some((w0, w1, w2, w3)) = weights {
-                                crate::bezier::evaluate_rational_bezier_cubic(
-                                    p0, t0, t1, p1, w0, w1, w2, w3, t,
-                                )
-                            } else {
-                                crate::bezier::evaluate_bezier_cubic(p0, t0, t1, p1, t)
-                            };
-                            let quill = crate::bezier::evaluate_curvature_quill(
-                                p0, t0, t1, p1, weights, t, scale,
-                            );
-
-                            let tip = pt + quill;
-
-                            local_combs.push(pt.x * view_scale);
-                            local_combs.push(pt.y * view_scale);
-                            local_combs.push(pt.z * view_scale);
-
-                            local_combs.push(tip.x * view_scale);
-                            local_combs.push(tip.y * view_scale);
-                            local_combs.push(tip.z * view_scale);
-                        }
-                    }
-                }
-                local_combs
-            })
-            .collect()
     }
 }
 

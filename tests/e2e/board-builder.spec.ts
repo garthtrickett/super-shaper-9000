@@ -68,7 +68,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(modalHeading).toBeHidden();
   });
 
-    test("Diagnostic toggles (Foil Ratio, Zebra, Curvature)", async ({ page }) => {
+      test("Diagnostic toggles (Foil Ratio, Zebra, MRI Slice)", async ({ page }) => {
     // 1. Load the app
     await page.goto("/");
     await expect(page.locator("app-shell")).toBeVisible();
@@ -81,37 +81,26 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 3. Locate the checkboxes via their wrapping labels
     const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Foil Ratio/i }).locator('input[type="checkbox"]');
     const zebraCheckbox = boardControls.locator('label').filter({ hasText: /Zebra Flow/i }).locator('input[type="checkbox"]');
-    const curvatureCheckbox = boardControls.locator('label').filter({ hasText: /Curvature/i }).locator('input[type="checkbox"]');
     const mriCheckbox = boardControls.locator('label').filter({ hasText: /MRI Slice/i }).locator('input[type="checkbox"]');
 
     // 4. Initially all should be off (based on INITIAL_STATE)
     await expect(heatmapCheckbox).not.toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
-    await expect(curvatureCheckbox).not.toBeChecked();
     await expect(mriCheckbox).not.toBeChecked();
 
-    // 5. Turn on Curvature (should not affect others)
-    console.info("Testing: Enabling Curvature");
-    await curvatureCheckbox.check({ force: true });
-    await expect(curvatureCheckbox).toBeChecked();
-    await expect(heatmapCheckbox).not.toBeChecked();
-    await expect(zebraCheckbox).not.toBeChecked();
-
-        // 6. Turn on Foil Ratio
+    // 5. Turn on Foil Ratio
     console.info("Testing: Enabling Foil Ratio");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
-    await expect(curvatureCheckbox).toBeChecked(); // Curvature should still be checked
 
-    // 7. Turn on Zebra (Foil Ratio should auto-disable, Curvature unaffected)
+    // 6. Turn on Zebra (Foil Ratio should auto-disable)
     console.info("Testing: Enabling Zebra Flow (Should disable Foil Ratio)");
     await zebraCheckbox.check({ force: true });
     await expect(zebraCheckbox).toBeChecked();
     await expect(heatmapCheckbox).not.toBeChecked();
-    await expect(curvatureCheckbox).toBeChecked(); // Curvature should still be checked
 
-    // 8. Turn on Foil Ratio again (Zebra should auto-disable)
+    // 7. Turn on Foil Ratio again (Zebra should auto-disable)
     console.info("Testing: Re-enabling Foil Ratio (Should disable Zebra Flow)");
     await heatmapCheckbox.check({ force: true });
     await expect(heatmapCheckbox).toBeChecked();

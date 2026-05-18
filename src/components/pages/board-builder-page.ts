@@ -323,8 +323,7 @@ export class BoardBuilderPage extends LitElement {
 
   override render() {
     const state = this.wasmCtrl.model || INITIAL_STATE;
-    const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
-    const curvatureCombs = (this.wasmCtrl as unknown as { curvatureCombs?: Float32Array }).curvatureCombs;
+        const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
     const foilData = (this.wasmCtrl as unknown as { foilData?: Float32Array }).foilData;
 
     return html`
@@ -405,8 +404,7 @@ export class BoardBuilderPage extends LitElement {
           .showGizmos=${state.showGizmos ?? true}
           .showSolidMesh=${state.showSolidMesh ?? true}
           .showHeatmap=${state.showHeatmap ?? false}
-          .showZebra=${state.showZebra ?? false}
-          .showApexLine=${state.showApexLine ?? false}
+                    .showZebra=${state.showZebra ?? false}
           .showOutline=${state.showOutline ?? true}
           .showRockerTop=${state.showRockerTop ?? true}
           .showRockerBottom=${state.showRockerBottom ?? true}
@@ -414,8 +412,7 @@ export class BoardBuilderPage extends LitElement {
           .showRailOutline=${state.showRailOutline ?? true}
           .showApexRocker=${state.showApexRocker ?? true}
           .showDeckShoulder=${state.showDeckShoulder ?? true}
-          .showCrossSections=${state.showCrossSections ?? true}
-          .showCurvature=${state.showCurvature ?? false}
+                    .showCrossSections=${state.showCrossSections ?? true}
           .showMriView=${state.showMriView ?? false}
           .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
           .outlineLayers=${state.outlineLayers ||[]}
@@ -456,11 +453,10 @@ export class BoardBuilderPage extends LitElement {
           </button>
         </div>
 
-                <board-viewport 
+                        <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${mesh}
-          .curvatureCombs=${curvatureCombs}
           .mathEngine=${this.mathEngine}
           .selectedNodeContinuity=${this._selectedNodeContinuity}
           .isProcessing=${this.isProcessing}

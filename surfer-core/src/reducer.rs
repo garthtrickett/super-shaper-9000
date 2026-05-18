@@ -736,14 +736,13 @@ fn handle_parametric_scaling(
                     model.show_zebra = Some(false);
                 }
             }
-            "showZebra" => {
+                        "showZebra" => {
                 model.show_zebra = Some(value);
                 if value {
                     model.show_heatmap = Some(false);
                     model.show_mri_view = Some(false);
                 }
             }
-            "showApexLine" => model.show_apex_line = Some(value),
             "showOutline" => model.show_outline = Some(value),
             "showRockerTop" => model.show_rocker_top = Some(value),
             "showRockerBottom" => model.show_rocker_bottom = Some(value),
@@ -751,8 +750,7 @@ fn handle_parametric_scaling(
             "showRailOutline" => model.show_rail_outline = Some(value),
             "showApexRocker" => model.show_apex_rocker = Some(value),
             "showDeckShoulder" => model.show_deck_shoulder = Some(value),
-            "showCrossSections" => model.show_cross_sections = Some(value),
-            "showCurvature" => model.show_curvature = Some(value),
+                        "showCrossSections" => model.show_cross_sections = Some(value),
             "showMriView" => {
                 model.show_mri_view = Some(value);
                 if value {
