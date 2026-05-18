@@ -215,9 +215,22 @@ pub fn generate_mesh(
                 }
             }
 
-            if show_gizmos {
+                        if show_gizmos {
                 let num_segments = curve.control_points.len().saturating_sub(1);
                 let num_segments_f = num_segments as f32;
+
+                let base_s = if curve_name.starts_with("crossSection_") {
+                    model.gizmo_scale_profile.unwrap_or(1.0)
+                } else if curve_name == "rockerTop"
+                    || curve_name == "rockerBottom"
+                    || curve_name == "apexRocker"
+                    || (curve_name.starts_with("channel_") && curve_name.ends_with("_depth"))
+                {
+                    model.gizmo_scale_side.unwrap_or(1.0)
+                } else {
+                    model.gizmo_scale_top.unwrap_or(1.0)
+                };
+                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
 
                 for i in 0..curve.control_points.len() {
                     let raw_p = curve.control_points[i];
@@ -260,10 +273,9 @@ pub fn generate_mesh(
                         }
                     };
 
-                    let p = map_point(t, raw_p);
+                                        let p = map_point(t, raw_p);
 
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
-                    let s = 1.0;
                     push_line(p - Vec3::X * s, p + Vec3::X * s, c_anchor);
                     push_line(p - Vec3::Y * s, p + Vec3::Y * s, c_anchor);
                     push_line(p - Vec3::Z * s, p + Vec3::Z * s, c_anchor);
