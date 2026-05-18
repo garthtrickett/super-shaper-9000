@@ -387,7 +387,7 @@ impl WasmEngine {
                 };
                 let aspect = vp_w / vp_h;
 
-                                let mut cam_pos = glam::Vec3::ZERO;
+                let mut cam_pos = glam::Vec3::ZERO;
                 let view_proj = match q {
                     "top" => {
                         let frustum = self.camera_ctrl.distance_top / 4.0;
@@ -1155,11 +1155,11 @@ pub async fn create_wgpu_renderer(
             source: wgpu::ShaderSource::Wgsl(shader_src.into()),
         });
 
-        let camera_bind_group_layout =
+                let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
