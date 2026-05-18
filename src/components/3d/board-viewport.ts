@@ -310,34 +310,35 @@ export class BoardViewport extends LitElement {
             worldZ = targetZ;
         }
 
-                if (quad) {
+                                if (quad) {
             const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
-            if (hit) {
-                if (e.altKey) {
-                    if (quad === "perspective") {
-                        console.info("Node insertion requires an orthographic view to determine placement depth.");
-                        return;
-                    }
-                    let exactT = 0.5;
-                    if (this.mathEngine) {
-                        let roX = worldX, roY = worldY, roZ = worldZ;
-                        let rdX = 0, rdY = 0, rdZ = 0;
-                        if (quad === 'top') { roY = 100.0; rdY = -1.0; }
-                        else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
-                        else if (quad === 'profile') { roZ = worldZ - 100.0; rdZ = 1.0; }
-                        
-                        const t = this.mathEngine.find_closest_t(hit.curve, roX, roY, roZ, rdX, rdY, rdZ);
-                        if (t >= 0.0 && t <= 1.0) exactT = t;
-                    }
-                    this.dispatchEvent(new CustomEvent('insert-node', { detail: { curve: hit.curve, t: exactT }, bubbles: true, composed: true }));
-                } else if (e.ctrlKey) {
-                    this.dispatchEvent(new CustomEvent('add-cross-section', { detail: { z: worldZ }, bubbles: true, composed: true }));
-                                } else {
-                    this.activeDragNode = hit.node;
-                    const sel = this.boardState?.selectedNode;
-                    if (!sel || sel.curve !== hit.node.curve || sel.index !== hit.node.index || sel.type !== hit.node.type) {
-                        this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: hit.node }, bubbles: true, composed: true }));
-                    }
+            if (e.altKey) {
+                if (quad === "perspective") {
+                    console.info("Node insertion requires an orthographic view to determine placement depth.");
+                    return;
+                }
+                let exactT = 0.5;
+                let targetCurve = hit ? hit.curve : (quad === 'top' ? 'outline' : (quad === 'side' ? 'rockerTop' : `crossSection_${this.activeProfileSlice}`));
+                if (this.mathEngine) {
+                    let roX = worldX, roY = worldY, roZ = worldZ;
+                    let rdX = 0, rdY = 0, rdZ = 0;
+                    if (quad === 'top') { roY = 100.0; rdY = -1.0; }
+                    else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
+                    else if (quad === 'profile') { roZ = worldZ - 100.0; rdZ = 1.0; }
+                    
+                    const t = this.mathEngine.find_closest_t(targetCurve, roX, roY, roZ, rdX, rdY, rdZ);
+                    if (t >= 0.0 && t <= 1.0) exactT = t;
+                }
+                this.dispatchEvent(new CustomEvent('insert-node', { detail: { curve: targetCurve, t: exactT }, bubbles: true, composed: true }));
+                return;
+            } else if (e.ctrlKey) {
+                this.dispatchEvent(new CustomEvent('add-cross-section', { detail: { z: worldZ }, bubbles: true, composed: true }));
+                return;
+            } else if (hit) {
+                this.activeDragNode = hit.node;
+                const sel = this.boardState?.selectedNode;
+                if (!sel || sel.curve !== hit.node.curve || sel.index !== hit.node.index || sel.type !== hit.node.type) {
+                    this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: hit.node }, bubbles: true, composed: true }));
                 }
                 return;
             }

@@ -263,8 +263,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 2. Click Add Wing
     await addWingBtn.click();
 
-    // 3. Verify 'Wing 1' appears in the controls list
-    const wingItem = boardControls.locator("span", { hasText: /Wing 1/i });
+        // 3. Verify 'Layer 0' appears in the controls list
+    const wingItem = boardControls.locator("span", { hasText: /Layer 0/i });
         await expect(wingItem).toBeVisible();
 
     // Wait for the viewport to process the new geometry and render the gizmo
@@ -343,9 +343,9 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     const boardControls = page.locator("board-controls");
 
-        // 1. Create the wing
+                // 1. Create the wing
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
-    await expect(boardControls.locator("span", { hasText: /Wing 1/i })).toBeVisible();
+    await expect(boardControls.locator("span", { hasText: /Layer 0/i })).toBeVisible();
 
     // Wait for the viewport to process the new geometry and render the gizmo
     await page.waitForTimeout(1000);
@@ -439,8 +439,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 2. Click Add Channel
     await addBtn.click();
 
-        // 3. Verify 'Channel 1' appears in the controls list
-    const channelItem = boardControls.locator("span", { hasText: /Channel 1/i });
+                // 3. Verify 'Channel 0' appears in the controls list
+    const channelItem = boardControls.locator("span", { hasText: /Channel 0/i });
     await expect(channelItem).toBeVisible();
 
     // Wait for the viewport to process the new geometry and render the gizmo
@@ -495,8 +495,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector).toBeVisible({ timeout: 15000 });
     await expect(inspector).toContainText(/Channel 0 \(RIGHT OUTLINE\)/i, { timeout: 15000 });
 
-    // 6. Test Removal
-    const removeBtn = boardControls.locator('button[title="Remove Channel 1"]');
+        // 6. Test Removal
+    const removeBtn = boardControls.locator('button[title="Remove Channel 0"]');
     await removeBtn.click();
 
     // 7. Verify channel is gone from list
@@ -508,10 +508,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.goto("/");
     const boardControls = page.locator("board-controls");
 
-        // 1. Create the wing
+                // 1. Create the wing
     await boardControls.locator('button[title="Add Wing/Flyer"]').click();
 
-        await expect(boardControls.locator('span', { hasText: /Wing 1/i })).toBeVisible();
+        await expect(boardControls.locator('span', { hasText: /Layer 0/i })).toBeVisible();
 
     // Wait for the viewport to process the new geometry and render the gizmo
     await page.waitForTimeout(1000);

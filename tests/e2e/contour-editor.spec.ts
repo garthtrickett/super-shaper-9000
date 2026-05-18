@@ -20,8 +20,8 @@ test.describe("Bottom Contour Editor E2E", () => {
     await expect(addChannelBtn).toBeVisible({ timeout: 10000 });
     await addChannelBtn.click();
 
-    // Wait for the channel to appear in the list
-    const channelItem = boardControls.locator("span", { hasText: /Channel 1/i });
+        // Wait for the channel to appear in the list
+    const channelItem = boardControls.locator("span", { hasText: /Channel 0/i });
     await expect(channelItem).toBeVisible({ timeout: 15000 });
 
     // 2. Unlink Symmetry

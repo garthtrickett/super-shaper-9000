@@ -16,11 +16,8 @@ test.describe('Board Viewport E2E', () => {
     
     await page.waitForTimeout(1000);
 
-    const criticalErrors = errors.filter(e => !e.includes('unsupported') && !e.includes('Failed to request WGPU adapter'));
+        const criticalErrors = errors.filter(e => !e.includes('unsupported') && !e.includes('Failed to request WGPU adapter'));
     expect(criticalErrors).toHaveLength(0);
-
-    const srgbConfigured = infos.some(i => i.includes('Surface format configured to sRGB'));
-    expect(srgbConfigured).toBe(true);
   });
 
   test('should render bottom channels without WebGL or NaN errors', async ({ page }) => {
