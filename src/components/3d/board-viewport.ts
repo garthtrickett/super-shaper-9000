@@ -187,25 +187,56 @@ export class BoardViewport extends LitElement {
           }
       };
 
-      checkCurve('outline', this.boardState?.outline, true);
-      checkCurve('rockerTop', this.boardState?.rockerTop, false);
-      checkCurve('rockerBottom', this.boardState?.rockerBottom, false);
-      checkCurve('apexOutline', this.boardState?.apexOutline, true);
-      checkCurve('railOutline', this.boardState?.railOutline, true);
-      checkCurve('apexRocker', this.boardState?.apexRocker, false);
-      checkCurve('deckShoulder', this.boardState?.deckShoulder, true);
+            if (quad === 'top' || quad === 'perspective') {
+          if (quad === 'top' || (this.boardState?.showOutline ?? true)) {
+              checkCurve('outline', this.boardState?.outline, true);
+          }
+          if (quad === 'top' || (this.boardState?.showApexOutline ?? true)) {
+              checkCurve('apexOutline', this.boardState?.apexOutline, true);
+          }
+          if (quad === 'top' || (this.boardState?.showRailOutline ?? true)) {
+              checkCurve('railOutline', this.boardState?.railOutline, true);
+          }
+          if (quad === 'top' || (this.boardState?.showDeckShoulder ?? true)) {
+              checkCurve('deckShoulder', this.boardState?.deckShoulder, true);
+          }
+          this.boardState?.outlineLayers?.forEach((l, i: number) => {
+              if (l.active !== false) {
+                  checkCurve(`outlineLayer_${i}_ext`, l.otlExt, true);
+                  checkCurve(`outlineLayer_${i}_int`, l.otlInt, true);
+              }
+          });
+          this.boardState?.bottomChannels?.forEach((c, i: number) => {
+              checkCurve(`channel_${i}_left_outline`, c.leftOutline, false);
+              checkCurve(`channel_${i}_right_outline`, c.rightOutline, false);
+          });
+      }
 
-      this.boardState?.crossSections?.forEach((cs, i: number) => checkCurve(`crossSection_${i}`, cs, true));
-      this.boardState?.outlineLayers?.forEach((l, i: number) => {
-          checkCurve(`outlineLayer_${i}_ext`, l.otlExt, true);
-          checkCurve(`outlineLayer_${i}_int`, l.otlInt, true);
-      });
-      this.boardState?.bottomChannels?.forEach((c, i: number) => {
-          checkCurve(`channel_${i}_left_outline`, c.leftOutline, false);
-          checkCurve(`channel_${i}_right_outline`, c.rightOutline, false);
-          checkCurve(`channel_${i}_left_depth`, c.leftDepth, false);
-          checkCurve(`channel_${i}_right_depth`, c.rightDepth, false);
-      });
+      if (quad === 'side' || quad === 'perspective') {
+          if (quad === 'side' || (this.boardState?.showRockerTop ?? true)) {
+              checkCurve('rockerTop', this.boardState?.rockerTop, false);
+          }
+          if (quad === 'side' || (this.boardState?.showRockerBottom ?? true)) {
+              checkCurve('rockerBottom', this.boardState?.rockerBottom, false);
+          }
+          if (quad === 'side' || (this.boardState?.showApexRocker ?? true)) {
+              checkCurve('apexRocker', this.boardState?.apexRocker, false);
+          }
+          this.boardState?.bottomChannels?.forEach((c, i: number) => {
+              checkCurve(`channel_${i}_left_depth`, c.leftDepth, false);
+              checkCurve(`channel_${i}_right_depth`, c.rightDepth, false);
+          });
+      }
+
+      if (quad === 'profile' || quad === 'perspective') {
+          if (quad === 'profile') {
+              if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
+                  checkCurve(`crossSection_${this.activeProfileSlice}`, this.boardState.crossSections[this.activeProfileSlice], true);
+              }
+          } else if (this.boardState?.showCrossSections ?? true) {
+              this.boardState?.crossSections?.forEach((cs, i: number) => checkCurve(`crossSection_${i}`, cs, true));
+          }
+      }
 
       return bestHit;
   }
