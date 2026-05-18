@@ -365,9 +365,10 @@ export class BoardBuilderPage extends LitElement {
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
             this._proposeAction({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
           }}
-          @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
+                    @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
             this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
+          .showGizmos=${state.showGizmos ?? true}
           .showSolidMesh=${state.showSolidMesh ?? true}
           .showHeatmap=${state.showHeatmap ?? false}
           .showZebra=${state.showZebra ?? false}
