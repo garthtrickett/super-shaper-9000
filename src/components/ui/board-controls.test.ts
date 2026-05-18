@@ -5,27 +5,7 @@ import type { BoardControls } from "./board-controls";
 
 describe("BoardControls (UI Component)", () => {
   describe("Event Dispatching", () => {
-        it("should emit preview-number event when length slider is moved", async () => {
-      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
-      const spy = sinon.spy();
-      el.addEventListener("preview-number", spy);
-
-      // Robustly find the length slider by its associated label
-      const labels = Array.from(el.querySelectorAll('label'));
-      const lengthLabel = labels.find(l => l.textContent?.includes("Length"));
-      expect(lengthLabel, "Could not find a label for 'Length'").to.exist;
-
-      const lengthInput = lengthLabel!.parentElement!.parentElement!.querySelector('input[type="range"]') as HTMLInputElement;
-      expect(lengthInput, "Could not find range input associated with 'Length' label").to.exist;
-      
-      lengthInput.value = "72";
-      lengthInput.dispatchEvent(new Event("input"));
-
-      expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "length", value: 72 });
-    });
-
-    it("should emit number-changed event when length slider drag ends", async () => {
+            it("should emit number-changed event when length slider drag ends", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
       el.addEventListener("number-changed", spy);

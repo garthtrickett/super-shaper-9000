@@ -166,11 +166,13 @@ export class BoardControls extends LitElement {
             const finalVal = this._dragValues[key];
             if (finalVal !== undefined) this._dispatchNumber(key, finalVal);
           }}
-          @input=${(e: Event) => {
+                    @input=${(e: Event) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
             this._dragValues[key] = val;
             this.requestUpdate();
-            this._dispatchPreviewNumber(key, val);
+            if (key === "mriSlicePosition" || key.startsWith("gizmoScale")) {
+              this._dispatchPreviewNumber(key, val);
+            }
           }}
           class="w-full accent-blue-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
         />

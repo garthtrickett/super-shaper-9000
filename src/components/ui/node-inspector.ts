@@ -100,10 +100,10 @@ export class NodeInspector extends LitElement {
     }));
   }
 
-  private _handleWeightChange(val: number) {
+    private _handleWeightChange(val: number) {
     this._dragWeightValue = val;
     this.requestUpdate();
-    this._dispatchPreviewWeight(val);
+    // Do not dispatch preview weight to avoid heavy processing during drag
   }
 
     private _handleAnchorChange(axis: 0|1|2, val: number) {
