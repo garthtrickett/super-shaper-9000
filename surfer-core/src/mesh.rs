@@ -268,12 +268,13 @@ pub fn generate_mesh(
                     push_line(p - Vec3::Y * s, p + Vec3::Y * s, c_anchor);
                     push_line(p - Vec3::Z * s, p + Vec3::Z * s, c_anchor);
 
-                    if is_outline {
+                                        if is_outline {
+                        let c_mirrored_anchor = Vec3::new(0.35, 0.35, 0.35); // Dark grey
                         let mut mp = p;
                         mp.x = -mp.x;
-                        push_line(mp - Vec3::X * s, mp + Vec3::X * s, c_anchor);
-                        push_line(mp - Vec3::Y * s, mp + Vec3::Y * s, c_anchor);
-                        push_line(mp - Vec3::Z * s, mp + Vec3::Z * s, c_anchor);
+                        push_line(mp - Vec3::X * s, mp + Vec3::X * s, c_mirrored_anchor);
+                        push_line(mp - Vec3::Y * s, mp + Vec3::Y * s, c_mirrored_anchor);
+                        push_line(mp - Vec3::Z * s, mp + Vec3::Z * s, c_mirrored_anchor);
                     }
 
                     let c_tan = Vec3::new(0.4, 0.4, 1.0);
