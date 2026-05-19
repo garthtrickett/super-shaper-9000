@@ -476,8 +476,8 @@ export class BoardViewport extends LitElement {
     
     const renderProfileSliceSelector = () => {
       if (!this.boardState?.crossSections || this.boardState.crossSections.length === 0) return '';
-      return html`
-        <div class="absolute bottom-3 left-3 pointer-events-auto z-50">
+            return html`
+        <div class="absolute top-3 right-3 pointer-events-auto z-50">
           <select 
             class="bg-zinc-950/90 hover:bg-zinc-800 text-[10px] font-bold text-zinc-300 hover:text-white uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border border-zinc-800 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             .value=${this.activeProfileSlice.toString()}
