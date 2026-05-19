@@ -192,10 +192,11 @@ self.onmessage = async (e: MessageEvent<any>) => {
                 }
             }
 
-                                    // 3. Extract Mesh Buffer (Zero-Copy)
+                                                                        // 3. Extract Mesh Buffer (Zero-Copy)
             const stats = engine.get_stats();
             const foilData = engine.get_foil_stats() as Float32Array;
 
+            console.info(`[BoardWorker] Posting STATE_UPDATED for seq ${msg.seq}`);
             (self as unknown as Worker).postMessage({
                 type: "STATE_UPDATED",
                 seq: msg.seq,

@@ -43,8 +43,9 @@ export class WasmSamController implements ReactiveController {
     });
   }
 
-    propose(action: BoardAction) {
+      propose(action: BoardAction) {
     this.currentSequence++;
+    console.info(`[Controller] Proposing action ${this.currentSequence}:`, action.type);
     
     // Keep local math engine perfectly in sync with the worker's reality
     if (this.mathEngine) {

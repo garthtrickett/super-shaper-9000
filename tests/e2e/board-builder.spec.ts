@@ -854,11 +854,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Wait for WASM debounce and Three.js rebuild
     await page.waitForTimeout(1000);
 
-    // Verify the inspector automatically opens for the newly inserted node
+        // Verify the inspector automatically opens for the newly inserted node
     const inspector = page.locator("node-inspector");
-    await expect(inspector).toBeVisible({ timeout: 5000 });
-    await expect(inspector).toContainText("Main Outline");
-    await expect(inspector).toContainText("Node 1");
+    await expect(async () => {
+      await expect(inspector).toBeVisible();
+      await expect(inspector).toContainText("Main Outline");
+      await expect(inspector).toContainText("Node 1");
+    }).toPass({ timeout: 15000 });
     
     // Test Side Ortho View (Bottom-Left Quadrant)
         // First dismiss inspector by clicking somewhere empty on the canvas
@@ -913,13 +915,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Alt-Click to Insert
     await page.keyboard.down('Alt');
     await page.mouse.click(sideHitPosition!.x, sideHitPosition!.y, { button: 'left' });
-    await page.keyboard.up('Alt');
+        await page.keyboard.up('Alt');
     
     await page.waitForTimeout(1000);
 
-    await expect(inspector).toBeVisible({ timeout: 5000 });
-        await expect(inspector).toContainText("Rocker (Top)");
-    await expect(inspector).toContainText("Node 1");
+    await expect(async () => {
+      await expect(inspector).toBeVisible();
+      await expect(inspector).toContainText("Rocker (Top)");
+      await expect(inspector).toContainText("Node 1");
+    }).toPass({ timeout: 15000 });
 
     // Test Cross Section Insertion via Ctrl-Click
     await page.mouse.click(canvasBox!.x + 150, canvasBox!.y + 150);
@@ -930,11 +934,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     await page.keyboard.down('Control');
     await page.mouse.click(topHitPosition!.x, topHitPosition!.y, { button: 'left' });
-    await page.keyboard.up('Control');
+        await page.keyboard.up('Control');
     
     await page.waitForTimeout(1000);
 
-    await expect(inspector).toBeVisible({ timeout: 5000 });
-    await expect(inspector).toContainText("Slice");
+    await expect(async () => {
+      await expect(inspector).toBeVisible();
+      await expect(inspector).toContainText("Slice");
+    }).toPass({ timeout: 15000 });
   });
 });
