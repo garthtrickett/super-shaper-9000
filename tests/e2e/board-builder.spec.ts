@@ -446,10 +446,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Wait for the viewport to process the new geometry and render the gizmo
     await page.waitForTimeout(1000);
 
-    // 4. Verify 3D Gizmo selection for the new channel
+        // 4. Verify 3D Gizmo selection for the new channel
     const hitPosition = await page.evaluate(() => {
                   type BoardViewportElement = HTMLElement & { 
         requestUpdate?: () => void;
+        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
           gizmoScaleTop?: number;
           bottomChannels?: { rightOutline: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
@@ -474,8 +475,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       if (cp) {
         const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
         const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-        const ndcX = (x / 12) / (5 * aspect);
-        const ndcY = -(z / 12) / 5;
+        const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
+        const orthoTop = dist / 4.0;
+        const orthoRight = orthoTop * aspect;
+        const ndcX = (x / 12) / orthoRight;
+        const ndcY = -(z / 12) / orthoTop;
         const w = rect.width / 2;
         const h = rect.height / 2;
         return {
