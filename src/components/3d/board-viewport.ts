@@ -360,10 +360,11 @@ export class BoardViewport extends LitElement {
                 }
                 this.dispatchEvent(new CustomEvent('insert-node', { detail: { curve: targetCurve, t: exactT }, bubbles: true, composed: true }));
                 return;
-            } else if (e.ctrlKey) {
+                        } else if (e.ctrlKey) {
                 this.dispatchEvent(new CustomEvent('add-cross-section', { detail: { z: worldZ }, bubbles: true, composed: true }));
                 return;
             } else if (hit) {
+                this.wgpuCanvas.style.cursor = 'grabbing';
                 this.activeDragNode = hit.node;
                 const sel = this.boardState?.selectedNode;
                 if (!sel || sel.curve !== hit.node.curve || sel.index !== hit.node.index || sel.type !== hit.node.type) {
@@ -413,7 +414,10 @@ export class BoardViewport extends LitElement {
         localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
     }
 
-    if (this.activeDragNode) {
+        if (this.activeDragNode) {
+        if (this.wgpuCanvas.style.cursor !== 'grabbing') {
+            this.wgpuCanvas.style.cursor = 'grabbing';
+        }
         let originalPos: [number, number, number] = [0, 0, 0];
         if (this.boardState) {
             let curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined;
@@ -468,7 +472,7 @@ export class BoardViewport extends LitElement {
             worldZ = pt[2]!;
         }
 
-        this.lastDragPosition = [worldX, worldY, worldZ];
+                this.lastDragPosition = [worldX, worldY, worldZ];
         this.dispatchEvent(new CustomEvent('gizmo-dragged', {
             detail: {
                 userData: this.activeDragNode,
@@ -480,13 +484,20 @@ export class BoardViewport extends LitElement {
         return;
     }
     
-    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));
-  };;
+    const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
+    const newCursor = hit ? 'grab' : 'default';
+    if (this.wgpuCanvas.style.cursor !== newCursor) {
+        this.wgpuCanvas.style.cursor = newCursor;
+    }
 
-    private handlePointerUp = (e: PointerEvent) => {
+    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));
+  };
+
+        private handlePointerUp = (e: PointerEvent) => {
+    this.wgpuCanvas.style.cursor = 'default';
     try { if (this.wgpuCanvas.hasPointerCapture(e.pointerId)) this.wgpuCanvas.releasePointerCapture(e.pointerId); } catch {}
     if (this.activeDragNode) {
-        this.dispatchEvent(new CustomEvent('gizmo-drag-ended', { 
+        this.dispatchEvent(new CustomEvent('gizmo-drag-ended', {  
             detail: {
                 userData: this.activeDragNode,
                 position: this.lastDragPosition

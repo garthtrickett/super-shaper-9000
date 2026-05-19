@@ -1303,23 +1303,25 @@ mod tests {
             ..Default::default()
         });
 
-                // "top" view should have 0 lines since only rockerTop and a cross section are defined
-        let (top_verts, _) = super::generate_lines_for_view(&model, "top", 0, true);
-        assert_eq!(
-            top_verts.len(),
-            0,
-            "Top view should output 0 lines for a model with only top rocker and cross section"
-        );
 
-        // "side" view should have lines from rockerTop
-        let (side_verts, _) = super::generate_lines_for_view(&model, "side", 0, true);
-        assert!(
-            side_verts.len() > 0,
-            "Side view should have lines from top rocker"
-        );
+          // "top" view should have 0 lines since only rockerTop and a cross section are defined
+        let (top_verts, _, _, _, _) = super::generate_lines_for_view(&model, "top", 0, true, 1.0);
+                assert_eq!(top_verts.len(), 0,
+                           "Top view should output 0 lines for a model with only top rocker and cross section"
+                );
 
-        // "profile" view should only have lines from active slice
-        let (profile_verts, _) = super::generate_lines_for_view(&model, "profile", 0, true);
+            // "side" view should have lines from rockerTop
+            let (side_verts, _, _, _, _) = super::generate_lines_for_view(&model, "side", 0, true, 1.0);
+                    assert!(
+                            side_verts.len() > 0,
+                            "Side view should have lines from top rocker"
+                            );
+
+            // "profile" view should only have lines from active slice
+            let (profile_verts, _, _, _, _) = super::generate_lines_for_view(&model, "profile", 0, true, 1.0);
+
+
+        
         assert!(
             profile_verts.len() > 0,
             "Profile view should have lines from active slice"
