@@ -241,40 +241,40 @@ export class BoardViewport extends LitElement {
       return bestHit;
   }
 
-    private handlePointerDown = (e: PointerEvent) => {
+        private handlePointerDown = (e: PointerEvent) => {
     try { this.wgpuCanvas.setPointerCapture(e.pointerId); } catch {}
     
+    const rect = this.wgpuCanvas.getBoundingClientRect();
+    const w = rect.width / 2;
+    const h = rect.height / 2;
+    const aspect = rect.width / rect.height;
+
+    const ndcX = ((e.clientX - rect.left) / w) - 1.0;
+    const ndcY = 1.0 - ((e.clientY - rect.top) / h);
+
+    let quad = "perspective";
+    let localNdcX = ndcX;
+    let localNdcY = ndcY;
+    const localAspect = aspect;
+
+    if (this.maximizedView) {
+        quad = this.maximizedView;
+        const maxW = rect.width;
+        const maxH = rect.height;
+        localNdcX = ((e.clientX - rect.left) / maxW) * 2 - 1.0;
+        localNdcY = 1.0 - ((e.clientY - rect.top) / maxH) * 2;
+    } else {
+        if (ndcX < 0 && ndcY > 0) quad = "top";
+        else if (ndcX >= 0 && ndcY > 0) quad = "perspective";
+        else if (ndcX < 0 && ndcY <= 0) quad = "side";
+        else if (ndcX >= 0 && ndcY <= 0) quad = "profile";
+
+        localNdcX = ndcX < 0 ? ndcX * 2 + 1 : ndcX * 2 - 1;
+        localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
+    }
+
     if (this.boardState) {
-        const rect = this.wgpuCanvas.getBoundingClientRect();
-        const w = rect.width / 2;
-        const h = rect.height / 2;
-        const aspect = rect.width / rect.height;
-
-        const ndcX = ((e.clientX - rect.left) / w) - 1.0;
-        const ndcY = 1.0 - ((e.clientY - rect.top) / h);
-
-        let quad = "";
-        let localNdcX = ndcX;
-        let localNdcY = ndcY;
-        const localAspect = aspect;
-
-        if (this.maximizedView) {
-            quad = this.maximizedView;
-            const maxW = rect.width;
-            const maxH = rect.height;
-            localNdcX = ((e.clientX - rect.left) / maxW) * 2 - 1.0;
-            localNdcY = 1.0 - ((e.clientY - rect.top) / maxH) * 2;
-        } else {
-            if (ndcX < 0 && ndcY > 0) quad = "top";
-            else if (ndcX >= 0 && ndcY > 0) quad = "perspective";
-            else if (ndcX < 0 && ndcY <= 0) quad = "side";
-            else if (ndcX >= 0 && ndcY <= 0) quad = "profile";
-
-            localNdcX = ndcX < 0 ? ndcX * 2 + 1 : ndcX * 2 - 1;
-            localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
-        }
-
-                let worldX = 0, worldY = 0, worldZ = 0;
+        let worldX = 0, worldY = 0, worldZ = 0;
 
         type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
         if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
@@ -329,7 +329,7 @@ export class BoardViewport extends LitElement {
             }
         }
         
-                                if (!e.altKey && !e.ctrlKey) {
+        if (!e.altKey && !e.ctrlKey) {
             if (this.boardState?.selectedNode) {
                 this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
             }
@@ -337,40 +337,40 @@ export class BoardViewport extends LitElement {
     }
 
     this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "down", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));
-  };
+  };;
 
-    private handlePointerMove = (e: PointerEvent) => {
+        private handlePointerMove = (e: PointerEvent) => {
+    const rect = this.wgpuCanvas.getBoundingClientRect();
+    const w = rect.width / 2;
+    const h = rect.height / 2;
+    const aspect = rect.width / rect.height;
+
+    const ndcX = ((e.clientX - rect.left) / w) - 1.0;
+    const ndcY = 1.0 - ((e.clientY - rect.top) / h);
+
+    let quad = "perspective";
+    let localNdcX = ndcX;
+    let localNdcY = ndcY;
+    const localAspect = aspect;
+
+    if (this.maximizedView) {
+        quad = this.maximizedView;
+        const maxW = rect.width;
+        const maxH = rect.height;
+        localNdcX = ((e.clientX - rect.left) / maxW) * 2 - 1.0;
+        localNdcY = 1.0 - ((e.clientY - rect.top) / maxH) * 2;
+    } else {
+        if (ndcX < 0 && ndcY > 0) quad = "top";
+        else if (ndcX >= 0 && ndcY > 0) quad = "perspective";
+        else if (ndcX < 0 && ndcY <= 0) quad = "side";
+        else if (ndcX >= 0 && ndcY <= 0) quad = "profile";
+
+        localNdcX = ndcX < 0 ? ndcX * 2 + 1 : ndcX * 2 - 1;
+        localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
+    }
+
     if (this.activeDragNode) {
-        const rect = this.wgpuCanvas.getBoundingClientRect();
-        const w = rect.width / 2;
-        const h = rect.height / 2;
-        const aspect = rect.width / rect.height;
-
-        const ndcX = ((e.clientX - rect.left) / w) - 1.0;
-        const ndcY = 1.0 - ((e.clientY - rect.top) / h);
-
-        let quad = "";
-        let localNdcX = ndcX;
-        let localNdcY = ndcY;
-        const localAspect = aspect;
-
-        if (this.maximizedView) {
-            quad = this.maximizedView;
-            const maxW = rect.width;
-            const maxH = rect.height;
-            localNdcX = ((e.clientX - rect.left) / maxW) * 2 - 1.0;
-            localNdcY = 1.0 - ((e.clientY - rect.top) / maxH) * 2;
-        } else {
-            if (ndcX < 0 && ndcY > 0) quad = "top";
-            else if (ndcX >= 0 && ndcY > 0) quad = "perspective";
-            else if (ndcX < 0 && ndcY <= 0) quad = "side";
-            else if (ndcX >= 0 && ndcY <= 0) quad = "profile";
-
-            localNdcX = ndcX < 0 ? ndcX * 2 + 1 : ndcX * 2 - 1;
-            localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
-        }
-
-                        let originalPos: [number, number, number] = [0, 0, 0];
+        let originalPos: [number, number, number] = [0, 0, 0];
         if (this.boardState) {
             let curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined;
             if (this.activeDragNode.curve === 'outline') curveData = this.boardState.outline;
@@ -411,7 +411,7 @@ export class BoardViewport extends LitElement {
             }
         }
 
-                        let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
+        let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
 
         type EngineExt = { 
             unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array;
@@ -424,7 +424,7 @@ export class BoardViewport extends LitElement {
             worldZ = pt[2]!;
         }
 
-                this.lastDragPosition = [worldX, worldY, worldZ];
+        this.lastDragPosition = [worldX, worldY, worldZ];
         this.dispatchEvent(new CustomEvent('gizmo-dragged', {
             detail: {
                 userData: this.activeDragNode,
@@ -437,7 +437,7 @@ export class BoardViewport extends LitElement {
     }
     
     this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));
-  };
+  };;
 
     private handlePointerUp = (e: PointerEvent) => {
     try { if (this.wgpuCanvas.hasPointerCapture(e.pointerId)) this.wgpuCanvas.releasePointerCapture(e.pointerId); } catch {}
