@@ -30,8 +30,7 @@ export class BoardControls extends LitElement {
   @property({ type: Boolean }) showRailOutline = true;
         @property({ type: Boolean }) showApexRocker = true;
         @property({ type: Boolean }) showDeckShoulder = true;
-        @property({ type: Boolean }) showCrossSections = true;
-    @property({ type: Boolean }) showTangents = true;
+            @property({ type: Boolean }) showCrossSections = true;
     @property({ type: Number }) gizmoScaleTop = 1.0;
   @property({ type: Number }) gizmoScaleSide = 1.0;
   @property({ type: Number }) gizmoScaleProfile = 1.0;
@@ -365,8 +364,7 @@ export class BoardControls extends LitElement {
             { label: "Rail Outline (Tuck)", key: "showRailOutline" },
                         { label: "Apex Rocker", key: "showApexRocker" },
             { label: "Deck Shoulder", key: "showDeckShoulder" },
-                        { label: "Cross Sections", key: "showCrossSections" },
-            { label: "Tangent Handles", key: "showTangents" }
+                                    { label: "Cross Sections", key: "showCrossSections" }
           ].map(c => html`
                                                 <label class="flex items-center justify-between mb-1 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
               <span class="text-xs text-zinc-400">${c.label}</span>

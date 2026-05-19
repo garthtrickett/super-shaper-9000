@@ -430,8 +430,7 @@ export class BoardBuilderPage extends LitElement {
           .showRailOutline=${state.showRailOutline ?? true}
           .showApexRocker=${state.showApexRocker ?? true}
           .showDeckShoulder=${state.showDeckShoulder ?? true}
-                                        .showCrossSections=${state.showCrossSections ?? true}
-          .showTangents=${state.showTangents ?? true}
+                                                  .showCrossSections=${state.showCrossSections ?? true}
           .showMriView=${state.showMriView ?? false}
           .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
           .outlineLayers=${state.outlineLayers ||[]}
@@ -529,6 +528,15 @@ export class BoardBuilderPage extends LitElement {
           }}
                     @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
             this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
+          }}
+                    @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "SET_SHOW_TANGENTS", quad: e.detail.quad, show: e.detail.show });
+              }
+              if (this.mathEngine) {
+                  (this.mathEngine as any).set_show_tangents(e.detail.quad, e.detail.show);
+              }
           }}
           @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;

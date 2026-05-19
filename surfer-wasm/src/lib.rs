@@ -270,9 +270,10 @@ pub struct WasmEngine {
     renderer: Option<RenderState>,
     camera_ctrl: CameraController,
     stats: MeshStats,
-    view_mode: String,
+        view_mode: String,
     is_ortho: bool,
     active_profile_slice: usize,
+    show_tangents: [bool; 4],
 }
 
 impl Default for WasmEngine {
@@ -292,15 +293,37 @@ impl WasmEngine {
             renderer: None,
             camera_ctrl: CameraController::default(),
             stats: MeshStats::default(),
-            view_mode: "quad".to_string(),
+                        view_mode: "quad".to_string(),
             is_ortho: false,
             active_profile_slice: 0,
+            show_tangents: [true, true, true, true],
         }
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_view_mode(&mut self, mode: &str) {
         self.view_mode = mode.to_string();
+    }
+
+    #[wasm_bindgen]
+    pub fn set_show_tangents(&mut self, quad: &str, show: bool) {
+        let idx = match quad {
+            "top" => 0,
+            "perspective" => 1,
+            "side" => 2,
+            "profile" => 3,
+            _ => return,
+        };
+        self.show_tangents[idx] = show;
+        if let Some(renderer) = &mut self.renderer {
+            let (lv, lc) = surfer_core::mesh::generate_lines_for_view(
+                self.engine.get_model(),
+                quad,
+                self.active_profile_slice,
+                show,
+            );
+            renderer.update_line_buffers(idx, &lv, &lc);
+        }
     }
 
     #[wasm_bindgen]
@@ -311,11 +334,12 @@ impl WasmEngine {
     #[wasm_bindgen]
     pub fn set_active_profile_slice(&mut self, slice: usize) {
         self.active_profile_slice = slice;
-        if let Some(renderer) = &mut self.renderer {
+                if let Some(renderer) = &mut self.renderer {
             let (lv_prof, lc_prof) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 "profile",
                 self.active_profile_slice,
+                self.show_tangents[3]
             );
             renderer.update_line_buffers(3, &lv_prof, &lc_prof);
 
@@ -323,6 +347,7 @@ impl WasmEngine {
                 self.engine.get_model(),
                 "perspective",
                 self.active_profile_slice,
+                self.show_tangents[1]
             );
             renderer.update_line_buffers(1, &lv_persp, &lc_persp);
         }
@@ -690,7 +715,7 @@ impl WasmEngine {
         self.stats.triangle_count = mesh.indices.len() / 3;
         self.stats.volume_liters = mesh.volume_liters;
 
-        if let Some(renderer) = &mut self.renderer {
+                if let Some(renderer) = &mut self.renderer {
             renderer.update_mesh_buffers(&mesh);
             let views = ["top", "perspective", "side", "profile"];
             for (i, view_id) in views.iter().enumerate() {
@@ -698,6 +723,7 @@ impl WasmEngine {
                     self.engine.get_model(),
                     view_id,
                     self.active_profile_slice,
+                    self.show_tangents[i]
                 );
                 renderer.update_line_buffers(i, &lv, &lc);
             }

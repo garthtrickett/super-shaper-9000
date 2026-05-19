@@ -31,8 +31,9 @@ export class BoardViewport extends LitElement {
   
   @state() private maximizedView: ViewportId | null = null;
   @state() private isFlipped = false;
-  @state() private isOrtho = false;
+    @state() private isOrtho = false;
   @state() private activeProfileSlice = 0;
+  @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
 
   private ro?: ResizeObserver;
   
@@ -134,9 +135,11 @@ export class BoardViewport extends LitElement {
     }));
   };
 
-  private toggleTangents = () => {
-    this.dispatchEvent(new CustomEvent('boolean-changed', {
-        detail: { param: 'showTangents', value: !(this.boardState?.showTangents ?? true) },
+    private toggleTangents = (quad: ViewportId) => {
+    const newState = !this.showTangents[quad];
+    this.showTangents = { ...this.showTangents, [quad]: newState };
+    this.dispatchEvent(new CustomEvent('set-show-tangents', {
+        detail: { quad, show: newState },
         bubbles: true,
         composed: true
     }));
@@ -185,7 +188,7 @@ export class BoardViewport extends LitElement {
           if (cps) {
               cps.forEach((_, i: number) => checkNode(name, cps, i, 'anchor', isSymmetrical));
           }
-                    if (this.boardState?.showTangents ?? true) {
+                              if (this.showTangents[quad as ViewportId]) {
               const t1s = curveData.tangents1 || cdAny.tangents_1;
               if (t1s) {
                   t1s.forEach((_, i: number) => checkNode(name, t1s, i, 'tangent1', isSymmetrical));
@@ -497,14 +500,14 @@ export class BoardViewport extends LitElement {
         </button>
                 ${id === 'profile' ? renderProfileSliceSelector() : ''}
         
-        <div class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 z-10">
+                <div class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 z-10">
           ${id === 'perspective' ? html`
             <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
               <span>Ortho</span>
             </button>
           ` : ''}
-          <button type="button" @click=${this.toggleTangents} class="flex items-center gap-2 px-2.5 py-1.5 ${this.boardState?.showTangents ?? true ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Tangent Handles">
+          <button type="button" @click=${() => this.toggleTangents(id)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showTangents[id] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Tangent Handles">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <circle cx="18" cy="6" r="3"></circle>
               <circle cx="6" cy="18" r="3"></circle>
@@ -547,14 +550,14 @@ export class BoardViewport extends LitElement {
               <span>${this.maximizedView}</span> ${collapseIcon}
             </button>
             ${this.maximizedView === 'profile' ? renderProfileSliceSelector() : ''}
-                        <div class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 z-10">
+                                    <div class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 z-10">
               ${this.maximizedView === 'perspective' ? html`
                 <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                   <span>Ortho</span>
                 </button>
               ` : ''}
-              <button type="button" @click=${this.toggleTangents} class="flex items-center gap-2 px-2.5 py-1.5 ${this.boardState?.showTangents ?? true ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Tangent Handles">
+              <button type="button" @click=${() => this.toggleTangents(this.maximizedView!)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showTangents[this.maximizedView!] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Tangent Handles">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <circle cx="18" cy="6" r="3"></circle>
                   <circle cx="6" cy="18" r="3"></circle>

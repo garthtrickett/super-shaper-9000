@@ -114,9 +114,16 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-        if (msg.type === "SET_ORTHO") {
+                if (msg.type === "SET_ORTHO") {
         if (engine) {
             engine.set_ortho(msg.isOrtho);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_SHOW_TANGENTS") {
+        if (engine) {
+            engine.set_show_tangents(msg.quad, msg.show);
         }
         return;
     }

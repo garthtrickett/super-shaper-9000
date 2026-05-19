@@ -151,6 +151,7 @@ pub fn generate_lines_for_view(
     model: &BoardModel,
     view_id: &str,
     active_slice: usize,
+    show_tangents: bool,
 ) -> (Vec<f32>, Vec<f32>) {
     fn push_line_grad(
         line_vertices: &mut Vec<f32>,
@@ -333,9 +334,7 @@ pub fn generate_lines_for_view(
                 } else {
                     model.gizmo_scale_top.unwrap_or(1.0)
                 };
-                                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
-                
-                let show_tangents = model.show_tangents.unwrap_or(true);
+                                                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
 
                 for i in 0..curve.control_points.len() {
                     let raw_p = curve.control_points[i];
@@ -1208,8 +1207,8 @@ mod tests {
             ..Default::default()
         });
 
-        // "top" view should have 0 lines since only rockerTop and a cross section are defined
-        let (top_verts, _) = super::generate_lines_for_view(&model, "top", 0);
+                // "top" view should have 0 lines since only rockerTop and a cross section are defined
+        let (top_verts, _) = super::generate_lines_for_view(&model, "top", 0, true);
         assert_eq!(
             top_verts.len(),
             0,
@@ -1217,14 +1216,14 @@ mod tests {
         );
 
         // "side" view should have lines from rockerTop
-        let (side_verts, _) = super::generate_lines_for_view(&model, "side", 0);
+        let (side_verts, _) = super::generate_lines_for_view(&model, "side", 0, true);
         assert!(
             side_verts.len() > 0,
             "Side view should have lines from top rocker"
         );
 
         // "profile" view should only have lines from active slice
-        let (profile_verts, _) = super::generate_lines_for_view(&model, "profile", 0);
+        let (profile_verts, _) = super::generate_lines_for_view(&model, "profile", 0, true);
         assert!(
             profile_verts.len() > 0,
             "Profile view should have lines from active slice"
