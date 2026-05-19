@@ -31,10 +31,15 @@ pub struct RenderState {
     camera_bind_groups: Vec<wgpu::BindGroup>,
     depth_texture: wgpu::TextureView,
     msaa_texture: wgpu::TextureView,
-    line_pipeline: wgpu::RenderPipeline,
+        line_pipeline: wgpu::RenderPipeline,
     line_vertex_buffers: Vec<wgpu::Buffer>,
     line_color_buffers: Vec<wgpu::Buffer>,
     num_line_vertices: [u32; 4],
+    gizmo_pipeline: wgpu::RenderPipeline,
+    gizmo_vertex_buffers: Vec<wgpu::Buffer>,
+    gizmo_color_buffers: Vec<wgpu::Buffer>,
+    gizmo_index_buffers: Vec<wgpu::Buffer>,
+    num_gizmo_indices: [u32; 4],
 }
 
 impl RenderState {
@@ -127,7 +132,15 @@ impl RenderState {
         }
     }
 
-    fn update_line_buffers(&mut self, idx: usize, line_vertices: &[f32], line_colors: &[f32]) {
+        fn update_view_buffers(
+        &mut self,
+        idx: usize,
+        line_vertices: &[f32],
+        line_colors: &[f32],
+        tri_vertices: &[f32],
+        tri_colors: &[f32],
+        tri_indices: &[u32],
+    ) {
         let line_verts = as_u8_slice(line_vertices);
         let line_cols = as_u8_slice(line_colors);
 
@@ -152,6 +165,38 @@ impl RenderState {
             self.num_line_vertices[idx] = (line_vertices.len() / 3) as u32;
         } else {
             self.num_line_vertices[idx] = 0;
+        }
+
+        let tri_verts = as_u8_slice(tri_vertices);
+        let tri_cols = as_u8_slice(tri_colors);
+        let tri_idxs = as_u8_slice(tri_indices);
+
+        self.gizmo_vertex_buffers[idx] = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: (tri_verts.len().max(4)) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.gizmo_color_buffers[idx] = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: (tri_cols.len().max(4)) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.gizmo_index_buffers[idx] = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: (tri_idxs.len().max(4)) as u64,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        if !tri_idxs.is_empty() {
+            self.queue.write_buffer(&self.gizmo_vertex_buffers[idx], 0, tri_verts);
+            self.queue.write_buffer(&self.gizmo_color_buffers[idx], 0, tri_cols);
+            self.queue.write_buffer(&self.gizmo_index_buffers[idx], 0, tri_idxs);
+            self.num_gizmo_indices[idx] = tri_indices.len() as u32;
+        } else {
+            self.num_gizmo_indices[idx] = 0;
         }
     }
 }
@@ -315,14 +360,14 @@ impl WasmEngine {
             _ => return,
         };
         self.show_tangents[idx] = show;
-        if let Some(renderer) = &mut self.renderer {
-            let (lv, lc) = surfer_core::mesh::generate_lines_for_view(
+                if let Some(renderer) = &mut self.renderer {
+            let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 quad,
                 self.active_profile_slice,
                 show,
             );
-            renderer.update_line_buffers(idx, &lv, &lc);
+            renderer.update_view_buffers(idx, &lv, &lc, &tv, &tc, &ti);
         }
     }
 
@@ -334,22 +379,22 @@ impl WasmEngine {
     #[wasm_bindgen]
     pub fn set_active_profile_slice(&mut self, slice: usize) {
         self.active_profile_slice = slice;
-                if let Some(renderer) = &mut self.renderer {
-            let (lv_prof, lc_prof) = surfer_core::mesh::generate_lines_for_view(
+                        if let Some(renderer) = &mut self.renderer {
+            let (lv_prof, lc_prof, tv_prof, tc_prof, ti_prof) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 "profile",
                 self.active_profile_slice,
                 self.show_tangents[3]
             );
-            renderer.update_line_buffers(3, &lv_prof, &lc_prof);
+            renderer.update_view_buffers(3, &lv_prof, &lc_prof, &tv_prof, &tc_prof, &ti_prof);
 
-            let (lv_persp, lc_persp) = surfer_core::mesh::generate_lines_for_view(
+            let (lv_persp, lc_persp, tv_persp, tc_persp, ti_persp) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 "perspective",
                 self.active_profile_slice,
                 self.show_tangents[1]
             );
-            renderer.update_line_buffers(1, &lv_persp, &lc_persp);
+            renderer.update_view_buffers(1, &lv_persp, &lc_persp, &tv_persp, &tc_persp, &ti_persp);
         }
     }
 
@@ -676,13 +721,22 @@ impl WasmEngine {
                         _ => 1,
                     };
 
-                    if renderer.num_line_vertices[view_idx] > 0 {
+                                        if renderer.num_line_vertices[view_idx] > 0 {
                         rpass.set_pipeline(&renderer.line_pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
                         rpass
                             .set_vertex_buffer(0, renderer.line_vertex_buffers[view_idx].slice(..));
                         rpass.set_vertex_buffer(1, renderer.line_color_buffers[view_idx].slice(..));
                         rpass.draw(0..renderer.num_line_vertices[view_idx], 0..1);
+                    }
+
+                    if renderer.num_gizmo_indices[view_idx] > 0 {
+                        rpass.set_pipeline(&renderer.gizmo_pipeline);
+                        rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
+                        rpass.set_vertex_buffer(0, renderer.gizmo_vertex_buffers[view_idx].slice(..));
+                        rpass.set_vertex_buffer(1, renderer.gizmo_color_buffers[view_idx].slice(..));
+                        rpass.set_index_buffer(renderer.gizmo_index_buffers[view_idx].slice(..), wgpu::IndexFormat::Uint32);
+                        rpass.draw_indexed(0..renderer.num_gizmo_indices[view_idx], 0, 0..1);
                     }
                 }
             }
@@ -715,17 +769,17 @@ impl WasmEngine {
         self.stats.triangle_count = mesh.indices.len() / 3;
         self.stats.volume_liters = mesh.volume_liters;
 
-                if let Some(renderer) = &mut self.renderer {
+                        if let Some(renderer) = &mut self.renderer {
             renderer.update_mesh_buffers(&mesh);
             let views = ["top", "perspective", "side", "profile"];
             for (i, view_id) in views.iter().enumerate() {
-                let (lv, lc) = surfer_core::mesh::generate_lines_for_view(
+                let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
                     self.engine.get_model(),
                     view_id,
                     self.active_profile_slice,
                     self.show_tangents[i]
                 );
-                renderer.update_line_buffers(i, &lv, &lc);
+                renderer.update_view_buffers(i, &lv, &lc, &tv, &tc, &ti);
             }
         }
     }
@@ -1561,6 +1615,60 @@ pub async fn create_wgpu_renderer(
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
+                        multiview: None,
+        });
+
+        let gizmo_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Gizmo Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &line_shader,
+                entry_point: "vs_main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                buffers: &[
+                    wgpu::VertexBufferLayout {
+                        array_stride: 12,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![0 => Float32x3],
+                    },
+                    wgpu::VertexBufferLayout {
+                        array_stride: 12,
+                        step_mode: wgpu::VertexStepMode::Vertex,
+                        attributes: &wgpu::vertex_attr_array![1 => Float32x3],
+                    },
+                ],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &line_shader,
+                entry_point: "fs_main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24Plus,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 4,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
             multiview: None,
         });
 
@@ -1592,8 +1700,11 @@ pub async fn create_wgpu_renderer(
             mapped_at_creation: false,
         });
 
-        let mut line_vertex_buffers = Vec::new();
+                let mut line_vertex_buffers = Vec::new();
         let mut line_color_buffers = Vec::new();
+        let mut gizmo_vertex_buffers = Vec::new();
+        let mut gizmo_color_buffers = Vec::new();
+        let mut gizmo_index_buffers = Vec::new();
         for _ in 0..4 {
             line_vertex_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
@@ -1607,6 +1718,24 @@ pub async fn create_wgpu_renderer(
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             }));
+            gizmo_vertex_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+            gizmo_color_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+            gizmo_index_buffers.push(device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: 4,
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
         }
 
         Ok(WgpuRenderer(RenderState {
@@ -1614,6 +1743,11 @@ pub async fn create_wgpu_renderer(
             line_vertex_buffers,
             line_color_buffers,
             num_line_vertices: [0; 4],
+            gizmo_pipeline,
+            gizmo_vertex_buffers,
+            gizmo_color_buffers,
+            gizmo_index_buffers,
+            num_gizmo_indices: [0; 4],
             surface,
             device,
             queue,

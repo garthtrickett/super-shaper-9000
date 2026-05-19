@@ -63,7 +63,7 @@ impl MobileSurferEngine {
     pub fn get_mesh(&self) -> MobileGeometryData {
         let mut engine = self.engine.lock().unwrap();
         let mesh = engine.compute_mesh();
-                let (line_vertices, line_colors) =
+                        let (line_vertices, line_colors, gizmo_vertices, gizmo_colors, gizmo_indices) =
             surfer_core::mesh::generate_lines_for_view(engine.get_model(), "perspective", 0, true);
 
         MobileGeometryData {
@@ -75,6 +75,9 @@ impl MobileSurferEngine {
             volume_liters: mesh.volume_liters,
             line_vertices,
             line_colors,
+            gizmo_vertices,
+            gizmo_colors,
+            gizmo_indices,
         }
     }
 }
@@ -89,4 +92,7 @@ pub struct MobileGeometryData {
     pub volume_liters: f32,
     pub line_vertices: Vec<f32>,
     pub line_colors: Vec<f32>,
+    pub gizmo_vertices: Vec<f32>,
+    pub gizmo_colors: Vec<f32>,
+    pub gizmo_indices: Vec<u32>,
 }

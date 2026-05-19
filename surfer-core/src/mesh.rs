@@ -152,7 +152,7 @@ pub fn generate_lines_for_view(
     view_id: &str,
     active_slice: usize,
     show_tangents: bool,
-) -> (Vec<f32>, Vec<f32>) {
+) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>, Vec<u32>) {
     fn push_line_grad(
         line_vertices: &mut Vec<f32>,
         line_colors: &mut Vec<f32>,
@@ -187,10 +187,156 @@ pub fn generate_lines_for_view(
         push_line_grad(line_vertices, line_colors, scale, p0, p1, color, color);
     }
 
+    fn bake_light(color: Vec3, normal: Vec3) -> Vec3 {
+        let light_dir = Vec3::new(1.0, 2.0, 3.0).normalize();
+        let ambient = 0.5;
+        let diffuse = 0.5 * normal.dot(light_dir).max(0.0);
+        color * (ambient + diffuse)
+    }
+
+    fn push_cube(
+        tri_verts: &mut Vec<f32>,
+        tri_cols: &mut Vec<f32>,
+        tri_idxs: &mut Vec<u32>,
+        center: Vec3,
+        size: f32,
+        color: Vec3,
+    ) {
+        let s = size * 0.5;
+        let faces = [
+            (Vec3::Z, [Vec3::new(-s, -s, s), Vec3::new(s, -s, s), Vec3::new(s, s, s), Vec3::new(-s, s, s)]),
+            (Vec3::NEG_Z, [Vec3::new(s, -s, -s), Vec3::new(-s, -s, -s), Vec3::new(-s, s, -s), Vec3::new(s, s, -s)]),
+            (Vec3::X, [Vec3::new(s, -s, s), Vec3::new(s, -s, -s), Vec3::new(s, s, -s), Vec3::new(s, s, s)]),
+            (Vec3::NEG_X, [Vec3::new(-s, -s, -s), Vec3::new(-s, -s, s), Vec3::new(-s, s, s), Vec3::new(-s, s, -s)]),
+            (Vec3::Y, [Vec3::new(-s, s, s), Vec3::new(s, s, s), Vec3::new(s, s, -s), Vec3::new(-s, s, -s)]),
+            (Vec3::NEG_Y, [Vec3::new(-s, -s, -s), Vec3::new(s, -s, -s), Vec3::new(s, -s, s), Vec3::new(-s, -s, s)]),
+        ];
+
+        for (n, quad) in faces {
+            let c = bake_light(color, n);
+            let start_idx = (tri_verts.len() / 3) as u32;
+
+            for p in quad {
+                let vp = center + p;
+                tri_verts.extend_from_slice(&[vp.x, vp.y, vp.z]);
+                tri_cols.extend_from_slice(&[c.x, c.y, c.z]);
+            }
+
+            tri_idxs.extend_from_slice(&[
+                start_idx, start_idx + 1, start_idx + 2,
+                start_idx, start_idx + 2, start_idx + 3
+            ]);
+        }
+    }
+
+    fn push_sphere(
+        tri_verts: &mut Vec<f32>,
+        tri_cols: &mut Vec<f32>,
+        tri_idxs: &mut Vec<u32>,
+        center: Vec3,
+        radius: f32,
+        color: Vec3,
+    ) {
+        let slices = 12;
+        let stacks = 8;
+        let start_idx = (tri_verts.len() / 3) as u32;
+
+        for i in 0..=stacks {
+            let v = i as f32 / stacks as f32;
+            let phi = v * std::f32::consts::PI;
+            for j in 0..=slices {
+                let u = j as f32 / slices as f32;
+                let theta = u * std::f32::consts::TAU;
+
+                let n = Vec3::new(
+                    phi.sin() * theta.cos(),
+                    phi.cos(),
+                    phi.sin() * theta.sin(),
+                );
+                let p = center + n * radius;
+                let c = bake_light(color, n);
+
+                tri_verts.extend_from_slice(&[p.x, p.y, p.z]);
+                tri_cols.extend_from_slice(&[c.x, c.y, c.z]);
+            }
+        }
+
+        for i in 0..stacks {
+            for j in 0..slices {
+                let first = start_idx + i * (slices + 1) + j;
+                let second = first + slices + 1;
+
+                tri_idxs.extend_from_slice(&[
+                    first, second, first + 1,
+                    second, second + 1, first + 1
+                ]);
+            }
+        }
+    }
+
+    fn push_flat_circle(
+        tri_verts: &mut Vec<f32>,
+        tri_cols: &mut Vec<f32>,
+        tri_idxs: &mut Vec<u32>,
+        center: Vec3,
+        radius: f32,
+        color: Vec3,
+        u_axis: Vec3,
+        v_axis: Vec3,
+    ) {
+        let segments = 16;
+        let start_idx = (tri_verts.len() / 3) as u32;
+
+        tri_verts.extend_from_slice(&[center.x, center.y, center.z]);
+        tri_cols.extend_from_slice(&[color.x, color.y, color.z]);
+
+        for i in 0..segments {
+            let angle = (i as f32) * std::f32::consts::TAU / (segments as f32);
+            let p = center + u_axis * (angle.cos() * radius) + v_axis * (angle.sin() * radius);
+            tri_verts.extend_from_slice(&[p.x, p.y, p.z]);
+            tri_cols.extend_from_slice(&[color.x, color.y, color.z]);
+
+            if i > 0 {
+                tri_idxs.extend_from_slice(&[start_idx, start_idx + i, start_idx + i + 1]);
+            }
+        }
+        tri_idxs.extend_from_slice(&[start_idx, start_idx + segments, start_idx + 1]);
+    }
+
+    fn push_flat_square(
+        tri_verts: &mut Vec<f32>,
+        tri_cols: &mut Vec<f32>,
+        tri_idxs: &mut Vec<u32>,
+        center: Vec3,
+        size: f32,
+        color: Vec3,
+        u_axis: Vec3,
+        v_axis: Vec3,
+    ) {
+        let s = size * 0.8;
+        let start_idx = (tri_verts.len() / 3) as u32;
+
+        let p0 = center - u_axis * s - v_axis * s;
+        let p1 = center + u_axis * s - v_axis * s;
+        let p2 = center + u_axis * s + v_axis * s;
+        let p3 = center - u_axis * s + v_axis * s;
+
+        for p in [p0, p1, p2, p3] {
+            tri_verts.extend_from_slice(&[p.x, p.y, p.z]);
+            tri_cols.extend_from_slice(&[color.x, color.y, color.z]);
+        }
+
+        tri_idxs.extend_from_slice(&[
+            start_idx, start_idx + 1, start_idx + 2,
+            start_idx, start_idx + 2, start_idx + 3
+        ]);
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draw_shape(
-        line_vertices: &mut Vec<f32>,
-        line_colors: &mut Vec<f32>,
+        tri_verts: &mut Vec<f32>,
+        tri_cols: &mut Vec<f32>,
+        tri_idxs: &mut Vec<u32>,
         scale: f32,
         view_id: &str,
         center: Vec3,
@@ -198,59 +344,29 @@ pub fn generate_lines_for_view(
         color: Vec3,
         shape_type: &str,
     ) {
+        let c = center * scale;
+        let size = s * scale;
+
         if view_id == "perspective" {
-            push_line(
-                line_vertices,
-                line_colors,
-                scale,
-                center - Vec3::X * s,
-                center + Vec3::X * s,
-                color,
-            );
-            push_line(
-                line_vertices,
-                line_colors,
-                scale,
-                center - Vec3::Y * s,
-                center + Vec3::Y * s,
-                color,
-            );
-            push_line(
-                line_vertices,
-                line_colors,
-                scale,
-                center - Vec3::Z * s,
-                center + Vec3::Z * s,
-                color,
-            );
+            if shape_type == "circle" {
+                push_sphere(tri_verts, tri_cols, tri_idxs, c, size * 1.5, color);
+            } else {
+                push_cube(tri_verts, tri_cols, tri_idxs, c, size * 2.0, color);
+            }
             return;
         }
 
         let (u_axis, v_axis) = match view_id {
-            "top" => (Vec3::X, Vec3::Z),
+            "top" => (Vec3::Z, Vec3::X),
             "side" => (Vec3::Z, Vec3::Y),
             "profile" => (Vec3::X, Vec3::Y),
             _ => (Vec3::X, Vec3::Y),
         };
 
         if shape_type == "circle" {
-            let segments = 16;
-            for i in 0..segments {
-                let angle1 = (i as f32) * std::f32::consts::TAU / (segments as f32);
-                let angle2 = ((i + 1) as f32) * std::f32::consts::TAU / (segments as f32);
-                let p1 = center + u_axis * (angle1.cos() * s) + v_axis * (angle1.sin() * s);
-                let p2 = center + u_axis * (angle2.cos() * s) + v_axis * (angle2.sin() * s);
-                push_line(line_vertices, line_colors, scale, p1, p2, color);
-            }
-        } else if shape_type == "square" {
-            let p1 = center + u_axis * s + v_axis * s;
-            let p2 = center - u_axis * s + v_axis * s;
-            let p3 = center - u_axis * s - v_axis * s;
-            let p4 = center + u_axis * s - v_axis * s;
-            push_line(line_vertices, line_colors, scale, p1, p2, color);
-            push_line(line_vertices, line_colors, scale, p2, p3, color);
-            push_line(line_vertices, line_colors, scale, p3, p4, color);
-            push_line(line_vertices, line_colors, scale, p4, p1, color);
+            push_flat_circle(tri_verts, tri_cols, tri_idxs, c, size * 1.5, color, u_axis, v_axis);
+        } else {
+            push_flat_square(tri_verts, tri_cols, tri_idxs, c, size * 2.0, color, u_axis, v_axis);
         }
     }
 
@@ -258,6 +374,9 @@ pub fn generate_lines_for_view(
     let bounds = crate::geometry::get_board_bounds(model);
     let mut line_vertices = Vec::new();
     let mut line_colors = Vec::new();
+    let mut tri_vertices = Vec::new();
+    let mut tri_colors = Vec::new();
+    let mut tri_indices = Vec::new();
 
     let show_gizmos = model.show_gizmos.unwrap_or(true);
 
@@ -334,7 +453,7 @@ pub fn generate_lines_for_view(
                 } else {
                     model.gizmo_scale_top.unwrap_or(1.0)
                 };
-                                                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
+                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
 
                 for i in 0..curve.control_points.len() {
                     let raw_p = curve.control_points[i];
@@ -380,9 +499,10 @@ pub fn generate_lines_for_view(
                     let p = map_point(t, raw_p);
 
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
-                                        draw_shape(
-                        &mut line_vertices,
-                        &mut line_colors,
+                    draw_shape(
+                        &mut tri_vertices,
+                        &mut tri_colors,
+                        &mut tri_indices,
                         scale,
                         view_id,
                         p,
@@ -391,7 +511,7 @@ pub fn generate_lines_for_view(
                         "circle",
                     );
 
-                                        if show_tangents {
+                    if show_tangents {
                         let c_tan = Vec3::new(0.4, 0.4, 1.0);
                         if i < curve.tangents1.len() {
                             let t_idx = if i > 0 { i as f32 - 0.33 } else { 0.0 } / num_segments_f;
@@ -406,8 +526,9 @@ pub fn generate_lines_for_view(
                                 c_tan,
                             );
                             draw_shape(
-                                &mut line_vertices,
-                                &mut line_colors,
+                                &mut tri_vertices,
+                                &mut tri_colors,
+                                &mut tri_indices,
                                 scale,
                                 view_id,
                                 t1_mapped,
@@ -433,8 +554,9 @@ pub fn generate_lines_for_view(
                                 c_tan,
                             );
                             draw_shape(
-                                &mut line_vertices,
-                                &mut line_colors,
+                                &mut tri_vertices,
+                                &mut tri_colors,
+                                &mut tri_indices,
                                 scale,
                                 view_id,
                                 t2_mapped,
@@ -576,7 +698,7 @@ pub fn generate_lines_for_view(
         }
     }
 
-    (line_vertices, line_colors)
+    (line_vertices, line_colors, tri_vertices, tri_colors, tri_indices)
 }
 
 #[cfg(test)]
