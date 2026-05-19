@@ -44,11 +44,11 @@ export class BoardBuilderPage extends LitElement {
         private _previewAction(action: BoardAction) {
     if (!this.mathEngine) return;
     try {
-      type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void, get_state(): BoardModel };
+            type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
       let state: BoardModel;
       if ((this.mathEngine as unknown as MathEngineExt).propose_state_only) {
           (this.mathEngine as unknown as MathEngineExt).propose_state_only(action);
-          state = (this.mathEngine as unknown as MathEngineExt).get_state();
+          state = this.mathEngine.get_state() as unknown as BoardModel;
       } else {
           const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
           state = result.state;

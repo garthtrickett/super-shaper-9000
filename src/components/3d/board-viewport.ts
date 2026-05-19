@@ -318,7 +318,7 @@ export class BoardViewport extends LitElement {
                     return;
                 }
                 let exactT = 0.5;
-                let targetCurve = hit ? hit.curve : (quad === 'top' ? 'outline' : (quad === 'side' ? 'rockerTop' : `crossSection_${this.activeProfileSlice}`));
+                const targetCurve = hit ? hit.curve : (quad === 'top' ? 'outline' : (quad === 'side' ? 'rockerTop' : `crossSection_${this.activeProfileSlice}`));
                 if (this.mathEngine) {
                     let roX = worldX, roY = worldY, roZ = worldZ;
                     let rdX = 0, rdY = 0, rdZ = 0;
