@@ -499,8 +499,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector).toBeVisible({ timeout: 15000 });
     await expect(inspector).toContainText(/Channel 0 \(RIGHT OUTLINE\)/i, { timeout: 15000 });
 
-        // 6. Test Removal
-    const removeBtn = boardControls.locator('button[title="Remove Channel 0"]');
+            // 6. Test Removal
+    const removeBtn = boardControls.locator('button[title="Remove Channel 1"]');
     await removeBtn.click();
 
     // 7. Verify channel is gone from list
