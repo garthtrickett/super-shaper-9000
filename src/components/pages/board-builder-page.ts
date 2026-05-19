@@ -490,13 +490,13 @@ export class BoardBuilderPage extends LitElement {
                   worker.postMessage({ type: "RESIZE_RENDERER", width: e.detail.width, height: e.detail.height });
               }
           }}
-                    @viewport-pointer=${(e: CustomEvent<{type: string, x: number, y: number}>) => {
+                                        @viewport-pointer=${(e: CustomEvent<{type: string, x: number, y: number, quad: string}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
-                  worker.postMessage({ type: "POINTER_EVENT", eventType: e.detail.type, x: e.detail.x, y: e.detail.y });
+                  worker.postMessage({ type: "POINTER_EVENT", eventType: e.detail.type, x: e.detail.x, y: e.detail.y, quad: e.detail.quad });
               }
               if (this.mathEngine) {
-                  this.mathEngine.handle_pointer(e.detail.type, e.detail.x, e.detail.y);
+                  this.mathEngine.handle_pointer(e.detail.type, e.detail.x, e.detail.y, e.detail.quad);
               }
           }}
                                         @viewport-wheel=${(e: CustomEvent<{dy: number, quad: string}>) => {

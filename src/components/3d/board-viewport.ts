@@ -344,14 +344,14 @@ export class BoardViewport extends LitElement {
             }
         }
         
-                        if (!e.altKey && !e.ctrlKey) {
+                                if (!e.altKey && !e.ctrlKey) {
             if (this.boardState?.selectedNode) {
                 this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
             }
         }
     }
 
-    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "down", x: e.clientX, y: e.clientY }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "down", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));
   };
 
     private handlePointerMove = (e: PointerEvent) => {
@@ -464,7 +464,7 @@ export class BoardViewport extends LitElement {
             }
         }
 
-        this.lastDragPosition = [worldX, worldY, worldZ];
+                this.lastDragPosition = [worldX, worldY, worldZ];
         this.dispatchEvent(new CustomEvent('gizmo-dragged', {
             detail: {
                 userData: this.activeDragNode,
@@ -476,7 +476,7 @@ export class BoardViewport extends LitElement {
         return;
     }
     
-    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));
   };
 
     private handlePointerUp = (e: PointerEvent) => {
@@ -490,11 +490,11 @@ export class BoardViewport extends LitElement {
             bubbles: true, 
             composed: true 
         }));
-        this.activeDragNode = null;
+                this.activeDragNode = null;
         this.lastDragPosition = null;
         return;
     }
-    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "up", x: e.clientX, y: e.clientY }, bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "up", x: e.clientX, y: e.clientY, quad: "" }, bubbles: true, composed: true }));
   };
 
   override render() {

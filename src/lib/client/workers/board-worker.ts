@@ -94,9 +94,9 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "POINTER_EVENT") {
+        if (msg.type === "POINTER_EVENT") {
         if (isRendererReady) {
-            engine.handle_pointer(msg.eventType, msg.x, msg.y);
+            engine.handle_pointer(msg.eventType, msg.x, msg.y, msg.quad);
         }
         return;
     }

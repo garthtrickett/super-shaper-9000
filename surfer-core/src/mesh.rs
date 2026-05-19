@@ -186,6 +186,7 @@ pub fn generate_lines_for_view(
         push_line_grad(line_vertices, line_colors, scale, p0, p1, color, color);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_shape(
         line_vertices: &mut Vec<f32>,
         line_colors: &mut Vec<f32>,
@@ -197,9 +198,30 @@ pub fn generate_lines_for_view(
         shape_type: &str,
     ) {
         if view_id == "perspective" {
-            push_line(line_vertices, line_colors, scale, center - Vec3::X * s, center + Vec3::X * s, color);
-            push_line(line_vertices, line_colors, scale, center - Vec3::Y * s, center + Vec3::Y * s, color);
-            push_line(line_vertices, line_colors, scale, center - Vec3::Z * s, center + Vec3::Z * s, color);
+            push_line(
+                line_vertices,
+                line_colors,
+                scale,
+                center - Vec3::X * s,
+                center + Vec3::X * s,
+                color,
+            );
+            push_line(
+                line_vertices,
+                line_colors,
+                scale,
+                center - Vec3::Y * s,
+                center + Vec3::Y * s,
+                color,
+            );
+            push_line(
+                line_vertices,
+                line_colors,
+                scale,
+                center - Vec3::Z * s,
+                center + Vec3::Z * s,
+                color,
+            );
             return;
         }
 
@@ -357,21 +379,56 @@ pub fn generate_lines_for_view(
                     let p = map_point(t, raw_p);
 
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
-                    draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, p, s, c_anchor, "circle");
+                    draw_shape(
+                        &mut line_vertices,
+                        &mut line_colors,
+                        scale,
+                        view_id,
+                        p,
+                        s,
+                        c_anchor,
+                        "circle",
+                    );
 
                     if is_outline {
                         let c_mirrored_anchor = Vec3::new(0.35, 0.35, 0.35); // Dark grey
                         let mut mp = p;
                         mp.x = -mp.x;
-                        draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, mp, s, c_mirrored_anchor, "circle");
+                        draw_shape(
+                            &mut line_vertices,
+                            &mut line_colors,
+                            scale,
+                            view_id,
+                            mp,
+                            s,
+                            c_mirrored_anchor,
+                            "circle",
+                        );
                     }
 
                     let c_tan = Vec3::new(0.4, 0.4, 1.0);
                     if i < curve.tangents1.len() {
                         let t_idx = if i > 0 { i as f32 - 0.33 } else { 0.0 } / num_segments_f;
                         let t1_mapped = map_point(t_idx.max(0.0), curve.tangents1[i]);
-                        push_line_grad(&mut line_vertices, &mut line_colors, scale, p, t1_mapped, c_anchor, c_tan);
-                        draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, t1_mapped, s * 0.8, c_tan, "square");
+                        push_line_grad(
+                            &mut line_vertices,
+                            &mut line_colors,
+                            scale,
+                            p,
+                            t1_mapped,
+                            c_anchor,
+                            c_tan,
+                        );
+                        draw_shape(
+                            &mut line_vertices,
+                            &mut line_colors,
+                            scale,
+                            view_id,
+                            t1_mapped,
+                            s * 0.8,
+                            c_tan,
+                            "square",
+                        );
                     }
                     if i < curve.tangents2.len() {
                         let t_idx = if i < num_segments {
@@ -380,8 +437,25 @@ pub fn generate_lines_for_view(
                             1.0
                         } / num_segments_f;
                         let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
-                        push_line_grad(&mut line_vertices, &mut line_colors, scale, p, t2_mapped, c_anchor, c_tan);
-                        draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, t2_mapped, s * 0.8, c_tan, "square");
+                        push_line_grad(
+                            &mut line_vertices,
+                            &mut line_colors,
+                            scale,
+                            p,
+                            t2_mapped,
+                            c_anchor,
+                            c_tan,
+                        );
+                        draw_shape(
+                            &mut line_vertices,
+                            &mut line_colors,
+                            scale,
+                            view_id,
+                            t2_mapped,
+                            s * 0.8,
+                            c_tan,
+                            "square",
+                        );
                     }
                 }
             }

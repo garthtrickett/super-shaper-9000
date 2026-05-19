@@ -330,9 +330,14 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-    pub fn handle_pointer(&mut self, event_type: &str, x: f32, y: f32) {
+        #[wasm_bindgen]
+    pub fn handle_pointer(&mut self, event_type: &str, x: f32, y: f32, quad: &str) {
         match event_type {
-            "down" => self.camera_ctrl.process_pointer_down(x, y),
+            "down" => {
+                if quad == "perspective" {
+                    self.camera_ctrl.process_pointer_down(x, y);
+                }
+            }
             "move" => self.camera_ctrl.process_pointer_move(x, y),
             "up" => self.camera_ctrl.process_pointer_up(),
             _ => {}
