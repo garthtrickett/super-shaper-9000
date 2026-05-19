@@ -134,7 +134,7 @@ pub fn generate_mesh(
         &mut indices,
     );
 
-        let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
+    let volume_liters = volume::compute_volume(&vertices, segments_v, num_cols);
     log::debug!("[Rust core] Computed Mesh Volume: {:.2}L", volume_liters);
 
     RawGeometryData {
@@ -152,25 +152,89 @@ pub fn generate_lines_for_view(
     view_id: &str,
     active_slice: usize,
 ) -> (Vec<f32>, Vec<f32>) {
+    fn push_line_grad(
+        line_vertices: &mut Vec<f32>,
+        line_colors: &mut Vec<f32>,
+        scale: f32,
+        p0: Vec3,
+        p1: Vec3,
+        c0: Vec3,
+        c1: Vec3,
+    ) {
+        line_vertices.push(p0.x * scale);
+        line_vertices.push(p0.y * scale);
+        line_vertices.push(p0.z * scale);
+        line_colors.push(c0.x);
+        line_colors.push(c0.y);
+        line_colors.push(c0.z);
+        line_vertices.push(p1.x * scale);
+        line_vertices.push(p1.y * scale);
+        line_vertices.push(p1.z * scale);
+        line_colors.push(c1.x);
+        line_colors.push(c1.y);
+        line_colors.push(c1.z);
+    }
+
+    fn push_line(
+        line_vertices: &mut Vec<f32>,
+        line_colors: &mut Vec<f32>,
+        scale: f32,
+        p0: Vec3,
+        p1: Vec3,
+        color: Vec3,
+    ) {
+        push_line_grad(line_vertices, line_colors, scale, p0, p1, color, color);
+    }
+
+    fn draw_shape(
+        line_vertices: &mut Vec<f32>,
+        line_colors: &mut Vec<f32>,
+        scale: f32,
+        view_id: &str,
+        center: Vec3,
+        s: f32,
+        color: Vec3,
+        shape_type: &str,
+    ) {
+        if view_id == "perspective" {
+            push_line(line_vertices, line_colors, scale, center - Vec3::X * s, center + Vec3::X * s, color);
+            push_line(line_vertices, line_colors, scale, center - Vec3::Y * s, center + Vec3::Y * s, color);
+            push_line(line_vertices, line_colors, scale, center - Vec3::Z * s, center + Vec3::Z * s, color);
+            return;
+        }
+
+        let (u_axis, v_axis) = match view_id {
+            "top" => (Vec3::X, Vec3::Z),
+            "side" => (Vec3::Z, Vec3::Y),
+            "profile" => (Vec3::X, Vec3::Y),
+            _ => (Vec3::X, Vec3::Y),
+        };
+
+        if shape_type == "circle" {
+            let segments = 16;
+            for i in 0..segments {
+                let angle1 = (i as f32) * std::f32::consts::TAU / (segments as f32);
+                let angle2 = ((i + 1) as f32) * std::f32::consts::TAU / (segments as f32);
+                let p1 = center + u_axis * (angle1.cos() * s) + v_axis * (angle1.sin() * s);
+                let p2 = center + u_axis * (angle2.cos() * s) + v_axis * (angle2.sin() * s);
+                push_line(line_vertices, line_colors, scale, p1, p2, color);
+            }
+        } else if shape_type == "square" {
+            let p1 = center + u_axis * s + v_axis * s;
+            let p2 = center - u_axis * s + v_axis * s;
+            let p3 = center - u_axis * s - v_axis * s;
+            let p4 = center + u_axis * s - v_axis * s;
+            push_line(line_vertices, line_colors, scale, p1, p2, color);
+            push_line(line_vertices, line_colors, scale, p2, p3, color);
+            push_line(line_vertices, line_colors, scale, p3, p4, color);
+            push_line(line_vertices, line_colors, scale, p4, p1, color);
+        }
+    }
+
     let scale = 1.0 / 12.0;
     let bounds = crate::geometry::get_board_bounds(model);
     let mut line_vertices = Vec::new();
     let mut line_colors = Vec::new();
-
-    let mut push_line = |p0: Vec3, p1: Vec3, color: Vec3| {
-        line_vertices.push(p0.x * scale);
-        line_vertices.push(p0.y * scale);
-        line_vertices.push(p0.z * scale);
-        line_colors.push(color.x);
-        line_colors.push(color.y);
-        line_colors.push(color.z);
-        line_vertices.push(p1.x * scale);
-        line_vertices.push(p1.y * scale);
-        line_vertices.push(p1.z * scale);
-        line_colors.push(color.x);
-        line_colors.push(color.y);
-        line_colors.push(color.z);
-    };
 
     let show_gizmos = model.show_gizmos.unwrap_or(true);
 
@@ -222,13 +286,13 @@ pub fn generate_lines_for_view(
             for i in 0..steps {
                 let p0 = mapped_pts[i];
                 let p1 = mapped_pts[i + 1];
-                push_line(p0, p1, color);
+                push_line(&mut line_vertices, &mut line_colors, scale, p0, p1, color);
                 if is_outline {
                     let mut m0 = p0;
                     m0.x = -m0.x;
                     let mut m1 = p1;
                     m1.x = -m1.x;
-                    push_line(m0, m1, color);
+                    push_line(&mut line_vertices, &mut line_colors, scale, m0, m1, color);
                 }
             }
 
@@ -293,27 +357,21 @@ pub fn generate_lines_for_view(
                     let p = map_point(t, raw_p);
 
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
-                    push_line(p - Vec3::X * s, p + Vec3::X * s, c_anchor);
-                    push_line(p - Vec3::Y * s, p + Vec3::Y * s, c_anchor);
-                    push_line(p - Vec3::Z * s, p + Vec3::Z * s, c_anchor);
+                    draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, p, s, c_anchor, "circle");
 
                     if is_outline {
                         let c_mirrored_anchor = Vec3::new(0.35, 0.35, 0.35); // Dark grey
                         let mut mp = p;
                         mp.x = -mp.x;
-                        push_line(mp - Vec3::X * s, mp + Vec3::X * s, c_mirrored_anchor);
-                        push_line(mp - Vec3::Y * s, mp + Vec3::Y * s, c_mirrored_anchor);
-                        push_line(mp - Vec3::Z * s, mp + Vec3::Z * s, c_mirrored_anchor);
+                        draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, mp, s, c_mirrored_anchor, "circle");
                     }
 
                     let c_tan = Vec3::new(0.4, 0.4, 1.0);
                     if i < curve.tangents1.len() {
                         let t_idx = if i > 0 { i as f32 - 0.33 } else { 0.0 } / num_segments_f;
                         let t1_mapped = map_point(t_idx.max(0.0), curve.tangents1[i]);
-                        push_line(p, t1_mapped, c_tan);
-                        push_line(t1_mapped - Vec3::X * s, t1_mapped + Vec3::X * s, c_tan);
-                        push_line(t1_mapped - Vec3::Y * s, t1_mapped + Vec3::Y * s, c_tan);
-                        push_line(t1_mapped - Vec3::Z * s, t1_mapped + Vec3::Z * s, c_tan);
+                        push_line_grad(&mut line_vertices, &mut line_colors, scale, p, t1_mapped, c_anchor, c_tan);
+                        draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, t1_mapped, s * 0.8, c_tan, "square");
                     }
                     if i < curve.tangents2.len() {
                         let t_idx = if i < num_segments {
@@ -322,36 +380,59 @@ pub fn generate_lines_for_view(
                             1.0
                         } / num_segments_f;
                         let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
-                        push_line(p, t2_mapped, c_tan);
-                        push_line(t2_mapped - Vec3::X * s, t2_mapped + Vec3::X * s, c_tan);
-                        push_line(t2_mapped - Vec3::Y * s, t2_mapped + Vec3::Y * s, c_tan);
-                        push_line(t2_mapped - Vec3::Z * s, t2_mapped + Vec3::Z * s, c_tan);
+                        push_line_grad(&mut line_vertices, &mut line_colors, scale, p, t2_mapped, c_anchor, c_tan);
+                        draw_shape(&mut line_vertices, &mut line_colors, scale, view_id, t2_mapped, s * 0.8, c_tan, "square");
                     }
                 }
             }
         }
     };
 
-        if view_id == "top" || view_id == "perspective" {
+    if view_id == "top" || view_id == "perspective" {
         if view_id == "top" || model.show_outline.unwrap_or(true) {
             add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true, "outline");
         }
         if view_id == "top" || model.show_apex_outline.unwrap_or(true) {
-            add_curve_lines(&model.apex_outline, Vec3::new(0.0, 1.0, 1.0), true, "apexOutline");
+            add_curve_lines(
+                &model.apex_outline,
+                Vec3::new(0.0, 1.0, 1.0),
+                true,
+                "apexOutline",
+            );
         }
         if view_id == "top" || model.show_rail_outline.unwrap_or(true) {
-            add_curve_lines(&model.rail_outline, Vec3::new(1.0, 0.0, 1.0), true, "railOutline");
+            add_curve_lines(
+                &model.rail_outline,
+                Vec3::new(1.0, 0.0, 1.0),
+                true,
+                "railOutline",
+            );
         }
         if view_id == "top" || model.show_deck_shoulder.unwrap_or(true) {
-            add_curve_lines(&model.deck_shoulder, Vec3::new(1.0, 0.5, 0.0), true, "deckShoulder");
+            add_curve_lines(
+                &model.deck_shoulder,
+                Vec3::new(1.0, 0.5, 0.0),
+                true,
+                "deckShoulder",
+            );
         }
         if let Some(layers) = &model.outline_layers {
             for (i, l) in layers.iter().enumerate() {
                 if l.active {
                     let name_ext = format!("outlineLayer_{}_ext", i);
                     let name_int = format!("outlineLayer_{}_int", i);
-                    add_curve_lines(&Some(l.otl_ext.clone()), Vec3::new(1.0, 1.0, 0.0), true, &name_ext);
-                    add_curve_lines(&Some(l.otl_int.clone()), Vec3::new(1.0, 1.0, 0.0), true, &name_int);
+                    add_curve_lines(
+                        &Some(l.otl_ext.clone()),
+                        Vec3::new(1.0, 1.0, 0.0),
+                        true,
+                        &name_ext,
+                    );
+                    add_curve_lines(
+                        &Some(l.otl_int.clone()),
+                        Vec3::new(1.0, 1.0, 0.0),
+                        true,
+                        &name_int,
+                    );
                 }
             }
         }
@@ -359,28 +440,63 @@ pub fn generate_lines_for_view(
             for (i, ch) in channels.iter().enumerate() {
                 let n_lo = format!("channel_{}_left_outline", i);
                 let n_ro = format!("channel_{}_right_outline", i);
-                add_curve_lines(&Some(ch.left_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false, &n_lo);
-                add_curve_lines(&Some(ch.right_outline.clone()), Vec3::new(0.0, 1.0, 1.0), false, &n_ro);
+                add_curve_lines(
+                    &Some(ch.left_outline.clone()),
+                    Vec3::new(0.0, 1.0, 1.0),
+                    false,
+                    &n_lo,
+                );
+                add_curve_lines(
+                    &Some(ch.right_outline.clone()),
+                    Vec3::new(0.0, 1.0, 1.0),
+                    false,
+                    &n_ro,
+                );
             }
         }
     }
 
     if view_id == "side" || view_id == "perspective" {
         if view_id == "side" || model.show_rocker_top.unwrap_or(true) {
-            add_curve_lines(&model.rocker_top, Vec3::new(0.0, 1.0, 0.0), false, "rockerTop");
+            add_curve_lines(
+                &model.rocker_top,
+                Vec3::new(0.0, 1.0, 0.0),
+                false,
+                "rockerTop",
+            );
         }
         if view_id == "side" || model.show_rocker_bottom.unwrap_or(true) {
-            add_curve_lines(&model.rocker_bottom, Vec3::new(1.0, 0.0, 0.0), false, "rockerBottom");
+            add_curve_lines(
+                &model.rocker_bottom,
+                Vec3::new(1.0, 0.0, 0.0),
+                false,
+                "rockerBottom",
+            );
         }
         if view_id == "side" || model.show_apex_rocker.unwrap_or(true) {
-            add_curve_lines(&model.apex_rocker, Vec3::new(0.0, 0.5, 1.0), false, "apexRocker");
+            add_curve_lines(
+                &model.apex_rocker,
+                Vec3::new(0.0, 0.5, 1.0),
+                false,
+                "apexRocker",
+            );
         }
         if let Some(channels) = &model.bottom_channels {
             for (i, ch) in channels.iter().enumerate() {
                 let n_ld = format!("channel_{}_left_depth", i);
                 let n_rd = format!("channel_{}_right_depth", i);
-                add_curve_lines(&Some(ch.left_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false, &n_ld);
-                add_curve_lines(&Some(ch.right_depth.clone()), Vec3::new(1.0, 0.5, 0.0), false, &n_rd);
+                add_curve_lines(
+                    &Some(ch.left_depth.clone()),
+                    Vec3::new(1.0, 0.5, 0.0),
+                    false,
+                    &n_ld,
+                );
+                add_curve_lines(
+                    &Some(ch.right_depth.clone()),
+                    Vec3::new(1.0, 0.5, 0.0),
+                    false,
+                    &n_rd,
+                );
             }
         }
     }
@@ -985,11 +1101,11 @@ mod tests {
         println!("✅ test_squash_tail_tessellation_density passed.");
     }
 
-        #[test]
-        #[test]
+    #[test]
+    #[test]
     fn test_generate_lines_for_view_filtering() {
         let mut model = BoardModel::default();
-        
+
         // Define a top rocker
         model.rocker_top = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
@@ -1001,26 +1117,40 @@ mod tests {
         // Provide empty base curves to prevent engine panics during evaluation
         model.rocker_bottom = Some(BezierCurveData::default());
         model.outline = Some(BezierCurveData::default());
-        
+
         // Add one cross section to the model
         model.cross_sections.push(BezierCurveData {
-            control_points: vec![Vec3::new(0.0, -1.0, 50.0), Vec3::new(10.0, 0.0, 50.0), Vec3::new(0.0, 1.0, 50.0)],
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 50.0),
+                Vec3::new(10.0, 0.0, 50.0),
+                Vec3::new(0.0, 1.0, 50.0),
+            ],
             tangents1: vec![Vec3::ZERO, Vec3::ZERO, Vec3::ZERO],
             tangents2: vec![Vec3::ZERO, Vec3::ZERO, Vec3::ZERO],
             ..Default::default()
         });
-        
+
         // "top" view should have 0 lines since only rockerTop and a cross section are defined
         let (top_verts, _) = super::generate_lines_for_view(&model, "top", 0);
-        assert_eq!(top_verts.len(), 0, "Top view should output 0 lines for a model with only top rocker and cross section");
+        assert_eq!(
+            top_verts.len(),
+            0,
+            "Top view should output 0 lines for a model with only top rocker and cross section"
+        );
 
         // "side" view should have lines from rockerTop
         let (side_verts, _) = super::generate_lines_for_view(&model, "side", 0);
-        assert!(side_verts.len() > 0, "Side view should have lines from top rocker");
+        assert!(
+            side_verts.len() > 0,
+            "Side view should have lines from top rocker"
+        );
 
         // "profile" view should only have lines from active slice
         let (profile_verts, _) = super::generate_lines_for_view(&model, "profile", 0);
-        assert!(profile_verts.len() > 0, "Profile view should have lines from active slice");
+        assert!(
+            profile_verts.len() > 0,
+            "Profile view should have lines from active slice"
+        );
     }
 
     #[test]
