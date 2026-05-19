@@ -35,7 +35,8 @@ export class BoardViewport extends LitElement {
     @state() private activeProfileSlice = 0;
   @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
   @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 1.0, profile: 1.0 };
-  @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
+    @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
+  @state() private hoverInsertPoint: { left: number, top: number } | null = null;
 
   private ro?: ResizeObserver;
   
@@ -70,10 +71,14 @@ export class BoardViewport extends LitElement {
     });
     this.ro.observe(this.wgpuCanvas);
 
-            this.wgpuCanvas.addEventListener("pointerdown", this.handlePointerDown);
+                        this.wgpuCanvas.addEventListener("pointerdown", this.handlePointerDown);
     this.wgpuCanvas.addEventListener("pointermove", this.handlePointerMove);
     this.wgpuCanvas.addEventListener("pointerup", this.handlePointerUp);
     this.wgpuCanvas.addEventListener("pointercancel", this.handlePointerUp);
+    this.wgpuCanvas.addEventListener("pointerleave", () => {
+        this.hoverInsertPoint = null;
+        this.wgpuCanvas.style.cursor = 'default';
+    });
         this.wgpuCanvas.addEventListener("wheel", (e) => {
       e.preventDefault();
       const rect = this.wgpuCanvas.getBoundingClientRect();
@@ -176,8 +181,65 @@ export class BoardViewport extends LitElement {
     localStorage.setItem(`showTangents_${quad}`, newState.toString());
   };
 
-    private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
+        private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
   private lastDragPosition: [number, number, number] | null = null;
+
+  private getHoverInsertPoint(quad: string, clientX: number, clientY: number, localNdcX: number, localNdcY: number, localAspect: number): { left: number, top: number } | null {
+      if (quad === 'perspective' || !this.mathEngine) return null;
+      const targetCurve = quad === 'top' ? 'outline' : (quad === 'side' ? 'rockerTop' : `crossSection_${this.activeProfileSlice}`);
+      
+      let ox = 0, oy = 0, oz = 0;
+      if (quad === "profile") {
+          if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
+              const cs = this.boardState.crossSections[this.activeProfileSlice]!;
+              const pt = cs.controlPoints?.[0] || 
+                         (cs as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points?.[0];
+              if (pt) {
+                  oz = Array.isArray(pt) ? pt[2] : (pt as {z: number}).z;
+              }
+          }
+      }
+      
+      type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; get_point_on_curve(curve: string, t: number): Float32Array; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+      
+      const engine = this.mathEngine as unknown as EngineExt;
+      
+      const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, ox, oy, oz);
+      let worldX = pt[0]!, worldY = pt[1]!, worldZ = pt[2]!;
+
+      let roX = worldX, roY = worldY, roZ = worldZ;
+      let rdX = 0, rdY = 0, rdZ = 0;
+      if (quad === 'top') { roY = 100.0; rdY = -1.0; }
+      else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
+      else if (quad === 'profile') { roZ = worldZ - 100.0; rdZ = 1.0; }
+      
+      const t = engine.find_closest_t(targetCurve, roX, roY, roZ, rdX, rdY, rdZ);
+      if (t >= 0.0 && t <= 1.0) {
+          const curvePt = engine.get_point_on_curve(targetCurve, t);
+          const proj = engine.project_to_screen(quad, curvePt[0]!, curvePt[1]!, curvePt[2]!, localAspect);
+          if (proj[2]! < 1.0) {
+              const rect = this.wgpuCanvas.getBoundingClientRect();
+              let pxX = 0, pxY = 0;
+              if (this.maximizedView) {
+                  pxX = rect.left + ((proj[0]! + 1) / 2) * rect.width;
+                  pxY = rect.top + ((1 - proj[1]!) / 2) * rect.height;
+              } else {
+                  const w = rect.width / 2;
+                  const h = rect.height / 2;
+                  const offsetX = (quad === 'perspective' || quad === 'profile') ? w : 0;
+                  const offsetY = (quad === 'side' || quad === 'profile') ? h : 0;
+                  pxX = rect.left + offsetX + ((proj[0]! + 1) / 2) * w;
+                  pxY = rect.top + offsetY + ((1 - proj[1]!) / 2) * h;
+              }
+              
+              const dist = Math.hypot(pxX - clientX, pxY - clientY);
+              if (dist < 20) { // 20 pixels snap threshold
+                  return { left: pxX - rect.left, top: pxY - rect.top };
+              }
+          }
+      }
+      return null;
+  }
 
                       private findClosestNode(quad: string, ndcX: number, ndcY: number, aspect: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
       const threshold = 0.05;
@@ -484,8 +546,21 @@ export class BoardViewport extends LitElement {
         return;
     }
     
-    const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
-    const newCursor = hit ? 'grab' : 'default';
+        const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
+    
+    let newCursor = 'default';
+    this.hoverInsertPoint = null;
+
+    if (hit) {
+        newCursor = 'grab';
+    } else if (quad !== 'perspective' && !this.activeDragNode) {
+        const hoverPt = this.getHoverInsertPoint(quad, e.clientX, e.clientY, localNdcX, localNdcY, localAspect);
+        if (hoverPt) {
+            this.hoverInsertPoint = hoverPt;
+            newCursor = e.altKey ? 'copy' : 'crosshair';
+        }
+    }
+
     if (this.wgpuCanvas.style.cursor !== newCursor) {
         this.wgpuCanvas.style.cursor = newCursor;
     }
@@ -493,8 +568,9 @@ export class BoardViewport extends LitElement {
     this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));
   };
 
-        private handlePointerUp = (e: PointerEvent) => {
+            private handlePointerUp = (e: PointerEvent) => {
     this.wgpuCanvas.style.cursor = 'default';
+    this.hoverInsertPoint = null;
     try { if (this.wgpuCanvas.hasPointerCapture(e.pointerId)) this.wgpuCanvas.releasePointerCapture(e.pointerId); } catch {}
     if (this.activeDragNode) {
         this.dispatchEvent(new CustomEvent('gizmo-drag-ended', {  
@@ -581,7 +657,21 @@ export class BoardViewport extends LitElement {
     `;
 
     return html`
-            <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
+                        <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
+
+            ${this.hoverInsertPoint ? html`
+              <div 
+                class="absolute z-10 pointer-events-none w-3 h-3 rounded-full border-2 border-emerald-400 bg-emerald-400/20 transform -translate-x-1/2 -translate-y-1/2 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
+              ></div>
+              <div
+                class="absolute z-10 pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-8px] text-[10px] font-bold text-emerald-400 bg-zinc-950/80 px-1.5 py-0.5 rounded border border-emerald-500/50 whitespace-nowrap backdrop-blur-sm shadow-xl"
+                style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
+              >
+                Alt+Click to Add Node
+              </div>
+            ` : ''}
+
       ${this.isProcessing ? html`
         <div class="absolute bottom-3 left-3 z-20 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 text-blue-400 border-blue-500/30 border text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors">
           <svg class="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
