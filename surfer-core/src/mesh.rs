@@ -380,7 +380,7 @@ pub fn generate_lines_for_view(
                     let p = map_point(t, raw_p);
 
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
-                    draw_shape(
+                                        draw_shape(
                         &mut line_vertices,
                         &mut line_colors,
                         scale,
@@ -390,22 +390,6 @@ pub fn generate_lines_for_view(
                         c_anchor,
                         "circle",
                     );
-
-                    if is_outline {
-                        let c_mirrored_anchor = Vec3::new(0.35, 0.35, 0.35); // Dark grey
-                        let mut mp = p;
-                        mp.x = -mp.x;
-                        draw_shape(
-                            &mut line_vertices,
-                            &mut line_colors,
-                            scale,
-                            view_id,
-                            mp,
-                            s,
-                            c_mirrored_anchor,
-                            "circle",
-                        );
-                    }
 
                                         if show_tangents {
                         let c_tan = Vec3::new(0.4, 0.4, 1.0);
