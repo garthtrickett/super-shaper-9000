@@ -78,10 +78,14 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const boardControls = page.locator("board-controls");
     await expect(boardControls).toBeVisible();
 
-    // 3. Locate the checkboxes via their wrapping labels
-    const heatmapCheckbox = boardControls.locator('label').filter({ hasText: /Foil Ratio/i }).locator('input[type="checkbox"]');
-    const zebraCheckbox = boardControls.locator('label').filter({ hasText: /Zebra Flow/i }).locator('input[type="checkbox"]');
-    const mriCheckbox = boardControls.locator('label').filter({ hasText: /MRI Slice/i }).locator('input[type="checkbox"]');
+        // 3. Locate the checkboxes via their wrapping labels
+    const heatmapLabel = boardControls.locator('label').filter({ hasText: /Foil Ratio/i });
+    const zebraLabel = boardControls.locator('label').filter({ hasText: /Zebra Flow/i });
+    const mriLabel = boardControls.locator('label').filter({ hasText: /MRI Slice/i });
+
+    const heatmapCheckbox = heatmapLabel.locator('input[type="checkbox"]');
+    const zebraCheckbox = zebraLabel.locator('input[type="checkbox"]');
+    const mriCheckbox = mriLabel.locator('input[type="checkbox"]');
 
     // 4. Initially all should be off (based on INITIAL_STATE)
     await expect(heatmapCheckbox).not.toBeChecked();
@@ -90,28 +94,28 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
     // 5. Turn on Foil Ratio
     console.info("Testing: Enabling Foil Ratio");
-    await heatmapCheckbox.check({ force: true });
+    await heatmapLabel.click();
     await expect(heatmapCheckbox).toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
 
     // 6. Turn on Zebra (Foil Ratio should auto-disable)
     console.info("Testing: Enabling Zebra Flow (Should disable Foil Ratio)");
-    await zebraCheckbox.check({ force: true });
+    await zebraLabel.click();
     await expect(zebraCheckbox).toBeChecked();
     await expect(heatmapCheckbox).not.toBeChecked();
 
     // 7. Turn on Foil Ratio again (Zebra should auto-disable)
     console.info("Testing: Re-enabling Foil Ratio (Should disable Zebra Flow)");
-    await heatmapCheckbox.check({ force: true });
+    await heatmapLabel.click();
     await expect(heatmapCheckbox).toBeChecked();
     await expect(zebraCheckbox).not.toBeChecked();
 
     // 9. Turn on MRI Slice (Should disable Zebra Flow via Rust Reducer)
     console.info("Testing: Enabling MRI Slice (Should disable Zebra Flow)");
-    await zebraCheckbox.check({ force: true }); // Turn Zebra back on first to test the override
+    await zebraLabel.click(); // Turn Zebra back on first to test the override
     await expect(zebraCheckbox).toBeChecked();
     
-    await mriCheckbox.check({ force: true });
+    await mriLabel.click();
     await expect(mriCheckbox).toBeChecked();
     // Verify WASM pipeline successfully mutated state and updated UI
     await expect(zebraCheckbox).not.toBeChecked();
