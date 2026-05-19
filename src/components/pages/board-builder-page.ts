@@ -430,7 +430,8 @@ export class BoardBuilderPage extends LitElement {
           .showRailOutline=${state.showRailOutline ?? true}
           .showApexRocker=${state.showApexRocker ?? true}
           .showDeckShoulder=${state.showDeckShoulder ?? true}
-                    .showCrossSections=${state.showCrossSections ?? true}
+                                        .showCrossSections=${state.showCrossSections ?? true}
+          .showTangents=${state.showTangents ?? true}
           .showMriView=${state.showMriView ?? false}
           .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
           .outlineLayers=${state.outlineLayers ||[]}
@@ -525,6 +526,9 @@ export class BoardBuilderPage extends LitElement {
               if (this.mathEngine) {
                   this.mathEngine.set_ortho(e.detail.isOrtho);
               }
+          }}
+                    @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
+            this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
           @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;

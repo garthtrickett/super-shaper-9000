@@ -333,7 +333,9 @@ pub fn generate_lines_for_view(
                 } else {
                     model.gizmo_scale_top.unwrap_or(1.0)
                 };
-                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
+                                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
+                
+                let show_tangents = model.show_tangents.unwrap_or(true);
 
                 for i in 0..curve.control_points.len() {
                     let raw_p = curve.control_points[i];
@@ -406,56 +408,58 @@ pub fn generate_lines_for_view(
                         );
                     }
 
-                    let c_tan = Vec3::new(0.4, 0.4, 1.0);
-                    if i < curve.tangents1.len() {
-                        let t_idx = if i > 0 { i as f32 - 0.33 } else { 0.0 } / num_segments_f;
-                        let t1_mapped = map_point(t_idx.max(0.0), curve.tangents1[i]);
-                        push_line_grad(
-                            &mut line_vertices,
-                            &mut line_colors,
-                            scale,
-                            p,
-                            t1_mapped,
-                            c_anchor,
-                            c_tan,
-                        );
-                        draw_shape(
-                            &mut line_vertices,
-                            &mut line_colors,
-                            scale,
-                            view_id,
-                            t1_mapped,
-                            s * 0.8,
-                            c_tan,
-                            "square",
-                        );
-                    }
-                    if i < curve.tangents2.len() {
-                        let t_idx = if i < num_segments {
-                            i as f32 + 0.33
-                        } else {
-                            1.0
-                        } / num_segments_f;
-                        let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
-                        push_line_grad(
-                            &mut line_vertices,
-                            &mut line_colors,
-                            scale,
-                            p,
-                            t2_mapped,
-                            c_anchor,
-                            c_tan,
-                        );
-                        draw_shape(
-                            &mut line_vertices,
-                            &mut line_colors,
-                            scale,
-                            view_id,
-                            t2_mapped,
-                            s * 0.8,
-                            c_tan,
-                            "square",
-                        );
+                                        if show_tangents {
+                        let c_tan = Vec3::new(0.4, 0.4, 1.0);
+                        if i < curve.tangents1.len() {
+                            let t_idx = if i > 0 { i as f32 - 0.33 } else { 0.0 } / num_segments_f;
+                            let t1_mapped = map_point(t_idx.max(0.0), curve.tangents1[i]);
+                            push_line_grad(
+                                &mut line_vertices,
+                                &mut line_colors,
+                                scale,
+                                p,
+                                t1_mapped,
+                                c_anchor,
+                                c_tan,
+                            );
+                            draw_shape(
+                                &mut line_vertices,
+                                &mut line_colors,
+                                scale,
+                                view_id,
+                                t1_mapped,
+                                s * 0.8,
+                                c_tan,
+                                "square",
+                            );
+                        }
+                        if i < curve.tangents2.len() {
+                            let t_idx = if i < num_segments {
+                                i as f32 + 0.33
+                            } else {
+                                1.0
+                            } / num_segments_f;
+                            let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
+                            push_line_grad(
+                                &mut line_vertices,
+                                &mut line_colors,
+                                scale,
+                                p,
+                                t2_mapped,
+                                c_anchor,
+                                c_tan,
+                            );
+                            draw_shape(
+                                &mut line_vertices,
+                                &mut line_colors,
+                                scale,
+                                view_id,
+                                t2_mapped,
+                                s * 0.8,
+                                c_tan,
+                                "square",
+                            );
+                        }
                     }
                 }
             }
