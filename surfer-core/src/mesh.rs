@@ -431,7 +431,7 @@ pub fn generate_lines_for_view(
                 mapped_pts.push(mapped_p);
             }
 
-            for i in 0..steps {
+                        for i in 0..steps {
                 let p0 = mapped_pts[i];
                 let p1 = mapped_pts[i + 1];
                 push_line(&mut line_vertices, &mut line_colors, scale, p0, p1, color);
@@ -448,7 +448,7 @@ pub fn generate_lines_for_view(
                 let num_segments = curve.control_points.len().saturating_sub(1);
                 let num_segments_f = num_segments as f32;
 
-                let s = gizmo_scale;
+                let s = gizmo_scale / 3.0;
 
                 for i in 0..curve.control_points.len() {
                     let raw_p = curve.control_points[i];
