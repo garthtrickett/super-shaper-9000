@@ -516,11 +516,11 @@ export class BoardViewport extends LitElement {
     const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l-5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
     const collapseIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>`;
     
-    const renderProfileSliceSelector = () => {
+        const renderProfileSliceSelector = () => {
       if (!this.boardState?.crossSections || this.boardState.crossSections.length === 0) return '';
             return html`
-        <div class="absolute top-3 right-3 pointer-events-auto z-50">
-          <select 
+        <div class="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-auto z-50">
+          <select  
             class="bg-zinc-950/90 hover:bg-zinc-800 text-[10px] font-bold text-zinc-300 hover:text-white uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border border-zinc-800 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             .value=${this.activeProfileSlice.toString()}
             @change=${(e: Event) => {
