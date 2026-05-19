@@ -844,9 +844,7 @@ fn handle_parametric_scaling(
                 _ => {}
             }
         }
-        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
-            "showGizmos" => model.show_gizmos = Some(value),
-            "showSolidMesh" => model.show_solid_mesh = Some(value),
+                BoardAction::UpdateBoolean { param, value } => match param.as_str() {
             "showHeatmap" => {
                 model.show_heatmap = Some(value);
                 if value {
