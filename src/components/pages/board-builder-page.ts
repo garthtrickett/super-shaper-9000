@@ -34,20 +34,29 @@ export class BoardBuilderPage extends LitElement {
     private _workerBusyWithDrag = false;
   private _pendingDragDetail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] } | null = null;
 
-    private _proposeAction(action: BoardAction) {
-    if (action.type !== "SELECT_NODE" && action.type !== "SAVE_HISTORY_SNAPSHOT") {
+      private _proposeAction(action: BoardAction) {
+    if (action.type !== "SELECT_NODE" && action.type !== "SAVE_HISTORY_SNAPSHOT" && action.type !== "UPDATE_BOOLEAN" && action.type !== "UPDATE_STRING") {
       this.isProcessing = true;
     }
     this.wasmCtrl.propose(action);
   }
 
-      private _previewAction(action: BoardAction) {
+        private _previewAction(action: BoardAction) {
     if (!this.mathEngine) return;
     try {
-      const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
+      type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void, get_state(): BoardModel };
+      let state: BoardModel;
+      if ((this.mathEngine as unknown as MathEngineExt).propose_state_only) {
+          (this.mathEngine as unknown as MathEngineExt).propose_state_only(action);
+          state = (this.mathEngine as unknown as MathEngineExt).get_state();
+      } else {
+          const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
+          state = result.state;
+      }
+      
       const viewport = this.shadowRoot?.querySelector('board-viewport') as unknown as { boardState: BoardModel };
-      if (viewport && result.state) {
-        viewport.boardState = result.state;
+      if (viewport && state) {
+        viewport.boardState = state;
       }
 
             // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly

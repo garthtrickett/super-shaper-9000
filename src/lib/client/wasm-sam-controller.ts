@@ -43,14 +43,17 @@ export class WasmSamController implements ReactiveController {
     });
   }
 
-  propose(action: BoardAction) {
+    propose(action: BoardAction) {
     this.currentSequence++;
     
-        // Keep local math engine perfectly in sync with the worker's reality
+    // Keep local math engine perfectly in sync with the worker's reality
     if (this.mathEngine) {
       try {
         if ((this.mathEngine as any).propose_state_only) {
             (this.mathEngine as any).propose_state_only(action);
+            // Optimistically update the UI model to prevent input bouncing
+            this.model = (this.mathEngine as any).get_state();
+            this.host.requestUpdate();
         } else {
             this.mathEngine.propose(action);
         }
