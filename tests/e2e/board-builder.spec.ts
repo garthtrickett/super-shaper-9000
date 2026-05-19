@@ -175,8 +175,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const orthoTop = dist / 4.0;
       const orthoRight = orthoTop * aspect;
 
-      const ndcX = worldX / orthoRight;
-      const ndcY = -worldZ / orthoTop;
+            const ndcX = -worldZ / orthoRight;
+      const ndcY = -worldX / orthoTop;
 
       const w = rect.width / 2;
       const h = rect.height / 2;
@@ -311,8 +311,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
                 const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
         const orthoTop = dist / 4.0;
         const orthoRight = orthoTop * aspect;
-        const ndcX = (x / 12) / orthoRight;
-        const ndcY = -(z / 12) / orthoTop;
+                const ndcX = -(z / 12) / orthoRight;
+        const ndcY = -(x / 12) / orthoTop;
         const w = rect.width / 2;
         const h = rect.height / 2;
         return {
@@ -387,8 +387,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 20.0;
         const orthoTop = dist / 4.0;
         const orthoRight = orthoTop * aspect;
-        const ndcX = (x / 12) / orthoRight;
-        const ndcY = -(z / 12) / orthoTop;
+                const ndcX = -(z / 12) / orthoRight;
+        const ndcY = -(x / 12) / orthoTop;
         const w = rect.width / 2;
         const h = rect.height / 2;
         
@@ -410,8 +410,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 3. Drag the gizmo outward (+X direction)
     await page.mouse.move(hitPosition!.x, hitPosition!.y);
     await page.mouse.down();
-    // Move pixels right to ensure a significant coordinate change
-    await page.mouse.move(hitPosition!.x + 100, hitPosition!.y, { steps: 10 });
+        // Move pixels down to ensure a significant coordinate change (+X outward)
+    await page.mouse.move(hitPosition!.x, hitPosition!.y + 100, { steps: 10 });
     await page.mouse.up();
 
         // 4. Verify Node Inspector reflects the change
@@ -482,8 +482,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
         const orthoTop = dist / 4.0;
         const orthoRight = orthoTop * aspect;
-        const ndcX = (x / 12) / orthoRight;
-        const ndcY = -(z / 12) / orthoTop;
+                const ndcX = -(z / 12) / orthoRight;
+        const ndcY = -(x / 12) / orthoTop;
         const w = rect.width / 2;
         const h = rect.height / 2;
         return {
@@ -556,8 +556,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 20.0;
         const orthoTop = dist / 4.0;
         const orthoRight = orthoTop * aspect;
-        const ndcX = (x / 12) / orthoRight;
-        const ndcY = -(z / 12) / orthoTop;
+                const ndcX = -(z / 12) / orthoRight;
+        const ndcY = -(x / 12) / orthoTop;
         const w = rect.width / 2;
         const h = rect.height / 2;
       
@@ -759,8 +759,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
             const dist = viewport.mathEngine ? viewport.mathEngine.camera_distance_top() : 8.0;
       const orthoTop = dist / 4.0;
       const orthoRight = orthoTop * aspect;
-      const ndcX = (x / 12) / orthoRight;
-      const ndcY = -(z / 12) / orthoTop;
+            const ndcX = -(z / 12) / orthoRight;
+      const ndcY = -(x / 12) / orthoTop;
       const w = rect.width / 2;
       const h = rect.height / 2;
       return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
@@ -832,8 +832,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
       const orthoTop = dist / 4.0;
       const orthoRight = orthoTop * aspect;
-      const ndcX = worldX / orthoRight;
-      const ndcY = -worldZ / orthoTop;
+            const ndcX = -worldZ / orthoRight;
+      const ndcY = -worldX / orthoTop;
 
       const w = rect.width / 2;
       const h = rect.height / 2;

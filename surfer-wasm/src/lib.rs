@@ -214,10 +214,10 @@ impl CameraController {
                 self.yaw -= dx * 0.01;
                 self.pitch += dy * 0.01;
                 self.pitch = self.pitch.clamp(-1.5, 1.5);
-            } else if quad == "top" {
+                        } else if quad == "top" {
                 let scale = self.distance_top * 0.002;
-                self.pan_top.0 -= dx * scale;
-                self.pan_top.1 -= dy * scale;
+                self.pan_top.0 -= dy * scale;
+                self.pan_top.1 += dx * scale;
             } else if quad == "side" {
                 let scale = self.distance_side * 0.002;
                 self.pan_side.0 -= dx * scale;
@@ -455,14 +455,14 @@ impl WasmEngine {
 
                 let cam_pos;
                 let view_proj = match q {
-                    "top" => {
+                                        "top" => {
                         let frustum = self.camera_ctrl.distance_top / 4.0;
                         let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, self.camera_ctrl.pan_top.1);
                         cam_pos = target + glam::Vec3::new(0.0, 10.0, 0.0);
                         let view = glam::Mat4::look_at_rh(
                             cam_pos,
                             target,
-                            glam::Vec3::new(0.0, 0.0, -1.0),
+                            glam::Vec3::new(-1.0, 0.0, 0.0),
                         );
                         let proj = glam::Mat4::orthographic_rh(
                             -frustum * aspect,
@@ -843,13 +843,13 @@ impl WasmEngine {
         orig_z: f32,
     ) -> js_sys::Float32Array {
         let view_proj = match quad {
-            "top" => {
+                        "top" => {
                 let frustum = self.camera_ctrl.distance_top / 4.0;
                 let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, self.camera_ctrl.pan_top.1);
                 let view = glam::Mat4::look_at_rh(
                     target + glam::Vec3::new(0.0, 10.0, 0.0),
                     target,
-                    glam::Vec3::new(0.0, 0.0, -1.0),
+                    glam::Vec3::new(-1.0, 0.0, 0.0),
                 );
                 let proj = glam::Mat4::orthographic_rh(
                     -frustum * aspect,
@@ -996,13 +996,13 @@ impl WasmEngine {
         aspect: f32,
     ) -> js_sys::Float32Array {
         let view_proj = match quad {
-            "top" => {
+                        "top" => {
                 let frustum = self.camera_ctrl.distance_top / 4.0;
                 let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, self.camera_ctrl.pan_top.1);
                 let view = glam::Mat4::look_at_rh(
                     target + glam::Vec3::new(0.0, 10.0, 0.0),
                     target,
-                    glam::Vec3::new(0.0, 0.0, -1.0),
+                    glam::Vec3::new(-1.0, 0.0, 0.0),
                 );
                 let proj = glam::Mat4::orthographic_rh(
                     -frustum * aspect,
