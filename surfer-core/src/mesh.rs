@@ -392,11 +392,11 @@ pub fn generate_lines_for_view(
             let steps = 100;
             let mut mapped_pts = Vec::with_capacity(steps + 1);
 
-            for i in 0..=steps {
-                let t = i as f32 / steps as f32;
-                let raw_p = crate::geometry::evaluate_curve(curve, t);
-
-                let mapped_p = if curve_name.starts_with("crossSection_") {
+                        let map_point = |t: f32, raw_p: Vec3| -> Vec3 {
+                if view_id == "profile" {
+                    return raw_p;
+                }
+                if curve_name.starts_with("crossSection_") {
                     let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
                     crate::geometry::map_slice_local_to_world(model, z, t, raw_p)
                 } else if curve_name == "rockerTop"
@@ -422,7 +422,13 @@ pub fn generate_lines_for_view(
                         }
                         _ => raw_p,
                     }
-                };
+                }
+            };
+
+            for i in 0..=steps {
+                let t = i as f32 / steps as f32;
+                let raw_p = crate::geometry::evaluate_curve(curve, t);
+                let mapped_p = map_point(t, raw_p);
                 mapped_pts.push(mapped_p);
             }
 
@@ -453,40 +459,7 @@ pub fn generate_lines_for_view(
                         0.0
                     };
 
-                    let map_point = |t: f32, raw_p: Vec3| -> Vec3 {
-                        if curve_name.starts_with("crossSection_") {
-                            let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
-                            crate::geometry::map_slice_local_to_world(model, z, t, raw_p)
-                        } else if curve_name == "rockerTop"
-                            || curve_name == "rockerBottom"
-                            || curve_name == "apexRocker"
-                            || curve_name.starts_with("channel_")
-                        {
-                            raw_p
-                        } else {
-                            let v_outer = crate::geometry::find_v_at_z(
-                                model.outline.as_ref().unwrap(),
-                                raw_p.z,
-                                0.0,
-                                bounds.tip_t,
-                            );
-                            let profile =
-                                crate::geometry::get_board_profile_at_z(model, raw_p.z, v_outer);
-                            match curve_name {
-                                "outline" | "apexOutline" => {
-                                    Vec3::new(raw_p.x, profile.apex_y, raw_p.z)
-                                }
-                                "railOutline" => Vec3::new(raw_p.x, profile.tuck_y, raw_p.z),
-                                "deckShoulder" => Vec3::new(raw_p.x, profile.shoulder_y, raw_p.z),
-                                _ if curve_name.starts_with("outlineLayer_") => {
-                                    Vec3::new(raw_p.x, profile.apex_y, raw_p.z)
-                                }
-                                _ => raw_p,
-                            }
-                        }
-                    };
-
-                    let p = map_point(t, raw_p);
+                                        let p = map_point(t, raw_p);
 
                     let c_anchor = Vec3::new(1.0, 1.0, 1.0);
                     draw_shape(
