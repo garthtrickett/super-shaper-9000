@@ -170,10 +170,16 @@ export class NodeInspector extends LitElement {
     }
   }
 
-    private _handleDeleteNode() {
+      private _handleDeleteNode() {
     const sel = this.boardState.selectedNode!;
     this.dispatchEvent(new CustomEvent('remove-node', {
       detail: { curve: sel.curve, index: sel.index },
+      bubbles: true, composed: true
+    }));
+  }
+
+  private _handleClose() {
+    this.dispatchEvent(new CustomEvent('close-inspector', {
       bubbles: true, composed: true
     }));
   }
@@ -257,9 +263,10 @@ export class NodeInspector extends LitElement {
       </div>
     `;
 
-    return html`
-      <div class="bg-zinc-900 border border-zinc-700 shadow-2xl rounded-lg p-4 font-mono">
-                <div class="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800">
+        return html`
+      <div class="bg-zinc-800/40 border-b border-zinc-800 p-6 font-mono relative shadow-md">
+        <div class="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+        <div class="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800/50">
           <h3 class="text-sm font-bold text-zinc-100 uppercase tracking-widest">
             ${title}
           </h3>
@@ -272,6 +279,9 @@ export class NodeInspector extends LitElement {
             <span class="bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold">
               Node ${sel.index}
             </span>
+            <button type="button" @click=${() => this._handleClose()} class="text-zinc-500 hover:text-white p-1 rounded transition-colors cursor-pointer" title="Deselect Node">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
           </div>
         </div>
 

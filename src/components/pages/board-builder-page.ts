@@ -385,10 +385,23 @@ export class BoardBuilderPage extends LitElement {
           </div>
         </div>
       ` : ''}
-      <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
-        <board-controls
-          class="w-80 shrink-0 border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl"
-          .length=${state.length}
+            <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
+        <div class="w-80 shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl">
+          ${state.selectedNode ? html`
+            <node-inspector
+              class="block shrink-0 w-full z-20 shadow-md"
+              .boardState=${state}
+              @preview-node=${(e: CustomEvent<{ curve: string, index: number, weight?: number }>) => this._previewAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+              @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number], weight?: number }>) => this._proposeAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
+              @apply-continuity=${(e: CustomEvent<{ curve: string, index: number, level: "G0" | "G1" | "G2", master?: string }>) => this._proposeAction({ type: "APPLY_CONTINUITY", ...e.detail })}
+              @continuity-changed=${(e: CustomEvent<{ level: 'G0' | 'G1' | 'G2' }>) => this._selectedNodeContinuity = e.detail.level}
+              @remove-node=${(e: CustomEvent<{ curve: string, index: number }>) => this._proposeAction({ type: "REMOVE_NODE", ...e.detail })}
+              @close-inspector=${() => this._proposeAction({ type: "SELECT_NODE", node: null })}
+            ></node-inspector>
+          ` : ''}
+          <board-controls
+            class="flex-1 min-h-0 w-full flex flex-col"
+            .length=${state.length}
           .width=${state.width}
           .thickness=${state.thickness}
           .meshData=${mesh}
@@ -444,9 +457,10 @@ export class BoardBuilderPage extends LitElement {
           @toggle-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_OUTLINE_LAYER', index: e.detail.index })}
           @add-bottom-channel=${() => this._proposeAction({ type: 'ADD_BOTTOM_CHANNEL' })}
           @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
-          @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
+                    @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
           @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
         ></board-controls>
+        </div>
 
         <div class="absolute top-4 right-4 z-10 flex gap-2">
           <button type="button"
@@ -580,20 +594,8 @@ export class BoardBuilderPage extends LitElement {
               }
               this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" });
           }}
-          @gizmo-dragged=${this._handleGizmoDrag}
+                    @gizmo-dragged=${this._handleGizmoDrag}
         ></board-viewport>
-
-        ${state.selectedNode ? html`
-          <node-inspector
-            class="absolute top-16 right-4 z-20 w-[340px]"
-            .boardState=${state}
-            @preview-node=${(e: CustomEvent<{ curve: string, index: number, weight?: number }>) => this._previewAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
-            @update-node=${(e: CustomEvent<{ curve: string, index: number, anchor?: [number, number, number], tangent1?:[number, number, number], tangent2?: [number, number, number], weight?: number }>) => this._proposeAction({ type: "UPDATE_NODE_EXACT", ...e.detail })}
-            @apply-continuity=${(e: CustomEvent<{ curve: string, index: number, level: "G0" | "G1" | "G2", master?: string }>) => this._proposeAction({ type: "APPLY_CONTINUITY", ...e.detail })}
-            @continuity-changed=${(e: CustomEvent<{ level: 'G0' | 'G1' | 'G2' }>) => this._selectedNodeContinuity = e.detail.level}
-            @remove-node=${(e: CustomEvent<{ curve: string, index: number }>) => this._proposeAction({ type: "REMOVE_NODE", ...e.detail })}
-          ></node-inspector>
-        ` : ''}
       </div>
     `;
   }
