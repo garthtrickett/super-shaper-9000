@@ -1152,11 +1152,25 @@ fn handle_layer_toggles(
             // To be accurate, we'd copy the blend from the actual geometry at z.
             // For now, this just adds a copy of the first slice at position z.
             model.cross_sections.push(new_cs);
-            model.cross_sections.sort_by(|a, b| {
+                        model.cross_sections.sort_by(|a, b| {
                 let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
                 let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
                 za.partial_cmp(&zb).unwrap()
             });
+
+            let new_idx = model.cross_sections.iter().position(|cs| {
+                let za = cs.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                (za - z).abs() < 1e-4
+            });
+
+            if let Some(idx) = new_idx {
+                model.selected_node = Some(SelectedNode {
+                    curve: format!("crossSection_{}", idx),
+                    index: 0,
+                    node_type: "anchor".to_string(),
+                });
+            }
+
             push_history(model);
         }
         _ => {}
