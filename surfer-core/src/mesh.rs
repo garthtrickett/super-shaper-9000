@@ -501,10 +501,11 @@ pub fn generate_lines_for_view(
                         "circle",
                     );
 
-                    if show_tangents {
+                                        if show_tangents {
                         let c_tan = Vec3::new(0.4, 0.4, 1.0);
-                        if i < curve.tangents1.len() {
-                            let t_idx = if i > 0 { i as f32 - 0.33 } else { 0.0 } / num_segments_f;
+                        // Do not draw incoming tangent for the first node (mathematically dead)
+                        if i > 0 && i < curve.tangents1.len() {
+                            let t_idx = (i as f32 - 0.33) / num_segments_f;
                             let t1_mapped = map_point(t_idx.max(0.0), curve.tangents1[i]);
                             push_line_grad(
                                 &mut line_vertices,
@@ -527,12 +528,9 @@ pub fn generate_lines_for_view(
                                 "square",
                             );
                         }
-                        if i < curve.tangents2.len() {
-                            let t_idx = if i < num_segments {
-                                i as f32 + 0.33
-                            } else {
-                                1.0
-                            } / num_segments_f;
+                                                // Do not draw outgoing tangent for the last node (mathematically dead)
+                        if i < num_segments && i < curve.tangents2.len() {
+                            let t_idx = (i as f32 + 0.33) / num_segments_f;
                             let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
                             push_line_grad(
                                 &mut line_vertices,

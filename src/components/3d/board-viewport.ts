@@ -281,14 +281,18 @@ export class BoardViewport extends LitElement {
           if (cps) {
               cps.forEach((_, i: number) => checkNode(name, cps, i, 'anchor', isSymmetrical));
           }
-                              if (this.showTangents[quad as ViewportId]) {
+                                                            if (this.showTangents[quad as ViewportId]) {
               const t1s = curveData.tangents1 || cdAny.tangents_1;
               if (t1s) {
-                  t1s.forEach((_, i: number) => checkNode(name, t1s, i, 'tangent1', isSymmetrical));
+                  t1s.forEach((_, i: number) => {
+                      if (i > 0) checkNode(name, t1s, i, 'tangent1', isSymmetrical);
+                  });
               }
               const t2s = curveData.tangents2 || cdAny.tangents_2;
               if (t2s) {
-                  t2s.forEach((_, i: number) => checkNode(name, t2s, i, 'tangent2', isSymmetrical));
+                  t2s.forEach((_, i: number) => {
+                      if (cps && i < cps.length - 1) checkNode(name, t2s, i, 'tangent2', isSymmetrical);
+                  });
               }
           }
       };

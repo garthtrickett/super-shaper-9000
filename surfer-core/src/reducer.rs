@@ -987,18 +987,18 @@ fn handle_layer_toggles(
             layers.push(OutlineLayer {
                 name: format!("Layer {}", layers.len()),
                 active: true,
-                otl_ext: BezierCurveData {
+                                otl_ext: BezierCurveData {
                     control_points: vec![
                         glam::Vec3::new(8.0, 0.0, 20.0),
                         glam::Vec3::new(8.0, 0.0, 40.0),
                     ],
                     tangents1: vec![
-                        glam::Vec3::new(8.0, 0.0, 20.0),
+                        glam::Vec3::new(8.0, 0.0, 10.0),
                         glam::Vec3::new(8.0, 0.0, 30.0),
                     ],
                     tangents2: vec![
                         glam::Vec3::new(8.0, 0.0, 30.0),
-                        glam::Vec3::new(8.0, 0.0, 40.0),
+                        glam::Vec3::new(8.0, 0.0, 50.0),
                     ],
                     weights: None,
                 },
@@ -1008,12 +1008,12 @@ fn handle_layer_toggles(
                         glam::Vec3::new(7.0, 0.0, 40.0),
                     ],
                     tangents1: vec![
-                        glam::Vec3::new(7.0, 0.0, 20.0),
+                        glam::Vec3::new(7.0, 0.0, 10.0),
                         glam::Vec3::new(7.0, 0.0, 30.0),
                     ],
                     tangents2: vec![
                         glam::Vec3::new(7.0, 0.0, 30.0),
-                        glam::Vec3::new(7.0, 0.0, 40.0),
+                        glam::Vec3::new(7.0, 0.0, 50.0),
                     ],
                     weights: None,
                 },
@@ -1041,18 +1041,18 @@ fn handle_layer_toggles(
             channels.push(ChannelLayer {
                 name: format!("Channel {}", channels.len()),
                 is_symmetric: true,
-                left_outline: BezierCurveData {
+                                left_outline: BezierCurveData {
                     control_points: vec![
                         glam::Vec3::new(-4.0, 0.0, 20.0),
                         glam::Vec3::new(-4.0, 0.0, 40.0),
                     ],
                     tangents1: vec![
-                        glam::Vec3::new(-4.0, 0.0, 20.0),
+                        glam::Vec3::new(-4.0, 0.0, 10.0),
                         glam::Vec3::new(-4.0, 0.0, 30.0),
                     ],
                     tangents2: vec![
                         glam::Vec3::new(-4.0, 0.0, 30.0),
-                        glam::Vec3::new(-4.0, 0.0, 40.0),
+                        glam::Vec3::new(-4.0, 0.0, 50.0),
                     ],
                     weights: None,
                 },
@@ -1062,12 +1062,12 @@ fn handle_layer_toggles(
                         glam::Vec3::new(4.0, 0.0, 40.0),
                     ],
                     tangents1: vec![
-                        glam::Vec3::new(4.0, 0.0, 20.0),
+                        glam::Vec3::new(4.0, 0.0, 10.0),
                         glam::Vec3::new(4.0, 0.0, 30.0),
                     ],
                     tangents2: vec![
                         glam::Vec3::new(4.0, 0.0, 30.0),
-                        glam::Vec3::new(4.0, 0.0, 40.0),
+                        glam::Vec3::new(4.0, 0.0, 50.0),
                     ],
                     weights: None,
                 },
@@ -1077,12 +1077,12 @@ fn handle_layer_toggles(
                         glam::Vec3::new(0.0, 0.5, 40.0),
                     ],
                     tangents1: vec![
-                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 10.0),
                         glam::Vec3::new(0.0, 0.5, 30.0),
                     ],
                     tangents2: vec![
                         glam::Vec3::new(0.0, 0.5, 30.0),
-                        glam::Vec3::new(0.0, 0.5, 40.0),
+                        glam::Vec3::new(0.0, 0.5, 50.0),
                     ],
                     weights: None,
                 },
@@ -1092,12 +1092,12 @@ fn handle_layer_toggles(
                         glam::Vec3::new(0.0, 0.5, 40.0),
                     ],
                     tangents1: vec![
-                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 10.0),
                         glam::Vec3::new(0.0, 0.5, 30.0),
                     ],
                     tangents2: vec![
                         glam::Vec3::new(0.0, 0.5, 30.0),
-                        glam::Vec3::new(0.0, 0.5, 40.0),
+                        glam::Vec3::new(0.0, 0.5, 50.0),
                     ],
                     weights: None,
                 },
