@@ -121,9 +121,16 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "SET_SHOW_TANGENTS") {
+        if (msg.type === "SET_SHOW_TANGENTS") {
         if (engine) {
             engine.set_show_tangents(msg.quad, msg.show);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_GIZMO_SCALE") {
+        if (engine) {
+            engine.set_gizmo_scale(msg.quad, msg.scale);
         }
         return;
     }

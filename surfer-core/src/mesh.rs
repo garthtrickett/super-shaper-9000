@@ -152,6 +152,7 @@ pub fn generate_lines_for_view(
     view_id: &str,
     active_slice: usize,
     show_tangents: bool,
+    gizmo_scale: f32,
 ) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>, Vec<u32>) {
     fn push_line_grad(
         line_vertices: &mut Vec<f32>,
@@ -438,22 +439,11 @@ pub fn generate_lines_for_view(
                 }
             }
 
-            if show_gizmos {
+                        if show_gizmos {
                 let num_segments = curve.control_points.len().saturating_sub(1);
                 let num_segments_f = num_segments as f32;
 
-                let base_s = if curve_name.starts_with("crossSection_") {
-                    model.gizmo_scale_profile.unwrap_or(1.0)
-                } else if curve_name == "rockerTop"
-                    || curve_name == "rockerBottom"
-                    || curve_name == "apexRocker"
-                    || (curve_name.starts_with("channel_") && curve_name.ends_with("_depth"))
-                {
-                    model.gizmo_scale_side.unwrap_or(1.0)
-                } else {
-                    model.gizmo_scale_top.unwrap_or(1.0)
-                };
-                let s = base_s * model.gizmo_scale_perspective.unwrap_or(1.0);
+                let s = gizmo_scale;
 
                 for i in 0..curve.control_points.len() {
                     let raw_p = curve.control_points[i];

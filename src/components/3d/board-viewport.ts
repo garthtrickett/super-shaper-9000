@@ -32,12 +32,28 @@ export class BoardViewport extends LitElement {
   @state() private maximizedView: ViewportId | null = null;
   @state() private isFlipped = false;
     @state() private isOrtho = false;
-  @state() private activeProfileSlice = 0;
+    @state() private activeProfileSlice = 0;
   @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
+  @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 1.0, profile: 1.0 };
+  @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
 
   private ro?: ResizeObserver;
   
-  override firstUpdated() {
+    override firstUpdated() {
+    const views: ViewportId[] = ['top', 'perspective', 'side', 'profile'];
+    views.forEach(v => {
+        const savedScale = localStorage.getItem(`gizmoScale_${v}`);
+        if (savedScale) this.gizmoScale[v] = parseFloat(savedScale);
+
+        const savedTan = localStorage.getItem(`showTangents_${v}`);
+        if (savedTan) this.showTangents[v] = savedTan === 'true';
+    });
+    // Dispatch initial state to WASM worker immediately so the first render is correct
+    views.forEach(v => {
+        this.dispatchEvent(new CustomEvent('set-gizmo-scale', { detail: { quad: v, scale: this.gizmoScale[v] }, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('set-show-tangents', { detail: { quad: v, show: this.showTangents[v] }, bubbles: true, composed: true }));
+    });
+
     const offscreen = this.wgpuCanvas.transferControlToOffscreen();
     this.dispatchEvent(new CustomEvent('init-renderer', {
         detail: { canvas: offscreen, width: this.wgpuCanvas.clientWidth, height: this.wgpuCanvas.clientHeight },
@@ -135,7 +151,21 @@ export class BoardViewport extends LitElement {
     }));
   };
 
-    private toggleTangents = (quad: ViewportId) => {
+      public updateGizmoScale(quad: ViewportId, scale: number) {
+    this.gizmoScale = { ...this.gizmoScale, [quad]: scale };
+    this.dispatchEvent(new CustomEvent('set-gizmo-scale', {
+        detail: { quad, scale },
+        bubbles: true,
+        composed: true
+    }));
+    localStorage.setItem(`gizmoScale_${quad}`, scale.toString());
+  }
+
+  private toggleSettings = (quad: ViewportId) => {
+    this.showSettings = { ...this.showSettings, [quad]: !this.showSettings[quad] };
+  };
+
+  private toggleTangents = (quad: ViewportId) => {
     const newState = !this.showTangents[quad];
     this.showTangents = { ...this.showTangents, [quad]: newState };
     this.dispatchEvent(new CustomEvent('set-show-tangents', {
@@ -143,6 +173,7 @@ export class BoardViewport extends LitElement {
         bubbles: true,
         composed: true
     }));
+    localStorage.setItem(`showTangents_${quad}`, newState.toString());
   };
 
     private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
@@ -500,21 +531,40 @@ export class BoardViewport extends LitElement {
         </button>
                 ${id === 'profile' ? renderProfileSliceSelector() : ''}
         
-                <div class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 z-10">
-          ${id === 'perspective' ? html`
-            <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-              <span>Ortho</span>
-            </button>
+                        <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
+          ${this.showSettings[id] ? html`
+            <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
+              <div class="flex justify-between items-center">
+                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
+                <button @click=${() => this.toggleSettings(id)} class="text-zinc-500 hover:text-white">&times;</button>
+              </div>
+              
+              <label class="flex items-center justify-between cursor-pointer group">
+                <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[id] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>
+                <input type="checkbox" .checked=${this.showTangents[id]} @change=${() => this.toggleTangents(id)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+              </label>
+
+              <div class="flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                  <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Gizmo Size</span>
+                  <span class="text-[10px] font-mono text-zinc-500">${this.gizmoScale[id].toFixed(1)}x</span>
+                </div>
+                <input type="range" min="0.1" max="3.0" step="0.1" .value=${this.gizmoScale[id].toString()} @input=${(e: Event) => this.updateGizmoScale(id, parseFloat((e.target as HTMLInputElement).value))} class="w-full accent-blue-500 cursor-pointer" />
+              </div>
+            </div>
           ` : ''}
-          <button type="button" @click=${() => this.toggleTangents(id)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showTangents[id] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Tangent Handles">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle cx="18" cy="6" r="3"></circle>
-              <circle cx="6" cy="18" r="3"></circle>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.879 8.121L8.121 15.879"></path>
-            </svg>
-            <span>Tangents</span>
-          </button>
+
+          <div class="flex items-center gap-2">
+            ${id === 'perspective' ? html`
+              <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8-4v10M4 7v10l8 4"></path></svg>
+                <span>Ortho</span>
+              </button>
+            ` : ''}
+            <button type="button" @click=${() => this.toggleSettings(id)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showSettings[id] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Display Settings">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -550,21 +600,40 @@ export class BoardViewport extends LitElement {
               <span>${this.maximizedView}</span> ${collapseIcon}
             </button>
             ${this.maximizedView === 'profile' ? renderProfileSliceSelector() : ''}
-                                    <div class="absolute bottom-3 left-3 pointer-events-auto flex items-center gap-2 z-10">
-              ${this.maximizedView === 'perspective' ? html`
-                <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                  <span>Ortho</span>
-                </button>
+                                                <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
+              ${this.showSettings[this.maximizedView!] ? html`
+                <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
+                  <div class="flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
+                    <button @click=${() => this.toggleSettings(this.maximizedView!)} class="text-zinc-500 hover:text-white">&times;</button>
+                  </div>
+                  
+                  <label class="flex items-center justify-between cursor-pointer group">
+                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[this.maximizedView!] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>
+                    <input type="checkbox" .checked=${this.showTangents[this.maximizedView!]} @change=${() => this.toggleTangents(this.maximizedView!)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                  </label>
+
+                  <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                      <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Gizmo Size</span>
+                      <span class="text-[10px] font-mono text-zinc-500">${this.gizmoScale[this.maximizedView!].toFixed(1)}x</span>
+                    </div>
+                    <input type="range" min="0.1" max="3.0" step="0.1" .value=${this.gizmoScale[this.maximizedView!].toString()} @input=${(e: Event) => this.updateGizmoScale(this.maximizedView!, parseFloat((e.target as HTMLInputElement).value))} class="w-full accent-blue-500 cursor-pointer" />
+                  </div>
+                </div>
               ` : ''}
-              <button type="button" @click=${() => this.toggleTangents(this.maximizedView!)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showTangents[this.maximizedView!] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Tangent Handles">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle cx="18" cy="6" r="3"></circle>
-                  <circle cx="6" cy="18" r="3"></circle>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.879 8.121L8.121 15.879"></path>
-                </svg>
-                <span>Tangents</span>
-              </button>
+
+              <div class="flex items-center gap-2">
+                ${this.maximizedView === 'perspective' ? html`
+                  <button type="button" @click=${this.toggleOrtho} class="flex items-center gap-2 px-2.5 py-1.5 ${this.isOrtho ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Toggle Orthographic">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    <span>Ortho</span>
+                  </button>
+                ` : ''}
+                <button type="button" @click=${() => this.toggleSettings(this.maximizedView!)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showSettings[this.maximizedView!] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Display Settings">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+              </div>
             </div>
           </div>
         `}

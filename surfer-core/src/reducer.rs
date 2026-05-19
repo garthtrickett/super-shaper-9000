@@ -827,14 +827,10 @@ fn handle_parametric_scaling(
                 model.rail_coefficient_nose = value;
                 dirty.global_rebuild = true;
             }
-            "thicknessZStretch" => {
+                        "thicknessZStretch" => {
                 model.thickness_z_stretch = value;
                 dirty.global_rebuild = true;
             }
-            "gizmoScaleTop" => model.gizmo_scale_top = Some(value),
-            "gizmoScaleSide" => model.gizmo_scale_side = Some(value),
-            "gizmoScaleProfile" => model.gizmo_scale_profile = Some(value),
-            "gizmoScalePerspective" => model.gizmo_scale_perspective = Some(value),
             "mriSlicePosition" => model.mri_slice_position = Some(value),
             _ => {}
         },

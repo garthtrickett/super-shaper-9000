@@ -135,10 +135,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 1. Programmatically find and click the middle anchor point in the top-down view
         const hitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & {
-        requestUpdate?: () => void;
+                requestUpdate?: () => void;
+        updateGizmoScale?: (quad: string, scale: number) => void;
         mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
-          gizmoScaleTop?: number;
+                    
           outline?: {
             controlPoints?: [number, number, number][];
             control_points?: {x: number, y: number, z: number}[];
@@ -149,9 +150,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
 
-      if (viewport.boardState) {
-        viewport.boardState.gizmoScaleTop = 3.0;
-        viewport.requestUpdate?.();
+            if (viewport.updateGizmoScale) {
+        viewport.updateGizmoScale('top', 3.0);
       }
 
       const outline = viewport.boardState.outline;
@@ -278,10 +278,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // We'll use the same coordinate calculation logic as other tests to click the wing gizmo
         const hitPosition = await page.evaluate(() => {
                               type BoardViewportElement = HTMLElement & { 
-        requestUpdate?: () => void;
+                requestUpdate?: () => void;
+        updateGizmoScale?: (quad: string, scale: number) => void;
         mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
-          gizmoScaleTop?: number;
+                    
           outlineLayers?: { active?: boolean, otlExt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
       };
@@ -291,9 +292,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers || vp.boardState.outlineLayers.length === 0) return null;
       
       // Force gizmos to be huge to prevent exact-pixel misses in headless
-      if (vp.boardState) {
-        vp.boardState.gizmoScaleTop = 3.0;
-        vp.requestUpdate?.();
+            if (vp.updateGizmoScale) {
+        vp.updateGizmoScale('top', 3.0);
       }
       
       const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
@@ -357,19 +357,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 2. Locate the wing's start node (Layer 0 EXT, Index 0)
         const hitPosition = await page.evaluate(() => {
                   type BoardViewportElement = HTMLElement & { 
-                requestUpdate?: () => void;
+                        requestUpdate?: () => void;
+        updateGizmoScale?: (quad: string, scale: number) => void;
         mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
-          gizmoScaleTop?: number;
+                    
           outlineLayers?: { active?: boolean, otlExt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
       
-      if (vp.boardState) {
-        vp.boardState.gizmoScaleTop = 3.0;
-        vp.requestUpdate?.();
+            if (vp.updateGizmoScale) {
+        vp.updateGizmoScale('top', 3.0);
       }
       const otlExt = vp.boardState.outlineLayers[0]!.otlExt;
       const cpList = otlExt.controlPoints || otlExt.control_points;
@@ -453,19 +453,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         // 4. Verify 3D Gizmo selection for the new channel
     const hitPosition = await page.evaluate(() => {
                   type BoardViewportElement = HTMLElement & { 
-        requestUpdate?: () => void;
+                requestUpdate?: () => void;
+        updateGizmoScale?: (quad: string, scale: number) => void;
         mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
-          gizmoScaleTop?: number;
+                    
           bottomChannels?: { rightOutline: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.bottomChannels || vp.boardState.bottomChannels.length === 0) return null;
       
-      if (vp.boardState) {
-        vp.boardState.gizmoScaleTop = 3.0;
-        vp.requestUpdate?.();
+            if (vp.updateGizmoScale) {
+        vp.updateGizmoScale('top', 3.0);
       }
       const rightOutline = vp.boardState.bottomChannels[0]!.rightOutline;
       const cpList = rightOutline.controlPoints || rightOutline.control_points;

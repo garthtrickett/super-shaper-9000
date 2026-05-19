@@ -402,11 +402,7 @@ export class BoardBuilderPage extends LitElement {
           .toeAngle=${state.toeAngle}
           .cantAngle=${state.cantAngle}
           .coreMaterial=${state.coreMaterial}
-          .glassingSchedule=${state.glassingSchedule}
-          .gizmoScaleTop=${state.gizmoScaleTop ?? 1.0}
-          .gizmoScaleSide=${state.gizmoScaleSide ?? 1.0}
-          .gizmoScaleProfile=${state.gizmoScaleProfile ?? 1.0}
-          .gizmoScalePerspective=${state.gizmoScalePerspective ?? 1.0}
+                    .glassingSchedule=${state.glassingSchedule}
           @preview-number=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
             this._previewAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
@@ -529,7 +525,16 @@ export class BoardBuilderPage extends LitElement {
                     @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
             this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
-                    @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
+                              @set-gizmo-scale=${(e: CustomEvent<{quad: string, scale: number}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "SET_GIZMO_SCALE", quad: e.detail.quad, scale: e.detail.scale });
+              }
+              if (this.mathEngine) {
+                  (this.mathEngine as any).set_gizmo_scale(e.detail.quad, e.detail.scale);
+              }
+          }}
+          @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_TANGENTS", quad: e.detail.quad, show: e.detail.show });

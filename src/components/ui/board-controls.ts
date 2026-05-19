@@ -339,14 +339,7 @@ export class BoardControls extends LitElement {
           </div>
         </div>
 
-                        ${this._renderAccordion("Control Point Sizes", html`
-          ${this._renderSlider("Top View", "gizmoScaleTop", 0.1, 3.0, 0.1, this.gizmoScaleTop, "x")}
-          ${this._renderSlider("Side View", "gizmoScaleSide", 0.1, 3.0, 0.1, this.gizmoScaleSide, "x")}
-          ${this._renderSlider("Profile View", "gizmoScaleProfile", 0.1, 3.0, 0.1, this.gizmoScaleProfile, "x")}
-          ${this._renderSlider("Perspective View", "gizmoScalePerspective", 0.1, 3.0, 0.1, this.gizmoScalePerspective, "x")}
-        `, false)}
-
-        ${this._renderAccordion("Visibility", html`
+                                ${this._renderAccordion("Visibility", html`
                                         <label class="flex items-center justify-between mb-2 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
             <span class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Solid Mesh</span>
                         <input type="checkbox" .checked=${live(this.showSolidMesh)} @change=${(e: Event) => this._dispatchBoolean('showSolidMesh', (e.target as HTMLInputElement).checked)} class="w-4 h-4 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />

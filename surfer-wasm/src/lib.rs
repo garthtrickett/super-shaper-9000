@@ -317,8 +317,9 @@ pub struct WasmEngine {
     stats: MeshStats,
         view_mode: String,
     is_ortho: bool,
-    active_profile_slice: usize,
+        active_profile_slice: usize,
     show_tangents: [bool; 4],
+    gizmo_scale: [f32; 4],
 }
 
 impl Default for WasmEngine {
@@ -340,8 +341,9 @@ impl WasmEngine {
             stats: MeshStats::default(),
                         view_mode: "quad".to_string(),
             is_ortho: false,
-            active_profile_slice: 0,
+                        active_profile_slice: 0,
             show_tangents: [true, true, true, true],
+            gizmo_scale: [1.0, 1.0, 1.0, 1.0],
         }
     }
 
@@ -350,7 +352,7 @@ impl WasmEngine {
         self.view_mode = mode.to_string();
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_show_tangents(&mut self, quad: &str, show: bool) {
         let idx = match quad {
             "top" => 0,
@@ -360,12 +362,35 @@ impl WasmEngine {
             _ => return,
         };
         self.show_tangents[idx] = show;
-                if let Some(renderer) = &mut self.renderer {
+        if let Some(renderer) = &mut self.renderer {
             let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 quad,
                 self.active_profile_slice,
                 show,
+                self.gizmo_scale[idx],
+            );
+            renderer.update_view_buffers(idx, &lv, &lc, &tv, &tc, &ti);
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn set_gizmo_scale(&mut self, quad: &str, scale: f32) {
+        let idx = match quad {
+            "top" => 0,
+            "perspective" => 1,
+            "side" => 2,
+            "profile" => 3,
+            _ => return,
+        };
+        self.gizmo_scale[idx] = scale;
+        if let Some(renderer) = &mut self.renderer {
+            let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
+                self.engine.get_model(),
+                quad,
+                self.active_profile_slice,
+                self.show_tangents[idx],
+                self.gizmo_scale[idx],
             );
             renderer.update_view_buffers(idx, &lv, &lc, &tv, &tc, &ti);
         }
@@ -380,11 +405,12 @@ impl WasmEngine {
     pub fn set_active_profile_slice(&mut self, slice: usize) {
         self.active_profile_slice = slice;
                         if let Some(renderer) = &mut self.renderer {
-            let (lv_prof, lc_prof, tv_prof, tc_prof, ti_prof) = surfer_core::mesh::generate_lines_for_view(
+                        let (lv_prof, lc_prof, tv_prof, tc_prof, ti_prof) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 "profile",
                 self.active_profile_slice,
-                self.show_tangents[3]
+                self.show_tangents[3],
+                self.gizmo_scale[3]
             );
             renderer.update_view_buffers(3, &lv_prof, &lc_prof, &tv_prof, &tc_prof, &ti_prof);
 
@@ -392,7 +418,8 @@ impl WasmEngine {
                 self.engine.get_model(),
                 "perspective",
                 self.active_profile_slice,
-                self.show_tangents[1]
+                self.show_tangents[1],
+                self.gizmo_scale[1]
             );
             renderer.update_view_buffers(1, &lv_persp, &lc_persp, &tv_persp, &tc_persp, &ti_persp);
         }
@@ -772,12 +799,13 @@ impl WasmEngine {
                         if let Some(renderer) = &mut self.renderer {
             renderer.update_mesh_buffers(&mesh);
             let views = ["top", "perspective", "side", "profile"];
-            for (i, view_id) in views.iter().enumerate() {
+                        for (i, view_id) in views.iter().enumerate() {
                 let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
                     self.engine.get_model(),
                     view_id,
                     self.active_profile_slice,
-                    self.show_tangents[i]
+                    self.show_tangents[i],
+                    self.gizmo_scale[i]
                 );
                 renderer.update_view_buffers(i, &lv, &lc, &tv, &tc, &ti);
             }
