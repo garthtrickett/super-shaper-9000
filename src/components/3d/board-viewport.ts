@@ -32,8 +32,10 @@ export class BoardViewport extends LitElement {
   @state() private maximizedView: ViewportId | null = null;
   @state() private isFlipped = false;
     @state() private isOrtho = false;
-    @state() private activeProfileSlice = 0;
+      @state() private activeProfileSlice = 0;
   @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
+  @state() private showGizmos: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
+  @state() private showSolidMesh: boolean = true;
   @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 1.0, profile: 1.0 };
     @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
   @state() private hoverInsertPoint: { left: number, top: number } | null = null;
@@ -41,19 +43,28 @@ export class BoardViewport extends LitElement {
   private ro?: ResizeObserver;
   
     override firstUpdated() {
-    const views: ViewportId[] = ['top', 'perspective', 'side', 'profile'];
+        const views: ViewportId[] = ['top', 'perspective', 'side', 'profile'];
     views.forEach(v => {
         const savedScale = localStorage.getItem(`gizmoScale_${v}`);
         if (savedScale) this.gizmoScale[v] = parseFloat(savedScale);
 
         const savedTan = localStorage.getItem(`showTangents_${v}`);
         if (savedTan) this.showTangents[v] = savedTan === 'true';
+
+        const savedGizmos = localStorage.getItem(`showGizmos_${v}`);
+        if (savedGizmos) this.showGizmos[v] = savedGizmos === 'true';
     });
+    
+    const savedSolid = localStorage.getItem(`showSolidMesh`);
+    if (savedSolid) this.showSolidMesh = savedSolid === 'true';
+
     // Dispatch initial state to WASM worker immediately so the first render is correct
     views.forEach(v => {
         this.dispatchEvent(new CustomEvent('set-gizmo-scale', { detail: { quad: v, scale: this.gizmoScale[v] }, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('set-show-tangents', { detail: { quad: v, show: this.showTangents[v] }, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('set-show-gizmos', { detail: { quad: v, show: this.showGizmos[v] }, bubbles: true, composed: true }));
     });
+    this.dispatchEvent(new CustomEvent('set-show-solid-mesh', { detail: { show: this.showSolidMesh }, bubbles: true, composed: true }));
 
     const offscreen = this.wgpuCanvas.transferControlToOffscreen();
     this.dispatchEvent(new CustomEvent('init-renderer', {
@@ -170,7 +181,7 @@ export class BoardViewport extends LitElement {
     this.showSettings = { ...this.showSettings, [quad]: !this.showSettings[quad] };
   };
 
-  private toggleTangents = (quad: ViewportId) => {
+    private toggleTangents = (quad: ViewportId) => {
     const newState = !this.showTangents[quad];
     this.showTangents = { ...this.showTangents, [quad]: newState };
     this.dispatchEvent(new CustomEvent('set-show-tangents', {
@@ -179,6 +190,27 @@ export class BoardViewport extends LitElement {
         composed: true
     }));
     localStorage.setItem(`showTangents_${quad}`, newState.toString());
+  };
+
+  private toggleGizmos = (quad: ViewportId) => {
+    const newState = !this.showGizmos[quad];
+    this.showGizmos = { ...this.showGizmos, [quad]: newState };
+    this.dispatchEvent(new CustomEvent('set-show-gizmos', {
+        detail: { quad, show: newState },
+        bubbles: true,
+        composed: true
+    }));
+    localStorage.setItem(`showGizmos_${quad}`, newState.toString());
+  };
+
+  private toggleSolidMesh = () => {
+    this.showSolidMesh = !this.showSolidMesh;
+    this.dispatchEvent(new CustomEvent('set-show-solid-mesh', {
+        detail: { show: this.showSolidMesh },
+        bubbles: true,
+        composed: true
+    }));
+    localStorage.setItem(`showSolidMesh`, this.showSolidMesh.toString());
   };
 
         private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
@@ -274,8 +306,10 @@ export class BoardViewport extends LitElement {
           }
       };
 
-      const checkCurve = (name: string, curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined, isSymmetrical: boolean) => {
+            const checkCurve = (name: string, curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined, isSymmetrical: boolean) => {
           if (!curveData) return;
+          if (!this.showGizmos[quad as ViewportId]) return; // Stop early if gizmos are off for this view
+
           const cdAny = curveData as unknown as { control_points?: {x: number, y: number, z: number}[], tangents_1?: {x: number, y: number, z: number}[], tangents_2?: {x: number, y: number, z: number}[] };
           const cps = curveData.controlPoints || cdAny.control_points;
           if (cps) {
@@ -630,7 +664,19 @@ export class BoardViewport extends LitElement {
                 <button @click=${() => this.toggleSettings(id)} class="text-zinc-500 hover:text-white">&times;</button>
               </div>
               
-              <label class="flex items-center justify-between cursor-pointer group">
+                            ${id === 'perspective' ? html`
+              <label class="flex items-center justify-between cursor-pointer group mb-2">
+                <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
+                <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+              </label>
+              ` : ''}
+
+              <label class="flex items-center justify-between cursor-pointer group mb-2">
+                <span class="text-[10px] font-bold uppercase tracking-widest ${this.showGizmos[id] ? 'text-zinc-200' : 'text-zinc-500'}">Control Points</span>
+                <input type="checkbox" .checked=${this.showGizmos[id]} @change=${() => this.toggleGizmos(id)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+              </label>
+
+              <label class="flex items-center justify-between cursor-pointer group mb-2">
                 <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[id] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>
                 <input type="checkbox" .checked=${this.showTangents[id]} @change=${() => this.toggleTangents(id)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
               </label>

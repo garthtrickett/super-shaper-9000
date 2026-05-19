@@ -34,7 +34,7 @@ test.describe('Visual Regression', () => {
     // Wait for the geometry to settle
     await page.waitForTimeout(2000);
 
-    // 2. Hide all wireframes and gizmos to isolate the solid mesh
+        // 2. Hide all wireframes and gizmos to isolate the solid mesh
     const toggleCheckbox = async (labelText: string, targetState: boolean) => {
       const label = boardControls.locator('label', { hasText: labelText }).first();
       const input = label.locator('input[type="checkbox"]');
@@ -50,7 +50,15 @@ test.describe('Visual Regression', () => {
       }
     };
 
-    await toggleCheckbox("Control Points", false);
+    // Open Perspective Cog and disable Control Points
+    const perspectiveCog = viewport.locator('button[title="Display Settings"]').nth(1); // top is 0, perspective is 1
+    await perspectiveCog.click();
+    await page.waitForTimeout(200);
+    const gizmoInput = viewport.locator('label:has-text("Control Points") input').first();
+    await gizmoInput.uncheck({ force: true });
+    await perspectiveCog.click(); // close cog
+    await page.waitForTimeout(200);
+
     await toggleCheckbox("Outline", false);
     await toggleCheckbox("Rocker Top", false);
     await toggleCheckbox("Rocker Bottom", false);

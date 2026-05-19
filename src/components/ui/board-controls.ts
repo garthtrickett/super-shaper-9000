@@ -18,9 +18,7 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) toeAngle = 3.0;
   @property({ type: Number }) cantAngle = 6.0;
   @property({ type: String }) coreMaterial = "pu";
-  @property({ type: String }) glassingSchedule = "heavy";
-    @property({ type: Boolean }) showGizmos = true;
-  @property({ type: Boolean }) showSolidMesh = true;
+    @property({ type: String }) glassingSchedule = "heavy";
   @property({ type: Boolean }) showHeatmap = false;
     @property({ type: Boolean }) showZebra = false;
   @property({ type: Boolean }) showOutline = true;
@@ -339,16 +337,7 @@ export class BoardControls extends LitElement {
           </div>
         </div>
 
-                                ${this._renderAccordion("Visibility", html`
-                                        <label class="flex items-center justify-between mb-2 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
-            <span class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Solid Mesh</span>
-                        <input type="checkbox" .checked=${live(this.showSolidMesh)} @change=${(e: Event) => this._dispatchBoolean('showSolidMesh', (e.target as HTMLInputElement).checked)} class="w-4 h-4 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
-          </label>
-          <label class="flex items-center justify-between mb-2 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
-            <span class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Control Points</span>
-            <input type="checkbox" .checked=${live(this.showGizmos)} @change=${(e: Event) => this._dispatchBoolean('showGizmos', (e.target as HTMLInputElement).checked)} class="w-4 h-4 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
-          </label>
-                    <div class="h-px bg-zinc-800 my-2"></div>
+                                                                ${this._renderAccordion("Visibility", html`
                     ${[
             { label: "Outline", key: "showOutline" },
             { label: "Rocker Top", key: "showRockerTop" },

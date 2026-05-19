@@ -121,9 +121,23 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-        if (msg.type === "SET_SHOW_TANGENTS") {
+                if (msg.type === "SET_SHOW_TANGENTS") {
         if (engine) {
             engine.set_show_tangents(msg.quad, msg.show);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_SHOW_GIZMOS") {
+        if (engine) {
+            (engine as any).set_show_gizmos(msg.quad, msg.show);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_SHOW_SOLID_MESH") {
+        if (engine) {
+            (engine as any).set_show_solid_mesh(msg.show);
         }
         return;
     }

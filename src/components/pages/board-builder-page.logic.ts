@@ -32,8 +32,6 @@ export const SelectedNodeSchema = S.Struct({
 });
 
 export const BoardModelSchema = S.Struct({
-  showGizmos: S.optional(S.Boolean),
-  showSolidMesh: S.optional(S.Boolean),
   showHeatmap: S.optional(S.Boolean),
     showZebra: S.optional(S.Boolean),
   showOutline: S.optional(S.Boolean),
@@ -122,8 +120,6 @@ export interface ManualSnapshot {
 }
 
 export interface BoardModel {
-  showGizmos?: boolean;
-  showSolidMesh?: boolean;
   showHeatmap?: boolean;
     showZebra?: boolean;
   showOutline?: boolean;
@@ -199,8 +195,6 @@ const basicCrossSection: BezierCurveData = {
 };
 
 export const INITIAL_STATE: BoardModel = {
-  showGizmos: true,
-  showSolidMesh: true,
   showHeatmap: false,
     showZebra: false,
   showOutline: true,

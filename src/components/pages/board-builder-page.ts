@@ -415,7 +415,7 @@ export class BoardBuilderPage extends LitElement {
           .toeAngle=${state.toeAngle}
           .cantAngle=${state.cantAngle}
           .coreMaterial=${state.coreMaterial}
-                    .glassingSchedule=${state.glassingSchedule}
+                              .glassingSchedule=${state.glassingSchedule}
           @preview-number=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
             this._previewAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
@@ -428,9 +428,7 @@ export class BoardBuilderPage extends LitElement {
                     @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
             this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
-          .showGizmos=${state.showGizmos ?? true}
-          .showSolidMesh=${state.showSolidMesh ?? true}
-          .showHeatmap=${state.showHeatmap ?? false}
+                    .showHeatmap=${state.showHeatmap ?? false}
                     .showZebra=${state.showZebra ?? false}
           .showOutline=${state.showOutline ?? true}
           .showRockerTop=${state.showRockerTop ?? true}
@@ -548,13 +546,31 @@ export class BoardBuilderPage extends LitElement {
                   (this.mathEngine as any).set_gizmo_scale(e.detail.quad, e.detail.scale);
               }
           }}
-          @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
+                    @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_TANGENTS", quad: e.detail.quad, show: e.detail.show });
               }
               if (this.mathEngine) {
                   (this.mathEngine as any).set_show_tangents(e.detail.quad, e.detail.show);
+              }
+          }}
+          @set-show-gizmos=${(e: CustomEvent<{quad: string, show: boolean}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "SET_SHOW_GIZMOS", quad: e.detail.quad, show: e.detail.show });
+              }
+              if (this.mathEngine) {
+                  (this.mathEngine as any).set_show_gizmos(e.detail.quad, e.detail.show);
+              }
+          }}
+          @set-show-solid-mesh=${(e: CustomEvent<{show: boolean}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "SET_SHOW_SOLID_MESH", show: e.detail.show });
+              }
+              if (this.mathEngine) {
+                  (this.mathEngine as any).set_show_solid_mesh(e.detail.show);
               }
           }}
           @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {

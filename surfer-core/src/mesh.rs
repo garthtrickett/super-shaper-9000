@@ -152,6 +152,7 @@ pub fn generate_lines_for_view(
     view_id: &str,
     active_slice: usize,
     show_tangents: bool,
+    show_gizmos: bool,
     gizmo_scale: f32,
 ) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>, Vec<u32>) {
     fn push_line_grad(
@@ -371,15 +372,13 @@ pub fn generate_lines_for_view(
         }
     }
 
-    let scale = 1.0 / 12.0;
+        let scale = 1.0 / 12.0;
     let bounds = crate::geometry::get_board_bounds(model);
     let mut line_vertices = Vec::new();
     let mut line_colors = Vec::new();
     let mut tri_vertices = Vec::new();
     let mut tri_colors = Vec::new();
     let mut tri_indices = Vec::new();
-
-    let show_gizmos = model.show_gizmos.unwrap_or(true);
 
     let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
                                color: Vec3,
@@ -1286,20 +1285,20 @@ mod tests {
 
 
           // "top" view should have 0 lines since only rockerTop and a cross section are defined
-        let (top_verts, _, _, _, _) = super::generate_lines_for_view(&model, "top", 0, true, 1.0);
+                let (top_verts, _, _, _, _) = super::generate_lines_for_view(&model, "top", 0, true, true, 1.0);
                 assert_eq!(top_verts.len(), 0,
                            "Top view should output 0 lines for a model with only top rocker and cross section"
                 );
 
             // "side" view should have lines from rockerTop
-            let (side_verts, _, _, _, _) = super::generate_lines_for_view(&model, "side", 0, true, 1.0);
+                        let (side_verts, _, _, _, _) = super::generate_lines_for_view(&model, "side", 0, true, true, 1.0);
                     assert!(
                             side_verts.len() > 0,
                             "Side view should have lines from top rocker"
                             );
 
             // "profile" view should only have lines from active slice
-            let (profile_verts, _, _, _, _) = super::generate_lines_for_view(&model, "profile", 0, true, 1.0);
+                        let (profile_verts, _, _, _, _) = super::generate_lines_for_view(&model, "profile", 0, true, true, 1.0);
 
 
         

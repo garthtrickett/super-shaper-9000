@@ -92,9 +92,7 @@ pub struct BoardModel {
     #[serde(default = "default_one")]
         pub rail_coefficient_nose: f32,
     #[serde(default = "default_one")]
-    pub thickness_z_stretch: f32,
-    pub show_gizmos: Option<bool>,
-    pub show_solid_mesh: Option<bool>,
+        pub thickness_z_stretch: f32,
     pub show_heatmap: Option<bool>,
     pub show_zebra: Option<bool>,
     pub show_outline: Option<bool>,
@@ -355,9 +353,7 @@ impl Default for BoardModel {
             v_concave_nose: 0.0,
             rail_coefficient_tail: 1.0,
                         rail_coefficient_nose: 1.0,
-            thickness_z_stretch: 1.0,
-            show_gizmos: None,
-            show_solid_mesh: None,
+                        thickness_z_stretch: 1.0,
             show_heatmap: None,
             show_zebra: None,
             show_outline: None,
