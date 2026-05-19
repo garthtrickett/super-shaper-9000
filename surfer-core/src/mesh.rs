@@ -459,9 +459,17 @@ pub fn generate_lines_for_view(
                         0.0
                     };
 
-                                        let p = map_point(t, raw_p);
+                                                            let p = map_point(t, raw_p);
 
-                    let c_anchor = Vec3::new(1.0, 1.0, 1.0);
+                    let is_any_selected = model.selected_node.is_some();
+                    let is_this_selected = model.selected_node.as_ref().map_or(false, |sn| sn.curve == curve_name && sn.index == i);
+
+                    let c_anchor = if is_this_selected {
+                        Vec3::new(1.0, 0.8, 0.0) // Amber for selected
+                    } else {
+                        Vec3::new(1.0, 1.0, 1.0) // White for unselected
+                    };
+
                     draw_shape(
                         &mut tri_vertices,
                         &mut tri_colors,
@@ -474,7 +482,9 @@ pub fn generate_lines_for_view(
                         "circle",
                     );
 
-                                        if show_tangents {
+                    let should_draw_tangents = show_tangents && (!is_any_selected || is_this_selected);
+
+                    if should_draw_tangents {
                         let c_tan = Vec3::new(0.4, 0.4, 1.0);
                         // Do not draw incoming tangent for the first node (mathematically dead)
                         if i > 0 && i < curve.tangents1.len() {
