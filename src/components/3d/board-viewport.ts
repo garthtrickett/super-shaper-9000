@@ -287,9 +287,9 @@ export class BoardViewport extends LitElement {
             const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_side() : 8.0;
             const frustumSize = (distance / 4.0) * 2.0;
             const stretchY = 2.5;
-            const orthoRight = frustumSize * localAspect / 2;
+                        const orthoRight = frustumSize * localAspect / 2;
             const orthoTop = (frustumSize / 2) / stretchY;
-            worldZ = -localNdcX * orthoRight * 12;
+            worldZ = localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
         } else if (quad === "profile") {
             const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_profile() : 8.0;
@@ -451,9 +451,9 @@ export class BoardViewport extends LitElement {
             worldY = localNdcY * orthoTop * 12;
         } else if (quad === "profile") {
             const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_profile() : 8.0;
-            const orthoTop = distance / 4.0;
+                        const orthoTop = distance / 4.0;
             const orthoRight = orthoTop * localAspect;
-            worldX = -localNdcX * orthoRight * 12;
+            worldX = localNdcX * orthoRight * 12;
             worldY = localNdcY * orthoTop * 12;
         } else         if (quad === "perspective") {
             if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
