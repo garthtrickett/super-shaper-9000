@@ -166,6 +166,9 @@ struct CameraController {
     distance_profile: f32,
     distance_persp: f32,
     target: glam::Vec3,
+    pan_top: (f32, f32),
+    pan_side: (f32, f32),
+    pan_profile: (f32, f32),
 }
 
 impl Default for CameraController {
@@ -180,6 +183,9 @@ impl Default for CameraController {
             distance_profile: 8.0,
             distance_persp: 12.0,
             target: glam::Vec3::ZERO,
+            pan_top: (0.0, 0.0),
+            pan_side: (0.0, 0.0),
+            pan_profile: (0.0, 0.0),
         }
     }
 }
@@ -196,17 +202,31 @@ impl CameraController {
         proj * view
     }
 
-    fn process_pointer_down(&mut self, x: f32, y: f32) {
+        fn process_pointer_down(&mut self, x: f32, y: f32) {
         self.is_dragging = true;
         self.last_mouse = (x, y);
     }
-    fn process_pointer_move(&mut self, x: f32, y: f32) {
+    fn process_pointer_move(&mut self, x: f32, y: f32, quad: &str) {
         if self.is_dragging {
             let dx = x - self.last_mouse.0;
             let dy = y - self.last_mouse.1;
-            self.yaw -= dx * 0.01;
-            self.pitch += dy * 0.01;
-            self.pitch = self.pitch.clamp(-1.5, 1.5);
+            if quad == "perspective" {
+                self.yaw -= dx * 0.01;
+                self.pitch += dy * 0.01;
+                self.pitch = self.pitch.clamp(-1.5, 1.5);
+            } else if quad == "top" {
+                let scale = self.distance_top * 0.002;
+                self.pan_top.0 -= dx * scale;
+                self.pan_top.1 -= dy * scale;
+            } else if quad == "side" {
+                let scale = self.distance_side * 0.002;
+                self.pan_side.0 -= dx * scale;
+                self.pan_side.1 += dy * scale;
+            } else if quad == "profile" {
+                let scale = self.distance_profile * 0.002;
+                self.pan_profile.0 -= dx * scale;
+                self.pan_profile.1 += dy * scale;
+            }
             self.last_mouse = (x, y);
         }
     }
@@ -331,14 +351,11 @@ impl WasmEngine {
 
     #[wasm_bindgen]
         #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn handle_pointer(&mut self, event_type: &str, x: f32, y: f32, quad: &str) {
         match event_type {
-            "down" => {
-                if quad == "perspective" {
-                    self.camera_ctrl.process_pointer_down(x, y);
-                }
-            }
-            "move" => self.camera_ctrl.process_pointer_move(x, y),
+            "down" => self.camera_ctrl.process_pointer_down(x, y),
+            "move" => self.camera_ctrl.process_pointer_move(x, y, quad),
             "up" => self.camera_ctrl.process_pointer_up(),
             _ => {}
         }
@@ -391,6 +408,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn render(&mut self) -> Result<(), JsValue> {
         if let Some(renderer) = &mut self.renderer {
             let full_w = renderer.config.width as f32;
@@ -414,10 +432,11 @@ impl WasmEngine {
                 let view_proj = match q {
                     "top" => {
                         let frustum = self.camera_ctrl.distance_top / 4.0;
-                        cam_pos = glam::Vec3::new(0.0, 10.0, 0.0);
+                        let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, self.camera_ctrl.pan_top.1);
+                        cam_pos = target + glam::Vec3::new(0.0, 10.0, 0.0);
                         let view = glam::Mat4::look_at_rh(
                             cam_pos,
-                            glam::Vec3::ZERO,
+                            target,
                             glam::Vec3::new(0.0, 0.0, -1.0),
                         );
                         let proj = glam::Mat4::orthographic_rh(
@@ -435,8 +454,9 @@ impl WasmEngine {
                         let stretch_y = 2.5;
                         let ortho_right = frustum_half * aspect;
                         let ortho_top = frustum_half / stretch_y;
-                        cam_pos = glam::Vec3::new(-10.0, 0.0, 0.0);
-                        let view = glam::Mat4::look_at_rh(cam_pos, glam::Vec3::ZERO, glam::Vec3::Y);
+                        let target = glam::Vec3::new(0.0, self.camera_ctrl.pan_side.1, self.camera_ctrl.pan_side.0);
+                        cam_pos = target + glam::Vec3::new(-10.0, 0.0, 0.0);
+                        let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
                         let proj = glam::Mat4::orthographic_rh(
                             -ortho_right,
                             ortho_right,
@@ -461,13 +481,13 @@ impl WasmEngine {
                                 * (1.0 / 12.0);
                         }
 
-                        cam_pos = glam::Vec3::new(0.0, 0.0, target_z + 1.0);
+                        let target = glam::Vec3::new(self.camera_ctrl.pan_profile.0, self.camera_ctrl.pan_profile.1, target_z);
+                        cam_pos = target + glam::Vec3::new(0.0, 0.0, 1.0);
                         let view = glam::Mat4::look_at_rh(
                             cam_pos,
-                            glam::Vec3::new(0.0, 0.0, target_z),
+                            target,
                             glam::Vec3::Y,
                         );
-                        // Tight clipping planes: near=0.9, far=1.1, so it only renders things exactly at target_z (distance 1.0 from camera)
                         let proj = glam::Mat4::orthographic_rh(
                             -frustum * aspect,
                             frustum * aspect,
@@ -512,7 +532,7 @@ impl WasmEngine {
 
                 let view_proj_array = view_proj.to_cols_array();
 
-                let mut uniform_data = [0.0f32; 24]; // 16 (mat4) + 4 (vec4) + 4 (vec4) = 24 floats = 96 bytes
+                let mut uniform_data = [0.0f32; 24];
                 uniform_data[0..16].copy_from_slice(&view_proj_array);
                 uniform_data[16..19].copy_from_slice(&cam_pos.to_array());
                 uniform_data[19] = 1.0;
@@ -542,7 +562,6 @@ impl WasmEngine {
                 uniform_data[23] = mri_z_world;
 
                 let uniform_bytes = as_u8_slice(&uniform_data);
-                // In single view mode, we update index 0
                 renderer
                     .queue
                     .write_buffer(&renderer.camera_buffers[i], 0, uniform_bytes);
@@ -785,6 +804,8 @@ impl WasmEngine {
 
     #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
+        #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen]
     pub fn unproject_to_plane(
         &self,
         quad: &str,
@@ -798,9 +819,10 @@ impl WasmEngine {
         let view_proj = match quad {
             "top" => {
                 let frustum = self.camera_ctrl.distance_top / 4.0;
+                let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, self.camera_ctrl.pan_top.1);
                 let view = glam::Mat4::look_at_rh(
-                    glam::Vec3::new(0.0, 10.0, 0.0),
-                    glam::Vec3::ZERO,
+                    target + glam::Vec3::new(0.0, 10.0, 0.0),
+                    target,
                     glam::Vec3::new(0.0, 0.0, -1.0),
                 );
                 let proj = glam::Mat4::orthographic_rh(
@@ -818,9 +840,10 @@ impl WasmEngine {
                 let stretch_y = 2.5;
                 let ortho_right = frustum_half * aspect;
                 let ortho_top = frustum_half / stretch_y;
+                let target = glam::Vec3::new(0.0, self.camera_ctrl.pan_side.1, self.camera_ctrl.pan_side.0);
                 let view = glam::Mat4::look_at_rh(
-                    glam::Vec3::new(-10.0, 0.0, 0.0),
-                    glam::Vec3::ZERO,
+                    target + glam::Vec3::new(-10.0, 0.0, 0.0),
+                    target,
                     glam::Vec3::Y,
                 );
                 let proj = glam::Mat4::orthographic_rh(
@@ -844,9 +867,10 @@ impl WasmEngine {
                 {
                     target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
                 }
+                let target = glam::Vec3::new(self.camera_ctrl.pan_profile.0, self.camera_ctrl.pan_profile.1, target_z);
                 let view = glam::Mat4::look_at_rh(
-                    glam::Vec3::new(0.0, 0.0, target_z + 1.0),
-                    glam::Vec3::new(0.0, 0.0, target_z),
+                    target + glam::Vec3::new(0.0, 0.0, 1.0),
+                    target,
                     glam::Vec3::Y,
                 );
                 let proj = glam::Mat4::orthographic_rh(
@@ -936,6 +960,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn project_to_screen(
         &self,
         quad: &str,
@@ -947,9 +972,10 @@ impl WasmEngine {
         let view_proj = match quad {
             "top" => {
                 let frustum = self.camera_ctrl.distance_top / 4.0;
+                let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, self.camera_ctrl.pan_top.1);
                 let view = glam::Mat4::look_at_rh(
-                    glam::Vec3::new(0.0, 10.0, 0.0),
-                    glam::Vec3::ZERO,
+                    target + glam::Vec3::new(0.0, 10.0, 0.0),
+                    target,
                     glam::Vec3::new(0.0, 0.0, -1.0),
                 );
                 let proj = glam::Mat4::orthographic_rh(
@@ -967,9 +993,10 @@ impl WasmEngine {
                 let stretch_y = 2.5;
                 let ortho_right = frustum_half * aspect;
                 let ortho_top = frustum_half / stretch_y;
+                let target = glam::Vec3::new(0.0, self.camera_ctrl.pan_side.1, self.camera_ctrl.pan_side.0);
                 let view = glam::Mat4::look_at_rh(
-                    glam::Vec3::new(-10.0, 0.0, 0.0),
-                    glam::Vec3::ZERO,
+                    target + glam::Vec3::new(-10.0, 0.0, 0.0),
+                    target,
                     glam::Vec3::Y,
                 );
                 let proj = glam::Mat4::orthographic_rh(
@@ -993,9 +1020,10 @@ impl WasmEngine {
                 {
                     target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
                 }
+                let target = glam::Vec3::new(self.camera_ctrl.pan_profile.0, self.camera_ctrl.pan_profile.1, target_z);
                 let view = glam::Mat4::look_at_rh(
-                    glam::Vec3::new(0.0, 0.0, target_z + 1.0),
-                    glam::Vec3::new(0.0, 0.0, target_z),
+                    target + glam::Vec3::new(0.0, 0.0, 1.0),
+                    target,
                     glam::Vec3::Y,
                 );
                 let proj = glam::Mat4::orthographic_rh(

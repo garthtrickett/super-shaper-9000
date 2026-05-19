@@ -274,43 +274,28 @@ export class BoardViewport extends LitElement {
             localNdcY = ndcY > 0 ? ndcY * 2 - 1 : ndcY * 2 + 1;
         }
 
-        let worldX = 0, worldY = 0, worldZ = 0;
+                let worldX = 0, worldY = 0, worldZ = 0;
 
-                type EngineExt = { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
-        if (quad === "top") {
-            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_top() : 8.0;
-            const orthoTop = distance / 4.0;
-            const orthoRight = orthoTop * localAspect;
-            worldX = localNdcX * orthoRight * 12;
-            worldZ = -localNdcY * orthoTop * 12;
-        } else if (quad === "side") {
-            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_side() : 8.0;
-            const frustumSize = (distance / 4.0) * 2.0;
-            const stretchY = 2.5;
-                        const orthoRight = frustumSize * localAspect / 2;
-            const orthoTop = (frustumSize / 2) / stretchY;
-            worldZ = localNdcX * orthoRight * 12;
-            worldY = localNdcY * orthoTop * 12;
-        } else if (quad === "profile") {
-            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_profile() : 8.0;
-            const orthoTop = distance / 4.0;
-            const orthoRight = orthoTop * localAspect;
-            worldX = localNdcX * orthoRight * 12;
-            worldY = localNdcY * orthoTop * 12;
-            
-            let targetZ = 0.0;
-            if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
-                const cs = this.boardState.crossSections[this.activeProfileSlice]!;
-                const pt = cs.controlPoints?.[0] || 
-                           (cs as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points?.[0];
-                if (pt) {
-                    targetZ = Array.isArray(pt) ? pt[2] : (pt as {z: number}).z;
+        type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
+        if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
+            let ox = 0, oy = 0, oz = 0;
+            if (quad === "profile") {
+                if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
+                    const cs = this.boardState.crossSections[this.activeProfileSlice]!;
+                    const pt = cs.controlPoints?.[0] || 
+                               (cs as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points?.[0];
+                    if (pt) {
+                        oz = Array.isArray(pt) ? pt[2] : (pt as {z: number}).z;
+                    }
                 }
             }
-            worldZ = targetZ;
+            const pt = (this.mathEngine as unknown as EngineExt).unproject_to_plane(quad, localNdcX, localNdcY, localAspect, ox, oy, oz);
+            worldX = pt[0]!;
+            worldY = pt[1]!;
+            worldZ = pt[2]!;
         }
 
-                                if (quad) {
+        if (quad) {
             const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
             if (e.altKey) {
                 if (quad === "perspective") {
@@ -426,42 +411,17 @@ export class BoardViewport extends LitElement {
             }
         }
 
-                let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
+                        let worldX = originalPos[0], worldY = originalPos[1], worldZ = originalPos[2];
 
         type EngineExt = { 
-            camera_distance_top(): number; 
-            camera_distance_side(): number; 
-            camera_distance_profile(): number; 
             unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array;
-            find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; 
         };
-        if (quad === "top") {
-            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_top() : 8.0;
-            const orthoTop = distance / 4.0;
-            const orthoRight = orthoTop * localAspect;
-            worldX = localNdcX * orthoRight * 12;
-            worldZ = -localNdcY * orthoTop * 12;
-        } else if (quad === "side") {
-            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_side() : 8.0;
-            const frustumSize = (distance / 4.0) * 2.0;
-            const stretchY = 2.5;
-            const orthoRight = frustumSize * localAspect / 2;
-            const orthoTop = (frustumSize / 2) / stretchY;
-            worldZ = localNdcX * orthoRight * 12;
-            worldY = localNdcY * orthoTop * 12;
-        } else if (quad === "profile") {
-            const distance = this.mathEngine ? (this.mathEngine as unknown as EngineExt).camera_distance_profile() : 8.0;
-                        const orthoTop = distance / 4.0;
-            const orthoRight = orthoTop * localAspect;
-            worldX = localNdcX * orthoRight * 12;
-            worldY = localNdcY * orthoTop * 12;
-        } else         if (quad === "perspective") {
-            if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
-                const pt = (this.mathEngine as unknown as EngineExt).unproject_to_plane(quad, localNdcX, localNdcY, localAspect, originalPos[0], originalPos[1], originalPos[2]);
-                worldX = pt[0]!;
-                worldY = pt[1]!;
-                worldZ = pt[2]!;
-            }
+
+        if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
+            const pt = (this.mathEngine as unknown as EngineExt).unproject_to_plane(quad, localNdcX, localNdcY, localAspect, originalPos[0], originalPos[1], originalPos[2]);
+            worldX = pt[0]!;
+            worldY = pt[1]!;
+            worldZ = pt[2]!;
         }
 
                 this.lastDragPosition = [worldX, worldY, worldZ];
