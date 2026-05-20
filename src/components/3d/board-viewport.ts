@@ -39,7 +39,8 @@ export class BoardViewport extends LitElement {
   @state() private gizmoMasks: Record<ViewportId, number> = { perspective: 0x1FF, top: 0x1FF, side: 0x1FF, profile: 0x1FF };
   @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 0.5, profile: 0.3 };
     @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
-    @state() private hoverInsertPoint: { left: number, top: number, curve: string, t: number } | null = null;
+      @state() private hoverInsertPoint: { left: number, top: number, curve: string, t: number } | null = null;
+  @state() private hoverMeasureLine: { left: number, top: number, sizePx: number, measureInches: number, isVertical: boolean } | null = null;
 
   private ro?: ResizeObserver;
   
@@ -98,8 +99,9 @@ export class BoardViewport extends LitElement {
     this.wgpuCanvas.addEventListener("pointermove", this.handlePointerMove);
     this.wgpuCanvas.addEventListener("pointerup", this.handlePointerUp);
     this.wgpuCanvas.addEventListener("pointercancel", this.handlePointerUp);
-    this.wgpuCanvas.addEventListener("pointerleave", () => {
+        this.wgpuCanvas.addEventListener("pointerleave", () => {
         this.hoverInsertPoint = null;
+        this.hoverMeasureLine = null;
         this.wgpuCanvas.style.cursor = 'default';
     });
         this.wgpuCanvas.addEventListener("wheel", (e) => {
@@ -646,8 +648,9 @@ export class BoardViewport extends LitElement {
     
         const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
     
-    let newCursor = 'default';
+        let newCursor = 'default';
     this.hoverInsertPoint = null;
+    this.hoverMeasureLine = null;
 
     if (hit) {
         newCursor = 'grab';
@@ -656,6 +659,88 @@ export class BoardViewport extends LitElement {
         if (hoverPt) {
             this.hoverInsertPoint = hoverPt;
             newCursor = e.altKey ? 'copy' : 'crosshair';
+        }
+        
+        if (quad === 'top' && this.mathEngine) {
+            type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; get_profile_at_z(z: number): any; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+            const engine = this.mathEngine as unknown as EngineExt;
+            
+            const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, 0, 0, 0);
+            const z = pt[2]!;
+            
+            const modelLen = this.boardState?.length || 100;
+            if (z >= -5 && z <= modelLen + 5) {
+                const profile = engine.get_profile_at_z(z);
+                if (profile && profile.halfWidth > 0.1) {
+                    const widthInches = profile.halfWidth * 2.0;
+                    
+                    const leftProj = engine.project_to_screen(quad, -profile.halfWidth, 0, z, localAspect);
+                    const rightProj = engine.project_to_screen(quad, profile.halfWidth, 0, z, localAspect);
+                    
+                    if (leftProj[2]! < 1.0 && rightProj[2]! < 1.0) {
+                        let lX = 0, lY = 0, rX = 0;
+                        if (this.maximizedView) {
+                            lX = ((leftProj[0]! + 1) / 2) * rect.width;
+                            lY = ((1 - leftProj[1]!) / 2) * rect.height;
+                            rX = ((rightProj[0]! + 1) / 2) * rect.width;
+                        } else {
+                            lX = ((leftProj[0]! + 1) / 2) * w;
+                            lY = ((1 - leftProj[1]!) / 2) * h;
+                            rX = ((rightProj[0]! + 1) / 2) * w;
+                        }
+                        
+                        if (lX > rX) { const tmp = lX; lX = rX; rX = tmp; }
+                        
+                        this.hoverMeasureLine = {
+                            left: lX,
+                            top: lY,
+                            sizePx: rX - lX,
+                            measureInches: widthInches,
+                            isVertical: false
+                        };
+                    }
+                }
+            }
+        } else if (quad === 'side' && this.mathEngine) {
+            type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; get_profile_at_z(z: number): any; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+            const engine = this.mathEngine as unknown as EngineExt;
+            
+            const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, 0, 0, 0);
+            const z = pt[2]!;
+            
+            const modelLen = this.boardState?.length || 100;
+            if (z >= -5 && z <= modelLen + 5) {
+                const profile = engine.get_profile_at_z(z);
+                if (profile && (profile.topY - profile.botY) > 0.05) {
+                    const thicknessInches = profile.topY - profile.botY;
+                    
+                    const topProj = engine.project_to_screen(quad, 0, profile.topY, z, localAspect);
+                    const botProj = engine.project_to_screen(quad, 0, profile.botY, z, localAspect);
+                    
+                    if (topProj[2]! < 1.0 && botProj[2]! < 1.0) {
+                        let tX = 0, tY = 0, bY = 0;
+                        if (this.maximizedView) {
+                            tX = ((topProj[0]! + 1) / 2) * rect.width;
+                            tY = ((1 - topProj[1]!) / 2) * rect.height;
+                            bY = ((1 - botProj[1]!) / 2) * rect.height;
+                        } else {
+                            tX = ((topProj[0]! + 1) / 2) * w;
+                            tY = h + ((1 - topProj[1]!) / 2) * h;
+                            bY = h + ((1 - botProj[1]!) / 2) * h;
+                        }
+                        
+                        if (tY > bY) { const tmp = tY; tY = bY; bY = tmp; }
+                        
+                        this.hoverMeasureLine = {
+                            left: tX,
+                            top: tY,
+                            sizePx: bY - tY,
+                            measureInches: thicknessInches,
+                            isVertical: true
+                        };
+                    }
+                }
+            }
         }
     }
 
@@ -839,7 +924,7 @@ export class BoardViewport extends LitElement {
         return html`
                             <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
 
-                        ${this.hoverInsertPoint ? html`
+                                    ${this.hoverInsertPoint ? html`
               <div 
                 class="absolute z-10 pointer-events-none w-3 h-3 rounded-full border-2 border-emerald-400 bg-emerald-400/20 transform -translate-x-1/2 -translate-y-1/2 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
                 style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
@@ -849,6 +934,19 @@ export class BoardViewport extends LitElement {
                 style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
               >
                 Alt+Click to Add Node | Ctrl+Click to Add Slice
+              </div>
+            ` : ''}
+            
+            ${this.hoverMeasureLine ? html`
+              <div 
+                class="absolute z-10 pointer-events-none"
+                style="left: ${this.hoverMeasureLine.left}px; top: ${this.hoverMeasureLine.top}px; ${this.hoverMeasureLine.isVertical ? `width: 1px; height: ${this.hoverMeasureLine.sizePx}px; border-left: 1px dashed #34d399;` : `width: ${this.hoverMeasureLine.sizePx}px; height: 1px; border-top: 1px dashed #60a5fa;`}"
+              >
+                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1 py-0.5 rounded shadow whitespace-nowrap
+                            ${this.hoverMeasureLine.isVertical ? 'text-emerald-400 left-1 top-1/2 -translate-y-1/2' : 'text-blue-400 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'}"
+                >
+                  ${this.hoverMeasureLine.measureInches.toFixed(2)}"
+                </div>
               </div>
             ` : ''}
 
