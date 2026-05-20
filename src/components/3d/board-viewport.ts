@@ -929,23 +929,24 @@ export class BoardViewport extends LitElement {
                 class="absolute z-10 pointer-events-none w-3 h-3 rounded-full border-2 border-emerald-400 bg-emerald-400/20 transform -translate-x-1/2 -translate-y-1/2 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
                 style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
               ></div>
-              <div
+                            <div
                 class="absolute z-10 pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-8px] text-[10px] font-bold text-emerald-400 bg-zinc-950/80 px-1.5 py-0.5 rounded border border-emerald-500/50 whitespace-nowrap backdrop-blur-sm shadow-xl"
                 style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
               >
-                Alt+Click to Add Node | Ctrl+Click to Add Slice
+                Alt+Click to Add Node
               </div>
             ` : ''}
             
-            ${this.hoverMeasureLine ? html`
+                        ${this.hoverMeasureLine ? html`
               <div 
                 class="absolute z-10 pointer-events-none"
                 style="left: ${this.hoverMeasureLine.left}px; top: ${this.hoverMeasureLine.top}px; ${this.hoverMeasureLine.isVertical ? `width: 1px; height: ${this.hoverMeasureLine.sizePx}px; border-left: 1px dashed #34d399;` : `width: ${this.hoverMeasureLine.sizePx}px; height: 1px; border-top: 1px dashed #60a5fa;`}"
               >
-                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1 py-0.5 rounded shadow whitespace-nowrap
-                            ${this.hoverMeasureLine.isVertical ? 'text-emerald-400 left-1 top-1/2 -translate-y-1/2' : 'text-blue-400 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'}"
+                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1.5 py-1 rounded shadow whitespace-nowrap flex flex-col items-center
+                            ${this.hoverMeasureLine.isVertical ? 'text-emerald-400 left-2 top-1/2 -translate-y-1/2' : 'text-blue-400 left-1/2 top-2 -translate-x-1/2'}"
                 >
-                  ${this.hoverMeasureLine.measureInches.toFixed(2)}"
+                  <span class="font-bold text-[11px]">${this.hoverMeasureLine.measureInches.toFixed(2)}"</span>
+                  <span class="text-[8px] text-zinc-400 font-sans tracking-widest uppercase mt-0.5">Ctrl+Click to Add Slice</span>
                 </div>
               </div>
             ` : ''}
