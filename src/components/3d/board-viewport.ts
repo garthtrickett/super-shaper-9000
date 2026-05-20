@@ -744,9 +744,9 @@ export class BoardViewport extends LitElement {
         </button>
                 ${id === 'profile' ? renderProfileSliceSelector() : ''}
         
-                        <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
+                                                <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
           ${this.showSettings[id] ? html`
-            <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
+            <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100 max-h-[40vh] overflow-y-auto custom-scrollbar">
                             <div class="flex justify-between items-center">
                 <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
                 <button @click=${() => this.toggleSettings(id)} class="text-zinc-500 hover:text-white">&times;</button>
@@ -841,7 +841,7 @@ export class BoardViewport extends LitElement {
         </button>
       </div>
             <div class="absolute inset-0 pointer-events-none z-10">
-        ${this.maximizedView === null ? html`
+                ${this.maximizedView === null ? html`
           <div class="w-full h-full grid grid-cols-2 grid-rows-2">
             <div class="border-r border-b border-zinc-800/80">${renderQuadrantOverlay('top', 'Top')}</div>
             <div class="border-b border-zinc-800/80">${renderQuadrantOverlay('perspective', 'Perspective')}</div>
@@ -856,7 +856,7 @@ export class BoardViewport extends LitElement {
             ${this.maximizedView === 'profile' ? renderProfileSliceSelector() : ''}
                                                 <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
                             ${this.showSettings[this.maximizedView] ? html`
-                <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
+                <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                       <div class="flex justify-between items-center">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
                     <button @click=${() => this.toggleSettings(this.maximizedView!)} class="text-zinc-500 hover:text-white">&times;</button>

@@ -65,8 +65,15 @@ test.describe('Visual Regression', () => {
       }
     };
 
+        // 5. Maximize the perspective view FIRST so the settings dropdown doesn't get clipped
+    const maximizeBtn = viewport.locator('button[title="Maximize Perspective"]');
+    if (await maximizeBtn.isVisible()) {
+      await maximizeBtn.click();
+      await page.waitForTimeout(500);
+    }
+
     // Open Perspective Cog
-    const perspectiveCog = viewport.locator('button[title="Display Settings"]').nth(1); // top is 0, perspective is 1
+    const perspectiveCog = viewport.locator('button[title="Display Settings"]').first(); 
     await perspectiveCog.click();
     await page.waitForTimeout(200);
 
@@ -95,13 +102,6 @@ test.describe('Visual Regression', () => {
 
     // Let the canvas render the frozen frame
     await page.waitForTimeout(500);
-
-    // 5. Maximize the perspective view
-    const maximizeBtn = viewport.locator('button[title="Maximize Perspective"]');
-    if (await maximizeBtn.isVisible()) {
-      await maximizeBtn.click();
-      await page.waitForTimeout(500);
-    }
 
         // 6. Screenshot the viewport
                 await expect(viewport).toHaveScreenshot('zebra-flow-smart-filter.png', {
