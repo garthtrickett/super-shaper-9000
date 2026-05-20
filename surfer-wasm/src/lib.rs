@@ -681,58 +681,71 @@ impl WasmEngine {
 
     #[wasm_bindgen]
         #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn render(&mut self) -> Result<(), JsValue> {
-        if let Some(renderer) = &mut self.renderer {
-            let full_w = renderer.config.width as f32;
-            let full_h = renderer.config.height as f32;
+        let (full_w, full_h) = if let Some(r) = &self.renderer {
+            (r.config.width as f32, r.config.height as f32)
+        } else {
+            return Ok(());
+        };
 
-            let quadrants = if self.view_mode == "quad" || self.view_mode.is_empty() {
-                vec!["top", "perspective", "side", "profile"]
+        let quadrants: Vec<String> = if self.view_mode == "quad" || self.view_mode.is_empty() {
+            vec!["top".to_string(), "perspective".to_string(), "side".to_string(), "profile".to_string()]
+        } else {
+            vec![self.view_mode.clone()]
+        };
+
+        let mut uniforms = Vec::new();
+        for q_string in quadrants.iter() {
+            let q = q_string.as_str();
+            let (vp_w, vp_h) = if quadrants.len() == 4 {
+                (full_w / 2.0, full_h / 2.0)
             } else {
-                vec![self.view_mode.as_str()]
+                (full_w, full_h)
             };
+            let aspect = vp_w / vp_h;
 
-                        for (i, &q) in quadrants.iter().enumerate() {
-                let (vp_w, vp_h) = if quadrants.len() == 4 {
-                    (full_w / 2.0, full_h / 2.0)
-                } else {
-                    (full_w, full_h)
-                };
-                let aspect = vp_w / vp_h;
+            let (view_proj, cam_pos) = self.get_camera_params(q, aspect);
+            let view_proj_array = view_proj.to_cols_array();
 
-                let (view_proj, cam_pos) = self.get_camera_params(q, aspect);
-                let view_proj_array = view_proj.to_cols_array();
+            let mut uniform_data = [0.0f32; 24];
+            uniform_data[0..16].copy_from_slice(&view_proj_array);
+            uniform_data[16..19].copy_from_slice(&cam_pos.to_array());
+            uniform_data[19] = 1.0;
 
-                let mut uniform_data = [0.0f32; 24];
-                uniform_data[0..16].copy_from_slice(&view_proj_array);
-                uniform_data[16..19].copy_from_slice(&cam_pos.to_array());
-                uniform_data[19] = 1.0;
+            let model = self.engine.get_model();
+            let bounds = surfer_core::geometry::get_board_bounds(model);
+            let mri_z = bounds.nose_z
+                + (bounds.tip_z - bounds.nose_z)
+                    * (model.mri_slice_position.unwrap_or(50.0) / 100.0);
+            let mri_z_world = mri_z * (1.0 / 12.0);
 
-                let model = self.engine.get_model();
-                let bounds = surfer_core::geometry::get_board_bounds(model);
-                let mri_z = bounds.nose_z
-                    + (bounds.tip_z - bounds.nose_z)
-                        * (model.mri_slice_position.unwrap_or(50.0) / 100.0);
-                let mri_z_world = mri_z * (1.0 / 12.0);
+            uniform_data[20] = if model.show_heatmap.unwrap_or(false) {
+                1.0
+            } else {
+                0.0
+            };
+            uniform_data[21] = if model.show_zebra.unwrap_or(false) {
+                1.0
+            } else {
+                0.0
+            };
+            uniform_data[22] = if model.show_mri_view.unwrap_or(false) {
+                1.0
+            } else {
+                0.0
+            };
+            uniform_data[23] = mri_z_world;
+            
+            uniforms.push(uniform_data);
+        }
 
-                uniform_data[20] = if model.show_heatmap.unwrap_or(false) {
-                    1.0
-                } else {
-                    0.0
-                };
-                uniform_data[21] = if model.show_zebra.unwrap_or(false) {
-                    1.0
-                } else {
-                    0.0
-                };
-                uniform_data[22] = if model.show_mri_view.unwrap_or(false) {
-                    1.0
-                } else {
-                    0.0
-                };
-                uniform_data[23] = mri_z_world;
+        let show_solid_mesh = self.show_solid_mesh;
+        let view_mode = self.view_mode.clone();
 
-                let uniform_bytes = as_u8_slice(&uniform_data);
+        if let Some(renderer) = &mut self.renderer {
+            for (i, uniform_data) in uniforms.iter().enumerate() {
+                let uniform_bytes = as_u8_slice(uniform_data);
                 renderer
                     .queue
                     .write_buffer(&renderer.camera_buffers[i], 0, uniform_bytes);
@@ -777,7 +790,8 @@ impl WasmEngine {
                     occlusion_query_set: None,
                 });
 
-                for (i, &q) in quadrants.iter().enumerate() {
+                for (i, q_string) in quadrants.iter().enumerate() {
+                    let q = q_string.as_str();
                     let (vp_x, vp_y, vp_w, vp_h) = if quadrants.len() == 4 {
                         let half_w = full_w / 2.0;
                         let half_h = full_h / 2.0;
@@ -794,12 +808,12 @@ impl WasmEngine {
 
                     rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
 
-                                        let draw_solid = (q == "perspective"
-                        || (self.view_mode != "quad"
-                            && self.view_mode != "top"
-                            && self.view_mode != "side"
-                            && self.view_mode != "profile"))
-                        && self.show_solid_mesh;
+                    let draw_solid = (q == "perspective"
+                        || (view_mode != "quad"
+                            && view_mode != "top"
+                            && view_mode != "side"
+                            && view_mode != "profile"))
+                        && show_solid_mesh;
 
                     if draw_solid && renderer.num_indices > 0 {
                         rpass.set_pipeline(&renderer.pipeline);
@@ -822,11 +836,10 @@ impl WasmEngine {
                         _ => 1,
                     };
 
-                                        if renderer.num_line_vertices[view_idx] > 0 {
+                    if renderer.num_line_vertices[view_idx] > 0 {
                         rpass.set_pipeline(&renderer.line_pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
-                        rpass
-                            .set_vertex_buffer(0, renderer.line_vertex_buffers[view_idx].slice(..));
+                        rpass.set_vertex_buffer(0, renderer.line_vertex_buffers[view_idx].slice(..));
                         rpass.set_vertex_buffer(1, renderer.line_color_buffers[view_idx].slice(..));
                         rpass.draw(0..renderer.num_line_vertices[view_idx], 0..1);
                     }
