@@ -216,7 +216,7 @@ export class BoardViewport extends LitElement {
         private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
   private lastDragPosition: [number, number, number] | null = null;
 
-    private getHoverInsertPoint(quad: string, clientX: number, clientY: number, localNdcX: number, localNdcY: number, localAspect: number): { left: number, top: number, curve: string, t: number } | null {
+        private getHoverInsertPoint(quad: string, clientX: number, clientY: number, localNdcX: number, localNdcY: number, localAspect: number): { left: number, top: number, curve: string, t: number } | null {
       if (quad === 'perspective' || !this.mathEngine) return null;
       
       let curvesToCheck: string[] = [];
@@ -297,61 +297,6 @@ export class BoardViewport extends LitElement {
           }
       }
       return bestHit;
-  } | null {
-      if (quad === 'perspective' || !this.mathEngine) return null;
-      const targetCurve = quad === 'top' ? 'outline' : (quad === 'side' ? 'rockerTop' : `crossSection_${this.activeProfileSlice}`);
-      
-      let ox = 0, oy = 0, oz = 0;
-      if (quad === "profile") {
-          if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
-              const cs = this.boardState.crossSections[this.activeProfileSlice]!;
-              const pt = cs.controlPoints?.[0] || 
-                         (cs as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points?.[0];
-              if (pt) {
-                  oz = Array.isArray(pt) ? pt[2] : (pt as {z: number}).z;
-              }
-          }
-      }
-      
-      type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; get_point_on_curve(curve: string, t: number): Float32Array; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
-      
-      const engine = this.mathEngine as unknown as EngineExt;
-      
-      const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, ox, oy, oz);
-      let worldX = pt[0]!, worldY = pt[1]!, worldZ = pt[2]!;
-
-      let roX = worldX, roY = worldY, roZ = worldZ;
-      let rdX = 0, rdY = 0, rdZ = 0;
-      if (quad === 'top') { roY = 100.0; rdY = -1.0; }
-      else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
-      else if (quad === 'profile') { roZ = worldZ - 100.0; rdZ = 1.0; }
-      
-      const t = engine.find_closest_t(targetCurve, roX, roY, roZ, rdX, rdY, rdZ);
-      if (t >= 0.0 && t <= 1.0) {
-          const curvePt = engine.get_point_on_curve(targetCurve, t);
-          const proj = engine.project_to_screen(quad, curvePt[0]!, curvePt[1]!, curvePt[2]!, localAspect);
-          if (proj[2]! < 1.0) {
-              const rect = this.wgpuCanvas.getBoundingClientRect();
-              let pxX = 0, pxY = 0;
-              if (this.maximizedView) {
-                  pxX = rect.left + ((proj[0]! + 1) / 2) * rect.width;
-                  pxY = rect.top + ((1 - proj[1]!) / 2) * rect.height;
-              } else {
-                  const w = rect.width / 2;
-                  const h = rect.height / 2;
-                  const offsetX = (quad === 'perspective' || quad === 'profile') ? w : 0;
-                  const offsetY = (quad === 'side' || quad === 'profile') ? h : 0;
-                  pxX = rect.left + offsetX + ((proj[0]! + 1) / 2) * w;
-                  pxY = rect.top + offsetY + ((1 - proj[1]!) / 2) * h;
-              }
-              
-              const dist = Math.hypot(pxX - clientX, pxY - clientY);
-              if (dist < 20) { // 20 pixels snap threshold
-                  return { left: pxX - rect.left, top: pxY - rect.top };
-              }
-          }
-      }
-      return null;
   }
 
                       private findClosestNode(quad: string, ndcX: number, ndcY: number, aspect: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
