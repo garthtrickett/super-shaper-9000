@@ -779,7 +779,7 @@ pub fn generate_lines_for_view(
         }
     }
 
-    if (view_id == "profile" || view_id == "perspective") && show_cs {
+        if (view_id == "profile" || view_id == "perspective" || view_id == "top") && show_cs {
         if view_id == "profile" {
             if let Some(cs) = model.cross_sections.get(active_slice) {
                 let name = format!("crossSection_{}", active_slice);
@@ -1425,13 +1425,12 @@ mod tests {
             ..Default::default()
         });
 
-                // "top" view should have 0 lines since only rockerTop and a cross section are defined
+                        // "top" view should have lines since cross section is defined and visible
         let (top_verts, _, _, _, _) =
             super::generate_lines_for_view(&model, "top", 0, true, 0x1FF, 0x1FF, 1.0);
-        assert_eq!(
-            top_verts.len(),
-            0,
-            "Top view should output 0 lines for a model with only top rocker and cross section"
+        assert!(
+            top_verts.len() > 0,
+            "Top view should output lines for the cross section"
         );
 
         // "side" view should have lines from rockerTop

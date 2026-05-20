@@ -46,9 +46,9 @@ export class BoardViewport extends LitElement {
         override firstUpdated() {
         const views: ViewportId[] = ['top', 'perspective', 'side', 'profile'];
         
-        const defaultLineMasks: Record<ViewportId, number> = {
+                const defaultLineMasks: Record<ViewportId, number> = {
             perspective: 0x1FF,
-            top: (1<<0) | (1<<3) | (1<<4) | (1<<6) | (1<<8),
+            top: (1<<0) | (1<<3) | (1<<4) | (1<<6) | (1<<7) | (1<<8),
             side: (1<<1) | (1<<2) | (1<<5) | (1<<8),
             profile: (1<<7)
         };
@@ -239,11 +239,14 @@ export class BoardViewport extends LitElement {
       const curvesToCheck: string[] = [];
       const lineMask = this.lineMasks[quad as ViewportId];
       
-      if (quad === 'top') {
+            if (quad === 'top') {
           if (lineMask & (1<<0)) curvesToCheck.push('outline');
           if (lineMask & (1<<3)) curvesToCheck.push('apexOutline');
           if (lineMask & (1<<4)) curvesToCheck.push('railOutline');
           if (lineMask & (1<<6)) curvesToCheck.push('deckShoulder');
+          if (lineMask & (1<<7)) {
+              this.boardState?.crossSections?.forEach((cs, i) => curvesToCheck.push(`crossSection_${i}`));
+          }
           if (lineMask & (1<<8)) {
               this.boardState?.outlineLayers?.forEach((l, i) => {
                   if (l.active !== false) {
@@ -413,7 +416,7 @@ export class BoardViewport extends LitElement {
           });
       }
 
-      if (quad === 'profile' || quad === 'perspective') {
+            if (quad === 'profile' || quad === 'perspective' || quad === 'top') {
           if (quad === 'profile') {
               if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
                   checkCurve(`crossSection_${this.activeProfileSlice}`, this.boardState.crossSections[this.activeProfileSlice], true, 1 << 7);
@@ -707,11 +710,12 @@ export class BoardViewport extends LitElement {
 
             const renderQuadrantOverlay = (id: ViewportId, label: string) => {
       const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
-          top: [
+                    top: [
               { label: "Outline", mask: 1 << 0, key: "outline" },
               { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
               { label: "Rail (Tuck)", mask: 1 << 4, key: "railOutline" },
               { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
+              { label: "Cross Sections", mask: 1 << 7, key: "crossSections" },
               { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
           ],
           side: [
@@ -834,7 +838,7 @@ export class BoardViewport extends LitElement {
         return html`
                             <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
 
-            ${this.hoverInsertPoint ? html`
+                        ${this.hoverInsertPoint ? html`
               <div 
                 class="absolute z-10 pointer-events-none w-3 h-3 rounded-full border-2 border-emerald-400 bg-emerald-400/20 transform -translate-x-1/2 -translate-y-1/2 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
                 style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
@@ -843,7 +847,7 @@ export class BoardViewport extends LitElement {
                 class="absolute z-10 pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-8px] text-[10px] font-bold text-emerald-400 bg-zinc-950/80 px-1.5 py-0.5 rounded border border-emerald-500/50 whitespace-nowrap backdrop-blur-sm shadow-xl"
                 style="left: ${this.hoverInsertPoint.left}px; top: ${this.hoverInsertPoint.top}px;"
               >
-                Alt+Click to Add Node
+                Alt+Click to Add Node | Ctrl+Click to Add Slice
               </div>
             ` : ''}
 
@@ -925,11 +929,12 @@ export class BoardViewport extends LitElement {
                     </div>
                     ${(() => {
                       const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
-                          top: [
+                                                    top: [
                               { label: "Outline", mask: 1 << 0, key: "outline" },
                               { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
                               { label: "Rail (Tuck)", mask: 1 << 4, key: "railOutline" },
                               { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
+                              { label: "Cross Sections", mask: 1 << 7, key: "crossSections" },
                               { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
                           ],
                           side: [
