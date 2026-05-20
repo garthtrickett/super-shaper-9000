@@ -93,7 +93,7 @@ describe("BoardControls (UI Component)", () => {
       expect(spy.calledOnce).to.be.true;
     });
 
-    it("should emit export-s3dx event when Export .s3dx button is clicked", async () => {
+        it("should emit export-s3dx event when Export .s3dx button is clicked", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
       el.addEventListener("export-s3dx", spy);
@@ -104,63 +104,6 @@ describe("BoardControls (UI Component)", () => {
 
             btn!.click();
       expect(spy.calledOnce).to.be.true;
-    });
-
-
-    it("should emit boolean-changed event when MRI Slice toggle is clicked", async () => {
-      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
-      const spy = sinon.spy();
-      el.addEventListener("boolean-changed", spy);
-
-      const labels = Array.from(el.querySelectorAll("label"));
-      const mriLabel = labels.find(l => l.textContent?.includes("MRI Slice"));
-      expect(mriLabel, "Could not find a label for 'MRI Slice'").to.exist;
-
-      const mriInput = mriLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      expect(mriInput, "Could not find checkbox input associated with 'MRI Slice' label").to.exist;
-
-      mriInput.checked = true;
-      mriInput.dispatchEvent(new Event("change"));
-
-      expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "showMriView", value: true });
-    });
-
-        it("should emit preview-number event when Slice Position slider is moved", async () => {
-      // Provide showMriView = true so the conditional slider renders
-      const el = await fixture<BoardControls>(html`<board-controls .showMriView=${true}></board-controls>`);
-      const spy = sinon.spy();
-      el.addEventListener("preview-number", spy);
-
-      const labels = Array.from(el.querySelectorAll("label"));
-      const positionLabel = labels.find(l => l.textContent?.includes("Slice Position"));
-      expect(positionLabel, "Could not find a label for 'Slice Position'").to.exist;
-
-      const positionInput = positionLabel!.parentElement!.parentElement!.querySelector('input[type="range"]') as HTMLInputElement;
-      expect(positionInput, "Could not find range input associated with 'Slice Position' label").to.exist;
-
-      positionInput.value = "75";
-      positionInput.dispatchEvent(new Event("input"));
-
-      expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "mriSlicePosition", value: 75 });
-    });
-
-    it("should emit number-changed event when Slice Position slider drag ends", async () => {
-      const el = await fixture<BoardControls>(html`<board-controls .showMriView=${true}></board-controls>`);
-      const spy = sinon.spy();
-      el.addEventListener("number-changed", spy);
-
-      const labels = Array.from(el.querySelectorAll("label"));
-      const positionLabel = labels.find(l => l.textContent?.includes("Slice Position"));
-      const positionInput = positionLabel!.parentElement!.parentElement!.querySelector('input[type="range"]') as HTMLInputElement;
-
-      positionInput.value = "75";
-      positionInput.dispatchEvent(new Event("input"));
-      positionInput.dispatchEvent(new Event("pointerup"));
-
-      expect(spy.calledOnce).to.be.true;
-      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "mriSlicePosition", value: 75 });
     });
   });
 

@@ -73,15 +73,27 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await page.goto("/");
     await expect(page.locator("app-shell")).toBeVisible();
 
-    // 2. Wait for viewport and controls to mount
-    await expect(page.locator("board-viewport")).toBeVisible();
+        // 2. Wait for viewport and controls to mount
+    const viewport = page.locator("board-viewport");
+    await expect(viewport).toBeVisible();
     const boardControls = page.locator("board-controls");
     await expect(boardControls).toBeVisible();
 
+    // Maximize perspective to ensure settings are fully visible without clipping
+    const maximizeBtn = viewport.locator('button[title="Maximize Perspective"]');
+    if (await maximizeBtn.isVisible()) {
+      await maximizeBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    const perspectiveCog = viewport.locator('button[title="Display Settings"]').first(); 
+    await perspectiveCog.click();
+    await page.waitForTimeout(200);
+
         // 3. Locate the checkboxes via their wrapping labels
-    const heatmapLabel = boardControls.locator('label').filter({ hasText: /Foil Ratio/i });
-    const zebraLabel = boardControls.locator('label').filter({ hasText: /Zebra Flow/i });
-    const mriLabel = boardControls.locator('label').filter({ hasText: /MRI Slice/i });
+    const heatmapLabel = viewport.locator('label').filter({ hasText: /Foil Ratio/i }).first();
+    const zebraLabel = viewport.locator('label').filter({ hasText: /Zebra Flow/i }).first();
+    const mriLabel = viewport.locator('label').filter({ hasText: /MRI Slice/i }).first();
 
     const heatmapCheckbox = heatmapLabel.locator('input[type="checkbox"]');
     const zebraCheckbox = zebraLabel.locator('input[type="checkbox"]');
@@ -120,9 +132,10 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Verify WASM pipeline successfully mutated state and updated UI
     await expect(zebraCheckbox).not.toBeChecked();
 
-    // 10. Verify the Slice Position slider dynamically appears in the DOM
-    const sliceSliderLabel = boardControls.locator('label').filter({ hasText: /Slice Position/i });
-    await expect(sliceSliderLabel).toBeVisible();
+        // 10. Verify the Slice Position slider dynamically appears in the DOM
+    const mriContainer = mriLabel.locator('..'); // The parent div
+    const sliceSliderInput = mriContainer.locator('input[type="range"]');
+    await expect(sliceSliderInput).toBeVisible();
   });
 
   test("Node Inspector G2 Continuity", async ({ page }) => {

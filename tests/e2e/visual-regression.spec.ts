@@ -83,17 +83,15 @@ test.describe('Visual Regression', () => {
     await toggleViewportCheckbox("Apex Outline", false);
     await toggleViewportCheckbox("Rail (Tuck)", false);
     await toggleViewportCheckbox("Apex Rocker", false);
-    await toggleViewportCheckbox("Deck Shoulder", false);
+        await toggleViewportCheckbox("Deck Shoulder", false);
     await toggleViewportCheckbox("Cross Sections", false);
     
+    // 3. Enable Zebra Flow
+    await toggleViewportCheckbox("Zebra Flow", true);
+
     await perspectiveCog.click(); // close cog
     await page.waitForTimeout(200);
 
-    // 3. Enable Zebra Flow
-    const zebraLabel = boardControls.locator('label').filter({ hasText: /Zebra Flow/i });
-    const zebraCheckbox = zebraLabel.locator('input[type="checkbox"]');
-    await zebraCheckbox.check({ force: true });
-    
     // Wait for material to apply
     await page.waitForTimeout(1000);
 

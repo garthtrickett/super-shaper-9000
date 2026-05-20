@@ -425,14 +425,7 @@ export class BoardBuilderPage extends LitElement {
           @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
             this._proposeAction({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
           }}
-                    @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
-            this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
-          }}
-                                        .showHeatmap=${state.showHeatmap ?? false}
-                    .showZebra=${state.showZebra ?? false}
-          .showMriView=${state.showMriView ?? false}
-          .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
-          .outlineLayers=${state.outlineLayers ||[]}
+                              .outlineLayers=${state.outlineLayers ||[]}
           .bottomChannels=${state.bottomChannels ||[]}
           .foilData=${foilData}
           @export-design=${() => this.showExportModal = true}
@@ -517,7 +510,7 @@ export class BoardBuilderPage extends LitElement {
                   this.mathEngine.set_view_mode(e.detail.mode);
               }
           }}
-                    @set-ortho=${(e: CustomEvent<{isOrtho: boolean}>) => {
+                              @set-ortho=${(e: CustomEvent<{isOrtho: boolean}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_ORTHO", isOrtho: e.detail.isOrtho });
@@ -526,8 +519,14 @@ export class BoardBuilderPage extends LitElement {
                   this.mathEngine.set_ortho(e.detail.isOrtho);
               }
           }}
-                    @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
+          @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
             this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
+          }}
+          @preview-number=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+            this._previewAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+          }}
+          @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+            this._proposeAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
                               @set-gizmo-scale=${(e: CustomEvent<{quad: string, scale: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;

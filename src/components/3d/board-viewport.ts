@@ -752,11 +752,33 @@ export class BoardViewport extends LitElement {
                 <button @click=${() => this.toggleSettings(id)} class="text-zinc-500 hover:text-white">&times;</button>
               </div>
               
-                            ${id === 'perspective' ? html`
+                                                        ${id === 'perspective' ? html`
               <label class="flex items-center justify-between cursor-pointer group mb-2">
                 <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                 <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
               </label>
+              
+              <label class="flex items-center justify-between cursor-pointer group mb-2">
+                <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showHeatmap ? 'text-orange-400' : 'text-zinc-500'}">Foil Ratio</span>
+                <input type="checkbox" .checked=${this.boardState?.showHeatmap ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showHeatmap', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-orange-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+              </label>
+
+              <label class="flex items-center justify-between cursor-pointer group mb-2">
+                <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showZebra ? 'text-white' : 'text-zinc-500'}">Zebra Flow</span>
+                <input type="checkbox" .checked=${this.boardState?.showZebra ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showZebra', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-white bg-zinc-900 border-zinc-700 cursor-pointer" />
+              </label>
+
+              <div class="flex flex-col mb-2">
+                <label class="flex items-center justify-between cursor-pointer group">
+                  <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showMriView ? 'text-cyan-400' : 'text-zinc-500'}">MRI Slice</span>
+                  <input type="checkbox" .checked=${this.boardState?.showMriView ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showMriView', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-cyan-400 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                </label>
+                ${this.boardState?.showMriView ? html`
+                  <div class="mt-2 pl-2 border-l border-zinc-700">
+                    <input type="range" min="0" max="100" step="0.1" .value=${(this.boardState?.mriSlicePosition ?? 50.0).toString()} @input=${(e: Event) => this.dispatchEvent(new CustomEvent('preview-number', { detail: { param: 'mriSlicePosition', value: parseFloat((e.target as HTMLInputElement).value) }, bubbles: true, composed: true }))} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('number-changed', { detail: { param: 'mriSlicePosition', value: parseFloat((e.target as HTMLInputElement).value) }, bubbles: true, composed: true }))} class="w-full accent-cyan-400 cursor-pointer" />
+                  </div>
+                ` : ''}
+              </div>
               ` : ''}
 
               <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
@@ -862,11 +884,33 @@ export class BoardViewport extends LitElement {
                     <button @click=${() => this.toggleSettings(this.maximizedView!)} class="text-zinc-500 hover:text-white">&times;</button>
                   </div>
                   
-                  ${this.maximizedView === 'perspective' ? html`
+                                    ${this.maximizedView === 'perspective' ? html`
                   <label class="flex items-center justify-between cursor-pointer group mb-2">
                     <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                     <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
                   </label>
+                  
+                  <label class="flex items-center justify-between cursor-pointer group mb-2">
+                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showHeatmap ? 'text-orange-400' : 'text-zinc-500'}">Foil Ratio</span>
+                    <input type="checkbox" .checked=${this.boardState?.showHeatmap ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showHeatmap', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-orange-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                  </label>
+
+                  <label class="flex items-center justify-between cursor-pointer group mb-2">
+                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showZebra ? 'text-white' : 'text-zinc-500'}">Zebra Flow</span>
+                    <input type="checkbox" .checked=${this.boardState?.showZebra ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showZebra', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-white bg-zinc-900 border-zinc-700 cursor-pointer" />
+                  </label>
+
+                  <div class="flex flex-col mb-2">
+                    <label class="flex items-center justify-between cursor-pointer group">
+                      <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showMriView ? 'text-cyan-400' : 'text-zinc-500'}">MRI Slice</span>
+                      <input type="checkbox" .checked=${this.boardState?.showMriView ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showMriView', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-cyan-400 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                    </label>
+                    ${this.boardState?.showMriView ? html`
+                      <div class="mt-2 pl-2 border-l border-zinc-700">
+                        <input type="range" min="0" max="100" step="0.1" .value=${(this.boardState?.mriSlicePosition ?? 50.0).toString()} @input=${(e: Event) => this.dispatchEvent(new CustomEvent('preview-number', { detail: { param: 'mriSlicePosition', value: parseFloat((e.target as HTMLInputElement).value) }, bubbles: true, composed: true }))} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('number-changed', { detail: { param: 'mriSlicePosition', value: parseFloat((e.target as HTMLInputElement).value) }, bubbles: true, composed: true }))} class="w-full accent-cyan-400 cursor-pointer" />
+                      </div>
+                    ` : ''}
+                  </div>
                   ` : ''}
 
                   <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
