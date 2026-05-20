@@ -545,8 +545,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
                               type BoardViewportElement = HTMLElement & { 
-        requestUpdate?: () => void;
-        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                requestUpdate?: () => void;
+        mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
           gizmoScaleTop?: number;
           outlineLayers?: { active?: boolean, otlInt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
@@ -759,8 +759,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // 1. Programmatically find and click the middle anchor point
         const hitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & {
-        requestUpdate?: () => void;
-        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                requestUpdate?: () => void;
+        mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: { gizmoScaleTop?: number, outline?: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } };
       };
       const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
@@ -838,8 +838,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
         // Test Top Ortho View (Top-Left Quadrant)
         const topHitPosition = await page.evaluate(() => {
-            type BoardViewportElement = HTMLElement & {
-                mathEngine?: { get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                        type BoardViewportElement = HTMLElement & {
+                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.mathEngine) return null;
@@ -905,8 +905,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     await expect(inspector).toBeHidden({ timeout: 5000 });
 
         const sideHitPosition = await page.evaluate(() => {
-            type BoardViewportElement = HTMLElement & {
-        mathEngine?: { get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                        type BoardViewportElement = HTMLElement & {
+        mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.mathEngine) return null;
