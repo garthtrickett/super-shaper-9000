@@ -330,7 +330,7 @@ pub fn generate_lines_for_view(
         }
     }
 
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn push_flat_circle(
         tri_verts: &mut Vec<f32>,
         tri_cols: &mut Vec<f32>,
@@ -360,7 +360,7 @@ pub fn generate_lines_for_view(
         tri_idxs.extend_from_slice(&[start_idx, start_idx + segments, start_idx + 1]);
     }
 
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn push_flat_square(
         tri_verts: &mut Vec<f32>,
         tri_cols: &mut Vec<f32>,
@@ -1397,8 +1397,7 @@ mod tests {
         println!("✅ test_squash_tail_tessellation_density passed.");
     }
 
-    #[test]
-    #[test]
+        #[test]
     fn test_generate_lines_for_view_filtering() {
         let mut model = BoardModel::default();
 
@@ -1426,9 +1425,9 @@ mod tests {
             ..Default::default()
         });
 
-        // "top" view should have 0 lines since only rockerTop and a cross section are defined
+                // "top" view should have 0 lines since only rockerTop and a cross section are defined
         let (top_verts, _, _, _, _) =
-            super::generate_lines_for_view(&model, "top", 0, true, true, 1.0);
+            super::generate_lines_for_view(&model, "top", 0, true, 0x1FF, 0x1FF, 1.0);
         assert_eq!(
             top_verts.len(),
             0,
@@ -1437,7 +1436,7 @@ mod tests {
 
         // "side" view should have lines from rockerTop
         let (side_verts, _, _, _, _) =
-            super::generate_lines_for_view(&model, "side", 0, true, true, 1.0);
+            super::generate_lines_for_view(&model, "side", 0, true, 0x1FF, 0x1FF, 1.0);
         assert!(
             side_verts.len() > 0,
             "Side view should have lines from top rocker"
@@ -1445,7 +1444,7 @@ mod tests {
 
         // "profile" view should only have lines from active slice
         let (profile_verts, _, _, _, _) =
-            super::generate_lines_for_view(&model, "profile", 0, true, true, 1.0);
+            super::generate_lines_for_view(&model, "profile", 0, true, 0x1FF, 0x1FF, 1.0);
 
         assert!(
             profile_verts.len() > 0,

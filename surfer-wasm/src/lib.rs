@@ -1081,8 +1081,6 @@ impl WasmEngine {
 
     #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
-    #[allow(clippy::too_many_arguments)]
-    #[wasm_bindgen]
     pub fn unproject_to_plane(
         &self,
         quad: &str,
