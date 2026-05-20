@@ -151,9 +151,17 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "SET_ACTIVE_PROFILE_SLICE") {
+        if (msg.type === "SET_ACTIVE_PROFILE_SLICE") {
         if (engine) {
             engine.set_active_profile_slice(msg.slice);
+        }
+        return;
+    }
+
+    if (msg.type === "SET_HOVER_Z") {
+        if (engine) {
+            type EngineExt = WasmEngine & { set_hover_z(z?: number): void };
+            (engine as unknown as EngineExt).set_hover_z(msg.z);
         }
         return;
     }

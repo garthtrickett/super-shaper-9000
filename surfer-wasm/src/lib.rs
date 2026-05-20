@@ -311,11 +311,12 @@ pub struct WasmEngine {
     view_mode: String,
     is_ortho: bool,
     active_profile_slice: usize,
-    show_tangents: [bool; 4],
+        show_tangents: [bool; 4],
     gizmo_scale: [f32; 4],
     line_masks: [u32; 4],
     gizmo_masks: [u32; 4],
     show_solid_mesh: bool,
+    hover_z: Option<f32>,
 }
 
 impl Default for WasmEngine {
@@ -339,10 +340,11 @@ impl WasmEngine {
             is_ortho: false,
             active_profile_slice: 0,
             show_tangents: [true, true, true, true],
-            gizmo_scale: [1.0, 1.0, 0.5, 0.3],
+                        gizmo_scale: [1.0, 1.0, 0.5, 0.3],
             line_masks: [0x1FF, 0x1FF, 0x1FF, 0x1FF],
             gizmo_masks: [0x1FF, 0x1FF, 0x1FF, 0x1FF],
             show_solid_mesh: true,
+            hover_z: None,
         }
     }
 
@@ -600,9 +602,10 @@ impl WasmEngine {
                 quad,
                 self.active_profile_slice,
                 self.show_tangents[idx],
-                self.line_masks[idx],
+                                self.line_masks[idx],
                 self.gizmo_masks[idx],
                 dynamic_scale,
+                self.hover_z,
             );
             renderer.update_view_buffers(idx, &lv, &lc, &tv, &tc, &ti);
         }
@@ -615,9 +618,16 @@ impl WasmEngine {
         }
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_view_mode(&mut self, mode: &str) {
         self.view_mode = mode.to_string();
+    }
+
+    #[wasm_bindgen]
+    pub fn set_hover_z(&mut self, z: Option<f32>) {
+        self.hover_z = z;
+        self.update_view_lines("profile");
+        self.update_view_lines("perspective");
     }
 
         #[wasm_bindgen]

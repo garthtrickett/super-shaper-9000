@@ -99,10 +99,14 @@ export class BoardViewport extends LitElement {
     this.wgpuCanvas.addEventListener("pointermove", this.handlePointerMove);
     this.wgpuCanvas.addEventListener("pointerup", this.handlePointerUp);
     this.wgpuCanvas.addEventListener("pointercancel", this.handlePointerUp);
-        this.wgpuCanvas.addEventListener("pointerleave", () => {
+            this.wgpuCanvas.addEventListener("pointerleave", () => {
         this.hoverInsertPoint = null;
         this.hoverMeasureLine = null;
         this.wgpuCanvas.style.cursor = 'default';
+        if (this._lastHoverZ !== undefined) {
+            this._lastHoverZ = undefined;
+            this.dispatchEvent(new CustomEvent('set-hover-z', { detail: { z: undefined }, bubbles: true, composed: true }));
+        }
     });
         this.wgpuCanvas.addEventListener("wheel", (e) => {
       e.preventDefault();
@@ -232,8 +236,9 @@ export class BoardViewport extends LitElement {
     localStorage.setItem(`showSolidMesh`, this.showSolidMesh.toString());
   };
 
-        private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
+          private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
   private lastDragPosition: [number, number, number] | null = null;
+  private _lastHoverZ: number | undefined = undefined;
 
             private getHoverInsertPoint(quad: string, clientX: number, clientY: number, localNdcX: number, localNdcY: number, localAspect: number): { left: number, top: number, curve: string, t: number } | null {
       if (quad === 'perspective' || !this.mathEngine) return null;
@@ -440,10 +445,11 @@ export class BoardViewport extends LitElement {
     const ndcX = ((e.clientX - rect.left) / w) - 1.0;
     const ndcY = 1.0 - ((e.clientY - rect.top) / h);
 
-    let quad = "perspective";
+        let quad = "perspective";
     let localNdcX = ndcX;
     let localNdcY = ndcY;
     const localAspect = aspect;
+    let newHoverZ: number | undefined = undefined;
 
     if (this.maximizedView) {
         quad = this.maximizedView;
@@ -675,7 +681,8 @@ export class BoardViewport extends LitElement {
                     const leftProj = engine.project_to_screen(quad, -profile.halfWidth, 0, z, localAspect);
                     const rightProj = engine.project_to_screen(quad, profile.halfWidth, 0, z, localAspect);
                     
-                                        if (leftProj[2]! < 1.0 && rightProj[2]! < 1.0) {
+                                                            if (leftProj[2]! < 1.0 && rightProj[2]! < 1.0) {
+                        newHoverZ = z;
                         let cX = 0, tY = 0, bY = 0;
                         if (this.maximizedView) {
                             cX = ((leftProj[0]! + 1) / 2) * rect.width;
@@ -719,7 +726,8 @@ export class BoardViewport extends LitElement {
                     const botProj = engine.project_to_screen(quad, 0, profile.botY, z, localAspect);
                     const zeroProj = engine.project_to_screen(quad, 0, 0, z, localAspect);
                     
-                    if (topProj[2]! < 1.0 && botProj[2]! < 1.0 && zeroProj[2]! < 1.0) {
+                                        if (topProj[2]! < 1.0 && botProj[2]! < 1.0 && zeroProj[2]! < 1.0) {
+                        newHoverZ = z;
                         let tX = 0, tY = 0, bY = 0, zY = 0;
                         if (this.maximizedView) {
                             tX = ((topProj[0]! + 1) / 2) * rect.width;
@@ -752,8 +760,13 @@ export class BoardViewport extends LitElement {
         }
     }
 
-    if (this.wgpuCanvas.style.cursor !== newCursor) {
+        if (this.wgpuCanvas.style.cursor !== newCursor) {
         this.wgpuCanvas.style.cursor = newCursor;
+    }
+
+    if (this._lastHoverZ !== newHoverZ) {
+        this._lastHoverZ = newHoverZ;
+        this.dispatchEvent(new CustomEvent('set-hover-z', { detail: { z: newHoverZ }, bubbles: true, composed: true }));
     }
 
     this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "move", x: e.clientX, y: e.clientY, quad }, bubbles: true, composed: true }));

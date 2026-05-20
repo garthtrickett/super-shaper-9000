@@ -568,13 +568,23 @@ export class BoardBuilderPage extends LitElement {
                   (this.mathEngine as unknown as EngineExt).set_show_solid_mesh(e.detail.show);
               }
           }}
-          @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
+                    @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_ACTIVE_PROFILE_SLICE", slice: e.detail.slice });
               }
               if (this.mathEngine) {
                   this.mathEngine.set_active_profile_slice(e.detail.slice);
+              }
+          }}
+          @set-hover-z=${(e: CustomEvent<{z?: number}>) => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "SET_HOVER_Z", z: e.detail.z });
+              }
+              if (this.mathEngine) {
+                  type EngineExt = WasmEngine & { set_hover_z(z?: number): void };
+                  (this.mathEngine as unknown as EngineExt).set_hover_z(e.detail.z);
               }
           }}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {

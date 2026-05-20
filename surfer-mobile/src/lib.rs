@@ -66,12 +66,13 @@ impl MobileSurferEngine {
         let (line_vertices, line_colors, gizmo_vertices, gizmo_colors, gizmo_indices) =
             surfer_core::mesh::generate_lines_for_view(
                 engine.get_model(),
-                "perspective",
+                                "perspective",
                 0,
                 true,
                 0x1FF,
                 0x1FF,
                 1.0,
+                None,
             );
 
         MobileGeometryData {

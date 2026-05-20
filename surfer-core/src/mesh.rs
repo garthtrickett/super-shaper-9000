@@ -156,6 +156,7 @@ pub fn generate_lines_for_view(
     line_mask: u32,
     gizmo_mask: u32,
     gizmo_scale: f32,
+    hover_z: Option<f32>,
 ) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>, Vec<u32>) {
     fn push_line_grad(
         line_vertices: &mut Vec<f32>,
@@ -792,34 +793,68 @@ pub fn generate_lines_for_view(
         }
     }
 
-        if (view_id == "profile" || view_id == "perspective" || view_id == "top") && show_cs {
-        if view_id == "profile" {
-            if let Some(cs) = model.cross_sections.get(active_slice) {
-                let name = format!("crossSection_{}", active_slice);
-                add_curve_lines(
-                    &Some(cs.clone()),
-                    Vec3::new(0.5, 0.5, 0.5),
-                    true,
-                    &name,
-                    gizmo_cs,
-                );
-            }
-        } else {
-            for (i, cs) in model.cross_sections.iter().enumerate() {
-                let name = format!("crossSection_{}", i);
-                add_curve_lines(
-                    &Some(cs.clone()),
-                    Vec3::new(0.5, 0.5, 0.5),
-                    true,
-                    &name,
-                    gizmo_cs,
-                );
+                if (view_id == "profile" || view_id == "perspective" || view_id == "top") && show_cs {
+            if view_id == "profile" {
+                if let Some(cs) = model.cross_sections.get(active_slice) {
+                    let name = format!("crossSection_{}", active_slice);
+                    add_curve_lines(
+                        &Some(cs.clone()),
+                        Vec3::new(0.5, 0.5, 0.5),
+                        true,
+                        &name,
+                        gizmo_cs,
+                    );
+                }
+            } else {
+                for (i, cs) in model.cross_sections.iter().enumerate() {
+                    let name = format!("crossSection_{}", i);
+                    add_curve_lines(
+                        &Some(cs.clone()),
+                        Vec3::new(0.5, 0.5, 0.5),
+                        true,
+                        &name,
+                        gizmo_cs,
+                    );
+                }
             }
         }
-    }
 
-    (
-        line_vertices,
+        if let Some(hz) = hover_z {
+            if view_id == "profile" || view_id == "perspective" {
+                let ctx = crate::geometry::ZRingContext::new(model, hz);
+                let steps = 60;
+
+                let draw_z = if view_id == "profile" {
+                    model.cross_sections.get(active_slice)
+                        .and_then(|cs| cs.control_points.first())
+                        .map(|p| p.z)
+                        .unwrap_or(0.0)
+                } else {
+                    hz
+                };
+
+                let ghost_color = Vec3::new(0.2, 0.9, 0.6); // Ghostly Emerald
+
+                let mut draw_side = |side: f32| {
+                    let mut prev_pt = ctx.get_point_at_uv(0.0, side);
+                    prev_pt.z = draw_z;
+
+                    for i in 1..=steps {
+                        let u = i as f32 / steps as f32;
+                        let mut pt = ctx.get_point_at_uv(u, side);
+                        pt.z = draw_z;
+                        push_line(&mut line_vertices, &mut line_colors, scale, prev_pt, pt, ghost_color);
+                        prev_pt = pt;
+                    }
+                };
+
+                draw_side(1.0);
+                draw_side(-1.0);
+            }
+        }
+
+        (
+            line_vertices,
         line_colors,
         tri_vertices,
         tri_colors,
@@ -1439,8 +1474,8 @@ mod tests {
         });
 
                         // "top" view should have lines since cross section is defined and visible
-        let (top_verts, _, _, _, _) =
-            super::generate_lines_for_view(&model, "top", 0, true, 0x1FF, 0x1FF, 1.0);
+                let (top_verts, _, _, _, _) =
+            super::generate_lines_for_view(&model, "top", 0, true, 0x1FF, 0x1FF, 1.0, None);
         assert!(
             top_verts.len() > 0,
             "Top view should output lines for the cross section"
@@ -1448,7 +1483,7 @@ mod tests {
 
         // "side" view should have lines from rockerTop
         let (side_verts, _, _, _, _) =
-            super::generate_lines_for_view(&model, "side", 0, true, 0x1FF, 0x1FF, 1.0);
+            super::generate_lines_for_view(&model, "side", 0, true, 0x1FF, 0x1FF, 1.0, None);
         assert!(
             side_verts.len() > 0,
             "Side view should have lines from top rocker"
@@ -1456,7 +1491,7 @@ mod tests {
 
         // "profile" view should only have lines from active slice
         let (profile_verts, _, _, _, _) =
-            super::generate_lines_for_view(&model, "profile", 0, true, 0x1FF, 0x1FF, 1.0);
+            super::generate_lines_for_view(&model, "profile", 0, true, 0x1FF, 0x1FF, 1.0, None);
 
         assert!(
             profile_verts.len() > 0,
