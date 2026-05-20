@@ -498,6 +498,7 @@ impl WasmEngine {
     }
 
         #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_show_tangents(&mut self, quad: &str, show: bool) {
         let idx = match quad {
             "top" => 0,
@@ -506,14 +507,14 @@ impl WasmEngine {
             "profile" => 3,
             _ => return,
         };
-                self.show_tangents[idx] = show;
+        self.show_tangents[idx] = show;
         if let Some(renderer) = &mut self.renderer {
             let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 quad,
                 self.active_profile_slice,
                 show,
-                                self.line_masks[idx],
+                self.line_masks[idx],
                 self.gizmo_masks[idx],
                 self.gizmo_scale[idx],
             );
@@ -522,6 +523,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
+        #[wasm_bindgen]
         #[wasm_bindgen]
     pub fn set_masks(&mut self, quad: &str, line_mask: u32, gizmo_mask: u32) {
         let idx = match quad {
@@ -553,6 +555,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_gizmo_scale(&mut self, quad: &str, scale: f32) {
         let idx = match quad {
             "top" => 0,
@@ -563,12 +566,13 @@ impl WasmEngine {
         };
         self.gizmo_scale[idx] = scale;
         if let Some(renderer) = &mut self.renderer {
-                        let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
+            let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 quad,
                 self.active_profile_slice,
                 self.show_tangents[idx],
-                self.show_gizmos[idx],
+                self.line_masks[idx],
+                self.gizmo_masks[idx],
                 self.gizmo_scale[idx],
             );
             renderer.update_view_buffers(idx, &lv, &lc, &tv, &tc, &ti);
@@ -581,15 +585,16 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_active_profile_slice(&mut self, slice: usize) {
         self.active_profile_slice = slice;
-                        if let Some(renderer) = &mut self.renderer {
-                                                let (lv_prof, lc_prof, tv_prof, tc_prof, ti_prof) = surfer_core::mesh::generate_lines_for_view(
+        if let Some(renderer) = &mut self.renderer {
+            let (lv_prof, lc_prof, tv_prof, tc_prof, ti_prof) = surfer_core::mesh::generate_lines_for_view(
                 self.engine.get_model(),
                 "profile",
                 self.active_profile_slice,
                 self.show_tangents[3],
-                                self.line_masks[3],
+                self.line_masks[3],
                 self.gizmo_masks[3],
                 self.gizmo_scale[3]
             );
@@ -600,7 +605,7 @@ impl WasmEngine {
                 "perspective",
                 self.active_profile_slice,
                 self.show_tangents[1],
-                                self.line_masks[1],
+                self.line_masks[1],
                 self.gizmo_masks[1],
                 self.gizmo_scale[1]
             );
@@ -611,7 +616,29 @@ impl WasmEngine {
     #[wasm_bindgen]
     pub fn set_renderer(&mut self, renderer: WgpuRenderer) {
         self.renderer = Some(renderer.0);
-        self.update_render_mesh();
+        self.    fn update_render_mesh(&mut self) {
+        let mesh = self.engine.compute_mesh();
+        self.stats.vertex_count = mesh.vertices.len() / 3;
+        self.stats.triangle_count = mesh.indices.len() / 3;
+        self.stats.volume_liters = mesh.volume_liters;
+
+        if let Some(renderer) = &mut self.renderer {
+            renderer.update_mesh_buffers(&mesh);
+            let views = ["top", "perspective", "side", "profile"];
+            for (i, view_id) in views.iter().enumerate() {
+                let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
+                    self.engine.get_model(),
+                    view_id,
+                    self.active_profile_slice,
+                    self.show_tangents[i],
+                    self.line_masks[i],
+                    self.gizmo_masks[i],
+                    self.gizmo_scale[i]
+                );
+                renderer.update_view_buffers(i, &lv, &lc, &tv, &tc, &ti);
+            }
+        }
+    }
     }
 
     #[wasm_bindgen]
