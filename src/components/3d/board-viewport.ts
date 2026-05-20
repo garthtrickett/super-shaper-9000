@@ -677,26 +677,26 @@ export class BoardViewport extends LitElement {
                     const leftProj = engine.project_to_screen(quad, -profile.halfWidth, 0, z, localAspect);
                     const rightProj = engine.project_to_screen(quad, profile.halfWidth, 0, z, localAspect);
                     
-                    if (leftProj[2]! < 1.0 && rightProj[2]! < 1.0) {
-                        let lX = 0, lY = 0, rX = 0;
+                                        if (leftProj[2]! < 1.0 && rightProj[2]! < 1.0) {
+                        let cX = 0, tY = 0, bY = 0;
                         if (this.maximizedView) {
-                            lX = ((leftProj[0]! + 1) / 2) * rect.width;
-                            lY = ((1 - leftProj[1]!) / 2) * rect.height;
-                            rX = ((rightProj[0]! + 1) / 2) * rect.width;
+                            cX = ((leftProj[0]! + 1) / 2) * rect.width;
+                            tY = ((1 - leftProj[1]!) / 2) * rect.height;
+                            bY = ((1 - rightProj[1]!) / 2) * rect.height;
                         } else {
-                            lX = ((leftProj[0]! + 1) / 2) * w;
-                            lY = ((1 - leftProj[1]!) / 2) * h;
-                            rX = ((rightProj[0]! + 1) / 2) * w;
+                            cX = ((leftProj[0]! + 1) / 2) * w;
+                            tY = ((1 - leftProj[1]!) / 2) * h;
+                            bY = ((1 - rightProj[1]!) / 2) * h;
                         }
                         
-                        if (lX > rX) { const tmp = lX; lX = rX; rX = tmp; }
+                        if (tY > bY) { const tmp = tY; tY = bY; bY = tmp; }
                         
                         this.hoverMeasureLine = {
-                            left: lX,
-                            top: lY,
-                            sizePx: rX - lX,
+                            left: cX,
+                            top: tY,
+                            sizePx: bY - tY,
                             measureInches: widthInches,
-                            isVertical: false
+                            isVertical: true
                         };
                     }
                 }
