@@ -4,6 +4,10 @@ import { staticPlugin } from "@elysiajs/static";
 import { computeBoardMesh } from "./services/rhino-compute";
 
 export const app = new Elysia()
+  .onRequest(({ set }) => {
+    set.headers["Cross-Origin-Opener-Policy"] = "same-origin";
+    set.headers["Cross-Origin-Embedder-Policy"] = "require-corp";
+  })
   .use(cors())
   // Simple health check for keep-alive pings
   .get("/health", () => ({ status: "ok" }))
