@@ -479,7 +479,7 @@ pub fn generate_lines_for_view(
     let gizmo_cs = (gizmo_mask & (1 << 7)) != 0;
     let gizmo_extras = (gizmo_mask & (1 << 8)) != 0;
 
-        let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
+    let add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
                                color: Vec3,
                                is_outline: bool,
                                curve_name: &str,

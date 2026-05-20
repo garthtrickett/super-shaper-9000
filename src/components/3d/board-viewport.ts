@@ -652,9 +652,10 @@ export class BoardViewport extends LitElement {
     
         const hit = this.findClosestNode(quad, localNdcX, localNdcY, localAspect);
     
-        let newCursor = 'default';
+                let newCursor = 'default';
     this.hoverInsertPoint = null;
     this.hoverMeasureLine = null;
+    let newHoverZ: number | undefined = undefined;
 
     if (hit) {
         newCursor = 'grab';
