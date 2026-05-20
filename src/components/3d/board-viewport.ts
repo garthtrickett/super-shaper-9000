@@ -241,14 +241,12 @@ export class BoardViewport extends LitElement {
       const curvesToCheck: string[] = [];
       const lineMask = this.lineMasks[quad as ViewportId];
       
-            if (quad === 'top') {
+                        if (quad === 'top') {
           if (lineMask & (1<<0)) curvesToCheck.push('outline');
           if (lineMask & (1<<3)) curvesToCheck.push('apexOutline');
           if (lineMask & (1<<4)) curvesToCheck.push('railOutline');
           if (lineMask & (1<<6)) curvesToCheck.push('deckShoulder');
-          if (lineMask & (1<<7)) {
-              this.boardState?.crossSections?.forEach((cs, i) => curvesToCheck.push(`crossSection_${i}`));
-          }
+          // Intentionally omitted crossSections for hover insertion in top view
           if (lineMask & (1<<8)) {
               this.boardState?.outlineLayers?.forEach((l, i) => {
                   if (l.active !== false) {
