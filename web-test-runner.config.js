@@ -16,16 +16,8 @@ export default {
       await next();
     }
   ],
-    plugins:[
-    {
-      name: 'fix-rayon-worker-import',
-      transform(context) {
-        if (context.path && context.path.endsWith('workerHelpers.js')) {
-          const body = typeof context.body === 'string' ? context.body : context.body.toString();
-          return { body: body.replace(/['"]\.\.\/\.\.\/\.\.\/?['"]/g, "'/src/lib/client/wasm/surfer_wasm.js'"), type: 'js' };
-        }
-      }
-    },
+  plugins:[
+    
     {
       name: 'vite-wasm-url-mock',
       /** @param {{ path: string }} context */
@@ -48,13 +40,13 @@ export default {
   browsers:[
     playwrightLauncher({ 
       product: 'chromium',
-            launchOptions: {
+      launchOptions: {
         executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
         args: ['--enable-features=SharedArrayBuffer']
       }
     }),
   ],
-    testFramework: {
+  testFramework: {
     config: {
       timeout: 15000,
     },

@@ -2,20 +2,9 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-    plugins: [
+  plugins: [
     tailwindcss(),
-    {
-            name: 'fix-rayon-worker-import',
-      enforce: 'pre',
-      transform(code, id) {
-        if (id.includes('workerHelpers.js')) {
-          return {
-            code: code.replace(/['"]\.\.\/\.\.\/\.\.\/?['"]/g, "'/src/lib/client/wasm/surfer_wasm.js'"),
-            map: null
-          };
-        }
-      }
-    },
+    
     {
       name: 'isolation-headers',
       configureServer(server) {
@@ -31,7 +20,7 @@ export default defineConfig({
     host: "127.0.0.1",
     allowedHosts: true,
     port: 3000,
-        strictPort: true,
+    strictPort: true,
     headers: {
       "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Opener-Policy": "same-origin"
