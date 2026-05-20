@@ -236,7 +236,7 @@ export class BoardViewport extends LitElement {
             private getHoverInsertPoint(quad: string, clientX: number, clientY: number, localNdcX: number, localNdcY: number, localAspect: number): { left: number, top: number, curve: string, t: number } | null {
       if (quad === 'perspective' || !this.mathEngine) return null;
       
-      let curvesToCheck: string[] = [];
+      const curvesToCheck: string[] = [];
       const lineMask = this.lineMasks[quad as ViewportId];
       
       if (quad === 'top') {
@@ -267,7 +267,7 @@ export class BoardViewport extends LitElement {
           if (lineMask & (1<<7)) curvesToCheck.push(`crossSection_${this.activeProfileSlice}`);
       }
 
-      let ox = 0, oy = 0, oz = 0;
+      const ox = 0, oy = 0, oz = 0;
       if (quad === "profile") {
           if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
               const cs = this.boardState.crossSections[this.activeProfileSlice]!;
@@ -284,7 +284,7 @@ export class BoardViewport extends LitElement {
       const engine = this.mathEngine as unknown as EngineExt;
       
       const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, ox, oy, oz);
-      let worldX = pt[0]!, worldY = pt[1]!, worldZ = pt[2]!;
+      const worldX = pt[0]!, worldY = pt[1]!, worldZ = pt[2]!;
 
       let roX = worldX, roY = worldY, roZ = worldZ;
       let rdX = 0, rdY = 0, rdZ = 0;
@@ -462,7 +462,7 @@ export class BoardViewport extends LitElement {
 
         type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
         if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
-            let ox = 0, oy = 0, oz = 0;
+            const ox = 0, oy = 0, oz = 0;
             if (quad === "profile") {
                 if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
                     const cs = this.boardState.crossSections[this.activeProfileSlice]!;
@@ -853,7 +853,7 @@ export class BoardViewport extends LitElement {
             </button>
             ${this.maximizedView === 'profile' ? renderProfileSliceSelector() : ''}
                                                 <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
-                            ${this.showSettings[this.maximizedView!] ? html`
+                            ${this.showSettings[this.maximizedView] ? html`
                 <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
                                                       <div class="flex justify-between items-center">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
@@ -907,7 +907,7 @@ export class BoardViewport extends LitElement {
                               { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
                           ]
                       };
-                      return (CURVES_FOR_VIEW[this.maximizedView!] || []).map(c => html`
+                      return (CURVES_FOR_VIEW[this.maximizedView] || []).map(c => html`
                       <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
                         <span class="text-[10px] font-bold uppercase tracking-widest ${ (this.lineMasks[this.maximizedView!] & c.mask) !== 0 ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
                         <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleLineMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
@@ -918,16 +918,16 @@ export class BoardViewport extends LitElement {
                   </div>
 
                   <label class="flex items-center justify-between cursor-pointer group mb-2">
-                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[this.maximizedView!] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>
-                    <input type="checkbox" .checked=${this.showTangents[this.maximizedView!]} @change=${() => this.toggleTangents(this.maximizedView!)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[this.maximizedView] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>
+                    <input type="checkbox" .checked=${this.showTangents[this.maximizedView]} @change=${() => this.toggleTangents(this.maximizedView!)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
                   </label>
 
                   <div class="flex flex-col gap-2">
                     <div class="flex justify-between items-center">
                       <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Gizmo Size</span>
-                      <span class="text-[10px] font-mono text-zinc-500">${this.gizmoScale[this.maximizedView!].toFixed(1)}x</span>
+                      <span class="text-[10px] font-mono text-zinc-500">${this.gizmoScale[this.maximizedView].toFixed(1)}x</span>
                     </div>
-                    <input type="range" min="0.1" max="3.0" step="0.1" .value=${this.gizmoScale[this.maximizedView!].toString()} @input=${(e: Event) => this.updateGizmoScale(this.maximizedView!, parseFloat((e.target as HTMLInputElement).value))} class="w-full accent-blue-500 cursor-pointer" />
+                    <input type="range" min="0.1" max="3.0" step="0.1" .value=${this.gizmoScale[this.maximizedView].toString()} @input=${(e: Event) => this.updateGizmoScale(this.maximizedView!, parseFloat((e.target as HTMLInputElement).value))} class="w-full accent-blue-500 cursor-pointer" />
                   </div>
                 </div>
               ` : ''}
@@ -939,7 +939,7 @@ export class BoardViewport extends LitElement {
                     <span>Ortho</span>
                   </button>
                 ` : ''}
-                <button type="button" @click=${() => this.toggleSettings(this.maximizedView!)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showSettings[this.maximizedView!] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Display Settings">
+                <button type="button" @click=${() => this.toggleSettings(this.maximizedView!)} class="flex items-center gap-2 px-2.5 py-1.5 ${this.showSettings[this.maximizedView] ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500' : 'bg-zinc-950/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'} text-[10px] font-bold uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border cursor-pointer" title="Display Settings">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 </button>
               </div>

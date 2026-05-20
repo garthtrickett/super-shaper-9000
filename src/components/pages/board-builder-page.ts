@@ -534,8 +534,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_GIZMO_SCALE", quad: e.detail.quad, scale: e.detail.scale });
               }
-              if (this.mathEngine) {
-                  (this.mathEngine as any).set_gizmo_scale(e.detail.quad, e.detail.scale);
+                            if (this.mathEngine) {
+                  type EngineExt = WasmEngine & { set_gizmo_scale(quad: string, scale: number): void };
+                  (this.mathEngine as unknown as EngineExt).set_gizmo_scale(e.detail.quad, e.detail.scale);
               }
           }}
                     @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
@@ -543,8 +544,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_TANGENTS", quad: e.detail.quad, show: e.detail.show });
               }
-              if (this.mathEngine) {
-                  (this.mathEngine as any).set_show_tangents(e.detail.quad, e.detail.show);
+                            if (this.mathEngine) {
+                  type EngineExt = WasmEngine & { set_show_tangents(quad: string, show: boolean): void };
+                  (this.mathEngine as unknown as EngineExt).set_show_tangents(e.detail.quad, e.detail.show);
               }
           }}
                     @set-masks=${(e: CustomEvent<{quad: string, lineMask: number, gizmoMask: number}>) => {
@@ -552,8 +554,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_MASKS", quad: e.detail.quad, lineMask: e.detail.lineMask, gizmoMask: e.detail.gizmoMask });
               }
-              if (this.mathEngine) {
-                  (this.mathEngine as any).set_masks(e.detail.quad, e.detail.lineMask, e.detail.gizmoMask);
+                            if (this.mathEngine) {
+                  type EngineExt = WasmEngine & { set_masks(quad: string, lineMask: number, gizmoMask: number): void };
+                  (this.mathEngine as unknown as EngineExt).set_masks(e.detail.quad, e.detail.lineMask, e.detail.gizmoMask);
               }
           }}
           @set-show-solid-mesh=${(e: CustomEvent<{show: boolean}>) => {
@@ -561,8 +564,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_SOLID_MESH", show: e.detail.show });
               }
-              if (this.mathEngine) {
-                  (this.mathEngine as any).set_show_solid_mesh(e.detail.show);
+                            if (this.mathEngine) {
+                  type EngineExt = WasmEngine & { set_show_solid_mesh(show: boolean): void };
+                  (this.mathEngine as unknown as EngineExt).set_show_solid_mesh(e.detail.show);
               }
           }}
           @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {

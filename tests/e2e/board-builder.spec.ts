@@ -847,8 +847,6 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const pt = vp.mathEngine.get_point_on_curve('outline', 0.25);
       if (!pt) return null;
 
-      const worldX = pt[0]! / 12;
-      const worldZ = pt[2]! / 12;
 
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;
@@ -914,8 +912,6 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const pt = vp.mathEngine.get_point_on_curve('rockerTop', 0.25);
       if (!pt) return null;
 
-      const worldY = pt[1]! / 12;
-      const worldZ = pt[2]! / 12;
 
       const canvas = vp.shadowRoot?.querySelector('canvas') || vp.querySelector('canvas');
       if (!canvas) return null;

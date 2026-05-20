@@ -129,15 +129,17 @@ self.onmessage = async (e: MessageEvent<any>) => {
     }
 
         if (msg.type === "SET_MASKS") {
-        if (engine) {
-            (engine as any).set_masks(msg.quad, msg.lineMask, msg.gizmoMask);
+                if (engine) {
+            type EngineExt = WasmEngine & { set_masks(quad: string, lineMask: number, gizmoMask: number): void };
+            (engine as unknown as EngineExt).set_masks(msg.quad, msg.lineMask, msg.gizmoMask);
         }
         return;
     }
 
-    if (msg.type === "SET_SHOW_SOLID_MESH") {
+        if (msg.type === "SET_SHOW_SOLID_MESH") {
         if (engine) {
-            (engine as any).set_show_solid_mesh(msg.show);
+            type EngineExt = WasmEngine & { set_show_solid_mesh(show: boolean): void };
+            (engine as unknown as EngineExt).set_show_solid_mesh(msg.show);
         }
         return;
     }
