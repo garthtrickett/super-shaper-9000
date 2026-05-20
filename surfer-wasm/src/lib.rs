@@ -1013,11 +1013,12 @@ impl WasmEngine {
         self.get_stats()
     }
 
-    #[allow(clippy::too_many_arguments)]
+        #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn find_closest_t(
         &self,
         curve_name: &str,
+        quad: &str,
         rx: f32,
         ry: f32,
         rz: f32,
@@ -1026,13 +1027,13 @@ impl WasmEngine {
         dz: f32,
     ) -> f32 {
         self.engine
-            .find_closest_t(curve_name, [rx, ry, rz], [dx, dy, dz])
+            .find_closest_t(curve_name, quad, [rx, ry, rz], [dx, dy, dz])
             .unwrap_or(-1.0)
     }
 
     #[wasm_bindgen]
-    pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> js_sys::Float32Array {
-        if let Some(pt) = self.engine.get_point_on_curve(curve_name, t) {
+    pub fn get_point_on_curve(&self, curve_name: &str, quad: &str, t: f32) -> js_sys::Float32Array {
+        if let Some(pt) = self.engine.get_point_on_curve(curve_name, quad, t) {
             js_sys::Float32Array::from(&pt[..])
         } else {
             js_sys::Float32Array::from(&[0.0, 0.0, 0.0][..])

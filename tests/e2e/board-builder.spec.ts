@@ -852,12 +852,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         // Test Top Ortho View (Top-Left Quadrant)
         const topHitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & {
-                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; get_point_on_curve(curveName: string, quad: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.mathEngine) return null;
 
-      const pt = vp.mathEngine.get_point_on_curve('outline', 0.25);
+      const pt = vp.mathEngine.get_point_on_curve('outline', 'top', 0.25);
       if (!pt) return null;
 
 
@@ -917,12 +917,12 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
         const sideHitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & {
-        mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; get_point_on_curve(curveName: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; get_point_on_curve(curveName: string, quad: string, t: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
       };
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.mathEngine) return null;
 
-      const pt = vp.mathEngine.get_point_on_curve('rockerTop', 0.25);
+      const pt = vp.mathEngine.get_point_on_curve('rockerTop', 'side', 0.25);
       if (!pt) return null;
 
 

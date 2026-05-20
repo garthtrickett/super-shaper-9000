@@ -156,9 +156,10 @@ impl SurferEngine {
             .collect()
     }
 
-    pub fn find_closest_t(
+        pub fn find_closest_t(
         &self,
         curve_name: &str,
+        view_id: &str,
         ray_origin: [f32; 3],
         ray_dir: [f32; 3],
     ) -> Option<f32> {
@@ -169,6 +170,9 @@ impl SurferEngine {
         let rd = Vec3::from_array(ray_dir);
 
         let map_point = |t: f32, raw_p: Vec3| -> Vec3 {
+            if view_id == "profile" {
+                return raw_p;
+            }
             if curve_name.starts_with("crossSection_") {
                 let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
                 crate::geometry::map_slice_local_to_world(&self.model, z, t, raw_p)
@@ -242,12 +246,14 @@ impl SurferEngine {
         Some(t_search)
     }
 
-    pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
+        pub fn get_point_on_curve(&self, curve_name: &str, view_id: &str, t: f32) -> Option<[f32; 3]> {
         let curve = crate::geometry::get_curve(&self.model, curve_name)?;
         use glam::Vec3;
         let raw_p = crate::geometry::evaluate_curve(curve, t);
 
-        let pt = if curve_name.starts_with("crossSection_") {
+        let pt = if view_id == "profile" {
+            raw_p
+        } else if curve_name.starts_with("crossSection_") {
             let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
             crate::geometry::map_slice_local_to_world(&self.model, z, t, raw_p)
         } else if curve_name == "rockerTop"

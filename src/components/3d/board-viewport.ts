@@ -283,7 +283,7 @@ export class BoardViewport extends LitElement {
           }
       }
       
-      type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; get_point_on_curve(curve: string, t: number): Float32Array; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+            type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, quad: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; get_point_on_curve(curve: string, quad: string, t: number): Float32Array; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
       
       const engine = this.mathEngine as unknown as EngineExt;
       
@@ -304,9 +304,9 @@ export class BoardViewport extends LitElement {
       const h = rect.height / 2;
 
       for (const targetCurve of curvesToCheck) {
-          const t = engine.find_closest_t(targetCurve, roX, roY, roZ, rdX, rdY, rdZ);
+          const t = engine.find_closest_t(targetCurve, quad, roX, roY, roZ, rdX, rdY, rdZ);
           if (t >= 0.0 && t <= 1.0) {
-              const curvePt = engine.get_point_on_curve(targetCurve, t);
+              const curvePt = engine.get_point_on_curve(targetCurve, quad, t);
               const proj = engine.project_to_screen(quad, curvePt[0]!, curvePt[1]!, curvePt[2]!, localAspect);
               if (proj[2]! < 1.0) {
                   let pxX = 0, pxY = 0;
@@ -464,7 +464,7 @@ export class BoardViewport extends LitElement {
     if (this.boardState) {
         let worldX = 0, worldY = 0, worldZ = 0;
 
-        type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
+                type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, quad: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
         if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
             const ox = 0, oy = 0;
             let oz = 0;
@@ -512,7 +512,8 @@ export class BoardViewport extends LitElement {
                         else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
                         else if (quad === 'profile') { roZ = worldZ - 100.0; rdZ = 1.0; }
                         
-                        const t = this.mathEngine.find_closest_t(targetCurve, roX, roY, roZ, rdX, rdY, rdZ);
+                                                type EngineExt = { find_closest_t(curve: string, quad: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
+                        const t = (this.mathEngine as unknown as EngineExt).find_closest_t(targetCurve, quad, roX, roY, roZ, rdX, rdY, rdZ);
                         if (t >= 0.0 && t <= 1.0) exactT = t;
                     }
                 }
