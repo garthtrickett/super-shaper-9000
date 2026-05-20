@@ -267,7 +267,8 @@ export class BoardViewport extends LitElement {
           if (lineMask & (1<<7)) curvesToCheck.push(`crossSection_${this.activeProfileSlice}`);
       }
 
-      const ox = 0, oy = 0, oz = 0;
+      const ox = 0, oy = 0;
+      let oz = 0;
       if (quad === "profile") {
           if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
               const cs = this.boardState.crossSections[this.activeProfileSlice]!;
@@ -462,7 +463,8 @@ export class BoardViewport extends LitElement {
 
         type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; };
         if (this.mathEngine && (this.mathEngine as unknown as EngineExt).unproject_to_plane) {
-            const ox = 0, oy = 0, oz = 0;
+            const ox = 0, oy = 0;
+            let oz = 0;
             if (quad === "profile") {
                 if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
                     const cs = this.boardState.crossSections[this.activeProfileSlice]!;

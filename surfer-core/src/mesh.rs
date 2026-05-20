@@ -207,12 +207,60 @@ pub fn generate_lines_for_view(
     ) {
         let s = size * 0.5;
         let faces = [
-            (Vec3::Z, [Vec3::new(-s, -s, s), Vec3::new(s, -s, s), Vec3::new(s, s, s), Vec3::new(-s, s, s)]),
-            (Vec3::NEG_Z, [Vec3::new(s, -s, -s), Vec3::new(-s, -s, -s), Vec3::new(-s, s, -s), Vec3::new(s, s, -s)]),
-            (Vec3::X, [Vec3::new(s, -s, s), Vec3::new(s, -s, -s), Vec3::new(s, s, -s), Vec3::new(s, s, s)]),
-            (Vec3::NEG_X, [Vec3::new(-s, -s, -s), Vec3::new(-s, -s, s), Vec3::new(-s, s, s), Vec3::new(-s, s, -s)]),
-            (Vec3::Y, [Vec3::new(-s, s, s), Vec3::new(s, s, s), Vec3::new(s, s, -s), Vec3::new(-s, s, -s)]),
-            (Vec3::NEG_Y, [Vec3::new(-s, -s, -s), Vec3::new(s, -s, -s), Vec3::new(s, -s, s), Vec3::new(-s, -s, s)]),
+            (
+                Vec3::Z,
+                [
+                    Vec3::new(-s, -s, s),
+                    Vec3::new(s, -s, s),
+                    Vec3::new(s, s, s),
+                    Vec3::new(-s, s, s),
+                ],
+            ),
+            (
+                Vec3::NEG_Z,
+                [
+                    Vec3::new(s, -s, -s),
+                    Vec3::new(-s, -s, -s),
+                    Vec3::new(-s, s, -s),
+                    Vec3::new(s, s, -s),
+                ],
+            ),
+            (
+                Vec3::X,
+                [
+                    Vec3::new(s, -s, s),
+                    Vec3::new(s, -s, -s),
+                    Vec3::new(s, s, -s),
+                    Vec3::new(s, s, s),
+                ],
+            ),
+            (
+                Vec3::NEG_X,
+                [
+                    Vec3::new(-s, -s, -s),
+                    Vec3::new(-s, -s, s),
+                    Vec3::new(-s, s, s),
+                    Vec3::new(-s, s, -s),
+                ],
+            ),
+            (
+                Vec3::Y,
+                [
+                    Vec3::new(-s, s, s),
+                    Vec3::new(s, s, s),
+                    Vec3::new(s, s, -s),
+                    Vec3::new(-s, s, -s),
+                ],
+            ),
+            (
+                Vec3::NEG_Y,
+                [
+                    Vec3::new(-s, -s, -s),
+                    Vec3::new(s, -s, -s),
+                    Vec3::new(s, -s, s),
+                    Vec3::new(-s, -s, s),
+                ],
+            ),
         ];
 
         for (n, quad) in faces {
@@ -226,8 +274,12 @@ pub fn generate_lines_for_view(
             }
 
             tri_idxs.extend_from_slice(&[
-                start_idx, start_idx + 1, start_idx + 2,
-                start_idx, start_idx + 2, start_idx + 3
+                start_idx,
+                start_idx + 1,
+                start_idx + 2,
+                start_idx,
+                start_idx + 2,
+                start_idx + 3,
             ]);
         }
     }
@@ -251,11 +303,7 @@ pub fn generate_lines_for_view(
                 let u = j as f32 / slices as f32;
                 let theta = u * std::f32::consts::TAU;
 
-                let n = Vec3::new(
-                    phi.sin() * theta.cos(),
-                    phi.cos(),
-                    phi.sin() * theta.sin(),
-                );
+                let n = Vec3::new(phi.sin() * theta.cos(), phi.cos(), phi.sin() * theta.sin());
                 let p = center + n * radius;
                 let c = bake_light(color, n);
 
@@ -270,8 +318,12 @@ pub fn generate_lines_for_view(
                 let second = first + slices + 1;
 
                 tri_idxs.extend_from_slice(&[
-                    first, second, first + 1,
-                    second, second + 1, first + 1
+                    first,
+                    second,
+                    first + 1,
+                    second,
+                    second + 1,
+                    first + 1,
                 ]);
             }
         }
@@ -330,8 +382,12 @@ pub fn generate_lines_for_view(
         }
 
         tri_idxs.extend_from_slice(&[
-            start_idx, start_idx + 1, start_idx + 2,
-            start_idx, start_idx + 2, start_idx + 3
+            start_idx,
+            start_idx + 1,
+            start_idx + 2,
+            start_idx,
+            start_idx + 2,
+            start_idx + 3,
         ]);
     }
 
@@ -367,9 +423,27 @@ pub fn generate_lines_for_view(
         };
 
         if shape_type == "circle" {
-            push_flat_circle(tri_verts, tri_cols, tri_idxs, c, size * 1.5, color, u_axis, v_axis);
+            push_flat_circle(
+                tri_verts,
+                tri_cols,
+                tri_idxs,
+                c,
+                size * 1.5,
+                color,
+                u_axis,
+                v_axis,
+            );
         } else {
-            push_flat_square(tri_verts, tri_cols, tri_idxs, c, size * 2.0, color, u_axis, v_axis);
+            push_flat_square(
+                tri_verts,
+                tri_cols,
+                tri_idxs,
+                c,
+                size * 2.0,
+                color,
+                u_axis,
+                v_axis,
+            );
         }
     }
 
@@ -483,7 +557,10 @@ pub fn generate_lines_for_view(
                     let p = map_point(t, raw_p);
 
                     let is_any_selected = model.selected_node.is_some();
-                    let is_this_selected = model.selected_node.as_ref().map_or(false, |sn| sn.curve == curve_name && sn.index == i);
+                                        let is_this_selected = model
+                        .selected_node
+                        .as_ref()
+                        .is_some_and(|sn| sn.curve == curve_name && sn.index == i);
 
                     let c_anchor = if is_this_selected {
                         Vec3::new(1.0, 0.8, 0.0) // Amber for selected
@@ -503,7 +580,8 @@ pub fn generate_lines_for_view(
                         "circle",
                     );
 
-                    let should_draw_tangents = show_tangents && (!is_any_selected || is_this_selected);
+                    let should_draw_tangents =
+                        show_tangents && (!is_any_selected || is_this_selected);
 
                     if should_draw_tangents {
                         let c_tan = Vec3::new(0.4, 0.4, 1.0);
@@ -565,7 +643,13 @@ pub fn generate_lines_for_view(
 
     if view_id == "top" || view_id == "perspective" {
         if show_outline {
-            add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true, "outline", gizmo_outline);
+            add_curve_lines(
+                &model.outline,
+                Vec3::new(1.0, 1.0, 0.0),
+                true,
+                "outline",
+                gizmo_outline,
+            );
         }
         if show_apex_out {
             add_curve_lines(
@@ -573,7 +657,7 @@ pub fn generate_lines_for_view(
                 Vec3::new(0.0, 1.0, 1.0),
                 true,
                 "apexOutline",
-                gizmo_apex_out
+                gizmo_apex_out,
             );
         }
         if show_rail_out {
@@ -582,7 +666,7 @@ pub fn generate_lines_for_view(
                 Vec3::new(1.0, 0.0, 1.0),
                 true,
                 "railOutline",
-                gizmo_rail_out
+                gizmo_rail_out,
             );
         }
         if show_deck {
@@ -591,7 +675,7 @@ pub fn generate_lines_for_view(
                 Vec3::new(1.0, 0.5, 0.0),
                 true,
                 "deckShoulder",
-                gizmo_deck
+                gizmo_deck,
             );
         }
         if show_extras {
@@ -605,14 +689,14 @@ pub fn generate_lines_for_view(
                             Vec3::new(1.0, 1.0, 0.0),
                             true,
                             &name_ext,
-                            gizmo_extras
+                            gizmo_extras,
                         );
                         add_curve_lines(
                             &Some(l.otl_int.clone()),
                             Vec3::new(1.0, 1.0, 0.0),
                             true,
                             &name_int,
-                            gizmo_extras
+                            gizmo_extras,
                         );
                     }
                 }
@@ -626,14 +710,14 @@ pub fn generate_lines_for_view(
                         Vec3::new(0.0, 1.0, 1.0),
                         false,
                         &n_lo,
-                        gizmo_extras
+                        gizmo_extras,
                     );
                     add_curve_lines(
                         &Some(ch.right_outline.clone()),
                         Vec3::new(0.0, 1.0, 1.0),
                         false,
                         &n_ro,
-                        gizmo_extras
+                        gizmo_extras,
                     );
                 }
             }
@@ -647,7 +731,7 @@ pub fn generate_lines_for_view(
                 Vec3::new(0.0, 1.0, 0.0),
                 false,
                 "rockerTop",
-                gizmo_rocker_top
+                gizmo_rocker_top,
             );
         }
         if show_rocker_bot {
@@ -656,7 +740,7 @@ pub fn generate_lines_for_view(
                 Vec3::new(1.0, 0.0, 0.0),
                 false,
                 "rockerBottom",
-                gizmo_rocker_bot
+                gizmo_rocker_bot,
             );
         }
         if show_apex_roc {
@@ -665,7 +749,7 @@ pub fn generate_lines_for_view(
                 Vec3::new(0.0, 0.5, 1.0),
                 false,
                 "apexRocker",
-                gizmo_apex_roc
+                gizmo_apex_roc,
             );
         }
         if show_extras {
@@ -678,37 +762,53 @@ pub fn generate_lines_for_view(
                         Vec3::new(1.0, 0.5, 0.0),
                         false,
                         &n_ld,
-                        gizmo_extras
+                        gizmo_extras,
                     );
                     add_curve_lines(
                         &Some(ch.right_depth.clone()),
                         Vec3::new(1.0, 0.5, 0.0),
                         false,
                         &n_rd,
-                        gizmo_extras
+                        gizmo_extras,
                     );
                 }
             }
         }
     }
 
-    if view_id == "profile" || view_id == "perspective" {
-        if show_cs {
-            if view_id == "profile" {
-                if let Some(cs) = model.cross_sections.get(active_slice) {
-                    let name = format!("crossSection_{}", active_slice);
-                    add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name, gizmo_cs);
-                }
-            } else {
-                for (i, cs) in model.cross_sections.iter().enumerate() {
-                    let name = format!("crossSection_{}", i);
-                    add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name, gizmo_cs);
-                }
+        if (view_id == "profile" || view_id == "perspective") && show_cs {
+        if view_id == "profile" {
+            if let Some(cs) = model.cross_sections.get(active_slice) {
+                let name = format!("crossSection_{}", active_slice);
+                add_curve_lines(
+                    &Some(cs.clone()),
+                    Vec3::new(0.5, 0.5, 0.5),
+                    true,
+                    &name,
+                    gizmo_cs,
+                );
+            }
+        } else {
+            for (i, cs) in model.cross_sections.iter().enumerate() {
+                let name = format!("crossSection_{}", i);
+                add_curve_lines(
+                    &Some(cs.clone()),
+                    Vec3::new(0.5, 0.5, 0.5),
+                    true,
+                    &name,
+                    gizmo_cs,
+                );
             }
         }
     }
 
-    (line_vertices, line_colors, tri_vertices, tri_colors, tri_indices)
+    (
+        line_vertices,
+        line_colors,
+        tri_vertices,
+        tri_colors,
+        tri_indices,
+    )
 }
 
 #[cfg(test)]
@@ -1323,25 +1423,27 @@ mod tests {
             ..Default::default()
         });
 
+        // "top" view should have 0 lines since only rockerTop and a cross section are defined
+        let (top_verts, _, _, _, _) =
+            super::generate_lines_for_view(&model, "top", 0, true, true, 1.0);
+        assert_eq!(
+            top_verts.len(),
+            0,
+            "Top view should output 0 lines for a model with only top rocker and cross section"
+        );
 
-          // "top" view should have 0 lines since only rockerTop and a cross section are defined
-                let (top_verts, _, _, _, _) = super::generate_lines_for_view(&model, "top", 0, true, true, 1.0);
-                assert_eq!(top_verts.len(), 0,
-                           "Top view should output 0 lines for a model with only top rocker and cross section"
-                );
+        // "side" view should have lines from rockerTop
+        let (side_verts, _, _, _, _) =
+            super::generate_lines_for_view(&model, "side", 0, true, true, 1.0);
+        assert!(
+            side_verts.len() > 0,
+            "Side view should have lines from top rocker"
+        );
 
-            // "side" view should have lines from rockerTop
-                        let (side_verts, _, _, _, _) = super::generate_lines_for_view(&model, "side", 0, true, true, 1.0);
-                    assert!(
-                            side_verts.len() > 0,
-                            "Side view should have lines from top rocker"
-                            );
+        // "profile" view should only have lines from active slice
+        let (profile_verts, _, _, _, _) =
+            super::generate_lines_for_view(&model, "profile", 0, true, true, 1.0);
 
-            // "profile" view should only have lines from active slice
-                        let (profile_verts, _, _, _, _) = super::generate_lines_for_view(&model, "profile", 0, true, true, 1.0);
-
-
-        
         assert!(
             profile_verts.len() > 0,
             "Profile view should have lines from active slice"

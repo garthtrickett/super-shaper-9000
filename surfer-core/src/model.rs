@@ -90,9 +90,9 @@ pub struct BoardModel {
     #[serde(default = "default_one")]
     pub rail_coefficient_tail: f32,
     #[serde(default = "default_one")]
-        pub rail_coefficient_nose: f32,
+    pub rail_coefficient_nose: f32,
     #[serde(default = "default_one")]
-        pub thickness_z_stretch: f32,
+    pub thickness_z_stretch: f32,
     pub show_heatmap: Option<bool>,
     pub show_zebra: Option<bool>,
     pub show_outline: Option<bool>,
@@ -102,7 +102,7 @@ pub struct BoardModel {
     pub show_rail_outline: Option<bool>,
     pub show_apex_rocker: Option<bool>,
     pub show_deck_shoulder: Option<bool>,
-            pub show_cross_sections: Option<bool>,
+    pub show_cross_sections: Option<bool>,
     pub show_mri_view: Option<bool>,
     pub mri_slice_position: Option<f32>,
     pub selected_node: Option<SelectedNode>,
@@ -253,7 +253,7 @@ impl approx::AbsDiffEq for BoardModel {
                 &other.rail_coefficient_nose,
                 epsilon,
             )
-                        && f32::abs_diff_eq(
+            && f32::abs_diff_eq(
                 &self.thickness_z_stretch,
                 &other.thickness_z_stretch,
                 epsilon,
@@ -352,8 +352,8 @@ impl Default for BoardModel {
             v_concave_tail: 0.0,
             v_concave_nose: 0.0,
             rail_coefficient_tail: 1.0,
-                        rail_coefficient_nose: 1.0,
-                        thickness_z_stretch: 1.0,
+            rail_coefficient_nose: 1.0,
+            thickness_z_stretch: 1.0,
             show_heatmap: None,
             show_zebra: None,
             show_outline: None,
@@ -363,7 +363,7 @@ impl Default for BoardModel {
             show_rail_outline: None,
             show_apex_rocker: None,
             show_deck_shoulder: None,
-                                    show_cross_sections: None,
+            show_cross_sections: None,
             show_mri_view: None,
             mri_slice_position: None,
             selected_node: None,

@@ -31,7 +31,7 @@ pub struct RenderState {
     camera_bind_groups: Vec<wgpu::BindGroup>,
     depth_texture: wgpu::TextureView,
     msaa_texture: wgpu::TextureView,
-        line_pipeline: wgpu::RenderPipeline,
+    line_pipeline: wgpu::RenderPipeline,
     line_vertex_buffers: Vec<wgpu::Buffer>,
     line_color_buffers: Vec<wgpu::Buffer>,
     num_line_vertices: [u32; 4],
@@ -132,7 +132,7 @@ impl RenderState {
         }
     }
 
-        fn update_view_buffers(
+    fn update_view_buffers(
         &mut self,
         idx: usize,
         line_vertices: &[f32],
@@ -191,9 +191,12 @@ impl RenderState {
         });
 
         if !tri_idxs.is_empty() {
-            self.queue.write_buffer(&self.gizmo_vertex_buffers[idx], 0, tri_verts);
-            self.queue.write_buffer(&self.gizmo_color_buffers[idx], 0, tri_cols);
-            self.queue.write_buffer(&self.gizmo_index_buffers[idx], 0, tri_idxs);
+            self.queue
+                .write_buffer(&self.gizmo_vertex_buffers[idx], 0, tri_verts);
+            self.queue
+                .write_buffer(&self.gizmo_color_buffers[idx], 0, tri_cols);
+            self.queue
+                .write_buffer(&self.gizmo_index_buffers[idx], 0, tri_idxs);
             self.num_gizmo_indices[idx] = tri_indices.len() as u32;
         } else {
             self.num_gizmo_indices[idx] = 0;
@@ -305,9 +308,9 @@ pub struct WasmEngine {
     renderer: Option<RenderState>,
     camera_ctrl: CameraController,
     stats: MeshStats,
-        view_mode: String,
+    view_mode: String,
     is_ortho: bool,
-            active_profile_slice: usize,
+    active_profile_slice: usize,
     show_tangents: [bool; 4],
     gizmo_scale: [f32; 4],
     line_masks: [u32; 4],
@@ -332,9 +335,9 @@ impl WasmEngine {
             renderer: None,
             camera_ctrl: CameraController::default(),
             stats: MeshStats::default(),
-                        view_mode: "quad".to_string(),
+            view_mode: "quad".to_string(),
             is_ortho: false,
-                                                            active_profile_slice: 0,
+            active_profile_slice: 0,
             show_tangents: [true, true, true, true],
             gizmo_scale: [1.0, 1.0, 0.5, 0.3],
             line_masks: [0x1FF, 0x1FF, 0x1FF, 0x1FF],
@@ -343,15 +346,18 @@ impl WasmEngine {
         }
     }
 
-                    fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
+    fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
         let model = self.engine.get_model();
-        
+
         let mut min_pt = glam::Vec3::splat(f32::INFINITY);
         let mut max_pt = glam::Vec3::splat(f32::NEG_INFINITY);
 
-        let mut add_curve = |c_opt: &Option<surfer_core::model::BezierCurveData>, mirror_x: bool| {
+        let mut add_curve = |c_opt: &Option<surfer_core::model::BezierCurveData>,
+                             mirror_x: bool| {
             if let Some(c) = c_opt {
-                if c.control_points.is_empty() { return; }
+                if c.control_points.is_empty() {
+                    return;
+                }
                 for p in &c.control_points {
                     min_pt = min_pt.min(*p);
                     max_pt = max_pt.max(*p);
@@ -411,10 +417,19 @@ impl WasmEngine {
                 add_curve(&Some(cs.clone()), true);
             }
         }
-        
-        if min_pt.x.is_infinite() { min_pt.x = -10.0; max_pt.x = 10.0; }
-        if min_pt.y.is_infinite() { min_pt.y = -2.0; max_pt.y = 2.0; }
-        if min_pt.z.is_infinite() { min_pt.z = 0.0; max_pt.z = 70.0; }
+
+        if min_pt.x.is_infinite() {
+            min_pt.x = -10.0;
+            max_pt.x = 10.0;
+        }
+        if min_pt.y.is_infinite() {
+            min_pt.y = -2.0;
+            max_pt.y = 2.0;
+        }
+        if min_pt.z.is_infinite() {
+            min_pt.z = 0.0;
+            max_pt.z = 70.0;
+        }
 
         let scale = 1.0 / 12.0;
         let size_x = (max_pt.x - min_pt.x).max(0.1) * scale;
@@ -430,62 +445,106 @@ impl WasmEngine {
                 let base_frustum = (size_z * 1.1 / (2.0 * aspect)).max(size_x * 1.2 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_top;
                 // Lock X target to 0.0 (Stringer)
-                let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, center_z + self.camera_ctrl.pan_top.1);
+                let target = glam::Vec3::new(
+                    self.camera_ctrl.pan_top.0,
+                    0.0,
+                    center_z + self.camera_ctrl.pan_top.1,
+                );
                 let cam_pos = target + glam::Vec3::new(0.0, 10.0, 0.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::new(-1.0, 0.0, 0.0));
-                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                let proj = glam::Mat4::orthographic_rh(
+                    -frustum * aspect,
+                    frustum * aspect,
+                    -frustum,
+                    frustum,
+                    0.1,
+                    1000.0,
+                );
                 (proj * view, cam_pos)
             }
             "side" => {
                 let stretch_y = 2.5;
-                let base_frustum_half = (size_z * 1.1 / (2.0 * aspect)).max(size_y * 1.5 * stretch_y / 2.0);
+                let base_frustum_half =
+                    (size_z * 1.1 / (2.0 * aspect)).max(size_y * 1.5 * stretch_y / 2.0);
                 let frustum_half = base_frustum_half * self.camera_ctrl.distance_side;
                 let ortho_right = frustum_half * aspect;
                 let ortho_top = frustum_half / stretch_y;
-                let target = glam::Vec3::new(0.0, center_y + self.camera_ctrl.pan_side.1, center_z + self.camera_ctrl.pan_side.0);
+                let target = glam::Vec3::new(
+                    0.0,
+                    center_y + self.camera_ctrl.pan_side.1,
+                    center_z + self.camera_ctrl.pan_side.0,
+                );
                 let cam_pos = target + glam::Vec3::new(-10.0, 0.0, 0.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
-                let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
+                let proj = glam::Mat4::orthographic_rh(
+                    -ortho_right,
+                    ortho_right,
+                    -ortho_top,
+                    ortho_top,
+                    0.1,
+                    1000.0,
+                );
                 (proj * view, cam_pos)
             }
             "profile" => {
                 // Reduced padding multiplier from 1.5 to 1.1 (width) and 1.2 (height)
                 let base_frustum = (size_x * 1.1 / (2.0 * aspect)).max(size_y * 1.2 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_profile;
-                
-                let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice) {
+
+                let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice)
+                {
                     cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * scale
                 } else {
                     center_z
                 };
-                
+
                 // Lock X target to 0.0 (Stringer)
-                let target = glam::Vec3::new(self.camera_ctrl.pan_profile.0, center_y + self.camera_ctrl.pan_profile.1, target_z);
+                let target = glam::Vec3::new(
+                    self.camera_ctrl.pan_profile.0,
+                    center_y + self.camera_ctrl.pan_profile.1,
+                    target_z,
+                );
                 let cam_pos = target + glam::Vec3::new(0.0, 0.0, 1.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
-                let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
+                let proj = glam::Mat4::orthographic_rh(
+                    -frustum * aspect,
+                    frustum * aspect,
+                    -frustum,
+                    frustum,
+                    0.9,
+                    1.1,
+                );
                 (proj * view, cam_pos)
             }
-            _ => { // perspective
+            _ => {
+                // perspective
                 let base_dist = size_z.max(size_x).max(size_y) * 1.3;
                 let dist = base_dist * self.camera_ctrl.distance_persp;
                 let x = dist * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
                 let y = dist * self.camera_ctrl.pitch.sin();
                 let z = dist * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
-                
+
                 // Keep perspective locked to X=0.0 to pivot cleanly around stringer
                 let target = self.camera_ctrl.target + glam::Vec3::new(0.0, center_y, center_z);
                 let cam_pos = target + glam::Vec3::new(x, y, z);
-                
+
                 if self.is_ortho {
                     let base_frustum = (size_z * 1.1 / (2.0 * aspect)).max(size_x * 1.2 / 2.0);
                     let frustum = base_frustum * self.camera_ctrl.distance_persp;
                     let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
-                    let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
+                    let proj = glam::Mat4::orthographic_rh(
+                        -frustum * aspect,
+                        frustum * aspect,
+                        -frustum,
+                        frustum,
+                        0.1,
+                        1000.0,
+                    );
                     (proj * view, cam_pos)
                 } else {
                     let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
-                    let proj = glam::Mat4::perspective_rh(45.0_f32.to_radians(), aspect, 0.1, 1000.0);
+                    let proj =
+                        glam::Mat4::perspective_rh(45.0_f32.to_radians(), aspect, 0.1, 1000.0);
                     (proj * view, cam_pos)
                 }
             }
@@ -497,8 +556,8 @@ impl WasmEngine {
         self.view_mode = mode.to_string();
     }
 
-        #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn set_show_tangents(&mut self, quad: &str, show: bool) {
         let idx = match quad {
             "top" => 0,
@@ -523,8 +582,8 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn set_masks(&mut self, quad: &str, line_mask: u32, gizmo_mask: u32) {
         let idx = match quad {
             "top" => 0,
@@ -555,7 +614,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn set_gizmo_scale(&mut self, quad: &str, scale: f32) {
         let idx = match quad {
             "top" => 0,
@@ -585,35 +644,37 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn set_active_profile_slice(&mut self, slice: usize) {
         self.active_profile_slice = slice;
         if let Some(renderer) = &mut self.renderer {
-            let (lv_prof, lc_prof, tv_prof, tc_prof, ti_prof) = surfer_core::mesh::generate_lines_for_view(
-                self.engine.get_model(),
-                "profile",
-                self.active_profile_slice,
-                self.show_tangents[3],
-                self.line_masks[3],
-                self.gizmo_masks[3],
-                self.gizmo_scale[3]
-            );
+            let (lv_prof, lc_prof, tv_prof, tc_prof, ti_prof) =
+                surfer_core::mesh::generate_lines_for_view(
+                    self.engine.get_model(),
+                    "profile",
+                    self.active_profile_slice,
+                    self.show_tangents[3],
+                    self.line_masks[3],
+                    self.gizmo_masks[3],
+                    self.gizmo_scale[3],
+                );
             renderer.update_view_buffers(3, &lv_prof, &lc_prof, &tv_prof, &tc_prof, &ti_prof);
 
-            let (lv_persp, lc_persp, tv_persp, tc_persp, ti_persp) = surfer_core::mesh::generate_lines_for_view(
-                self.engine.get_model(),
-                "perspective",
-                self.active_profile_slice,
-                self.show_tangents[1],
-                self.line_masks[1],
-                self.gizmo_masks[1],
-                self.gizmo_scale[1]
-            );
+            let (lv_persp, lc_persp, tv_persp, tc_persp, ti_persp) =
+                surfer_core::mesh::generate_lines_for_view(
+                    self.engine.get_model(),
+                    "perspective",
+                    self.active_profile_slice,
+                    self.show_tangents[1],
+                    self.line_masks[1],
+                    self.gizmo_masks[1],
+                    self.gizmo_scale[1],
+                );
             renderer.update_view_buffers(1, &lv_persp, &lc_persp, &tv_persp, &tc_persp, &ti_persp);
         }
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn set_renderer(&mut self, renderer: WgpuRenderer) {
         self.renderer = Some(renderer.0);
         self.update_render_mesh();
@@ -635,8 +696,8 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn handle_pointer(&mut self, event_type: &str, x: f32, y: f32, quad: &str) {
         match event_type {
             "down" => self.camera_ctrl.process_pointer_down(x, y),
@@ -693,8 +754,8 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn render(&mut self) -> Result<(), JsValue> {
         let (full_w, full_h) = if let Some(r) = &self.renderer {
             (r.config.width as f32, r.config.height as f32)
@@ -703,7 +764,12 @@ impl WasmEngine {
         };
 
         let quadrants: Vec<String> = if self.view_mode == "quad" || self.view_mode.is_empty() {
-            vec!["top".to_string(), "perspective".to_string(), "side".to_string(), "profile".to_string()]
+            vec![
+                "top".to_string(),
+                "perspective".to_string(),
+                "side".to_string(),
+                "profile".to_string(),
+            ]
         } else {
             vec![self.view_mode.clone()]
         };
@@ -749,7 +815,7 @@ impl WasmEngine {
                 0.0
             };
             uniform_data[23] = mri_z_world;
-            
+
             uniforms.push(uniform_data);
         }
 
@@ -852,7 +918,8 @@ impl WasmEngine {
                     if renderer.num_line_vertices[view_idx] > 0 {
                         rpass.set_pipeline(&renderer.line_pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
-                        rpass.set_vertex_buffer(0, renderer.line_vertex_buffers[view_idx].slice(..));
+                        rpass
+                            .set_vertex_buffer(0, renderer.line_vertex_buffers[view_idx].slice(..));
                         rpass.set_vertex_buffer(1, renderer.line_color_buffers[view_idx].slice(..));
                         rpass.draw(0..renderer.num_line_vertices[view_idx], 0..1);
                     }
@@ -860,9 +927,16 @@ impl WasmEngine {
                     if renderer.num_gizmo_indices[view_idx] > 0 {
                         rpass.set_pipeline(&renderer.gizmo_pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
-                        rpass.set_vertex_buffer(0, renderer.gizmo_vertex_buffers[view_idx].slice(..));
-                        rpass.set_vertex_buffer(1, renderer.gizmo_color_buffers[view_idx].slice(..));
-                        rpass.set_index_buffer(renderer.gizmo_index_buffers[view_idx].slice(..), wgpu::IndexFormat::Uint32);
+                        rpass.set_vertex_buffer(
+                            0,
+                            renderer.gizmo_vertex_buffers[view_idx].slice(..),
+                        );
+                        rpass
+                            .set_vertex_buffer(1, renderer.gizmo_color_buffers[view_idx].slice(..));
+                        rpass.set_index_buffer(
+                            renderer.gizmo_index_buffers[view_idx].slice(..),
+                            wgpu::IndexFormat::Uint32,
+                        );
                         rpass.draw_indexed(0..renderer.num_gizmo_indices[view_idx], 0, 0..1);
                     }
                 }
@@ -896,18 +970,18 @@ impl WasmEngine {
         self.stats.triangle_count = mesh.indices.len() / 3;
         self.stats.volume_liters = mesh.volume_liters;
 
-                        if let Some(renderer) = &mut self.renderer {
+        if let Some(renderer) = &mut self.renderer {
             renderer.update_mesh_buffers(&mesh);
-                        let views = ["top", "perspective", "side", "profile"];
-                        for (i, view_id) in views.iter().enumerate() {
+            let views = ["top", "perspective", "side", "profile"];
+            for (i, view_id) in views.iter().enumerate() {
                 let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
                     self.engine.get_model(),
                     view_id,
                     self.active_profile_slice,
                     self.show_tangents[i],
-                                        self.line_masks[i],
+                    self.line_masks[i],
                     self.gizmo_masks[i],
-                    self.gizmo_scale[i]
+                    self.gizmo_scale[i],
                 );
                 renderer.update_view_buffers(i, &lv, &lc, &tv, &tc, &ti);
             }
@@ -979,7 +1053,7 @@ impl WasmEngine {
         Ok(Float32Array::from(profile.as_slice()).into())
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn camera_pos(&self) -> js_sys::Float32Array {
         let (_, cam_pos) = self.get_camera_params("perspective", 1.0);
         js_sys::Float32Array::from(&[cam_pos.x, cam_pos.y, cam_pos.z][..])
@@ -1007,9 +1081,9 @@ impl WasmEngine {
 
     #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
-        pub fn unproject_to_plane(
+    pub fn unproject_to_plane(
         &self,
         quad: &str,
         ndc_x: f32,
@@ -1038,7 +1112,7 @@ impl WasmEngine {
             orig_z * (1.0 / 12.0),
         );
 
-                let n = if quad == "top" {
+        let n = if quad == "top" {
             glam::Vec3::Y
         } else if quad == "side" {
             glam::Vec3::X
@@ -1063,8 +1137,8 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
-        pub fn project_to_screen(
+    #[wasm_bindgen]
+    pub fn project_to_screen(
         &self,
         quad: &str,
         x: f32,
@@ -1545,7 +1619,7 @@ pub async fn create_wgpu_renderer(
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-                        multiview: None,
+            multiview: None,
         });
 
         let gizmo_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -1630,7 +1704,7 @@ pub async fn create_wgpu_renderer(
             mapped_at_creation: false,
         });
 
-                let mut line_vertex_buffers = Vec::new();
+        let mut line_vertex_buffers = Vec::new();
         let mut line_color_buffers = Vec::new();
         let mut gizmo_vertex_buffers = Vec::new();
         let mut gizmo_color_buffers = Vec::new();

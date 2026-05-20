@@ -827,7 +827,7 @@ fn handle_parametric_scaling(
                 model.rail_coefficient_nose = value;
                 dirty.global_rebuild = true;
             }
-                        "thicknessZStretch" => {
+            "thicknessZStretch" => {
                 model.thickness_z_stretch = value;
                 dirty.global_rebuild = true;
             }
@@ -844,7 +844,7 @@ fn handle_parametric_scaling(
                 _ => {}
             }
         }
-                BoardAction::UpdateBoolean { param, value } => match param.as_str() {
+        BoardAction::UpdateBoolean { param, value } => match param.as_str() {
             "showHeatmap" => {
                 model.show_heatmap = Some(value);
                 if value {
@@ -866,7 +866,7 @@ fn handle_parametric_scaling(
             "showApexRocker" => model.show_apex_rocker = Some(value),
             "showDeckShoulder" => model.show_deck_shoulder = Some(value),
             "showCrossSections" => model.show_cross_sections = Some(value),
-                                    "showMriView" => {
+            "showMriView" => {
                 model.show_mri_view = Some(value);
                 if value {
                     model.show_zebra = Some(false);
@@ -985,7 +985,7 @@ fn handle_layer_toggles(
             layers.push(OutlineLayer {
                 name: format!("Layer {}", layers.len()),
                 active: true,
-                                otl_ext: BezierCurveData {
+                otl_ext: BezierCurveData {
                     control_points: vec![
                         glam::Vec3::new(8.0, 0.0, 20.0),
                         glam::Vec3::new(8.0, 0.0, 40.0),
@@ -1039,7 +1039,7 @@ fn handle_layer_toggles(
             channels.push(ChannelLayer {
                 name: format!("Channel {}", channels.len()),
                 is_symmetric: true,
-                                left_outline: BezierCurveData {
+                left_outline: BezierCurveData {
                     control_points: vec![
                         glam::Vec3::new(-4.0, 0.0, 20.0),
                         glam::Vec3::new(-4.0, 0.0, 40.0),

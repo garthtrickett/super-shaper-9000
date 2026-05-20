@@ -156,7 +156,7 @@ impl SurferEngine {
             .collect()
     }
 
-        pub fn find_closest_t(
+    pub fn find_closest_t(
         &self,
         curve_name: &str,
         ray_origin: [f32; 3],
@@ -164,10 +164,10 @@ impl SurferEngine {
     ) -> Option<f32> {
         let curve = crate::geometry::get_curve(&self.model, curve_name)?;
         use glam::Vec3;
-        
+
         let ro = Vec3::from_array(ray_origin);
         let rd = Vec3::from_array(ray_dir);
-        
+
         let map_point = |t: f32, raw_p: Vec3| -> Vec3 {
             if curve_name.starts_with("crossSection_") {
                 let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
@@ -180,8 +180,14 @@ impl SurferEngine {
                 raw_p
             } else {
                 let bounds = crate::geometry::get_board_bounds(&self.model);
-                let v_outer = crate::geometry::find_v_at_z(self.model.outline.as_ref().unwrap(), raw_p.z, 0.0, bounds.tip_t);
-                let profile = crate::geometry::get_board_profile_at_z(&self.model, raw_p.z, v_outer);
+                let v_outer = crate::geometry::find_v_at_z(
+                    self.model.outline.as_ref().unwrap(),
+                    raw_p.z,
+                    0.0,
+                    bounds.tip_t,
+                );
+                let profile =
+                    crate::geometry::get_board_profile_at_z(&self.model, raw_p.z, v_outer);
                 match curve_name {
                     "outline" | "apexOutline" => Vec3::new(raw_p.x, profile.apex_y, raw_p.z),
                     "railOutline" => Vec3::new(raw_p.x, profile.tuck_y, raw_p.z),
@@ -201,7 +207,7 @@ impl SurferEngine {
             let t = i as f32 / steps as f32;
             let raw_pt = crate::geometry::evaluate_curve(curve, t);
             let pt = map_point(t, raw_pt);
-            
+
             let w = pt - ro;
             let cross = w.cross(rd);
             let dist_sq = cross.length_squared();
@@ -217,10 +223,10 @@ impl SurferEngine {
             step /= 2.0;
             let t_l = 0.0_f32.max(t_search - step);
             let t_r = 1.0_f32.min(t_search + step);
-            
+
             let pt_l = map_point(t_l, crate::geometry::evaluate_curve(curve, t_l));
             let pt_r = map_point(t_r, crate::geometry::evaluate_curve(curve, t_r));
-            
+
             let dist_l = (pt_l - ro).cross(rd).length_squared();
             let dist_r = (pt_r - ro).cross(rd).length_squared();
 
@@ -232,15 +238,15 @@ impl SurferEngine {
                 t_search = t_r;
             }
         }
-        
+
         Some(t_search)
     }
 
-        pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
+    pub fn get_point_on_curve(&self, curve_name: &str, t: f32) -> Option<[f32; 3]> {
         let curve = crate::geometry::get_curve(&self.model, curve_name)?;
         use glam::Vec3;
         let raw_p = crate::geometry::evaluate_curve(curve, t);
-        
+
         let pt = if curve_name.starts_with("crossSection_") {
             let z = curve.control_points.first().map(|p| p.z).unwrap_or(0.0);
             crate::geometry::map_slice_local_to_world(&self.model, z, t, raw_p)
@@ -252,7 +258,12 @@ impl SurferEngine {
             raw_p
         } else {
             let bounds = crate::geometry::get_board_bounds(&self.model);
-            let v_outer = crate::geometry::find_v_at_z(self.model.outline.as_ref().unwrap(), raw_p.z, 0.0, bounds.tip_t);
+            let v_outer = crate::geometry::find_v_at_z(
+                self.model.outline.as_ref().unwrap(),
+                raw_p.z,
+                0.0,
+                bounds.tip_t,
+            );
             let profile = crate::geometry::get_board_profile_at_z(&self.model, raw_p.z, v_outer);
             match curve_name {
                 "outline" | "apexOutline" => Vec3::new(raw_p.x, profile.apex_y, raw_p.z),
@@ -264,7 +275,7 @@ impl SurferEngine {
                 _ => raw_p,
             }
         };
-        
+
         Some([pt.x, pt.y, pt.z])
     }
 }
