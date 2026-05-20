@@ -147,6 +147,7 @@ pub fn generate_mesh(
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn generate_lines_for_view(
     model: &BoardModel,
     view_id: &str,
@@ -329,6 +330,7 @@ pub fn generate_lines_for_view(
         }
     }
 
+        #[allow(clippy::too_many_arguments)]
     fn push_flat_circle(
         tri_verts: &mut Vec<f32>,
         tri_cols: &mut Vec<f32>,
@@ -358,6 +360,7 @@ pub fn generate_lines_for_view(
         tri_idxs.extend_from_slice(&[start_idx, start_idx + segments, start_idx + 1]);
     }
 
+        #[allow(clippy::too_many_arguments)]
     fn push_flat_square(
         tri_verts: &mut Vec<f32>,
         tri_cols: &mut Vec<f32>,
@@ -557,7 +560,7 @@ pub fn generate_lines_for_view(
                     let p = map_point(t, raw_p);
 
                     let is_any_selected = model.selected_node.is_some();
-                                        let is_this_selected = model
+                    let is_this_selected = model
                         .selected_node
                         .as_ref()
                         .is_some_and(|sn| sn.curve == curve_name && sn.index == i);
@@ -776,7 +779,7 @@ pub fn generate_lines_for_view(
         }
     }
 
-        if (view_id == "profile" || view_id == "perspective") && show_cs {
+    if (view_id == "profile" || view_id == "perspective") && show_cs {
         if view_id == "profile" {
             if let Some(cs) = model.cross_sections.get(active_slice) {
                 let name = format!("crossSection_{}", active_slice);
