@@ -613,32 +613,10 @@ impl WasmEngine {
         }
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_renderer(&mut self, renderer: WgpuRenderer) {
         self.renderer = Some(renderer.0);
-        self.    fn update_render_mesh(&mut self) {
-        let mesh = self.engine.compute_mesh();
-        self.stats.vertex_count = mesh.vertices.len() / 3;
-        self.stats.triangle_count = mesh.indices.len() / 3;
-        self.stats.volume_liters = mesh.volume_liters;
-
-        if let Some(renderer) = &mut self.renderer {
-            renderer.update_mesh_buffers(&mesh);
-            let views = ["top", "perspective", "side", "profile"];
-            for (i, view_id) in views.iter().enumerate() {
-                let (lv, lc, tv, tc, ti) = surfer_core::mesh::generate_lines_for_view(
-                    self.engine.get_model(),
-                    view_id,
-                    self.active_profile_slice,
-                    self.show_tangents[i],
-                    self.line_masks[i],
-                    self.gizmo_masks[i],
-                    self.gizmo_scale[i]
-                );
-                renderer.update_view_buffers(i, &lv, &lc, &tv, &tc, &ti);
-            }
-        }
-    }
+        self.update_render_mesh();
     }
 
     #[wasm_bindgen]
