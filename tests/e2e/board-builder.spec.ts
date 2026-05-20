@@ -165,18 +165,18 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
             const aspect = rect.width / rect.height;
 
-      const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+            const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
       const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
 
-      const worldX = x / 12;
-      const worldZ = z / 12;
-
-            const dist = viewport.mathEngine ? (viewport.mathEngine).camera_distance_top() : 8.0;
-      const orthoTop = dist / 4.0;
-      const orthoRight = orthoTop * aspect;
-
-            const ndcX = -worldZ / orthoRight;
-      const ndcY = -worldX / orthoTop;
+      let ndcX = 0;
+      let ndcY = 0;
+      if (viewport.mathEngine && viewport.mathEngine.project_to_screen) {
+          const proj = viewport.mathEngine.project_to_screen('top', x, 0, z, aspect);
+          ndcX = proj[0]!;
+          ndcY = proj[1]!;
+      } else {
+          return null;
+      }
 
       const w = rect.width / 2;
       const h = rect.height / 2;
@@ -568,14 +568,20 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       if (!canvas) throw new Error('canvas not found');
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
-      if (cp) {
+            if (cp) {
         const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
         const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-        const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 20.0;
-        const orthoTop = dist / 4.0;
-        const orthoRight = orthoTop * aspect;
-                const ndcX = -(z / 12) / orthoRight;
-        const ndcY = -(x / 12) / orthoTop;
+        
+        let ndcX = 0;
+        let ndcY = 0;
+        if (vp.mathEngine && vp.mathEngine.project_to_screen) {
+            const proj = vp.mathEngine.project_to_screen('top', x, 0, z, aspect);
+            ndcX = proj[0]!;
+            ndcY = proj[1]!;
+        } else {
+            return null;
+        }
+      
         const w = rect.width / 2;
         const h = rect.height / 2;
       
