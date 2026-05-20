@@ -223,7 +223,6 @@ def main():
                     files_to_delete.append(file_path)
                 continue
 
-            # Legacy Aider format support
             if 'code_diff' in file_info:
                 diff = file_info['code_diff']
                 parts = diff.split('=======')

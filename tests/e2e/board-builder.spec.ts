@@ -137,7 +137,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
                         type BoardViewportElement = HTMLElement & {
                 requestUpdate?: () => void;
         updateGizmoScale?: (quad: string, scale: number) => void;
-        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
                     
           outline?: {
@@ -280,7 +280,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
                               type BoardViewportElement = HTMLElement & { 
                 requestUpdate?: () => void;
         updateGizmoScale?: (quad: string, scale: number) => void;
-        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
                     
           outlineLayers?: { active?: boolean, otlExt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
@@ -305,14 +305,20 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
             // Project CAD inches to normalized viewport coords
-      if (cp) {
+            if (cp) {
         const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
         const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-                const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
-        const orthoTop = dist / 4.0;
-        const orthoRight = orthoTop * aspect;
-                const ndcX = -(z / 12) / orthoRight;
-        const ndcY = -(x / 12) / orthoTop;
+        
+        let ndcX = 0;
+        let ndcY = 0;
+        if (vp.mathEngine && vp.mathEngine.project_to_screen) {
+            const proj = vp.mathEngine.project_to_screen('top', x, 0, z, aspect);
+            ndcX = proj[0]!;
+            ndcY = proj[1]!;
+        } else {
+            return null;
+        }
+
         const w = rect.width / 2;
         const h = rect.height / 2;
         return {
@@ -359,7 +365,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
                   type BoardViewportElement = HTMLElement & { 
                         requestUpdate?: () => void;
         updateGizmoScale?: (quad: string, scale: number) => void;
-        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
                     
           outlineLayers?: { active?: boolean, otlExt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
@@ -381,14 +387,20 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const aspect = rect.width / rect.height;
       
                   // Project CAD inches to normalized viewport coords using Top Ortho logic
-      if (cp) {
+            if (cp) {
         const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
         const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-        const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 20.0;
-        const orthoTop = dist / 4.0;
-        const orthoRight = orthoTop * aspect;
-                const ndcX = -(z / 12) / orthoRight;
-        const ndcY = -(x / 12) / orthoTop;
+        
+        let ndcX = 0;
+        let ndcY = 0;
+        if (vp.mathEngine && vp.mathEngine.project_to_screen) {
+            const proj = vp.mathEngine.project_to_screen('top', x, 0, z, aspect);
+            ndcX = proj[0]!;
+            ndcY = proj[1]!;
+        } else {
+            return null;
+        }
+        
         const w = rect.width / 2;
         const h = rect.height / 2;
         
@@ -455,7 +467,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
                   type BoardViewportElement = HTMLElement & { 
                 requestUpdate?: () => void;
         updateGizmoScale?: (quad: string, scale: number) => void;
-        mathEngine?: { camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: {
                     
           bottomChannels?: { rightOutline: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
@@ -476,14 +488,20 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
       // Project CAD inches to normalized viewport coords
-      if (cp) {
+            if (cp) {
         const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
         const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-        const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
-        const orthoTop = dist / 4.0;
-        const orthoRight = orthoTop * aspect;
-                const ndcX = -(z / 12) / orthoRight;
-        const ndcY = -(x / 12) / orthoTop;
+        
+        let ndcX = 0;
+        let ndcY = 0;
+        if (vp.mathEngine && vp.mathEngine.project_to_screen) {
+            const proj = vp.mathEngine.project_to_screen('top', x, 0, z, aspect);
+            ndcX = proj[0]!;
+            ndcY = proj[1]!;
+        } else {
+            return null;
+        }
+
         const w = rect.width / 2;
         const h = rect.height / 2;
         return {
@@ -756,11 +774,15 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const aspect = rect.width / rect.height;
       const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
       const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
-            const dist = viewport.mathEngine ? viewport.mathEngine.camera_distance_top() : 8.0;
-      const orthoTop = dist / 4.0;
-      const orthoRight = orthoTop * aspect;
-            const ndcX = -(z / 12) / orthoRight;
-      const ndcY = -(x / 12) / orthoTop;
+                  let ndcX = 0;
+      let ndcY = 0;
+      if (viewport.mathEngine && viewport.mathEngine.project_to_screen) {
+          const proj = viewport.mathEngine.project_to_screen('top', x, 0, z, aspect);
+          ndcX = proj[0]!;
+          ndcY = proj[1]!;
+      } else {
+          return null;
+      }
       const w = rect.width / 2;
       const h = rect.height / 2;
       return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
@@ -828,12 +850,16 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
 
-                        // Manual projection for top-left quadrant
-      const dist = vp.mathEngine ? vp.mathEngine.camera_distance_top() : 8.0;
-      const orthoTop = dist / 4.0;
-      const orthoRight = orthoTop * aspect;
-            const ndcX = -worldZ / orthoRight;
-      const ndcY = -worldX / orthoTop;
+                                                // Get NDC via WASM
+      let ndcX = 0;
+      let ndcY = 0;
+      if (vp.mathEngine && vp.mathEngine.project_to_screen) {
+          const proj = vp.mathEngine.project_to_screen('top', pt[0]!, pt[1]!, pt[2]!, aspect);
+          ndcX = proj[0]!;
+          ndcY = proj[1]!;
+      } else {
+          return null;
+      }
 
       const w = rect.width / 2;
       const h = rect.height / 2;
@@ -891,15 +917,16 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const rect = canvas.getBoundingClientRect();
       const aspect = rect.width / rect.height;
 
-                        // Manual projection for bottom-left quadrant (Side view)
-      const dist = vp.mathEngine ? vp.mathEngine.camera_distance_side() : 8.0;
-      const frustumSize = (dist / 4.0) * 2.0;
-      const stretchY = 2.5;
-      const orthoRight = frustumSize * aspect / 2;
-      const orthoTop = (frustumSize / 2) / stretchY;
-      
-            const ndcX = worldZ / orthoRight; // In side view, +Z is to the right
-      const ndcY = worldY / orthoTop; // And Y is vertical
+                                                // Get NDC via WASM
+      let ndcX = 0;
+      let ndcY = 0;
+      if (vp.mathEngine && vp.mathEngine.project_to_screen) {
+          const proj = vp.mathEngine.project_to_screen('side', pt[0]!, pt[1]!, pt[2]!, aspect);
+          ndcX = proj[0]!;
+          ndcY = proj[1]!;
+      } else {
+          return null;
+      }
 
       const w = rect.width / 2;
       const h = rect.height / 2;
