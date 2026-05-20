@@ -668,8 +668,8 @@ export class BoardViewport extends LitElement {
             const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, 0, 0, 0);
             const z = pt[2]!;
             
-            const modelLen = this.boardState?.length || 100;
-            if (z >= -5 && z <= modelLen + 5) {
+            const halfLen = (this.boardState?.length || 100) / 2.0;
+            if (z >= -halfLen - 5 && z <= halfLen + 5) {
                 const profile = engine.get_profile_at_z(z);
                 if (profile && profile.halfWidth > 0.1) {
                     const widthInches = profile.halfWidth * 2.0;
@@ -708,8 +708,8 @@ export class BoardViewport extends LitElement {
             const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, 0, 0, 0);
             const z = pt[2]!;
             
-            const modelLen = this.boardState?.length || 100;
-            if (z >= -5 && z <= modelLen + 5) {
+            const halfLen = (this.boardState?.length || 100) / 2.0;
+            if (z >= -halfLen - 5 && z <= halfLen + 5) {
                 const profile = engine.get_profile_at_z(z);
                 if (profile && (profile.topY - profile.botY) > 0.05) {
                     const thicknessInches = profile.topY - profile.botY;
