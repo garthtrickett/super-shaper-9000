@@ -341,7 +341,7 @@ impl WasmEngine {
         }
     }
 
-                fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
+                    fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
         let model = self.engine.get_model();
         
         let mut min_pt = glam::Vec3::splat(f32::INFINITY);
@@ -419,7 +419,7 @@ impl WasmEngine {
         let size_y = (max_pt.y - min_pt.y).max(0.1) * scale;
         let size_z = (max_pt.z - min_pt.z).max(0.1) * scale;
 
-        let center_x = (max_pt.x + min_pt.x) / 2.0 * scale;
+        // Force stringer-aligned X center to 0.0 to prevent wobble
         let center_y = (max_pt.y + min_pt.y) / 2.0 * scale;
         let center_z = (max_pt.z + min_pt.z) / 2.0 * scale;
 
@@ -427,7 +427,8 @@ impl WasmEngine {
             "top" => {
                 let base_frustum = (size_z * 1.1 / (2.0 * aspect)).max(size_x * 1.2 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_top;
-                let target = glam::Vec3::new(center_x + self.camera_ctrl.pan_top.0, 0.0, center_z + self.camera_ctrl.pan_top.1);
+                // Lock X target to 0.0 (Stringer)
+                let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, center_z + self.camera_ctrl.pan_top.1);
                 let cam_pos = target + glam::Vec3::new(0.0, 10.0, 0.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::new(-1.0, 0.0, 0.0));
                 let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
@@ -446,7 +447,8 @@ impl WasmEngine {
                 (proj * view, cam_pos)
             }
             "profile" => {
-                let base_frustum = (size_x * 1.5 / (2.0 * aspect)).max(size_y * 1.5 / 2.0);
+                // Reduced padding multiplier from 1.5 to 1.1 (width) and 1.2 (height)
+                let base_frustum = (size_x * 1.1 / (2.0 * aspect)).max(size_y * 1.2 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_profile;
                 
                 let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice) {
@@ -455,7 +457,8 @@ impl WasmEngine {
                     center_z
                 };
                 
-                let target = glam::Vec3::new(center_x + self.camera_ctrl.pan_profile.0, center_y + self.camera_ctrl.pan_profile.1, target_z);
+                // Lock X target to 0.0 (Stringer)
+                let target = glam::Vec3::new(self.camera_ctrl.pan_profile.0, center_y + self.camera_ctrl.pan_profile.1, target_z);
                 let cam_pos = target + glam::Vec3::new(0.0, 0.0, 1.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
                 let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
@@ -468,7 +471,8 @@ impl WasmEngine {
                 let y = dist * self.camera_ctrl.pitch.sin();
                 let z = dist * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
                 
-                let target = self.camera_ctrl.target + glam::Vec3::new(center_x, center_y, center_z);
+                // Keep perspective locked to X=0.0 to pivot cleanly around stringer
+                let target = self.camera_ctrl.target + glam::Vec3::new(0.0, center_y, center_z);
                 let cam_pos = target + glam::Vec3::new(x, y, z);
                 
                 if self.is_ortho {
