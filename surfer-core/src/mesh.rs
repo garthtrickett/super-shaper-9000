@@ -479,11 +479,16 @@ pub fn generate_lines_for_view(
     let gizmo_cs = (gizmo_mask & (1 << 7)) != 0;
     let gizmo_extras = (gizmo_mask & (1 << 8)) != 0;
 
-    let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
+        let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
                                color: Vec3,
                                is_outline: bool,
                                curve_name: &str,
-                               show_this_gizmo: bool| {
+                               show_this_gizmo: bool,
+                               line_vertices: &mut Vec<f32>,
+                               line_colors: &mut Vec<f32>,
+                               tri_vertices: &mut Vec<f32>,
+                               tri_colors: &mut Vec<f32>,
+                               tri_indices: &mut Vec<u32>| {
         if let Some(curve) = curve_opt {
             if curve.control_points.is_empty() {
                 return;
@@ -531,16 +536,16 @@ pub fn generate_lines_for_view(
                 mapped_pts.push(mapped_p);
             }
 
-            for i in 0..steps {
+                        for i in 0..steps {
                 let p0 = mapped_pts[i];
                 let p1 = mapped_pts[i + 1];
-                push_line(&mut line_vertices, &mut line_colors, scale, p0, p1, color);
+                push_line(line_vertices, line_colors, scale, p0, p1, color);
                 if is_outline {
                     let mut m0 = p0;
                     m0.x = -m0.x;
                     let mut m1 = p1;
                     m1.x = -m1.x;
-                    push_line(&mut line_vertices, &mut line_colors, scale, m0, m1, color);
+                    push_line(line_vertices, line_colors, scale, m0, m1, color);
                 }
             }
 
@@ -573,9 +578,9 @@ pub fn generate_lines_for_view(
                     };
 
                     draw_shape(
-                        &mut tri_vertices,
-                        &mut tri_colors,
-                        &mut tri_indices,
+                        tri_vertices,
+                        tri_colors,
+                        tri_indices,
                         scale,
                         view_id,
                         p,
@@ -594,8 +599,8 @@ pub fn generate_lines_for_view(
                             let t_idx = (i as f32 - 0.33) / num_segments_f;
                             let t1_mapped = map_point(t_idx.max(0.0), curve.tangents1[i]);
                             push_line_grad(
-                                &mut line_vertices,
-                                &mut line_colors,
+                                line_vertices,
+                                line_colors,
                                 scale,
                                 p,
                                 t1_mapped,
@@ -603,9 +608,9 @@ pub fn generate_lines_for_view(
                                 c_tan,
                             );
                             draw_shape(
-                                &mut tri_vertices,
-                                &mut tri_colors,
-                                &mut tri_indices,
+                                tri_vertices,
+                                tri_colors,
+                                tri_indices,
                                 scale,
                                 view_id,
                                 t1_mapped,
@@ -619,8 +624,8 @@ pub fn generate_lines_for_view(
                             let t_idx = (i as f32 + 0.33) / num_segments_f;
                             let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
                             push_line_grad(
-                                &mut line_vertices,
-                                &mut line_colors,
+                                line_vertices,
+                                line_colors,
                                 scale,
                                 p,
                                 t2_mapped,
@@ -628,9 +633,9 @@ pub fn generate_lines_for_view(
                                 c_tan,
                             );
                             draw_shape(
-                                &mut tri_vertices,
-                                &mut tri_colors,
-                                &mut tri_indices,
+                                tri_vertices,
+                                tri_colors,
+                                tri_indices,
                                 scale,
                                 view_id,
                                 t2_mapped,
@@ -645,7 +650,7 @@ pub fn generate_lines_for_view(
         }
     };
 
-    if view_id == "top" || view_id == "perspective" {
+        if view_id == "top" || view_id == "perspective" {
         if show_outline {
             add_curve_lines(
                 &model.outline,
@@ -653,6 +658,11 @@ pub fn generate_lines_for_view(
                 true,
                 "outline",
                 gizmo_outline,
+                &mut line_vertices,
+                &mut line_colors,
+                &mut tri_vertices,
+                &mut tri_colors,
+                &mut tri_indices,
             );
         }
         if show_apex_out {
@@ -662,6 +672,11 @@ pub fn generate_lines_for_view(
                 true,
                 "apexOutline",
                 gizmo_apex_out,
+                &mut line_vertices,
+                &mut line_colors,
+                &mut tri_vertices,
+                &mut tri_colors,
+                &mut tri_indices,
             );
         }
         if show_rail_out {
@@ -671,6 +686,11 @@ pub fn generate_lines_for_view(
                 true,
                 "railOutline",
                 gizmo_rail_out,
+                &mut line_vertices,
+                &mut line_colors,
+                &mut tri_vertices,
+                &mut tri_colors,
+                &mut tri_indices,
             );
         }
         if show_deck {
@@ -680,6 +700,11 @@ pub fn generate_lines_for_view(
                 true,
                 "deckShoulder",
                 gizmo_deck,
+                &mut line_vertices,
+                &mut line_colors,
+                &mut tri_vertices,
+                &mut tri_colors,
+                &mut tri_indices,
             );
         }
         if show_extras {
@@ -694,6 +719,11 @@ pub fn generate_lines_for_view(
                             true,
                             &name_ext,
                             gizmo_extras,
+                            &mut line_vertices,
+                            &mut line_colors,
+                            &mut tri_vertices,
+                            &mut tri_colors,
+                            &mut tri_indices,
                         );
                         add_curve_lines(
                             &Some(l.otl_int.clone()),
@@ -701,6 +731,11 @@ pub fn generate_lines_for_view(
                             true,
                             &name_int,
                             gizmo_extras,
+                            &mut line_vertices,
+                            &mut line_colors,
+                            &mut tri_vertices,
+                            &mut tri_colors,
+                            &mut tri_indices,
                         );
                     }
                 }
@@ -715,6 +750,11 @@ pub fn generate_lines_for_view(
                         false,
                         &n_lo,
                         gizmo_extras,
+                        &mut line_vertices,
+                        &mut line_colors,
+                        &mut tri_vertices,
+                        &mut tri_colors,
+                        &mut tri_indices,
                     );
                     add_curve_lines(
                         &Some(ch.right_outline.clone()),
@@ -722,6 +762,11 @@ pub fn generate_lines_for_view(
                         false,
                         &n_ro,
                         gizmo_extras,
+                        &mut line_vertices,
+                        &mut line_colors,
+                        &mut tri_vertices,
+                        &mut tri_colors,
+                        &mut tri_indices,
                     );
                 }
             }
@@ -749,6 +794,11 @@ pub fn generate_lines_for_view(
                 false,
                 "rockerTop",
                 gizmo_rocker_top,
+                &mut line_vertices,
+                &mut line_colors,
+                &mut tri_vertices,
+                &mut tri_colors,
+                &mut tri_indices,
             );
         }
         if show_rocker_bot {
@@ -758,6 +808,11 @@ pub fn generate_lines_for_view(
                 false,
                 "rockerBottom",
                 gizmo_rocker_bot,
+                &mut line_vertices,
+                &mut line_colors,
+                &mut tri_vertices,
+                &mut tri_colors,
+                &mut tri_indices,
             );
         }
         if show_apex_roc {
@@ -767,6 +822,11 @@ pub fn generate_lines_for_view(
                 false,
                 "apexRocker",
                 gizmo_apex_roc,
+                &mut line_vertices,
+                &mut line_colors,
+                &mut tri_vertices,
+                &mut tri_colors,
+                &mut tri_indices,
             );
         }
         if show_extras {
@@ -780,6 +840,11 @@ pub fn generate_lines_for_view(
                         false,
                         &n_ld,
                         gizmo_extras,
+                        &mut line_vertices,
+                        &mut line_colors,
+                        &mut tri_vertices,
+                        &mut tri_colors,
+                        &mut tri_indices,
                     );
                     add_curve_lines(
                         &Some(ch.right_depth.clone()),
@@ -787,6 +852,11 @@ pub fn generate_lines_for_view(
                         false,
                         &n_rd,
                         gizmo_extras,
+                        &mut line_vertices,
+                        &mut line_colors,
+                        &mut tri_vertices,
+                        &mut tri_colors,
+                        &mut tri_indices,
                     );
                 }
             }
@@ -803,6 +873,11 @@ pub fn generate_lines_for_view(
                         true,
                         &name,
                         gizmo_cs,
+                        &mut line_vertices,
+                        &mut line_colors,
+                        &mut tri_vertices,
+                        &mut tri_colors,
+                        &mut tri_indices,
                     );
                 }
             } else {
@@ -814,6 +889,11 @@ pub fn generate_lines_for_view(
                         true,
                         &name,
                         gizmo_cs,
+                        &mut line_vertices,
+                        &mut line_colors,
+                        &mut tri_vertices,
+                        &mut tri_colors,
+                        &mut tri_indices,
                     );
                 }
             }
