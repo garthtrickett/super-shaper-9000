@@ -880,7 +880,7 @@ pub fn generate_lines_for_view(
                         &mut tri_indices,
                     );
                 }
-            } else {
+                        } else {
                 for (i, cs) in model.cross_sections.iter().enumerate() {
                     let name = format!("crossSection_{}", i);
                     add_curve_lines(
@@ -888,7 +888,7 @@ pub fn generate_lines_for_view(
                         Vec3::new(0.5, 0.5, 0.5),
                         true,
                         &name,
-                        gizmo_cs,
+                        if view_id == "top" { false } else { gizmo_cs },
                         &mut line_vertices,
                         &mut line_colors,
                         &mut tri_vertices,

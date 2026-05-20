@@ -421,7 +421,7 @@ export class BoardViewport extends LitElement {
           });
       }
 
-            if (quad === 'profile' || quad === 'perspective' || quad === 'top') {
+                  if (quad === 'profile' || quad === 'perspective') {
           if (quad === 'profile') {
               if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
                   checkCurve(`crossSection_${this.activeProfileSlice}`, this.boardState.crossSections[this.activeProfileSlice], true, 1 << 7);
@@ -904,10 +904,12 @@ export class BoardViewport extends LitElement {
                   </span>
                 </div>
                 ${curvesForThisView.map(c => html`
-                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
+                                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
                   <span class="text-[10px] font-bold uppercase tracking-widest ${ (this.lineMasks[id] & c.mask) !== 0 ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
                   <input type="checkbox" .checked=${(this.lineMasks[id] & c.mask) !== 0} @change=${(e: Event) => this.toggleLineMask(id, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                  ${c.key === 'crossSections' && id === 'top' ? html`<div></div>` : html`
                   <input type="checkbox" .checked=${(this.gizmoMasks[id] & c.mask) !== 0} @change=${(e: Event) => this.toggleGizmoMask(id, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                  `}
                 </div>
                 `)}
               </div>
@@ -1088,10 +1090,12 @@ export class BoardViewport extends LitElement {
                           ]
                       };
                       return (CURVES_FOR_VIEW[this.maximizedView] || []).map(c => html`
-                      <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
+                                            <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
                         <span class="text-[10px] font-bold uppercase tracking-widest ${ (this.lineMasks[this.maximizedView!] & c.mask) !== 0 ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
                         <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleLineMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                        ${c.key === 'crossSections' && this.maximizedView === 'top' ? html`<div></div>` : html`
                         <input type="checkbox" .checked=${(this.gizmoMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleGizmoMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                        `}
                       </div>
                       `);
                     })()}
