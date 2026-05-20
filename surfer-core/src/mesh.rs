@@ -727,7 +727,20 @@ pub fn generate_lines_for_view(
         }
     }
 
-    if view_id == "side" || view_id == "perspective" {
+        if view_id == "side" || view_id == "perspective" {
+        if view_id == "side" {
+            let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
+            if let Some(r_bot) = &model.rocker_bottom {
+                if !r_bot.control_points.is_empty() {
+                    let mid_y = crate::geometry::evaluate_bezier_at_z(r_bot, mid_z, 0.5).y;
+                    let color = Vec3::new(0.3, 0.3, 0.3);
+                    let p0 = Vec3::new(0.0, mid_y, bounds.nose_z - 12.0);
+                    let p1 = Vec3::new(0.0, mid_y, bounds.tip_z + 12.0);
+                    push_line(&mut line_vertices, &mut line_colors, scale, p0, p1, color);
+                }
+            }
+        }
+
         if show_rocker_top {
             add_curve_lines(
                 &model.rocker_top,
