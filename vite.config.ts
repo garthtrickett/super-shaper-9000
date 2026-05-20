@@ -10,7 +10,7 @@ export default defineConfig({
       transform(code, id) {
         if (id.includes('workerHelpers.js')) {
           return {
-            code: code.replace(/import\(['"]\.\.\/\.\.\/\.\.['"]\)/g, "import('../../../surfer_wasm.js')"),
+            code: code.replace(/['"]\.\.\/\.\.\/\.\.['"]/g, "'../../../surfer_wasm.js'"),
             map: null
           };
         }

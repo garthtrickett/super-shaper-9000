@@ -22,7 +22,7 @@ export default {
       transform(context) {
         if (context.path && context.path.endsWith('workerHelpers.js')) {
           const body = typeof context.body === 'string' ? context.body : context.body.toString();
-          return { body: body.replace(/import\(['"]\.\.\/\.\.\/\.\.['"]\)/g, "import('../../../surfer_wasm.js')"), type: 'js' };
+          return { body: body.replace(/['"]\.\.\/\.\.\/\.\.['"]/g, "'../../../surfer_wasm.js'"), type: 'js' };
         }
       }
     },
