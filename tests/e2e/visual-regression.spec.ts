@@ -34,29 +34,8 @@ test.describe('Visual Regression', () => {
     // Wait for the geometry to settle
     await page.waitForTimeout(2000);
 
-                // 2. Hide all wireframes and gizmos to isolate the solid mesh
+                    // 2. Hide all wireframes and gizmos to isolate the solid mesh
     const toggleViewportCheckbox = async (labelText: string, targetState: boolean) => {
-      // The settings are now in the viewport cog menu
-      const label = viewport.locator('label', { hasText: labelText }).first();
-      const input = label.locator('input[type="checkbox"]');
-      if (await input.count() > 0) {
-        const isChecked = await input.isChecked();
-        if (isChecked !== targetState) {
-          if (!targetState) {
-              await input.uncheck({ force: true });
-          } else {
-              await input.check({ force: true });
-          }
-        }
-      }
-    };
-
-    // Open Perspective Cog
-    const perspectiveCog = viewport.locator('button[title="Display Settings"]').nth(1); // top is 0, perspective is 1
-    await perspectiveCog.click();
-    await page.waitForTimeout(200);
-    
-    //     const toggleViewportCheckbox = async (labelText: string, targetState: boolean) => {
       const row = viewport.locator('.grid.items-center', { hasText: labelText }).first();
       const inputs = row.locator('input[type="checkbox"]');
       if (await inputs.count() >= 2) {
@@ -70,8 +49,27 @@ test.describe('Visual Regression', () => {
               await lineInput.check({ force: true });
               await gizmoInput.check({ force: true });
           }
+      } else {
+          const label = viewport.locator('label', { hasText: labelText }).first();
+          const input = label.locator('input[type="checkbox"]');
+          if (await input.count() > 0) {
+            const isChecked = await input.isChecked();
+            if (isChecked !== targetState) {
+              if (!targetState) {
+                  await input.uncheck({ force: true });
+              } else {
+                  await input.check({ force: true });
+              }
+            }
+          }
       }
     };
+
+    // Open Perspective Cog
+    const perspectiveCog = viewport.locator('button[title="Display Settings"]').nth(1); // top is 0, perspective is 1
+    await perspectiveCog.click();
+    await page.waitForTimeout(200);
+
     await toggleViewportCheckbox("Outline", false);
     await toggleViewportCheckbox("Rocker Top", false);
     await toggleViewportCheckbox("Rocker Bottom", false);

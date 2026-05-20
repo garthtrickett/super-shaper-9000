@@ -837,17 +837,8 @@ export class BoardViewport extends LitElement {
           <span>Flip</span>
         </button>
       </div>
-      <div class="absolute inset-0 pointer-events-none z-10">
+            <div class="absolute inset-0 pointer-events-none z-10">
         ${this.maximizedView === null ? html`
-          <div class="w-full h-full grid grid-cols-2 grid-rows-2">
-            <div class="border-r border-b border-zinc-800/80">${renderQuadrantOverlay('top', 'Top')}</div>
-            <div class="border-b border-zinc-800/80">${renderQuadrantOverlay('perspective', 'Perspective')}</div>
-            <div class="border-r border-zinc-800/80">${renderQuadrantOverlay('side', 'Side')}</div>
-            <div>${renderQuadrantOverlay('profile', 'Profile')}            </div>
-          </div>
-        `;
-        
-        return html`
           <div class="w-full h-full grid grid-cols-2 grid-rows-2">
             <div class="border-r border-b border-zinc-800/80">${renderQuadrantOverlay('top', 'Top')}</div>
             <div class="border-b border-zinc-800/80">${renderQuadrantOverlay('perspective', 'Perspective')}</div>
