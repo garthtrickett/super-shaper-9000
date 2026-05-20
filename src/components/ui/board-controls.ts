@@ -28,11 +28,7 @@ export class BoardControls extends LitElement {
   @property({ type: Boolean }) showRailOutline = true;
         @property({ type: Boolean }) showApexRocker = true;
         @property({ type: Boolean }) showDeckShoulder = true;
-            @property({ type: Boolean }) showCrossSections = true;
-    @property({ type: Number }) gizmoScaleTop = 1.0;
-  @property({ type: Number }) gizmoScaleSide = 1.0;
-  @property({ type: Number }) gizmoScaleProfile = 1.0;
-    @property({ type: Number }) gizmoScalePerspective = 1.0;
+                        @property({ type: Boolean }) showCrossSections = true;
   @property({ type: Boolean }) showMriView = false;
       @property({ type: Number }) mriSlicePosition = 50.0;
       @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];

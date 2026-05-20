@@ -33,10 +33,10 @@ export class BoardViewport extends LitElement {
   @state() private isFlipped = false;
     @state() private isOrtho = false;
       @state() private activeProfileSlice = 0;
-  @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
+    @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
   @state() private showGizmos: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
   @state() private showSolidMesh: boolean = true;
-  @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 1.0, profile: 1.0 };
+  @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 0.5, profile: 0.3 };
     @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
   @state() private hoverInsertPoint: { left: number, top: number } | null = null;
 

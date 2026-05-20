@@ -333,9 +333,9 @@ impl WasmEngine {
             stats: MeshStats::default(),
                         view_mode: "quad".to_string(),
             is_ortho: false,
-                                    active_profile_slice: 0,
+                                                active_profile_slice: 0,
             show_tangents: [true, true, true, true],
-            gizmo_scale: [1.0, 1.0, 1.0, 1.0],
+            gizmo_scale: [1.0, 1.0, 0.5, 0.3],
             show_gizmos: [true, true, true, true],
             show_solid_mesh: true,
         }
