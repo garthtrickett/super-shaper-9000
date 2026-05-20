@@ -156,7 +156,7 @@ impl SurferEngine {
             .collect()
     }
 
-        pub fn find_closest_t(
+    pub fn find_closest_t(
         &self,
         curve_name: &str,
         view_id: &str,
@@ -246,7 +246,7 @@ impl SurferEngine {
         Some(t_search)
     }
 
-        pub fn get_point_on_curve(&self, curve_name: &str, view_id: &str, t: f32) -> Option<[f32; 3]> {
+    pub fn get_point_on_curve(&self, curve_name: &str, view_id: &str, t: f32) -> Option<[f32; 3]> {
         let curve = crate::geometry::get_curve(&self.model, curve_name)?;
         use glam::Vec3;
         let raw_p = crate::geometry::evaluate_curve(curve, t);

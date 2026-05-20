@@ -147,7 +147,7 @@ pub fn generate_mesh(
     }
 }
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn generate_lines_for_view(
     model: &BoardModel,
     view_id: &str,
@@ -480,15 +480,15 @@ pub fn generate_lines_for_view(
     let gizmo_extras = (gizmo_mask & (1 << 8)) != 0;
 
     let add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
-                               color: Vec3,
-                               is_outline: bool,
-                               curve_name: &str,
-                               show_this_gizmo: bool,
-                               line_vertices: &mut Vec<f32>,
-                               line_colors: &mut Vec<f32>,
-                               tri_vertices: &mut Vec<f32>,
-                               tri_colors: &mut Vec<f32>,
-                               tri_indices: &mut Vec<u32>| {
+                           color: Vec3,
+                           is_outline: bool,
+                           curve_name: &str,
+                           show_this_gizmo: bool,
+                           line_vertices: &mut Vec<f32>,
+                           line_colors: &mut Vec<f32>,
+                           tri_vertices: &mut Vec<f32>,
+                           tri_colors: &mut Vec<f32>,
+                           tri_indices: &mut Vec<u32>| {
         if let Some(curve) = curve_opt {
             if curve.control_points.is_empty() {
                 return;
@@ -536,7 +536,7 @@ pub fn generate_lines_for_view(
                 mapped_pts.push(mapped_p);
             }
 
-                        for i in 0..steps {
+            for i in 0..steps {
                 let p0 = mapped_pts[i];
                 let p1 = mapped_pts[i + 1];
                 push_line(line_vertices, line_colors, scale, p0, p1, color);
@@ -650,7 +650,7 @@ pub fn generate_lines_for_view(
         }
     };
 
-        if view_id == "top" || view_id == "perspective" {
+    if view_id == "top" || view_id == "perspective" {
         if show_outline {
             add_curve_lines(
                 &model.outline,
@@ -773,7 +773,7 @@ pub fn generate_lines_for_view(
         }
     }
 
-        if view_id == "side" || view_id == "perspective" {
+    if view_id == "side" || view_id == "perspective" {
         if view_id == "side" {
             let mid_z = (bounds.nose_z + bounds.tip_z) / 2.0;
             if let Some(r_bot) = &model.rocker_bottom {
@@ -863,93 +863,102 @@ pub fn generate_lines_for_view(
         }
     }
 
-                if (view_id == "profile" || view_id == "perspective" || view_id == "top") && show_cs {
-            if view_id == "profile" {
-                if let Some(cs) = model.cross_sections.get(active_slice) {
-                    let name = format!("crossSection_{}", active_slice);
-                    add_curve_lines(
-                        &Some(cs.clone()),
-                        Vec3::new(0.5, 0.5, 0.5),
-                        true,
-                        &name,
-                        gizmo_cs,
-                        &mut line_vertices,
-                        &mut line_colors,
-                        &mut tri_vertices,
-                        &mut tri_colors,
-                        &mut tri_indices,
-                    );
-                }
-                        } else {
-                for (i, cs) in model.cross_sections.iter().enumerate() {
-                    let name = format!("crossSection_{}", i);
-                    add_curve_lines(
-                        &Some(cs.clone()),
-                        Vec3::new(0.5, 0.5, 0.5),
-                        true,
-                        &name,
-                        if view_id == "top" { false } else { gizmo_cs },
-                        &mut line_vertices,
-                        &mut line_colors,
-                        &mut tri_vertices,
-                        &mut tri_colors,
-                        &mut tri_indices,
-                    );
-                }
+    if (view_id == "profile" || view_id == "perspective" || view_id == "top") && show_cs {
+        if view_id == "profile" {
+            if let Some(cs) = model.cross_sections.get(active_slice) {
+                let name = format!("crossSection_{}", active_slice);
+                add_curve_lines(
+                    &Some(cs.clone()),
+                    Vec3::new(0.5, 0.5, 0.5),
+                    true,
+                    &name,
+                    gizmo_cs,
+                    &mut line_vertices,
+                    &mut line_colors,
+                    &mut tri_vertices,
+                    &mut tri_colors,
+                    &mut tri_indices,
+                );
+            }
+        } else {
+            for (i, cs) in model.cross_sections.iter().enumerate() {
+                let name = format!("crossSection_{}", i);
+                add_curve_lines(
+                    &Some(cs.clone()),
+                    Vec3::new(0.5, 0.5, 0.5),
+                    true,
+                    &name,
+                    if view_id == "top" { false } else { gizmo_cs },
+                    &mut line_vertices,
+                    &mut line_colors,
+                    &mut tri_vertices,
+                    &mut tri_colors,
+                    &mut tri_indices,
+                );
             }
         }
+    }
 
-                if let Some(hz) = hover_z {
-            if view_id == "profile" || view_id == "perspective" {
-                let ctx = crate::geometry::ZRingContext::new(model, hz);
-                let steps = 60;
+    if let Some(hz) = hover_z {
+        if view_id == "profile" || view_id == "perspective" {
+            let ctx = crate::geometry::ZRingContext::new(model, hz);
+            let steps = 60;
 
-                let draw_z = if view_id == "profile" {
-                    model.cross_sections.get(active_slice)
-                        .and_then(|cs| cs.control_points.first())
-                        .map(|p| p.z)
-                        .unwrap_or(0.0)
-                } else {
-                    hz
-                };
+            let draw_z = if view_id == "profile" {
+                model
+                    .cross_sections
+                    .get(active_slice)
+                    .and_then(|cs| cs.control_points.first())
+                    .map(|p| p.z)
+                    .unwrap_or(0.0)
+            } else {
+                hz
+            };
 
-                let ghost_color = Vec3::new(0.2, 0.9, 0.6); // Ghostly Emerald
+            let ghost_color = Vec3::new(0.2, 0.9, 0.6); // Ghostly Emerald
 
-                let mut draw_side = |side: f32| {
-                    let get_pt = |u: f32| -> Vec3 {
-                        if view_id == "profile" {
-                            if let Some(b) = &ctx.blend {
-                                let mut p = b.evaluate(u);
-                                p.x *= side;
-                                p.z = draw_z;
-                                p
-                            } else {
-                                Vec3::new(0.0, 0.0, draw_z)
-                            }
-                        } else {
-                            let mut p = ctx.get_point_at_uv(u, side);
+            let mut draw_side = |side: f32| {
+                let get_pt = |u: f32| -> Vec3 {
+                    if view_id == "profile" {
+                        if let Some(b) = &ctx.blend {
+                            let mut p = b.evaluate(u);
+                            p.x *= side;
                             p.z = draw_z;
                             p
+                        } else {
+                            Vec3::new(0.0, 0.0, draw_z)
                         }
-                    };
-
-                    let mut prev_pt = get_pt(0.0);
-
-                    for i in 1..=steps {
-                        let u = i as f32 / steps as f32;
-                        let pt = get_pt(u);
-                        push_line(&mut line_vertices, &mut line_colors, scale, prev_pt, pt, ghost_color);
-                        prev_pt = pt;
+                    } else {
+                        let mut p = ctx.get_point_at_uv(u, side);
+                        p.z = draw_z;
+                        p
                     }
                 };
 
-                draw_side(1.0);
-                draw_side(-1.0);
-            }
-        }
+                let mut prev_pt = get_pt(0.0);
 
-        (
-            line_vertices,
+                for i in 1..=steps {
+                    let u = i as f32 / steps as f32;
+                    let pt = get_pt(u);
+                    push_line(
+                        &mut line_vertices,
+                        &mut line_colors,
+                        scale,
+                        prev_pt,
+                        pt,
+                        ghost_color,
+                    );
+                    prev_pt = pt;
+                }
+            };
+
+            draw_side(1.0);
+            draw_side(-1.0);
+        }
+    }
+
+    (
+        line_vertices,
         line_colors,
         tri_vertices,
         tri_colors,
@@ -1540,7 +1549,7 @@ mod tests {
         println!("✅ test_squash_tail_tessellation_density passed.");
     }
 
-        #[test]
+    #[test]
     fn test_generate_lines_for_view_filtering() {
         let mut model = BoardModel::default();
 
@@ -1568,8 +1577,8 @@ mod tests {
             ..Default::default()
         });
 
-                        // "top" view should have lines since cross section is defined and visible
-                let (top_verts, _, _, _, _) =
+        // "top" view should have lines since cross section is defined and visible
+        let (top_verts, _, _, _, _) =
             super::generate_lines_for_view(&model, "top", 0, true, 0x1FF, 0x1FF, 1.0, None);
         assert!(
             top_verts.len() > 0,
