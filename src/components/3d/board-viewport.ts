@@ -446,10 +446,9 @@ export class BoardViewport extends LitElement {
     const ndcY = 1.0 - ((e.clientY - rect.top) / h);
 
         let quad = "perspective";
-    let localNdcX = ndcX;
+        let localNdcX = ndcX;
     let localNdcY = ndcY;
     const localAspect = aspect;
-    let newHoverZ: number | undefined = undefined;
 
     if (this.maximizedView) {
         quad = this.maximizedView;
@@ -666,8 +665,8 @@ export class BoardViewport extends LitElement {
             newCursor = e.altKey ? 'copy' : 'crosshair';
         }
         
-        if (quad === 'top' && this.mathEngine) {
-            type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; get_profile_at_z(z: number): any; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+                if (quad === 'top' && this.mathEngine) {
+            type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; get_profile_at_z(z: number): { halfWidth: number, topY: number, botY: number } | null; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
             const engine = this.mathEngine as unknown as EngineExt;
             
             const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, 0, 0, 0);
@@ -709,8 +708,8 @@ export class BoardViewport extends LitElement {
                     }
                 }
             }
-        } else if (quad === 'side' && this.mathEngine) {
-            type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; get_profile_at_z(z: number): any; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+                } else if (quad === 'side' && this.mathEngine) {
+            type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; get_profile_at_z(z: number): { halfWidth: number, topY: number, botY: number } | null; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
             const engine = this.mathEngine as unknown as EngineExt;
             
             const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, 0, 0, 0);
