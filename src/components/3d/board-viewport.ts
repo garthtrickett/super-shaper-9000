@@ -40,7 +40,7 @@ export class BoardViewport extends LitElement {
   @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 0.5, profile: 0.3 };
     @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
       @state() private hoverInsertPoint: { left: number, top: number, curve: string, t: number } | null = null;
-  @state() private hoverMeasureLine: { left: number, top: number, sizePx: number, measureInches: number, isVertical: boolean } | null = null;
+    @state() private hoverMeasureLine: { left: number, top: number, sizePx: number, measureInches: number, isVertical: boolean, view: string } | null = null;
 
   private ro?: ResizeObserver;
   
@@ -691,12 +691,13 @@ export class BoardViewport extends LitElement {
                         
                         if (tY > bY) { const tmp = tY; tY = bY; bY = tmp; }
                         
-                        this.hoverMeasureLine = {
+                                                this.hoverMeasureLine = {
                             left: cX,
                             top: tY,
                             sizePx: bY - tY,
                             measureInches: widthInches,
-                            isVertical: true
+                            isVertical: true,
+                            view: 'top'
                         };
                     }
                 }
@@ -731,12 +732,13 @@ export class BoardViewport extends LitElement {
                         
                         if (tY > bY) { const tmp = tY; tY = bY; bY = tmp; }
                         
-                        this.hoverMeasureLine = {
+                                                this.hoverMeasureLine = {
                             left: tX,
                             top: tY,
                             sizePx: bY - tY,
                             measureInches: thicknessInches,
-                            isVertical: true
+                            isVertical: true,
+                            view: 'side'
                         };
                     }
                 }
@@ -937,16 +939,16 @@ export class BoardViewport extends LitElement {
               </div>
             ` : ''}
             
-                        ${this.hoverMeasureLine ? html`
+                                    ${this.hoverMeasureLine ? html`
               <div 
                 class="absolute z-10 pointer-events-none"
-                style="left: ${this.hoverMeasureLine.left}px; top: ${this.hoverMeasureLine.top}px; ${this.hoverMeasureLine.isVertical ? `width: 1px; height: ${this.hoverMeasureLine.sizePx}px; border-left: 1px dashed #34d399;` : `width: ${this.hoverMeasureLine.sizePx}px; height: 1px; border-top: 1px dashed #60a5fa;`}"
+                style="left: ${this.hoverMeasureLine.left}px; top: ${this.hoverMeasureLine.top}px; width: 1px; height: ${this.hoverMeasureLine.sizePx}px; border-left: 1px dashed ${this.hoverMeasureLine.view === 'top' ? '#34d399' : '#60a5fa'};"
               >
-                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1.5 py-1 rounded shadow whitespace-nowrap flex flex-col items-center
-                            ${this.hoverMeasureLine.isVertical ? 'text-emerald-400 left-2 top-1/2 -translate-y-1/2' : 'text-blue-400 left-1/2 top-2 -translate-x-1/2'}"
+                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1.5 py-1 rounded shadow whitespace-nowrap flex flex-col items-center left-2 top-1/2 -translate-y-1/2
+                            ${this.hoverMeasureLine.view === 'top' ? 'text-emerald-400' : 'text-blue-400'}"
                 >
                   <span class="font-bold text-[11px]">${this.hoverMeasureLine.measureInches.toFixed(2)}"</span>
-                  <span class="text-[8px] text-zinc-400 font-sans tracking-widest uppercase mt-0.5">Ctrl+Click to Add Slice</span>
+                  ${this.hoverMeasureLine.view === 'top' ? html`<span class="text-[8px] text-zinc-400 font-sans tracking-widest uppercase mt-0.5">Ctrl+Click to Add Slice</span>` : ''}
                 </div>
               </div>
             ` : ''}
