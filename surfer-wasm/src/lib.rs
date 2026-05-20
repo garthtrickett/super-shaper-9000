@@ -341,19 +341,93 @@ impl WasmEngine {
         }
     }
 
-            fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
+                fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
         let model = self.engine.get_model();
-        let bounds = surfer_core::geometry::get_board_bounds(model);
-        let board_len = ((bounds.tip_z - bounds.nose_z) * (1.0 / 12.0)).max(1.0);
-        let board_width = (model.width * (1.0 / 12.0)).max(0.5);
-        let board_thickness = (model.thickness * (1.0 / 12.0)).max(0.1);
-        let center_z = (bounds.tip_z + bounds.nose_z) / 2.0 * (1.0 / 12.0);
+        
+        let mut min_pt = glam::Vec3::splat(f32::INFINITY);
+        let mut max_pt = glam::Vec3::splat(f32::NEG_INFINITY);
+
+        let mut add_curve = |c_opt: &Option<surfer_core::model::BezierCurveData>, mirror_x: bool| {
+            if let Some(c) = c_opt {
+                if c.control_points.is_empty() { return; }
+                for p in &c.control_points {
+                    min_pt = min_pt.min(*p);
+                    max_pt = max_pt.max(*p);
+                    if mirror_x {
+                        min_pt.x = min_pt.x.min(-p.x);
+                        max_pt.x = max_pt.x.max(-p.x);
+                    }
+                }
+                for i in 0..=20 {
+                    let p = surfer_core::geometry::evaluate_curve(c, i as f32 / 20.0);
+                    min_pt = min_pt.min(p);
+                    max_pt = max_pt.max(p);
+                    if mirror_x {
+                        min_pt.x = min_pt.x.min(-p.x);
+                        max_pt.x = max_pt.x.max(-p.x);
+                    }
+                }
+            }
+        };
+
+        if quad == "top" || quad == "perspective" {
+            add_curve(&model.outline, true);
+            add_curve(&model.apex_outline, true);
+            add_curve(&model.rail_outline, true);
+            add_curve(&model.deck_shoulder, true);
+
+            if let Some(layers) = &model.outline_layers {
+                for l in layers {
+                    if l.active {
+                        add_curve(&Some(l.otl_ext.clone()), true);
+                        add_curve(&Some(l.otl_int.clone()), true);
+                    }
+                }
+            }
+            if let Some(channels) = &model.bottom_channels {
+                for c in channels {
+                    add_curve(&Some(c.left_outline.clone()), false);
+                    add_curve(&Some(c.right_outline.clone()), false);
+                }
+            }
+        }
+
+        if quad == "side" || quad == "perspective" {
+            add_curve(&model.rocker_top, false);
+            add_curve(&model.rocker_bottom, false);
+            add_curve(&model.apex_rocker, false);
+            if let Some(channels) = &model.bottom_channels {
+                for c in channels {
+                    add_curve(&Some(c.left_depth.clone()), false);
+                    add_curve(&Some(c.right_depth.clone()), false);
+                }
+            }
+        }
+
+        if quad == "profile" {
+            if let Some(cs) = model.cross_sections.get(self.active_profile_slice) {
+                add_curve(&Some(cs.clone()), true);
+            }
+        }
+        
+        if min_pt.x.is_infinite() { min_pt.x = -10.0; max_pt.x = 10.0; }
+        if min_pt.y.is_infinite() { min_pt.y = -2.0; max_pt.y = 2.0; }
+        if min_pt.z.is_infinite() { min_pt.z = 0.0; max_pt.z = 70.0; }
+
+        let scale = 1.0 / 12.0;
+        let size_x = (max_pt.x - min_pt.x).max(0.1) * scale;
+        let size_y = (max_pt.y - min_pt.y).max(0.1) * scale;
+        let size_z = (max_pt.z - min_pt.z).max(0.1) * scale;
+
+        let center_x = (max_pt.x + min_pt.x) / 2.0 * scale;
+        let center_y = (max_pt.y + min_pt.y) / 2.0 * scale;
+        let center_z = (max_pt.z + min_pt.z) / 2.0 * scale;
 
         match quad {
             "top" => {
-                let base_frustum = (board_len * 1.1 / (2.0 * aspect)).max(board_width * 1.2 / 2.0);
+                let base_frustum = (size_z * 1.1 / (2.0 * aspect)).max(size_x * 1.2 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_top;
-                let target = glam::Vec3::new(self.camera_ctrl.pan_top.0, 0.0, center_z + self.camera_ctrl.pan_top.1);
+                let target = glam::Vec3::new(center_x + self.camera_ctrl.pan_top.0, 0.0, center_z + self.camera_ctrl.pan_top.1);
                 let cam_pos = target + glam::Vec3::new(0.0, 10.0, 0.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::new(-1.0, 0.0, 0.0));
                 let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
@@ -361,43 +435,44 @@ impl WasmEngine {
             }
             "side" => {
                 let stretch_y = 2.5;
-                let base_frustum_half = (board_len * 1.1 / (2.0 * aspect)).max(board_thickness * 1.5 * stretch_y / 2.0);
+                let base_frustum_half = (size_z * 1.1 / (2.0 * aspect)).max(size_y * 1.5 * stretch_y / 2.0);
                 let frustum_half = base_frustum_half * self.camera_ctrl.distance_side;
                 let ortho_right = frustum_half * aspect;
                 let ortho_top = frustum_half / stretch_y;
-                let target = glam::Vec3::new(0.0, self.camera_ctrl.pan_side.1, center_z + self.camera_ctrl.pan_side.0);
+                let target = glam::Vec3::new(0.0, center_y + self.camera_ctrl.pan_side.1, center_z + self.camera_ctrl.pan_side.0);
                 let cam_pos = target + glam::Vec3::new(-10.0, 0.0, 0.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
                 let proj = glam::Mat4::orthographic_rh(-ortho_right, ortho_right, -ortho_top, ortho_top, 0.1, 1000.0);
                 (proj * view, cam_pos)
             }
             "profile" => {
-                let base_frustum = (board_width * 1.5 / (2.0 * aspect)).max(board_thickness * 1.5 / 2.0);
+                let base_frustum = (size_x * 1.5 / (2.0 * aspect)).max(size_y * 1.5 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_profile;
                 
-                let mut target_z = center_z;
-                if let Some(cs) = self.engine.get_model().cross_sections.get(self.active_profile_slice) {
-                    target_z = cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * (1.0 / 12.0);
-                }
+                let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice) {
+                    cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * scale
+                } else {
+                    center_z
+                };
                 
-                let target = glam::Vec3::new(self.camera_ctrl.pan_profile.0, self.camera_ctrl.pan_profile.1, target_z);
+                let target = glam::Vec3::new(center_x + self.camera_ctrl.pan_profile.0, center_y + self.camera_ctrl.pan_profile.1, target_z);
                 let cam_pos = target + glam::Vec3::new(0.0, 0.0, 1.0);
                 let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
                 let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.9, 1.1);
                 (proj * view, cam_pos)
             }
             _ => { // perspective
-                let base_dist = board_len * 1.3;
+                let base_dist = size_z.max(size_x).max(size_y) * 1.3;
                 let dist = base_dist * self.camera_ctrl.distance_persp;
                 let x = dist * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.sin();
                 let y = dist * self.camera_ctrl.pitch.sin();
                 let z = dist * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
                 
-                let target = self.camera_ctrl.target + glam::Vec3::new(0.0, 0.0, center_z);
+                let target = self.camera_ctrl.target + glam::Vec3::new(center_x, center_y, center_z);
                 let cam_pos = target + glam::Vec3::new(x, y, z);
                 
                 if self.is_ortho {
-                    let base_frustum = (board_len * 1.1 / (2.0 * aspect)).max(board_width * 1.2 / 2.0);
+                    let base_frustum = (size_z * 1.1 / (2.0 * aspect)).max(size_x * 1.2 / 2.0);
                     let frustum = base_frustum * self.camera_ctrl.distance_persp;
                     let view = glam::Mat4::look_at_rh(cam_pos, target, glam::Vec3::Y);
                     let proj = glam::Mat4::orthographic_rh(-frustum * aspect, frustum * aspect, -frustum, frustum, 0.1, 1000.0);
