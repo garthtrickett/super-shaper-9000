@@ -899,7 +899,7 @@ pub fn generate_lines_for_view(
             }
         }
 
-        if let Some(hz) = hover_z {
+                if let Some(hz) = hover_z {
             if view_id == "profile" || view_id == "perspective" {
                 let ctx = crate::geometry::ZRingContext::new(model, hz);
                 let steps = 60;
@@ -916,13 +916,28 @@ pub fn generate_lines_for_view(
                 let ghost_color = Vec3::new(0.2, 0.9, 0.6); // Ghostly Emerald
 
                 let mut draw_side = |side: f32| {
-                    let mut prev_pt = ctx.get_point_at_uv(0.0, side);
-                    prev_pt.z = draw_z;
+                    let get_pt = |u: f32| -> Vec3 {
+                        if view_id == "profile" {
+                            if let Some(b) = &ctx.blend {
+                                let mut p = b.evaluate(u);
+                                p.x *= side;
+                                p.z = draw_z;
+                                p
+                            } else {
+                                Vec3::new(0.0, 0.0, draw_z)
+                            }
+                        } else {
+                            let mut p = ctx.get_point_at_uv(u, side);
+                            p.z = draw_z;
+                            p
+                        }
+                    };
+
+                    let mut prev_pt = get_pt(0.0);
 
                     for i in 1..=steps {
                         let u = i as f32 / steps as f32;
-                        let mut pt = ctx.get_point_at_uv(u, side);
-                        pt.z = draw_z;
+                        let pt = get_pt(u);
                         push_line(&mut line_vertices, &mut line_colors, scale, prev_pt, pt, ghost_color);
                         prev_pt = pt;
                     }
