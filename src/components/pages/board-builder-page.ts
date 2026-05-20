@@ -547,13 +547,13 @@ export class BoardBuilderPage extends LitElement {
                   (this.mathEngine as any).set_show_tangents(e.detail.quad, e.detail.show);
               }
           }}
-          @set-show-gizmos=${(e: CustomEvent<{quad: string, show: boolean}>) => {
+                    @set-masks=${(e: CustomEvent<{quad: string, lineMask: number, gizmoMask: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
-                  worker.postMessage({ type: "SET_SHOW_GIZMOS", quad: e.detail.quad, show: e.detail.show });
+                  worker.postMessage({ type: "SET_MASKS", quad: e.detail.quad, lineMask: e.detail.lineMask, gizmoMask: e.detail.gizmoMask });
               }
               if (this.mathEngine) {
-                  (this.mathEngine as any).set_show_gizmos(e.detail.quad, e.detail.show);
+                  (this.mathEngine as any).set_masks(e.detail.quad, e.detail.lineMask, e.detail.gizmoMask);
               }
           }}
           @set-show-solid-mesh=${(e: CustomEvent<{show: boolean}>) => {

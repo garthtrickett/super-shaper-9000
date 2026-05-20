@@ -152,7 +152,8 @@ pub fn generate_lines_for_view(
     view_id: &str,
     active_slice: usize,
     show_tangents: bool,
-    show_gizmos: bool,
+    line_mask: u32,
+    gizmo_mask: u32,
     gizmo_scale: f32,
 ) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>, Vec<u32>) {
     fn push_line_grad(
@@ -372,7 +373,7 @@ pub fn generate_lines_for_view(
         }
     }
 
-        let scale = 1.0 / 12.0;
+    let scale = 1.0 / 12.0;
     let bounds = crate::geometry::get_board_bounds(model);
     let mut line_vertices = Vec::new();
     let mut line_colors = Vec::new();
@@ -380,10 +381,31 @@ pub fn generate_lines_for_view(
     let mut tri_colors = Vec::new();
     let mut tri_indices = Vec::new();
 
+    let show_outline = (line_mask & (1 << 0)) != 0;
+    let show_rocker_top = (line_mask & (1 << 1)) != 0;
+    let show_rocker_bot = (line_mask & (1 << 2)) != 0;
+    let show_apex_out = (line_mask & (1 << 3)) != 0;
+    let show_rail_out = (line_mask & (1 << 4)) != 0;
+    let show_apex_roc = (line_mask & (1 << 5)) != 0;
+    let show_deck = (line_mask & (1 << 6)) != 0;
+    let show_cs = (line_mask & (1 << 7)) != 0;
+    let show_extras = (line_mask & (1 << 8)) != 0;
+
+    let gizmo_outline = (gizmo_mask & (1 << 0)) != 0;
+    let gizmo_rocker_top = (gizmo_mask & (1 << 1)) != 0;
+    let gizmo_rocker_bot = (gizmo_mask & (1 << 2)) != 0;
+    let gizmo_apex_out = (gizmo_mask & (1 << 3)) != 0;
+    let gizmo_rail_out = (gizmo_mask & (1 << 4)) != 0;
+    let gizmo_apex_roc = (gizmo_mask & (1 << 5)) != 0;
+    let gizmo_deck = (gizmo_mask & (1 << 6)) != 0;
+    let gizmo_cs = (gizmo_mask & (1 << 7)) != 0;
+    let gizmo_extras = (gizmo_mask & (1 << 8)) != 0;
+
     let mut add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
                                color: Vec3,
                                is_outline: bool,
-                               curve_name: &str| {
+                               curve_name: &str,
+                               show_this_gizmo: bool| {
         if let Some(curve) = curve_opt {
             if curve.control_points.is_empty() {
                 return;
@@ -391,7 +413,7 @@ pub fn generate_lines_for_view(
             let steps = 100;
             let mut mapped_pts = Vec::with_capacity(steps + 1);
 
-                        let map_point = |t: f32, raw_p: Vec3| -> Vec3 {
+            let map_point = |t: f32, raw_p: Vec3| -> Vec3 {
                 if view_id == "profile" {
                     return raw_p;
                 }
@@ -431,7 +453,7 @@ pub fn generate_lines_for_view(
                 mapped_pts.push(mapped_p);
             }
 
-                        for i in 0..steps {
+            for i in 0..steps {
                 let p0 = mapped_pts[i];
                 let p1 = mapped_pts[i + 1];
                 push_line(&mut line_vertices, &mut line_colors, scale, p0, p1, color);
@@ -444,7 +466,7 @@ pub fn generate_lines_for_view(
                 }
             }
 
-                        if show_gizmos {
+            if show_this_gizmo {
                 let num_segments = curve.control_points.len().saturating_sub(1);
                 let num_segments_f = num_segments as f32;
 
@@ -458,7 +480,7 @@ pub fn generate_lines_for_view(
                         0.0
                     };
 
-                                                            let p = map_point(t, raw_p);
+                    let p = map_point(t, raw_p);
 
                     let is_any_selected = model.selected_node.is_some();
                     let is_this_selected = model.selected_node.as_ref().map_or(false, |sn| sn.curve == curve_name && sn.index == i);
@@ -510,7 +532,7 @@ pub fn generate_lines_for_view(
                                 "square",
                             );
                         }
-                                                // Do not draw outgoing tangent for the last node (mathematically dead)
+                        // Do not draw outgoing tangent for the last node (mathematically dead)
                         if i < num_segments && i < curve.tangents2.len() {
                             let t_idx = (i as f32 + 0.33) / num_segments_f;
                             let t2_mapped = map_point(t_idx.min(1.0), curve.tangents2[i]);
@@ -542,128 +564,146 @@ pub fn generate_lines_for_view(
     };
 
     if view_id == "top" || view_id == "perspective" {
-        if view_id == "top" || model.show_outline.unwrap_or(true) {
-            add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true, "outline");
+        if show_outline {
+            add_curve_lines(&model.outline, Vec3::new(1.0, 1.0, 0.0), true, "outline", gizmo_outline);
         }
-        if view_id == "top" || model.show_apex_outline.unwrap_or(true) {
+        if show_apex_out {
             add_curve_lines(
                 &model.apex_outline,
                 Vec3::new(0.0, 1.0, 1.0),
                 true,
                 "apexOutline",
+                gizmo_apex_out
             );
         }
-        if view_id == "top" || model.show_rail_outline.unwrap_or(true) {
+        if show_rail_out {
             add_curve_lines(
                 &model.rail_outline,
                 Vec3::new(1.0, 0.0, 1.0),
                 true,
                 "railOutline",
+                gizmo_rail_out
             );
         }
-        if view_id == "top" || model.show_deck_shoulder.unwrap_or(true) {
+        if show_deck {
             add_curve_lines(
                 &model.deck_shoulder,
                 Vec3::new(1.0, 0.5, 0.0),
                 true,
                 "deckShoulder",
+                gizmo_deck
             );
         }
-        if let Some(layers) = &model.outline_layers {
-            for (i, l) in layers.iter().enumerate() {
-                if l.active {
-                    let name_ext = format!("outlineLayer_{}_ext", i);
-                    let name_int = format!("outlineLayer_{}_int", i);
-                    add_curve_lines(
-                        &Some(l.otl_ext.clone()),
-                        Vec3::new(1.0, 1.0, 0.0),
-                        true,
-                        &name_ext,
-                    );
-                    add_curve_lines(
-                        &Some(l.otl_int.clone()),
-                        Vec3::new(1.0, 1.0, 0.0),
-                        true,
-                        &name_int,
-                    );
+        if show_extras {
+            if let Some(layers) = &model.outline_layers {
+                for (i, l) in layers.iter().enumerate() {
+                    if l.active {
+                        let name_ext = format!("outlineLayer_{}_ext", i);
+                        let name_int = format!("outlineLayer_{}_int", i);
+                        add_curve_lines(
+                            &Some(l.otl_ext.clone()),
+                            Vec3::new(1.0, 1.0, 0.0),
+                            true,
+                            &name_ext,
+                            gizmo_extras
+                        );
+                        add_curve_lines(
+                            &Some(l.otl_int.clone()),
+                            Vec3::new(1.0, 1.0, 0.0),
+                            true,
+                            &name_int,
+                            gizmo_extras
+                        );
+                    }
                 }
             }
-        }
-        if let Some(channels) = &model.bottom_channels {
-            for (i, ch) in channels.iter().enumerate() {
-                let n_lo = format!("channel_{}_left_outline", i);
-                let n_ro = format!("channel_{}_right_outline", i);
-                add_curve_lines(
-                    &Some(ch.left_outline.clone()),
-                    Vec3::new(0.0, 1.0, 1.0),
-                    false,
-                    &n_lo,
-                );
-                add_curve_lines(
-                    &Some(ch.right_outline.clone()),
-                    Vec3::new(0.0, 1.0, 1.0),
-                    false,
-                    &n_ro,
-                );
+            if let Some(channels) = &model.bottom_channels {
+                for (i, ch) in channels.iter().enumerate() {
+                    let n_lo = format!("channel_{}_left_outline", i);
+                    let n_ro = format!("channel_{}_right_outline", i);
+                    add_curve_lines(
+                        &Some(ch.left_outline.clone()),
+                        Vec3::new(0.0, 1.0, 1.0),
+                        false,
+                        &n_lo,
+                        gizmo_extras
+                    );
+                    add_curve_lines(
+                        &Some(ch.right_outline.clone()),
+                        Vec3::new(0.0, 1.0, 1.0),
+                        false,
+                        &n_ro,
+                        gizmo_extras
+                    );
+                }
             }
         }
     }
 
     if view_id == "side" || view_id == "perspective" {
-        if view_id == "side" || model.show_rocker_top.unwrap_or(true) {
+        if show_rocker_top {
             add_curve_lines(
                 &model.rocker_top,
                 Vec3::new(0.0, 1.0, 0.0),
                 false,
                 "rockerTop",
+                gizmo_rocker_top
             );
         }
-        if view_id == "side" || model.show_rocker_bottom.unwrap_or(true) {
+        if show_rocker_bot {
             add_curve_lines(
                 &model.rocker_bottom,
                 Vec3::new(1.0, 0.0, 0.0),
                 false,
                 "rockerBottom",
+                gizmo_rocker_bot
             );
         }
-        if view_id == "side" || model.show_apex_rocker.unwrap_or(true) {
+        if show_apex_roc {
             add_curve_lines(
                 &model.apex_rocker,
                 Vec3::new(0.0, 0.5, 1.0),
                 false,
                 "apexRocker",
+                gizmo_apex_roc
             );
         }
-        if let Some(channels) = &model.bottom_channels {
-            for (i, ch) in channels.iter().enumerate() {
-                let n_ld = format!("channel_{}_left_depth", i);
-                let n_rd = format!("channel_{}_right_depth", i);
-                add_curve_lines(
-                    &Some(ch.left_depth.clone()),
-                    Vec3::new(1.0, 0.5, 0.0),
-                    false,
-                    &n_ld,
-                );
-                add_curve_lines(
-                    &Some(ch.right_depth.clone()),
-                    Vec3::new(1.0, 0.5, 0.0),
-                    false,
-                    &n_rd,
-                );
+        if show_extras {
+            if let Some(channels) = &model.bottom_channels {
+                for (i, ch) in channels.iter().enumerate() {
+                    let n_ld = format!("channel_{}_left_depth", i);
+                    let n_rd = format!("channel_{}_right_depth", i);
+                    add_curve_lines(
+                        &Some(ch.left_depth.clone()),
+                        Vec3::new(1.0, 0.5, 0.0),
+                        false,
+                        &n_ld,
+                        gizmo_extras
+                    );
+                    add_curve_lines(
+                        &Some(ch.right_depth.clone()),
+                        Vec3::new(1.0, 0.5, 0.0),
+                        false,
+                        &n_rd,
+                        gizmo_extras
+                    );
+                }
             }
         }
     }
 
     if view_id == "profile" || view_id == "perspective" {
-        if view_id == "profile" {
-            if let Some(cs) = model.cross_sections.get(active_slice) {
-                let name = format!("crossSection_{}", active_slice);
-                add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name);
-            }
-        } else if model.show_cross_sections.unwrap_or(true) {
-            for (i, cs) in model.cross_sections.iter().enumerate() {
-                let name = format!("crossSection_{}", i);
-                add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name);
+        if show_cs {
+            if view_id == "profile" {
+                if let Some(cs) = model.cross_sections.get(active_slice) {
+                    let name = format!("crossSection_{}", active_slice);
+                    add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name, gizmo_cs);
+                }
+            } else {
+                for (i, cs) in model.cross_sections.iter().enumerate() {
+                    let name = format!("crossSection_{}", i);
+                    add_curve_lines(&Some(cs.clone()), Vec3::new(0.5, 0.5, 0.5), true, &name, gizmo_cs);
+                }
             }
         }
     }

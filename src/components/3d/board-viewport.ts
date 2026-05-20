@@ -33,17 +33,26 @@ export class BoardViewport extends LitElement {
   @state() private isFlipped = false;
     @state() private isOrtho = false;
       @state() private activeProfileSlice = 0;
-    @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
-  @state() private showGizmos: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
+      @state() private showTangents: Record<ViewportId, boolean> = { perspective: true, top: true, side: true, profile: true };
   @state() private showSolidMesh: boolean = true;
+  @state() private lineMasks: Record<ViewportId, number> = { perspective: 0x1FF, top: 0x1FF, side: 0x1FF, profile: 0x1FF };
+  @state() private gizmoMasks: Record<ViewportId, number> = { perspective: 0x1FF, top: 0x1FF, side: 0x1FF, profile: 0x1FF };
   @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 0.5, profile: 0.3 };
     @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
     @state() private hoverInsertPoint: { left: number, top: number, curve: string, t: number } | null = null;
 
   private ro?: ResizeObserver;
   
-    override firstUpdated() {
+        override firstUpdated() {
         const views: ViewportId[] = ['top', 'perspective', 'side', 'profile'];
+        
+        const defaultLineMasks: Record<ViewportId, number> = {
+            perspective: 0x1FF,
+            top: (1<<0) | (1<<3) | (1<<4) | (1<<6) | (1<<8),
+            side: (1<<1) | (1<<2) | (1<<5) | (1<<8),
+            profile: (1<<7)
+        };
+
     views.forEach(v => {
         const savedScale = localStorage.getItem(`gizmoScale_${v}`);
         if (savedScale) this.gizmoScale[v] = parseFloat(savedScale);
@@ -51,8 +60,11 @@ export class BoardViewport extends LitElement {
         const savedTan = localStorage.getItem(`showTangents_${v}`);
         if (savedTan) this.showTangents[v] = savedTan === 'true';
 
-        const savedGizmos = localStorage.getItem(`showGizmos_${v}`);
-        if (savedGizmos) this.showGizmos[v] = savedGizmos === 'true';
+        const savedLine = localStorage.getItem(`lineMask_${v}`);
+        this.lineMasks[v] = savedLine ? parseInt(savedLine, 10) : defaultLineMasks[v];
+
+        const savedGizmo = localStorage.getItem(`gizmoMask_${v}`);
+        this.gizmoMasks[v] = savedGizmo ? parseInt(savedGizmo, 10) : defaultLineMasks[v];
     });
     
     const savedSolid = localStorage.getItem(`showSolidMesh`);
@@ -62,7 +74,7 @@ export class BoardViewport extends LitElement {
     views.forEach(v => {
         this.dispatchEvent(new CustomEvent('set-gizmo-scale', { detail: { quad: v, scale: this.gizmoScale[v] }, bubbles: true, composed: true }));
         this.dispatchEvent(new CustomEvent('set-show-tangents', { detail: { quad: v, show: this.showTangents[v] }, bubbles: true, composed: true }));
-        this.dispatchEvent(new CustomEvent('set-show-gizmos', { detail: { quad: v, show: this.showGizmos[v] }, bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('set-masks', { detail: { quad: v, lineMask: this.lineMasks[v], gizmoMask: this.gizmoMasks[v] }, bubbles: true, composed: true }));
     });
     this.dispatchEvent(new CustomEvent('set-show-solid-mesh', { detail: { show: this.showSolidMesh }, bubbles: true, composed: true }));
 
@@ -192,16 +204,21 @@ export class BoardViewport extends LitElement {
     localStorage.setItem(`showTangents_${quad}`, newState.toString());
   };
 
-  private toggleGizmos = (quad: ViewportId) => {
-    const newState = !this.showGizmos[quad];
-    this.showGizmos = { ...this.showGizmos, [quad]: newState };
-    this.dispatchEvent(new CustomEvent('set-show-gizmos', {
-        detail: { quad, show: newState },
-        bubbles: true,
-        composed: true
-    }));
-    localStorage.setItem(`showGizmos_${quad}`, newState.toString());
-  };
+    private toggleLineMask(quad: ViewportId, mask: number, checked: boolean) {
+      const current = this.lineMasks[quad];
+      const next = checked ? (current | mask) : (current & ~mask);
+      this.lineMasks = { ...this.lineMasks, [quad]: next };
+      this.dispatchEvent(new CustomEvent('set-masks', { detail: { quad, lineMask: next, gizmoMask: this.gizmoMasks[quad] }, bubbles: true, composed: true }));
+      localStorage.setItem(`lineMask_${quad}`, next.toString());
+  }
+
+  private toggleGizmoMask(quad: ViewportId, mask: number, checked: boolean) {
+      const current = this.gizmoMasks[quad];
+      const next = checked ? (current | mask) : (current & ~mask);
+      this.gizmoMasks = { ...this.gizmoMasks, [quad]: next };
+      this.dispatchEvent(new CustomEvent('set-masks', { detail: { quad, lineMask: this.lineMasks[quad], gizmoMask: next }, bubbles: true, composed: true }));
+      localStorage.setItem(`gizmoMask_${quad}`, next.toString());
+  }
 
   private toggleSolidMesh = () => {
     this.showSolidMesh = !this.showSolidMesh;
@@ -216,7 +233,99 @@ export class BoardViewport extends LitElement {
         private activeDragNode: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null = null;
   private lastDragPosition: [number, number, number] | null = null;
 
-        private getHoverInsertPoint(quad: string, clientX: number, clientY: number, localNdcX: number, localNdcY: number, localAspect: number): { left: number, top: number, curve: string, t: number } | null {
+            private getHoverInsertPoint(quad: string, clientX: number, clientY: number, localNdcX: number, localNdcY: number, localAspect: number): { left: number, top: number, curve: string, t: number } | null {
+      if (quad === 'perspective' || !this.mathEngine) return null;
+      
+      let curvesToCheck: string[] = [];
+      const lineMask = this.lineMasks[quad as ViewportId];
+      
+      if (quad === 'top') {
+          if (lineMask & (1<<0)) curvesToCheck.push('outline');
+          if (lineMask & (1<<3)) curvesToCheck.push('apexOutline');
+          if (lineMask & (1<<4)) curvesToCheck.push('railOutline');
+          if (lineMask & (1<<6)) curvesToCheck.push('deckShoulder');
+          if (lineMask & (1<<8)) {
+              this.boardState?.outlineLayers?.forEach((l, i) => {
+                  if (l.active !== false) {
+                      curvesToCheck.push(`outlineLayer_${i}_ext`, `outlineLayer_${i}_int`);
+                  }
+              });
+              this.boardState?.bottomChannels?.forEach((c, i) => {
+                  curvesToCheck.push(`channel_${i}_left_outline`, `channel_${i}_right_outline`);
+              });
+          }
+      } else if (quad === 'side') {
+          if (lineMask & (1<<1)) curvesToCheck.push('rockerTop');
+          if (lineMask & (1<<2)) curvesToCheck.push('rockerBottom');
+          if (lineMask & (1<<5)) curvesToCheck.push('apexRocker');
+          if (lineMask & (1<<8)) {
+              this.boardState?.bottomChannels?.forEach((c, i) => {
+                  curvesToCheck.push(`channel_${i}_left_depth`, `channel_${i}_right_depth`);
+              });
+          }
+      } else if (quad === 'profile') {
+          if (lineMask & (1<<7)) curvesToCheck.push(`crossSection_${this.activeProfileSlice}`);
+      }
+
+      let ox = 0, oy = 0, oz = 0;
+      if (quad === "profile") {
+          if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
+              const cs = this.boardState.crossSections[this.activeProfileSlice]!;
+              const pt = cs.controlPoints?.[0] || 
+                         (cs as unknown as { control_points?: {x: number, y: number, z: number}[] }).control_points?.[0];
+              if (pt) {
+                  oz = Array.isArray(pt) ? pt[2] : (pt as {z: number}).z;
+              }
+          }
+      }
+      
+      type EngineExt = { unproject_to_plane(quad: string, ndcx: number, ndcy: number, aspect: number, ox: number, oy: number, oz: number): Float32Array; find_closest_t(curve: string, rx: number, ry: number, rz: number, dx: number, dy: number, dz: number): number; get_point_on_curve(curve: string, t: number): Float32Array; project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+      
+      const engine = this.mathEngine as unknown as EngineExt;
+      
+      const pt = engine.unproject_to_plane(quad, localNdcX, localNdcY, localAspect, ox, oy, oz);
+      let worldX = pt[0]!, worldY = pt[1]!, worldZ = pt[2]!;
+
+      let roX = worldX, roY = worldY, roZ = worldZ;
+      let rdX = 0, rdY = 0, rdZ = 0;
+      if (quad === 'top') { roY = 100.0; rdY = -1.0; }
+      else if (quad === 'side') { roX = -100.0; rdX = 1.0; }
+      else if (quad === 'profile') { roZ = worldZ - 100.0; rdZ = 1.0; }
+      
+      let bestHit: { left: number, top: number, curve: string, t: number } | null = null;
+      let minDist = 20;
+
+      const rect = this.wgpuCanvas.getBoundingClientRect();
+      const w = rect.width / 2;
+      const h = rect.height / 2;
+
+      for (const targetCurve of curvesToCheck) {
+          const t = engine.find_closest_t(targetCurve, roX, roY, roZ, rdX, rdY, rdZ);
+          if (t >= 0.0 && t <= 1.0) {
+              const curvePt = engine.get_point_on_curve(targetCurve, t);
+              const proj = engine.project_to_screen(quad, curvePt[0]!, curvePt[1]!, curvePt[2]!, localAspect);
+              if (proj[2]! < 1.0) {
+                  let pxX = 0, pxY = 0;
+                  if (this.maximizedView) {
+                      pxX = rect.left + ((proj[0]! + 1) / 2) * rect.width;
+                      pxY = rect.top + ((1 - proj[1]!) / 2) * rect.height;
+                  } else {
+                      const offsetX = (quad === 'perspective' || quad === 'profile') ? w : 0;
+                      const offsetY = (quad === 'side' || quad === 'profile') ? h : 0;
+                      pxX = rect.left + offsetX + ((proj[0]! + 1) / 2) * w;
+                      pxY = rect.top + offsetY + ((1 - proj[1]!) / 2) * h;
+                  }
+                  
+                  const dist = Math.hypot(pxX - clientX, pxY - clientY);
+                  if (dist < minDist) {
+                      minDist = dist;
+                      bestHit = { left: pxX - rect.left, top: pxY - rect.top, curve: targetCurve, t };
+                  }
+              }
+          }
+      }
+      return bestHit;
+  } | null {
       if (quad === 'perspective' || !this.mathEngine) return null;
       
       let curvesToCheck: string[] = [];
@@ -299,7 +408,103 @@ export class BoardViewport extends LitElement {
       return bestHit;
   }
 
-                      private findClosestNode(quad: string, ndcX: number, ndcY: number, aspect: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
+                                            private findClosestNode(quad: string, ndcX: number, ndcY: number, aspect: number): { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null {
+      const threshold = 0.05;
+      let bestHit: { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null = null;
+      let minDist = threshold;
+
+      const checkNode = (curveName: string, pts: (import("../pages/board-builder-page.logic").Point3D | {x: number, y: number, z: number})[] | undefined, i: number, type: 'anchor'|'tangent1'|'tangent2', isSymmetrical: boolean) => {
+          if (!pts || !pts[i]) return;
+          const pt = pts[i];
+          const ptX = Array.isArray(pt) ? pt[0] : pt.x;
+          const ptY = Array.isArray(pt) ? pt[1] : pt.y;
+          const ptZ = Array.isArray(pt) ? pt[2] : pt.z;
+
+          // For symmetrical curves, ignore any nodes on the left side of the board.
+          if (isSymmetrical && ptX < -1e-4) {
+              return;
+          }
+
+          type EngineExt = { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+          if (this.mathEngine) {
+              const proj = (this.mathEngine as unknown as EngineExt).project_to_screen(quad, ptX, ptY, ptZ, aspect);
+              // Check if point is in front of the camera (z < 1 in NDC)
+              if (proj[2]! < 1.0) {
+                  const dx = (proj[0]! - ndcX) * aspect;
+                  const dy = (proj[1]! - ndcY);
+                  const dist = Math.hypot(dx, dy);
+                  if (dist < minDist) {
+                      minDist = dist;
+                      bestHit = { node: { curve: curveName, index: i, type }, curve: curveName, t: i / (pts.length - 1 || 1) };
+                  }
+              }
+          }
+      };
+
+            const checkCurve = (name: string, curveData: import("../pages/board-builder-page.logic").BezierCurveData | undefined, isSymmetrical: boolean, mask: number) => {
+          if (!curveData) return;
+          if ((this.gizmoMasks[quad as ViewportId] & mask) === 0) return;
+
+          const cdAny = curveData as unknown as { control_points?: {x: number, y: number, z: number}[], tangents_1?: {x: number, y: number, z: number}[], tangents_2?: {x: number, y: number, z: number}[] };
+          const cps = curveData.controlPoints || cdAny.control_points;
+          if (cps) {
+              cps.forEach((_, i: number) => checkNode(name, cps, i, 'anchor', isSymmetrical));
+          }
+                                                            if (this.showTangents[quad as ViewportId]) {
+              const t1s = curveData.tangents1 || cdAny.tangents_1;
+              if (t1s) {
+                  t1s.forEach((_, i: number) => {
+                      if (i > 0) checkNode(name, t1s, i, 'tangent1', isSymmetrical);
+                  });
+              }
+              const t2s = curveData.tangents2 || cdAny.tangents_2;
+              if (t2s) {
+                  t2s.forEach((_, i: number) => {
+                      if (cps && i < cps.length - 1) checkNode(name, t2s, i, 'tangent2', isSymmetrical);
+                  });
+              }
+          }
+      };
+
+      if (quad === 'top' || quad === 'perspective') {
+          checkCurve('outline', this.boardState?.outline, true, 1 << 0);
+          checkCurve('apexOutline', this.boardState?.apexOutline, true, 1 << 3);
+          checkCurve('railOutline', this.boardState?.railOutline, true, 1 << 4);
+          checkCurve('deckShoulder', this.boardState?.deckShoulder, true, 1 << 6);
+          this.boardState?.outlineLayers?.forEach((l, i: number) => {
+              if (l.active !== false) {
+                  checkCurve(`outlineLayer_${i}_ext`, l.otlExt, true, 1 << 8);
+                  checkCurve(`outlineLayer_${i}_int`, l.otlInt, true, 1 << 8);
+              }
+          });
+          this.boardState?.bottomChannels?.forEach((c, i: number) => {
+              checkCurve(`channel_${i}_left_outline`, c.leftOutline, false, 1 << 8);
+              checkCurve(`channel_${i}_right_outline`, c.rightOutline, false, 1 << 8);
+          });
+      }
+
+      if (quad === 'side' || quad === 'perspective') {
+          checkCurve('rockerTop', this.boardState?.rockerTop, false, 1 << 1);
+          checkCurve('rockerBottom', this.boardState?.rockerBottom, false, 1 << 2);
+          checkCurve('apexRocker', this.boardState?.apexRocker, false, 1 << 5);
+          this.boardState?.bottomChannels?.forEach((c, i: number) => {
+              checkCurve(`channel_${i}_left_depth`, c.leftDepth, false, 1 << 8);
+              checkCurve(`channel_${i}_right_depth`, c.rightDepth, false, 1 << 8);
+          });
+      }
+
+      if (quad === 'profile' || quad === 'perspective') {
+          if (quad === 'profile') {
+              if (this.boardState?.crossSections && this.boardState.crossSections[this.activeProfileSlice]) {
+                  checkCurve(`crossSection_${this.activeProfileSlice}`, this.boardState.crossSections[this.activeProfileSlice], true, 1 << 7);
+              }
+          } else {
+              this.boardState?.crossSections?.forEach((cs, i: number) => checkCurve(`crossSection_${i}`, cs, true, 1 << 7));
+          }
+      }
+
+      return bestHit;
+  } | null {
       const threshold = 0.05;
       let bestHit: { node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' }, curve: string, t: number } | null = null;
       let minDist = threshold;
@@ -689,7 +894,39 @@ export class BoardViewport extends LitElement {
       `;
     };
 
-        const renderQuadrantOverlay = (id: ViewportId, label: string) => html`
+            const renderQuadrantOverlay = (id: ViewportId, label: string) => {
+      const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
+          top: [
+              { label: "Outline", mask: 1 << 0, key: "outline" },
+              { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
+              { label: "Rail (Tuck)", mask: 1 << 4, key: "railOutline" },
+              { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
+              { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
+          ],
+          side: [
+              { label: "Rocker Top", mask: 1 << 1, key: "rockerTop" },
+              { label: "Rocker Bottom", mask: 1 << 2, key: "rockerBottom" },
+              { label: "Apex Rocker", mask: 1 << 5, key: "apexRocker" },
+              { label: "Channels", mask: 1 << 8, key: "extras" }
+          ],
+          profile: [
+              { label: "Cross Sections", mask: 1 << 7, key: "crossSections" }
+          ],
+          perspective: [
+              { label: "Outline", mask: 1 << 0, key: "outline" },
+              { label: "Rocker Top", mask: 1 << 1, key: "rockerTop" },
+              { label: "Rocker Bottom", mask: 1 << 2, key: "rockerBottom" },
+              { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
+              { label: "Rail (Tuck)", mask: 1 << 4, key: "railOutline" },
+              { label: "Apex Rocker", mask: 1 << 5, key: "apexRocker" },
+              { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
+              { label: "Cross Sections", mask: 1 << 7, key: "crossSections" },
+              { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
+          ]
+      };
+      const curvesForThisView = CURVES_FOR_VIEW[id] || [];
+
+      return html`
       <div class="relative w-full h-full pointer-events-none">
         <button type="button" @click=${() => this.toggleMaximize(id)} class="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-800 text-[10px] font-bold text-zinc-400 hover:text-white uppercase tracking-widest rounded shadow backdrop-blur-sm pointer-events-auto transition-colors border border-zinc-800 cursor-pointer" title="Maximize ${label}">
           <span>${label}</span> ${expandIcon}
@@ -709,38 +946,26 @@ export class BoardViewport extends LitElement {
                 <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                 <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
               </label>
-
-              <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
-                ${[
-                    { label: "Outline", key: "showOutline" },
-                    { label: "Rocker Top", key: "showRockerTop" },
-                    { label: "Rocker Bottom", key: "showRockerBottom" },
-                    { label: "Apex Outline", key: "showApexOutline" },
-                    { label: "Rail (Tuck)", key: "showRailOutline" },
-                    { label: "Apex Rocker", key: "showApexRocker" },
-                    { label: "Deck Shoulder", key: "showDeckShoulder" },
-                    { label: "Cross Sections", key: "showCrossSections" }
-                ].map(c => {
-                    const isChecked = (this.boardState as any)?.[c.key] ?? true;
-                    return html`
-                    <label class="flex items-center justify-between cursor-pointer group">
-                      <span class="text-[10px] font-bold uppercase tracking-widest ${isChecked ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
-                      <input type="checkbox" .checked=${isChecked} @change=${(e: Event) => {
-                        this.dispatchEvent(new CustomEvent('boolean-changed', {
-                          detail: { param: c.key, value: (e.target as HTMLInputElement).checked },
-                          bubbles: true, composed: true
-                        }));
-                      }} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
-                    </label>
-                    `;
-                })}
-              </div>
               ` : ''}
 
-              <label class="flex items-center justify-between cursor-pointer group mb-2">
-                <span class="text-[10px] font-bold uppercase tracking-widest ${this.showGizmos[id] ? 'text-zinc-200' : 'text-zinc-500'}">Control Points</span>
-                <input type="checkbox" .checked=${this.showGizmos[id]} @change=${() => this.toggleGizmos(id)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
-              </label>
+              <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
+                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1 mb-1">
+                  <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Curve</span>
+                  <span class="text-[10px] font-bold text-zinc-500 text-center" title="Visibility">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                  </span>
+                  <span class="text-[10px] font-bold text-zinc-500 text-center" title="Nodes">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                  </span>
+                </div>
+                ${curvesForThisView.map(c => html`
+                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
+                  <span class="text-[10px] font-bold uppercase tracking-widest ${ (this.lineMasks[id] & c.mask) !== 0 ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
+                  <input type="checkbox" .checked=${(this.lineMasks[id] & c.mask) !== 0} @change=${(e: Event) => this.toggleLineMask(id, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                  <input type="checkbox" .checked=${(this.gizmoMasks[id] & c.mask) !== 0} @change=${(e: Event) => this.toggleGizmoMask(id, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                </div>
+                `)}
+              </div>
 
               <label class="flex items-center justify-between cursor-pointer group mb-2">
                 <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[id] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>
@@ -809,6 +1034,15 @@ export class BoardViewport extends LitElement {
             <div class="border-r border-b border-zinc-800/80">${renderQuadrantOverlay('top', 'Top')}</div>
             <div class="border-b border-zinc-800/80">${renderQuadrantOverlay('perspective', 'Perspective')}</div>
             <div class="border-r border-zinc-800/80">${renderQuadrantOverlay('side', 'Side')}</div>
+            <div>${renderQuadrantOverlay('profile', 'Profile')}            </div>
+          </div>
+        `;
+        
+        return html`
+          <div class="w-full h-full grid grid-cols-2 grid-rows-2">
+            <div class="border-r border-b border-zinc-800/80">${renderQuadrantOverlay('top', 'Top')}</div>
+            <div class="border-b border-zinc-800/80">${renderQuadrantOverlay('perspective', 'Perspective')}</div>
+            <div class="border-r border-zinc-800/80">${renderQuadrantOverlay('side', 'Side')}</div>
             <div>${renderQuadrantOverlay('profile', 'Profile')}</div>
           </div>
         ` : html`
@@ -818,7 +1052,7 @@ export class BoardViewport extends LitElement {
             </button>
             ${this.maximizedView === 'profile' ? renderProfileSliceSelector() : ''}
                                                 <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
-              ${this.showSettings[this.maximizedView!] ? html`
+                            ${this.showSettings[this.maximizedView!] ? html`
                 <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
                                                       <div class="flex justify-between items-center">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
@@ -830,38 +1064,57 @@ export class BoardViewport extends LitElement {
                     <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                     <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
                   </label>
-
-                  <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
-                    ${[
-                        { label: "Outline", key: "showOutline" },
-                        { label: "Rocker Top", key: "showRockerTop" },
-                        { label: "Rocker Bottom", key: "showRockerBottom" },
-                        { label: "Apex Outline", key: "showApexOutline" },
-                        { label: "Rail (Tuck)", key: "showRailOutline" },
-                        { label: "Apex Rocker", key: "showApexRocker" },
-                        { label: "Deck Shoulder", key: "showDeckShoulder" },
-                        { label: "Cross Sections", key: "showCrossSections" }
-                    ].map(c => {
-                        const isChecked = (this.boardState as any)?.[c.key] ?? true;
-                        return html`
-                        <label class="flex items-center justify-between cursor-pointer group">
-                          <span class="text-[10px] font-bold uppercase tracking-widest ${isChecked ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
-                          <input type="checkbox" .checked=${isChecked} @change=${(e: Event) => {
-                            this.dispatchEvent(new CustomEvent('boolean-changed', {
-                              detail: { param: c.key, value: (e.target as HTMLInputElement).checked },
-                              bubbles: true, composed: true
-                            }));
-                          }} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
-                        </label>
-                        `;
-                    })}
-                  </div>
                   ` : ''}
 
-                  <label class="flex items-center justify-between cursor-pointer group mb-2">
-                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.showGizmos[this.maximizedView!] ? 'text-zinc-200' : 'text-zinc-500'}">Control Points</span>
-                    <input type="checkbox" .checked=${this.showGizmos[this.maximizedView!]} @change=${() => this.toggleGizmos(this.maximizedView!)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
-                  </label>
+                  <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
+                    <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1 mb-1">
+                      <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Curve</span>
+                      <span class="text-[10px] font-bold text-zinc-500 text-center" title="Visibility">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                      </span>
+                      <span class="text-[10px] font-bold text-zinc-500 text-center" title="Nodes">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                      </span>
+                    </div>
+                    ${(() => {
+                      const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
+                          top: [
+                              { label: "Outline", mask: 1 << 0, key: "outline" },
+                              { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
+                              { label: "Rail (Tuck)", mask: 1 << 4, key: "railOutline" },
+                              { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
+                              { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
+                          ],
+                          side: [
+                              { label: "Rocker Top", mask: 1 << 1, key: "rockerTop" },
+                              { label: "Rocker Bottom", mask: 1 << 2, key: "rockerBottom" },
+                              { label: "Apex Rocker", mask: 1 << 5, key: "apexRocker" },
+                              { label: "Channels", mask: 1 << 8, key: "extras" }
+                          ],
+                          profile: [
+                              { label: "Cross Sections", mask: 1 << 7, key: "crossSections" }
+                          ],
+                          perspective: [
+                              { label: "Outline", mask: 1 << 0, key: "outline" },
+                              { label: "Rocker Top", mask: 1 << 1, key: "rockerTop" },
+                              { label: "Rocker Bottom", mask: 1 << 2, key: "rockerBottom" },
+                              { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
+                              { label: "Rail (Tuck)", mask: 1 << 4, key: "railOutline" },
+                              { label: "Apex Rocker", mask: 1 << 5, key: "apexRocker" },
+                              { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
+                              { label: "Cross Sections", mask: 1 << 7, key: "crossSections" },
+                              { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
+                          ]
+                      };
+                      return (CURVES_FOR_VIEW[this.maximizedView!] || []).map(c => html`
+                      <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
+                        <span class="text-[10px] font-bold uppercase tracking-widest ${ (this.lineMasks[this.maximizedView!] & c.mask) !== 0 ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
+                        <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleLineMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                        <input type="checkbox" .checked=${(this.gizmoMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleGizmoMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
+                      </div>
+                      `);
+                    })()}
+                  </div>
 
                   <label class="flex items-center justify-between cursor-pointer group mb-2">
                     <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[this.maximizedView!] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>

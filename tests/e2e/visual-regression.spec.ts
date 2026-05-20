@@ -56,8 +56,22 @@ test.describe('Visual Regression', () => {
     await perspectiveCog.click();
     await page.waitForTimeout(200);
     
-    // Disable Control Points and all curves
-    await toggleViewportCheckbox("Control Points", false);
+    //     const toggleViewportCheckbox = async (labelText: string, targetState: boolean) => {
+      const row = viewport.locator('.grid.items-center', { hasText: labelText }).first();
+      const inputs = row.locator('input[type="checkbox"]');
+      if (await inputs.count() >= 2) {
+          const lineInput = inputs.nth(0);
+          const gizmoInput = inputs.nth(1);
+          
+          if (!targetState) {
+              await lineInput.uncheck({ force: true });
+              await gizmoInput.uncheck({ force: true });
+          } else {
+              await lineInput.check({ force: true });
+              await gizmoInput.check({ force: true });
+          }
+      }
+    };
     await toggleViewportCheckbox("Outline", false);
     await toggleViewportCheckbox("Rocker Top", false);
     await toggleViewportCheckbox("Rocker Bottom", false);

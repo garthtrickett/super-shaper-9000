@@ -128,9 +128,9 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "SET_SHOW_GIZMOS") {
+        if (msg.type === "SET_MASKS") {
         if (engine) {
-            (engine as any).set_show_gizmos(msg.quad, msg.show);
+            (engine as any).set_masks(msg.quad, msg.lineMask, msg.gizmoMask);
         }
         return;
     }
