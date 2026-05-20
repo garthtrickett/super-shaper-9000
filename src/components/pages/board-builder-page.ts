@@ -26,10 +26,11 @@ export class BoardBuilderPage extends LitElement {
   @state() private showExportModal = false;
   @state() private showImportModal = false;
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
-    @state() private showContourEditor = false;
+      @state() private showContourEditor = false;
   @state() private contourZPosition = 20.0;
   @state() private contourSliceData?: Float32Array;
   @state() private isProcessing = false;
+  @state() private isRendererReady = false;
 
     private _workerBusyWithDrag = false;
   private _pendingDragDetail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] } | null = null;
@@ -81,10 +82,11 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    private _handleWorkerMessage = (e: MessageEvent) => {
+        private _handleWorkerMessage = (e: MessageEvent) => {
     const data = e.data as { type: string, id?: string, profile?: Float32Array, seq?: number };
     if (data.type === "RENDERER_READY") {
         console.info("[BoardBuilder] WGPU Renderer Ready");
+        this.isRendererReady = true;
         this.dispatchEvent(new CustomEvent("wgpu-ready", { bubbles: true, composed: true }));
     }
         if (data.type === "GIZMO_DRAG_COMPLETE") {
@@ -464,13 +466,14 @@ export class BoardBuilderPage extends LitElement {
           </button>
         </div>
 
-                        <board-viewport 
+                                                <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${mesh}
           .mathEngine=${this.mathEngine}
           .selectedNodeContinuity=${this._selectedNodeContinuity}
           .isProcessing=${this.isProcessing}
+          .isRendererReady=${this.isRendererReady}
           @init-renderer=${(e: CustomEvent<{canvas: OffscreenCanvas, width: number, height: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
