@@ -19,16 +19,8 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) cantAngle = 6.0;
   @property({ type: String }) coreMaterial = "pu";
     @property({ type: String }) glassingSchedule = "heavy";
-  @property({ type: Boolean }) showHeatmap = false;
+    @property({ type: Boolean }) showHeatmap = false;
     @property({ type: Boolean }) showZebra = false;
-  @property({ type: Boolean }) showOutline = true;
-  @property({ type: Boolean }) showRockerTop = true;
-  @property({ type: Boolean }) showRockerBottom = true;
-  @property({ type: Boolean }) showApexOutline = true;
-  @property({ type: Boolean }) showRailOutline = true;
-        @property({ type: Boolean }) showApexRocker = true;
-        @property({ type: Boolean }) showDeckShoulder = true;
-                        @property({ type: Boolean }) showCrossSections = true;
   @property({ type: Boolean }) showMriView = false;
       @property({ type: Number }) mriSlicePosition = 50.0;
       @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];
@@ -333,23 +325,7 @@ export class BoardControls extends LitElement {
           </div>
         </div>
 
-                                                                ${this._renderAccordion("Visibility", html`
-                    ${[
-            { label: "Outline", key: "showOutline" },
-            { label: "Rocker Top", key: "showRockerTop" },
-            { label: "Rocker Bottom", key: "showRockerBottom" },
-            { label: "Apex Outline", key: "showApexOutline" },
-            { label: "Rail Outline (Tuck)", key: "showRailOutline" },
-                        { label: "Apex Rocker", key: "showApexRocker" },
-            { label: "Deck Shoulder", key: "showDeckShoulder" },
-                                    { label: "Cross Sections", key: "showCrossSections" }
-          ].map(c => html`
-                                                <label class="flex items-center justify-between mb-1 cursor-pointer hover:bg-zinc-800 p-1 rounded transition">
-              <span class="text-xs text-zinc-400">${c.label}</span>
-                            <input type="checkbox" .checked=${live(Boolean((this as unknown as Record<string, boolean>)[c.key]))} @change=${(e: Event) => this._dispatchBoolean(c.key, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 rounded bg-zinc-900 border-zinc-700" />
-            </label>
-          `)}
-          <div class="h-px bg-zinc-800 my-3"></div>
+                                                                                                                                ${this._renderAccordion("Structure & Layers", html`
           <div>
             <div class="flex items-center justify-between mb-2">
               <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Outline Layers</label>

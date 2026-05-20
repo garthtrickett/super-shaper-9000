@@ -659,7 +659,7 @@ export class BoardViewport extends LitElement {
                         <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
           ${this.showSettings[id] ? html`
             <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
-              <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-center">
                 <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
                 <button @click=${() => this.toggleSettings(id)} class="text-zinc-500 hover:text-white">&times;</button>
               </div>
@@ -669,6 +669,32 @@ export class BoardViewport extends LitElement {
                 <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                 <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
               </label>
+
+              <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
+                ${[
+                    { label: "Outline", key: "showOutline" },
+                    { label: "Rocker Top", key: "showRockerTop" },
+                    { label: "Rocker Bottom", key: "showRockerBottom" },
+                    { label: "Apex Outline", key: "showApexOutline" },
+                    { label: "Rail (Tuck)", key: "showRailOutline" },
+                    { label: "Apex Rocker", key: "showApexRocker" },
+                    { label: "Deck Shoulder", key: "showDeckShoulder" },
+                    { label: "Cross Sections", key: "showCrossSections" }
+                ].map(c => {
+                    const isChecked = (this.boardState as any)?.[c.key] ?? true;
+                    return html`
+                    <label class="flex items-center justify-between cursor-pointer group">
+                      <span class="text-[10px] font-bold uppercase tracking-widest ${isChecked ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
+                      <input type="checkbox" .checked=${isChecked} @change=${(e: Event) => {
+                        this.dispatchEvent(new CustomEvent('boolean-changed', {
+                          detail: { param: c.key, value: (e.target as HTMLInputElement).checked },
+                          bubbles: true, composed: true
+                        }));
+                      }} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                    </label>
+                    `;
+                })}
+              </div>
               ` : ''}
 
               <label class="flex items-center justify-between cursor-pointer group mb-2">
@@ -754,7 +780,7 @@ export class BoardViewport extends LitElement {
                                                 <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
               ${this.showSettings[this.maximizedView!] ? html`
                 <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
-                                    <div class="flex justify-between items-center">
+                                                      <div class="flex justify-between items-center">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
                     <button @click=${() => this.toggleSettings(this.maximizedView!)} class="text-zinc-500 hover:text-white">&times;</button>
                   </div>
@@ -764,6 +790,32 @@ export class BoardViewport extends LitElement {
                     <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                     <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
                   </label>
+
+                  <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
+                    ${[
+                        { label: "Outline", key: "showOutline" },
+                        { label: "Rocker Top", key: "showRockerTop" },
+                        { label: "Rocker Bottom", key: "showRockerBottom" },
+                        { label: "Apex Outline", key: "showApexOutline" },
+                        { label: "Rail (Tuck)", key: "showRailOutline" },
+                        { label: "Apex Rocker", key: "showApexRocker" },
+                        { label: "Deck Shoulder", key: "showDeckShoulder" },
+                        { label: "Cross Sections", key: "showCrossSections" }
+                    ].map(c => {
+                        const isChecked = (this.boardState as any)?.[c.key] ?? true;
+                        return html`
+                        <label class="flex items-center justify-between cursor-pointer group">
+                          <span class="text-[10px] font-bold uppercase tracking-widest ${isChecked ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
+                          <input type="checkbox" .checked=${isChecked} @change=${(e: Event) => {
+                            this.dispatchEvent(new CustomEvent('boolean-changed', {
+                              detail: { param: c.key, value: (e.target as HTMLInputElement).checked },
+                              bubbles: true, composed: true
+                            }));
+                          }} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                        </label>
+                        `;
+                    })}
+                  </div>
                   ` : ''}
 
                   <label class="flex items-center justify-between cursor-pointer group mb-2">

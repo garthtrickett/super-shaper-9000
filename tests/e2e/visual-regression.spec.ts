@@ -34,9 +34,10 @@ test.describe('Visual Regression', () => {
     // Wait for the geometry to settle
     await page.waitForTimeout(2000);
 
-        // 2. Hide all wireframes and gizmos to isolate the solid mesh
-    const toggleCheckbox = async (labelText: string, targetState: boolean) => {
-      const label = boardControls.locator('label', { hasText: labelText }).first();
+                // 2. Hide all wireframes and gizmos to isolate the solid mesh
+    const toggleViewportCheckbox = async (labelText: string, targetState: boolean) => {
+      // The settings are now in the viewport cog menu
+      const label = viewport.locator('label', { hasText: labelText }).first();
       const input = label.locator('input[type="checkbox"]');
       if (await input.count() > 0) {
         const isChecked = await input.isChecked();
@@ -50,23 +51,24 @@ test.describe('Visual Regression', () => {
       }
     };
 
-    // Open Perspective Cog and disable Control Points
+    // Open Perspective Cog
     const perspectiveCog = viewport.locator('button[title="Display Settings"]').nth(1); // top is 0, perspective is 1
     await perspectiveCog.click();
     await page.waitForTimeout(200);
-    const gizmoInput = viewport.locator('label:has-text("Control Points") input').first();
-    await gizmoInput.uncheck({ force: true });
+    
+    // Disable Control Points and all curves
+    await toggleViewportCheckbox("Control Points", false);
+    await toggleViewportCheckbox("Outline", false);
+    await toggleViewportCheckbox("Rocker Top", false);
+    await toggleViewportCheckbox("Rocker Bottom", false);
+    await toggleViewportCheckbox("Apex Outline", false);
+    await toggleViewportCheckbox("Rail (Tuck)", false);
+    await toggleViewportCheckbox("Apex Rocker", false);
+    await toggleViewportCheckbox("Deck Shoulder", false);
+    await toggleViewportCheckbox("Cross Sections", false);
+    
     await perspectiveCog.click(); // close cog
     await page.waitForTimeout(200);
-
-    await toggleCheckbox("Outline", false);
-    await toggleCheckbox("Rocker Top", false);
-    await toggleCheckbox("Rocker Bottom", false);
-    await toggleCheckbox("Apex Outline", false);
-    await toggleCheckbox("Rail Outline (Tuck)", false);
-    await toggleCheckbox("Apex Rocker", false);
-    await toggleCheckbox("Deck Shoulder", false);
-    await toggleCheckbox("Cross Sections", false);
 
     // 3. Enable Zebra Flow
     const zebraLabel = boardControls.locator('label').filter({ hasText: /Zebra Flow/i });

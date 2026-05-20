@@ -428,16 +428,8 @@ export class BoardBuilderPage extends LitElement {
                     @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
             this._proposeAction({ type: "UPDATE_BOOLEAN", param: e.detail.param, value: e.detail.value });
           }}
-                    .showHeatmap=${state.showHeatmap ?? false}
+                                        .showHeatmap=${state.showHeatmap ?? false}
                     .showZebra=${state.showZebra ?? false}
-          .showOutline=${state.showOutline ?? true}
-          .showRockerTop=${state.showRockerTop ?? true}
-          .showRockerBottom=${state.showRockerBottom ?? true}
-          .showApexOutline=${state.showApexOutline ?? true}
-          .showRailOutline=${state.showRailOutline ?? true}
-          .showApexRocker=${state.showApexRocker ?? true}
-          .showDeckShoulder=${state.showDeckShoulder ?? true}
-                                                  .showCrossSections=${state.showCrossSections ?? true}
           .showMriView=${state.showMriView ?? false}
           .mriSlicePosition=${state.mriSlicePosition ?? 50.0}
           .outlineLayers=${state.outlineLayers ||[]}
