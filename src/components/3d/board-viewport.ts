@@ -754,12 +754,24 @@ export class BoardViewport extends LitElement {
                                                 <div class="absolute bottom-3 left-3 pointer-events-auto flex items-end gap-2 z-10">
               ${this.showSettings[this.maximizedView!] ? html`
                 <div class="mb-2 bg-zinc-950/95 border border-zinc-800 rounded shadow-xl backdrop-blur p-3 w-48 flex flex-col gap-4 origin-bottom-left animate-in fade-in zoom-in-95 duration-100">
-                  <div class="flex justify-between items-center">
+                                    <div class="flex justify-between items-center">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Display Settings</span>
                     <button @click=${() => this.toggleSettings(this.maximizedView!)} class="text-zinc-500 hover:text-white">&times;</button>
                   </div>
                   
-                  <label class="flex items-center justify-between cursor-pointer group">
+                  ${this.maximizedView === 'perspective' ? html`
+                  <label class="flex items-center justify-between cursor-pointer group mb-2">
+                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
+                    <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                  </label>
+                  ` : ''}
+
+                  <label class="flex items-center justify-between cursor-pointer group mb-2">
+                    <span class="text-[10px] font-bold uppercase tracking-widest ${this.showGizmos[this.maximizedView!] ? 'text-zinc-200' : 'text-zinc-500'}">Control Points</span>
+                    <input type="checkbox" .checked=${this.showGizmos[this.maximizedView!]} @change=${() => this.toggleGizmos(this.maximizedView!)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                  </label>
+
+                  <label class="flex items-center justify-between cursor-pointer group mb-2">
                     <span class="text-[10px] font-bold uppercase tracking-widest ${this.showTangents[this.maximizedView!] ? 'text-zinc-200' : 'text-zinc-500'}">Tangents</span>
                     <input type="checkbox" .checked=${this.showTangents[this.maximizedView!]} @change=${() => this.toggleTangents(this.maximizedView!)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
                   </label>
