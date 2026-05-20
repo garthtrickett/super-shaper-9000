@@ -40,7 +40,7 @@ export class BoardViewport extends LitElement {
   @state() private gizmoScale: Record<ViewportId, number> = { perspective: 1.0, top: 1.0, side: 0.5, profile: 0.3 };
     @state() private showSettings: Record<ViewportId, boolean> = { perspective: false, top: false, side: false, profile: false };
       @state() private hoverInsertPoint: { left: number, top: number, curve: string, t: number } | null = null;
-    @state() private hoverMeasureLine: { left: number, top: number, sizePx: number, measureInches: number, isVertical: boolean, view: string } | null = null;
+      @state() private hoverMeasureLine: { left: number, top: number, sizePx: number, measureInches: number, rockerInches?: number, posZ: number, isVertical: boolean, view: string } | null = null;
 
   private ro?: ResizeObserver;
   
@@ -691,11 +691,12 @@ export class BoardViewport extends LitElement {
                         
                         if (tY > bY) { const tmp = tY; tY = bY; bY = tmp; }
                         
-                                                this.hoverMeasureLine = {
+                                                                        this.hoverMeasureLine = {
                             left: cX,
                             top: tY,
                             sizePx: bY - tY,
                             measureInches: widthInches,
+                            posZ: z,
                             isVertical: true,
                             view: 'top'
                         };
@@ -711,32 +712,39 @@ export class BoardViewport extends LitElement {
             
             const halfLen = (this.boardState?.length || 100) / 2.0;
             if (z >= -halfLen - 5 && z <= halfLen + 5) {
-                const profile = engine.get_profile_at_z(z);
+                                const profile = engine.get_profile_at_z(z);
                 if (profile && (profile.topY - profile.botY) > 0.05) {
                     const thicknessInches = profile.topY - profile.botY;
+                    const rockerInches = profile.botY;
                     
                     const topProj = engine.project_to_screen(quad, 0, profile.topY, z, localAspect);
                     const botProj = engine.project_to_screen(quad, 0, profile.botY, z, localAspect);
+                    const zeroProj = engine.project_to_screen(quad, 0, 0, z, localAspect);
                     
-                    if (topProj[2]! < 1.0 && botProj[2]! < 1.0) {
-                        let tX = 0, tY = 0, bY = 0;
+                    if (topProj[2]! < 1.0 && botProj[2]! < 1.0 && zeroProj[2]! < 1.0) {
+                        let tX = 0, tY = 0, bY = 0, zY = 0;
                         if (this.maximizedView) {
                             tX = ((topProj[0]! + 1) / 2) * rect.width;
                             tY = ((1 - topProj[1]!) / 2) * rect.height;
                             bY = ((1 - botProj[1]!) / 2) * rect.height;
+                            zY = ((1 - zeroProj[1]!) / 2) * rect.height;
                         } else {
                             tX = ((topProj[0]! + 1) / 2) * w;
                             tY = h + ((1 - topProj[1]!) / 2) * h;
                             bY = h + ((1 - botProj[1]!) / 2) * h;
+                            zY = h + ((1 - zeroProj[1]!) / 2) * h;
                         }
                         
-                        if (tY > bY) { const tmp = tY; tY = bY; bY = tmp; }
+                        const lineTop = Math.min(tY, bY, zY);
+                        const lineBottom = Math.max(tY, bY, zY);
                         
-                                                this.hoverMeasureLine = {
+                        this.hoverMeasureLine = {
                             left: tX,
-                            top: tY,
-                            sizePx: bY - tY,
+                            top: lineTop,
+                            sizePx: lineBottom - lineTop,
                             measureInches: thicknessInches,
+                            rockerInches: rockerInches,
+                            posZ: z,
                             isVertical: true,
                             view: 'side'
                         };
@@ -939,16 +947,23 @@ export class BoardViewport extends LitElement {
               </div>
             ` : ''}
             
-                                    ${this.hoverMeasureLine ? html`
+                                                ${this.hoverMeasureLine ? html`
               <div 
                 class="absolute z-10 pointer-events-none"
                 style="left: ${this.hoverMeasureLine.left}px; top: ${this.hoverMeasureLine.top}px; width: 1px; height: ${this.hoverMeasureLine.sizePx}px; border-left: 1px dashed ${this.hoverMeasureLine.view === 'top' ? '#34d399' : '#60a5fa'};"
               >
-                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1.5 py-1 rounded shadow whitespace-nowrap flex flex-col items-center left-2 top-1/2 -translate-y-1/2
-                            ${this.hoverMeasureLine.view === 'top' ? 'text-emerald-400' : 'text-blue-400'}"
+                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1.5 py-1 rounded shadow whitespace-nowrap flex flex-col left-2 top-1/2 -translate-y-1/2
+                            ${this.hoverMeasureLine.view === 'top' ? 'items-center text-emerald-400' : 'items-start text-blue-400'}"
                 >
-                  <span class="font-bold text-[11px]">${this.hoverMeasureLine.measureInches.toFixed(2)}"</span>
-                  ${this.hoverMeasureLine.view === 'top' ? html`<span class="text-[8px] text-zinc-400 font-sans tracking-widest uppercase mt-0.5">Ctrl+Click to Add Slice</span>` : ''}
+                  ${this.hoverMeasureLine.view === 'side' ? html`
+                    <span class="font-bold text-[10px] text-zinc-300">Pos: ${((this.boardState?.length || 100) / 2.0 - this.hoverMeasureLine.posZ).toFixed(2)}"</span>
+                    <span class="font-bold text-[11px] text-red-400">Thickness: ${this.hoverMeasureLine.measureInches.toFixed(2)}"</span>
+                    <span class="font-bold text-[11px] text-blue-400">Rocker: ${(this.hoverMeasureLine.rockerInches ?? 0).toFixed(2)}"</span>
+                  ` : html`
+                    <span class="font-bold text-[10px] text-zinc-300">Pos: ${((this.boardState?.length || 100) / 2.0 - this.hoverMeasureLine.posZ).toFixed(2)}"</span>
+                    <span class="font-bold text-[11px]">${this.hoverMeasureLine.measureInches.toFixed(2)}"</span>
+                    <span class="text-[8px] text-zinc-400 font-sans tracking-widest uppercase mt-0.5">Ctrl+Click to Add Slice</span>
+                  `}
                 </div>
               </div>
             ` : ''}
