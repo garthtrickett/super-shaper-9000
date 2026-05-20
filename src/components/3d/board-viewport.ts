@@ -966,9 +966,9 @@ export class BoardViewport extends LitElement {
                 class="absolute z-10 pointer-events-none"
                 style="left: ${this.hoverMeasureLine.left}px; top: ${this.hoverMeasureLine.top}px; width: 1px; height: ${this.hoverMeasureLine.sizePx}px; border-left: 1px dashed ${this.hoverMeasureLine.view === 'top' ? '#34d399' : '#60a5fa'};"
               >
-                <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1.5 py-1 rounded shadow whitespace-nowrap flex flex-col left-2 top-1/2 -translate-y-1/2
-                            ${this.hoverMeasureLine.view === 'top' ? 'items-center text-emerald-400' : 'items-start text-blue-400'}"
-                >
+                    <div class="absolute bg-zinc-950/80 text-[10px] font-mono px-1.5 py-1 rounded shadow whitespace-nowrap flex flex-col left-1/2 -translate-x-1/2 top-full mt-2
+                ${this.hoverMeasureLine.view === 'top' ? 'items-center text-emerald-400' : 'items-center text-blue-400'}"
+    >
                   ${this.hoverMeasureLine.view === 'side' ? html`
                     <span class="font-bold text-[10px] text-zinc-300">Pos: ${((this.boardState?.length || 100) / 2.0 - this.hoverMeasureLine.posZ).toFixed(2)}"</span>
                     <span class="font-bold text-[11px] text-red-400">Thickness: ${this.hoverMeasureLine.measureInches.toFixed(2)}"</span>
