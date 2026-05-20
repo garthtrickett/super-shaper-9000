@@ -471,8 +471,8 @@ impl WasmEngine {
                 );
                 (proj * view, cam_pos)
             }
-            "side" => {
-                let stretch_y = 2.5;
+                        "side" => {
+                let stretch_y = 1.0;
                 let base_frustum_half =
                     (size_z * 1.1 / (2.0 * aspect)).max(size_y * 1.5 * stretch_y / 2.0);
                 let frustum_half = base_frustum_half * self.camera_ctrl.distance_side;
