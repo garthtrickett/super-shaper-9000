@@ -2,6 +2,9 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  worker: {
+    format: 'es'
+  },
   plugins: [
     tailwindcss(),
     
