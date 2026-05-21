@@ -681,11 +681,13 @@ mod tests {
             let z = start_z + (end_z - start_z) * f;
             let ctx = crate::geometry::ZRingContext::new(&model, z);
 
-            // Search for the exact U parameter corresponding to target_x
-            let mut best_u = 0.5;
+                        let t_apex = ctx.blend.as_ref().map(|b| b.t_apex).unwrap_or(0.5);
+
+            // Search for the exact U parameter corresponding to target_x within [0.0, t_apex]
+            let mut best_u = t_apex * 0.5;
             let mut min_diff = f32::INFINITY;
             for step_u in 0..=200 {
-                let u = step_u as f32 / 200.0;
+                let u = (step_u as f32 / 200.0) * t_apex;
                 let pt = ctx.get_point_at_uv(u, 1.0);
                 let diff = (pt.x - target_x).abs();
                 if diff < min_diff {
@@ -695,11 +697,11 @@ mod tests {
             }
 
             let mut u_search = best_u;
-            let mut search_step = 1.0 / 200.0;
+            let mut search_step = t_apex / 200.0;
             for _ in 0..10 {
                 search_step *= 0.5;
                 let u_l = (u_search - search_step).max(0.0);
-                let u_r = (u_search + search_step).min(1.0);
+                let u_r = (u_search + search_step).min(t_apex);
                 let pt_l = ctx.get_point_at_uv(u_l, 1.0);
                 let pt_r = ctx.get_point_at_uv(u_r, 1.0);
                 let diff_l = (pt_l.x - target_x).abs();
