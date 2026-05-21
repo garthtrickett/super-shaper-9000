@@ -626,6 +626,117 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
+    fn test_mini_simmons_bottom_smoothness() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+
+        // Sweep longitudinally at a constant X = 3.0 inches (inside the concave belly of the board)
+        let target_x = 3.0;
+        let start_z = bounds.nose_z + 10.0; // avoid nose pointy end distortion
+        let end_z = bounds.tip_z - 10.0;   // avoid tail cap distortion
+
+        let steps = 400;
+        let mut elevations = Vec::new();
+
+        for i in 0..=steps {
+            let f = i as f32 / steps as f32;
+            let z = start_z + (end_z - start_z) * f;
+            let ctx = crate::geometry::ZRingContext::new(&model, z);
+
+            // Search for the exact U parameter corresponding to target_x
+            let mut best_u = 0.5;
+            let mut min_diff = f32::INFINITY;
+            for step_u in 0..=200 {
+                let u = step_u as f32 / 200.0;
+                let pt = ctx.get_point_at_uv(u, 1.0);
+                let diff = (pt.x - target_x).abs();
+                if diff < min_diff {
+                    min_diff = diff;
+                    best_u = u;
+                }
+            }
+
+            let mut u_search = best_u;
+            let mut search_step = 1.0 / 200.0;
+            for _ in 0..10 {
+                search_step *= 0.5;
+                let u_l = (u_search - search_step).max(0.0);
+                let u_r = (u_search + search_step).min(1.0);
+                let pt_l = ctx.get_point_at_uv(u_l, 1.0);
+                let pt_r = ctx.get_point_at_uv(u_r, 1.0);
+                let diff_l = (pt_l.x - target_x).abs();
+                let diff_r = (pt_r.x - target_x).abs();
+                if diff_l < min_diff {
+                    min_diff = diff_l;
+                    u_search = u_l;
+                } else if diff_r < min_diff {
+                    min_diff = diff_r;
+                    u_search = u_r;
+                }
+            }
+
+            let final_pt = ctx.get_point_at_uv(u_search, 1.0);
+            elevations.push((z, final_pt.y));
+        }
+
+        // Compute first and second derivatives
+        let mut first_derivatives = Vec::new();
+        let mut second_derivatives = Vec::new();
+
+        for i in 0..elevations.len() - 1 {
+            let (z0, y0) = elevations[i];
+            let (z1, y1) = elevations[i + 1];
+            let dz = z1 - z0;
+            let dy = y1 - y0;
+            first_derivatives.push(dy / dz);
+        }
+
+        for i in 0..first_derivatives.len() - 1 {
+            let dy_dz0 = first_derivatives[i];
+            let dy_dz1 = first_derivatives[i + 1];
+            let z0 = elevations[i].0;
+            let z1 = elevations[i + 1].0;
+            let dz = z1 - z0;
+            second_derivatives.push((dy_dz1 - dy_dz0) / dz);
+        }
+
+        let mut max_second_dev = 0.0_f32;
+        for &d2 in &second_derivatives {
+            if d2.abs() > max_second_dev {
+                max_second_dev = d2.abs();
+            }
+        }
+
+        println!("\n=== MINI SIMMONS SURFACE SMOOTHNESS ANALYSIS ===");
+        println!("Max second derivative along Z: {}", max_second_dev);
+
+        for i in (0..second_derivatives.len()).step_by(40) {
+            println!("Z = {:.2}\": Y = {:.5}\", dY/dZ = {:.5}, d2Y/dZ2 = {:.5}",
+                     elevations[i].0, elevations[i].1, first_derivatives[i], second_derivatives[i]);
+        }
+        println!("=================================================\n");
+
+        // Assert that the surface does not have high-frequency ripples or sharp ridges.
+        // A beautifully blended bottom rocker should have a tiny second derivative (e.g. < 0.05).
+        assert!(
+            max_second_dev < 0.02,
+            "Surface is wavy or has sharp creases! Max second derivative is {}",
+            max_second_dev
+        );
+    }
+
+    #[test]
     fn test_egg_brd_import() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
