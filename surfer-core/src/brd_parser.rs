@@ -134,8 +134,8 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
         if dz < 0.05 {
             return true;
         }
-        // Strip if the slope is nearly vertical (a cap closing the shape)
-        if d_cross > 0.2 && d_cross > dz * 10.0 {
+                // Strip if the slope is nearly vertical (a cap closing the shape)
+        if d_cross > 0.2 && d_cross > dz * 4.0 {
             return true;
         }
         false
