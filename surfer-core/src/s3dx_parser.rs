@@ -633,7 +633,6 @@ mod tests {
 
     #[test]
         #[test]
-        #[test]
     fn can_convert_s3dx_to_board_model() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -667,8 +666,8 @@ mod tests {
 
         assert_eq!(
             model.cross_sections.len(),
-            6,
-            "Should have exactly 6 cross sections (4 original + 2 caps)"
+            4,
+            "Should have exactly 4 cross sections (already capped in design)"
         );
 
         let outline = model.outline.unwrap();
@@ -852,7 +851,6 @@ mod tests {
 
     #[test]
         #[test]
-        #[test]
     fn test_s3dx_extracts_all_couples_and_weights() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -862,14 +860,14 @@ mod tests {
 
         assert_eq!(
             model.cross_sections.len(),
-            6,
-            "Should dynamically parse 4 cross sections + 2 pole caps"
+            4,
+            "Should dynamically parse exactly 4 cross sections (already capped)"
         );
 
         let z0 = model.cross_sections[0].control_points[0].z;
-        let z_last = model.cross_sections[5].control_points[0].z;
+        let z3 = model.cross_sections[3].control_points[0].z;
         assert!(
-            z0 < z_last,
+            z0 < z3,
             "Cross sections should be ordered from nose to tail"
         );
         assert!(
@@ -877,11 +875,11 @@ mod tests {
             "First cross section should be near the nose (negative Z)"
         );
         assert!(
-            z_last > 0.0,
+            z3 > 0.0,
             "Last cross section should be near the tail (positive Z)"
         );
 
-        let weights_opt = model.cross_sections[1].weights.as_ref();
+        let weights_opt = model.cross_sections[0].weights.as_ref();
         assert!(
             weights_opt.is_none() || weights_opt.unwrap()[0] == 1.0,
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
