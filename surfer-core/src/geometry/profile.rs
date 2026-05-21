@@ -109,14 +109,15 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         if !ar.control_points.is_empty() {
             apex_y = evaluate_bezier_at_z(ar, z_inches, hint_t).y;
         }
-    } else if let Some(b) = &blend {
+        } else if let Some(b) = &blend {
         let p_bot = b.evaluate(0.0);
         let p_top = b.evaluate(1.0);
         let p_apex = b.evaluate(b.t_apex);
         let slice_thick = p_top.y - p_bot.y;
         let world_thick = top_y - actual_bot_y;
         if slice_thick.abs() > 1e-5 {
-            apex_y = rail_base_y + world_thick * ((p_apex.y - p_bot.y) / slice_thick);
+            let apex_dev = p_apex.y - p_bot.y;
+            apex_y = rail_base_y + if apex_dev > 0.0 { world_thick * (apex_dev / slice_thick) } else { apex_dev };
         }
     }
     apex_y = apex_y.max(rail_base_y - 2.0);
@@ -134,8 +135,10 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         let slice_thick = p_top.y - p_bot.y;
         let world_thick = top_y - actual_bot_y;
         if slice_thick.abs() > 1e-5 {
-            tuck_y = rail_base_y + world_thick * ((p_tuck.y - p_bot.y) / slice_thick);
-            shoulder_y = rail_base_y + world_thick * ((p_shoulder.y - p_bot.y) / slice_thick);
+            let tuck_dev = p_tuck.y - p_bot.y;
+            tuck_y = rail_base_y + if tuck_dev > 0.0 { world_thick * (tuck_dev / slice_thick) } else { tuck_dev };
+            let shoulder_dev = p_shoulder.y - p_bot.y;
+            shoulder_y = rail_base_y + if shoulder_dev > 0.0 { world_thick * (shoulder_dev / slice_thick) } else { shoulder_dev };
         }
     }
 
@@ -218,7 +221,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         0.0
     };
 
-    let get_local_rail_coeff = |x: f32| -> f32 {
+        let get_local_rail_coeff = |x: f32| -> f32 {
         let norm_x = if final_apex_x > inner_x {
             ((x - inner_x) / (final_apex_x - inner_x)).clamp(0.0, 1.0)
         } else {
@@ -227,10 +230,18 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         1.0 - (1.0 - rail_coeff) * norm_x
     };
 
-    let apex_y_final = actual_bot_y + (apex_y - actual_bot_y) * get_local_rail_coeff(final_apex_x);
-    let tuck_y_final = actual_bot_y + (tuck_y - actual_bot_y) * get_local_rail_coeff(final_tuck_x);
-    let shoulder_y_final =
-        actual_bot_y + (shoulder_y - actual_bot_y) * get_local_rail_coeff(final_shoulder_x);
+    let apply_rail_coeff = |raw_y: f32, x: f32| -> f32 {
+        let coeff = get_local_rail_coeff(x);
+        if raw_y < actual_bot_y {
+            actual_bot_y + (raw_y - actual_bot_y) // Preserve absolute concave depth
+        } else {
+            actual_bot_y + (raw_y - actual_bot_y) * coeff
+        }
+    };
+
+    let apex_y_final = apply_rail_coeff(apex_y, final_apex_x);
+    let tuck_y_final = apply_rail_coeff(tuck_y, final_tuck_x);
+    let shoulder_y_final = apply_rail_coeff(shoulder_y, final_shoulder_x);
 
     BoardProfile {
         top_y,

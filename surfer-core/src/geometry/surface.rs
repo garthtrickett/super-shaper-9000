@@ -18,13 +18,14 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
     let p_shoulder = blend.evaluate(t_shoulder);
     let p_top = blend.evaluate(1.0);
 
-    let world_thick = ctx.profile.top_y - ctx.profile.bot_y;
+        let world_thick = ctx.profile.top_y - ctx.profile.bot_y;
     let local_thick = p_top.y - p_bot.y;
-    let scale_y = if local_thick.abs() > 1e-5 {
+    let scale_y_top = if local_thick.abs() > 1e-5 {
         world_thick / local_thick
     } else {
         1.0
     };
+    let scale_y_bot = 1.0;
 
     let mut final_pos = Vec3::ZERO;
     final_pos.z = z;
@@ -41,7 +42,8 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
         let local_baseline_y = p_bot.y + t * (p_tuck.y - p_bot.y);
         let local_deviation = local_pt.y - local_baseline_y;
         let world_baseline_y = ctx.profile.bot_y + t * (ctx.profile.tuck_y - ctx.profile.bot_y);
-        final_pos.y = world_baseline_y + local_deviation * scale_y;
+        let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+        final_pos.y = world_baseline_y + local_deviation * applied_scale;
     } else if u <= blend.t_apex {
         let t = if blend.t_apex > t_tuck {
             (u - t_tuck) / (blend.t_apex - t_tuck)
@@ -58,7 +60,8 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
         let local_baseline_y = p_tuck.y + t * (p_apex.y - p_tuck.y);
         let local_deviation = local_pt.y - local_baseline_y;
         let world_baseline_y = ctx.profile.tuck_y + t * (ctx.profile.apex_y - ctx.profile.tuck_y);
-        final_pos.y = world_baseline_y + local_deviation * scale_y;
+        let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+        final_pos.y = world_baseline_y + local_deviation * applied_scale;
     } else if u <= t_shoulder {
         let t = if t_shoulder > blend.t_apex {
             (u - blend.t_apex) / (t_shoulder - blend.t_apex)
@@ -76,7 +79,8 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
         let local_deviation = local_pt.y - local_baseline_y;
         let world_baseline_y =
             ctx.profile.apex_y + t * (ctx.profile.shoulder_y - ctx.profile.apex_y);
-        final_pos.y = world_baseline_y + local_deviation * scale_y;
+        let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+        final_pos.y = world_baseline_y + local_deviation * applied_scale;
     } else {
         let t = if 1.0 > t_shoulder {
             (u - t_shoulder) / (1.0 - t_shoulder)
@@ -94,7 +98,8 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
         let local_deviation = local_pt.y - local_baseline_y;
         let world_baseline_y =
             ctx.profile.shoulder_y + t * (ctx.profile.top_y - ctx.profile.shoulder_y);
-        final_pos.y = world_baseline_y + local_deviation * scale_y;
+        let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+        final_pos.y = world_baseline_y + local_deviation * applied_scale;
     }
 
     let norm_x_for_rail = if ctx.profile.apex_x > ctx.inner_x {
@@ -104,7 +109,9 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
     };
 
     let local_rail_coeff = 1.0 - (1.0 - ctx.rail_coeff) * norm_x_for_rail;
-    final_pos.y = ctx.profile.bot_y + (final_pos.y - ctx.profile.bot_y) * local_rail_coeff;
+    if final_pos.y >= ctx.profile.bot_y {
+        final_pos.y = ctx.profile.bot_y + (final_pos.y - ctx.profile.bot_y) * local_rail_coeff;
+    }
 
     if final_pos.x < ctx.inner_x {
         final_pos.x = ctx.inner_x;
@@ -201,13 +208,14 @@ impl<'a> ZRingContext<'a> {
         let mut final_pos = Vec3::ZERO;
         final_pos.z = self.z_inches;
 
-        let world_thick = profile.top_y - profile.bot_y;
+                let world_thick = profile.top_y - profile.bot_y;
         let local_thick = p_top.y - p_bot.y;
-        let scale_y = if local_thick.abs() > 1e-5 {
+        let scale_y_top = if local_thick.abs() > 1e-5 {
             world_thick / local_thick
         } else {
             1.0
         };
+        let scale_y_bot = 1.0;
 
         if u <= t_tuck {
             let t = u / t_tuck;
@@ -221,7 +229,8 @@ impl<'a> ZRingContext<'a> {
             let local_baseline_y = p_bot.y + t * (p_tuck.y - p_bot.y);
             let local_deviation = p.y - local_baseline_y;
             let world_baseline_y = profile.bot_y + t * (profile.tuck_y - profile.bot_y);
-            final_pos.y = world_baseline_y + local_deviation * scale_y;
+            let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+            final_pos.y = world_baseline_y + local_deviation * applied_scale;
         } else if u <= b.t_apex {
             let t = (u - t_tuck) / (b.t_apex - t_tuck);
             let w_x = if (p_apex.x - p_tuck.x).abs() > 1e-5 {
@@ -234,7 +243,8 @@ impl<'a> ZRingContext<'a> {
             let local_baseline_y = p_tuck.y + t * (p_apex.y - p_tuck.y);
             let local_deviation = p.y - local_baseline_y;
             let world_baseline_y = profile.tuck_y + t * (profile.apex_y - profile.tuck_y);
-            final_pos.y = world_baseline_y + local_deviation * scale_y;
+            let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+            final_pos.y = world_baseline_y + local_deviation * applied_scale;
         } else if u <= t_shoulder {
             let t = (u - b.t_apex) / (t_shoulder - b.t_apex);
             let w_x = if (p_shoulder.x - p_apex.x).abs() > 1e-5 {
@@ -247,7 +257,8 @@ impl<'a> ZRingContext<'a> {
             let local_baseline_y = p_apex.y + t * (p_shoulder.y - p_apex.y);
             let local_deviation = p.y - local_baseline_y;
             let world_baseline_y = profile.apex_y + t * (profile.shoulder_y - profile.apex_y);
-            final_pos.y = world_baseline_y + local_deviation * scale_y;
+            let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+            final_pos.y = world_baseline_y + local_deviation * applied_scale;
         } else {
             let t = (u - t_shoulder) / (1.0 - t_shoulder);
             let w_x = if (p_top.x - p_shoulder.x).abs() > 1e-5 {
@@ -260,7 +271,8 @@ impl<'a> ZRingContext<'a> {
             let local_baseline_y = p_shoulder.y + t * (p_top.y - p_shoulder.y);
             let local_deviation = p.y - local_baseline_y;
             let world_baseline_y = profile.shoulder_y + t * (profile.top_y - profile.shoulder_y);
-            final_pos.y = world_baseline_y + local_deviation * scale_y;
+            let applied_scale = if local_deviation > 0.0 { scale_y_top } else { scale_y_bot };
+            final_pos.y = world_baseline_y + local_deviation * applied_scale;
         }
 
         let norm_x_for_rail = if profile.apex_x > self.inner_x {
@@ -270,7 +282,9 @@ impl<'a> ZRingContext<'a> {
         };
 
         let local_rail_coeff = 1.0 - (1.0 - self.rail_coeff) * norm_x_for_rail;
-        final_pos.y = profile.bot_y + (final_pos.y - profile.bot_y) * local_rail_coeff;
+        if final_pos.y >= profile.bot_y {
+            final_pos.y = profile.bot_y + (final_pos.y - profile.bot_y) * local_rail_coeff;
+        }
 
         if final_pos.x < self.inner_x {
             final_pos.x = self.inner_x;
@@ -1099,6 +1113,54 @@ mod tests {
         assert!((mid_90.length() - 1.0).abs() < 1e-5);
         assert!((mid_90.y - expected_val).abs() < 1e-5);
         assert!((mid_90.z - expected_val).abs() < 1e-5);
+    }
+
+        #[test]
+    fn test_concave_preservation_during_lofting() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        model.width = 20.0;
+        
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 2.0, 0.0), Vec3::new(0.0, 2.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 50.0), 
+                Vec3::new(5.0, -1.0, 50.0), 
+                Vec3::new(10.0, 0.0, 50.0), 
+                Vec3::new(5.0, 1.0, 50.0), 
+                Vec3::new(0.0, 2.0, 50.0), 
+            ],
+            tangents1: vec![Vec3::ZERO; 5],
+            tangents2: vec![Vec3::ZERO; 5],
+            ..Default::default()
+        }];
+        
+        let ctx = ZRingContext::new(&model, 50.0);
+        
+        // Validate the BoardProfile didn't squish the tuck_y
+        assert!((ctx.profile.tuck_y - (-1.0)).abs() < 1e-4, "Concave was squished! Expected -1.0, got {}", ctx.profile.tuck_y);
+        
+        // Validate the 3D projection didn't squish it either
+        let pt = ctx.get_point_at_uv_base(0.25, 1.0); // t_tuck = 0.5/2 = 0.25
+        assert!((pt.y - (-1.0)).abs() < 1e-4, "Concave point was squished during mapping! Expected -1.0, got {}", pt.y);
     }
 
     #[test]
