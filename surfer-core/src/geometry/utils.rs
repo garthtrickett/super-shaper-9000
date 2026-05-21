@@ -193,8 +193,135 @@ mod tests {
         assert!((radial_ease(1.0, EaseType::EaseOut) - 1.0).abs() < eps);
         assert!(radial_ease(0.5, EaseType::EaseOut) > 0.5);
 
-        assert!((radial_ease(0.0, EaseType::EaseInOut) - 0.0).abs() < eps);
+                assert!((radial_ease(0.0, EaseType::EaseInOut) - 0.0).abs() < eps);
         assert!((radial_ease(1.0, EaseType::EaseInOut) - 1.0).abs() < eps);
         assert!((radial_ease(0.5, EaseType::EaseInOut) - 0.5).abs() < eps);
+    }
+
+    #[test]
+    fn test_rocker_arc_length_integration() {
+        // Create a heavily rockered bottom curve (nose at Y=5.0, center at Y=-2.0, tail at Y=4.0)
+        let rocker = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 5.0, -35.0),
+                Vec3::new(0.0, -2.0, 0.0),
+                Vec3::new(0.0, 4.0, 35.0),
+            ],
+            ..Default::default()
+        };
+        
+        let table = RockerArcLengthTable::new(&rocker, -35.0, 35.0);
+        
+        // Cartesian Z length is 35 - (-35) = 70.0
+        let cartesian_len = 70.0_f32;
+        
+        println!("[Test] Cartesian Length: {}, Curvilinear Length: {}", cartesian_len, table.total_length);
+        
+        // Integrated curvilinear length along the curved bottom rocker MUST be strictly greater than the flat baseline length
+        assert!(table.total_length > cartesian_len);
+        
+        // Assert some key inverse mappings
+        let nose_z = table.map_s_to_z(table.total_length);
+        assert!((nose_z - (-35.0)).abs() < 1e-3);
+        
+        let tail_z = table.map_s_to_z(0.0);
+        assert!((tail_z - 35.0).abs() < 1e-3);
+        
+        let mid_z = table.map_s_to_z(table.total_length * 0.5);
+        // Midpoint should be close to 0.0 (middle of the board)
+        assert!(mid_z.abs() < 5.0);
+    }
+}
+
+/// Numerical integration table mapping running curvilinear tape-measure distances (S) 
+/// along the bottom rocker curve back into flat Cartesian Z-coordinates.
+pub struct RockerArcLengthTable {
+    pub z_values: Vec<f32>,
+    pub s_values: Vec<f32>,
+    pub total_length: f32,
+}
+
+impl RockerArcLengthTable {
+    pub fn new(rocker: &crate::model::BezierCurveData, nose_z: f32, tip_z: f32) -> Self {
+        let mut z_values = Vec::new();
+        let mut s_values = Vec::new();
+        
+        let step_size = 0.1_f32;
+        let mut current_z = nose_z;
+        let mut current_s = 0.0_f32;
+        
+        z_values.push(current_z);
+        s_values.push(current_s);
+        
+        let mut prev_y = super::evaluate_bezier_at_z(rocker, current_z, 0.0).y;
+        
+        while current_z + step_size < tip_z {
+            let next_z = current_z + step_size;
+            let t_hint = (next_z - nose_z) / (tip_z - nose_z);
+            let next_y = super::evaluate_bezier_at_z(rocker, next_z, t_hint).y;
+            
+            let dz = next_z - current_z;
+            let dy = next_y - prev_y;
+            let ds = (dz * dz + dy * dy).sqrt();
+            
+            current_s += ds;
+            current_z = next_z;
+            prev_y = next_y;
+            
+            z_values.push(current_z);
+            s_values.push(current_s);
+        }
+        
+        // Final fractional step to reach exactly tip_z
+        if current_z < tip_z {
+            let next_y = super::evaluate_bezier_at_z(rocker, tip_z, 1.0).y;
+            let dz = tip_z - current_z;
+            let dy = next_y - prev_y;
+            let ds = (dz * dz + dy * dy).sqrt();
+            
+            current_s += ds;
+            z_values.push(tip_z);
+            s_values.push(current_s);
+        }
+        
+        let total_length = current_s;
+        
+        Self {
+            z_values,
+            s_values,
+            total_length,
+        }
+    }
+
+    /// Maps a curvilinear distance S (measured from the Tail, Z positive) back to a flat Cartesian Z.
+    pub fn map_s_to_z(&self, s_from_tail: f32) -> f32 {
+        let s_from_nose = (self.total_length - s_from_tail).clamp(0.0, self.total_length);
+        
+        // Binary search to find the lower-bound index in our S table
+        let mut low = 0;
+        let mut high = self.s_values.len() - 1;
+        
+        while low < high {
+            let mid = (low + high) / 2;
+            if self.s_values[mid] < s_from_nose {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        
+        let idx = low.clamp(1, self.s_values.len() - 1);
+        let s0 = self.s_values[idx - 1];
+        let s1 = self.s_values[idx];
+        let z0 = self.z_values[idx - 1];
+        let z1 = self.z_values[idx];
+        
+        let ds = s1 - s0;
+        if ds < 1e-5 {
+            return z0;
+        }
+        
+        let frac = (s_from_nose - s0) / ds;
+        z0 + frac * (z1 - z0)
     }
 }

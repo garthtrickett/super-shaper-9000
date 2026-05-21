@@ -706,7 +706,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn can_convert_s3dx_to_board_model() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
@@ -924,7 +923,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_s3dx_extracts_all_couples_and_weights() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
