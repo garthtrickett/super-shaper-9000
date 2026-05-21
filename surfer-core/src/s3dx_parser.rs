@@ -379,9 +379,49 @@ impl From<S3dxBoard> for BoardModel {
         model.tail_type = s3dx.tail_type.unwrap_or_else(|| "squash".to_string());
         model.swallow_depth = s3dx.swallow_depth.unwrap_or(0.0) * scale;
 
-        model.outline = convert_s3dx_curve(&s3dx.otl, bl, scale);
-        model.rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, scale);
-        model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, scale);
+                model.outline = convert_s3dx_curve(&s3dx.otl, bl, scale);
+        
+        let rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, scale);
+        model.rocker_bottom = rocker_bottom.clone();
+
+        // If the S3DX design computes the deck profile relative to the bottom rocker + thickness spline
+        if s3dx.deck_computed.unwrap_or(0) != 0 && s3dx.thickness_curve.is_some() {
+            let thickness_curve = convert_s3dx_curve(&s3dx.thickness_curve, bl, scale).unwrap_or_default();
+            if let Some(bot_curve) = &rocker_bottom {
+                let mut control_points = Vec::new();
+                let mut tangents1 = Vec::new();
+                let mut tangents2 = Vec::new();
+
+                let steps = 50;
+                let bounds_nose_z = -model.length / 2.0;
+                let bounds_tip_z = model.length / 2.0;
+
+                for i in 0..=steps {
+                    let f = i as f32 / steps as f32;
+                    let z = bounds_nose_z + (bounds_tip_z - bounds_nose_z) * f;
+
+                    let bot_y = crate::geometry::evaluate_bezier_at_z(bot_curve, z, f).y;
+                    let thick_y = crate::geometry::evaluate_bezier_at_z(&thickness_curve, z, f).y;
+
+                    let new_p = Vec3::new(0.0, bot_y + thick_y, z);
+                    control_points.push(new_p);
+                    tangents1.push(new_p);
+                    tangents2.push(new_p);
+                }
+
+                model.rocker_top = Some(BezierCurveData {
+                    control_points,
+                    tangents1,
+                    tangents2,
+                    weights: Some(vec![1.0; steps + 1]),
+                    ..Default::default()
+                });
+            } else {
+                model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, scale);
+            }
+        } else {
+            model.rocker_top = convert_s3dx_curve(&s3dx.str_deck, bl, scale);
+        }
 
         model.rail_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top1, bl, scale);
         model.apex_outline = convert_s3dx_bezier_def(&s3dx.curve_def_top2, bl, scale);
