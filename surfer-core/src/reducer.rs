@@ -845,7 +845,7 @@ fn handle_parametric_scaling(
             }
         }
         BoardAction::UpdateBoolean { param, value } => match param.as_str() {
-                        "showHeatmap" => {
+            "showHeatmap" => {
                 model.show_heatmap = Some(value);
                 if value {
                     model.show_zebra = Some(false);
@@ -876,7 +876,7 @@ fn handle_parametric_scaling(
             "showApexRocker" => model.show_apex_rocker = Some(value),
             "showDeckShoulder" => model.show_deck_shoulder = Some(value),
             "showCrossSections" => model.show_cross_sections = Some(value),
-                        "showMriView" => {
+            "showMriView" => {
                 model.show_mri_view = Some(value);
                 if value {
                     model.show_zebra = Some(false);

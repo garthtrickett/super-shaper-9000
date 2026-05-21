@@ -508,7 +508,7 @@ impl From<S3dxBoard> for BoardModel {
         if !outline_layers.is_empty() {
             model.outline_layers = Some(outline_layers);
         }
-                if !bottom_channels.is_empty() {
+        if !bottom_channels.is_empty() {
             model.bottom_channels = Some(bottom_channels);
         }
 
@@ -516,10 +516,12 @@ impl From<S3dxBoard> for BoardModel {
         let bounds_nose_z = -bl / 2.0 * scale;
 
         if model.v_concave_tail.abs() < 1e-4 {
-            model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
+            model.v_concave_tail =
+                extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
         }
         if model.v_concave_nose.abs() < 1e-4 {
-            model.v_concave_nose = extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
+            model.v_concave_nose =
+                extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
         }
 
         model
@@ -530,10 +532,10 @@ fn extract_concave_from_slices(slices: &[BezierCurveData], target_z: f32) -> f32
     if slices.is_empty() {
         return 0.0;
     }
-    
+
     let mut closest_slice = slices.first().unwrap();
     let mut min_dist = f32::INFINITY;
-    
+
     for cs in slices {
         if let Some(first_cp) = cs.control_points.first() {
             let dist = (first_cp.z - target_z).abs();
@@ -543,11 +545,11 @@ fn extract_concave_from_slices(slices: &[BezierCurveData], target_z: f32) -> f32
             }
         }
     }
-    
+
     let t_apex = crate::geometry::find_apex_t(closest_slice);
     let center_y = crate::geometry::evaluate_curve(closest_slice, 0.0).y;
     let mut min_y = center_y;
-    
+
     let steps = 50;
     for i in 0..=steps {
         let t = i as f32 / steps as f32 * t_apex;
@@ -556,7 +558,7 @@ fn extract_concave_from_slices(slices: &[BezierCurveData], target_z: f32) -> f32
             min_y = p.y;
         }
     }
-    
+
     (center_y - min_y).max(0.0)
 }
 
@@ -870,7 +872,19 @@ mod tests {
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
         );
 
-                assert!(model.v_concave_tail > 0.0, "Rounded pin should have tail concave/vee extracted");
+        println!("\n=== DEBUG: test_s3dx_extracts_all_couples_and_weights ===");
+        println!("Length: {}", model.length);
+        println!("Width: {}", model.width);
+        println!("Thickness: {}", model.thickness);
+        println!("Tail Type: {}", model.tail_type);
+        println!("v_concave_tail raw: {}", model.v_concave_tail);
+        println!("v_concave_nose raw: {}", model.v_concave_nose);
+        println!("=========================================================\n");
+
+        assert!(
+            model.v_concave_tail > 0.0,
+            "Rounded pin should have tail concave/vee extracted"
+        );
         assert!(model.v_concave_nose >= 0.0);
     }
 
@@ -959,7 +973,7 @@ mod tests {
             let x_err = (mesh_apex_x - expected_profile.apex_x * scale).abs();
             let y_err = (mesh_apex_y - expected_y * scale).abs();
 
-                        assert!(
+            assert!(
                 x_err <= 1.5e-2,
                 "Mesh Apex X ({}) does not intersect Analytical Apex X ({}) at actual Z={}! Error: {}",
                 mesh_apex_x, expected_profile.apex_x * scale, eval_z, x_err

@@ -192,7 +192,7 @@ pub fn generate_lines_for_view(
         push_line_grad(line_vertices, line_colors, scale, p0, p1, color, color);
     }
 
-        fn bake_light(color: Vec3, normal: Vec3) -> Vec3 {
+    fn bake_light(color: Vec3, normal: Vec3) -> Vec3 {
         let key_dir = Vec3::new(5.0, 5.0, 10.0).normalize();
         let fill_dir = Vec3::new(-5.0, -5.0, 10.0).normalize();
         let rim_dir = Vec3::new(0.0, 0.0, -10.0).normalize();

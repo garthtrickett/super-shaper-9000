@@ -1,4 +1,4 @@
-use crate::geometry::{color_heatmap, evaluate_bezier_at_z};
+use crate::geometry::evaluate_bezier_at_z;
 use crate::model::BoardModel;
 use glam::Vec3;
 
@@ -102,7 +102,7 @@ pub fn build_surface(
             }
 
             let ctx = crate::geometry::ZRingContext::new(model, z_inches);
-                        let center_thick = (ctx.profile.top_y - ctx.profile.bot_y).max(0.001);
+            let center_thick = (ctx.profile.top_y - ctx.profile.bot_y).max(0.001);
             let rail_thick = (ctx.profile.apex_y - ctx.profile.bot_y).max(0.0);
             let foil_ratio = rail_thick / center_thick;
             let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
@@ -135,7 +135,7 @@ pub fn build_surface(
                 n_chunk[v_idx + 1] = normal.y;
                 n_chunk[v_idx + 2] = normal.z;
 
-                                c_chunk[v_idx] = normalized_foil;
+                c_chunk[v_idx] = normalized_foil;
                 c_chunk[v_idx + 1] = point.y - ctx.profile.bot_y; // Elevation relative to stringer (inches)
                 c_chunk[v_idx + 2] = 0.0;
 

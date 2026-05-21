@@ -216,7 +216,7 @@ struct CameraController {
     target: glam::Vec3,
     pan_top: (f32, f32),
     pan_side: (f32, f32),
-        pan_profile: (f32, f32),
+    pan_profile: (f32, f32),
     is_flipped: bool,
 }
 
@@ -234,7 +234,7 @@ impl Default for CameraController {
             target: glam::Vec3::ZERO,
             pan_top: (0.0, 0.0),
             pan_side: (0.0, 0.0),
-                        pan_profile: (0.0, 0.0),
+            pan_profile: (0.0, 0.0),
             is_flipped: false,
         }
     }
@@ -249,7 +249,7 @@ impl CameraController {
         if self.is_dragging {
             let dx = x - self.last_mouse.0;
             let dy = y - self.last_mouse.1;
-                        if quad == "perspective" {
+            if quad == "perspective" {
                 if self.is_flipped {
                     self.yaw += dx * 0.01;
                     self.pitch -= dy * 0.01;
@@ -540,7 +540,7 @@ impl WasmEngine {
                 let y = dist * self.camera_ctrl.pitch.sin();
                 let z = dist * self.camera_ctrl.pitch.cos() * self.camera_ctrl.yaw.cos();
 
-                                // Keep perspective locked to X=0.0 to pivot cleanly around stringer
+                // Keep perspective locked to X=0.0 to pivot cleanly around stringer
                 let target = self.camera_ctrl.target + glam::Vec3::new(0.0, center_y, center_z);
                 let cam_pos = target + glam::Vec3::new(x, y, z);
 
@@ -631,7 +631,7 @@ impl WasmEngine {
         }
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn flip_camera(&mut self) {
         self.camera_ctrl.is_flipped = !self.camera_ctrl.is_flipped;
         self.camera_ctrl.pitch = -self.camera_ctrl.pitch;
@@ -821,7 +821,7 @@ impl WasmEngine {
             let (view_proj, cam_pos) = self.get_camera_params(q, aspect);
             let view_proj_array = view_proj.to_cols_array();
 
-                        let mut uniform_data = [0.0f32; 28];
+            let mut uniform_data = [0.0f32; 28];
             uniform_data[0..16].copy_from_slice(&view_proj_array);
             uniform_data[16..19].copy_from_slice(&cam_pos.to_array());
             uniform_data[19] = 1.0;
@@ -1499,7 +1499,7 @@ pub async fn create_wgpu_renderer(
         for i in 0..4 {
             let buf = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("Camera Buffer {}", i)),
-                                size: 112,
+                size: 112,
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });

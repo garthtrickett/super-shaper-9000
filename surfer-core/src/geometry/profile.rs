@@ -109,7 +109,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         if !ar.control_points.is_empty() {
             apex_y = evaluate_bezier_at_z(ar, z_inches, hint_t).y;
         }
-        } else if let Some(b) = &blend {
+    } else if let Some(b) = &blend {
         let p_bot = b.evaluate(0.0);
         let p_top = b.evaluate(1.0);
         let p_apex = b.evaluate(b.t_apex);
@@ -117,7 +117,12 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         let world_thick = top_y - actual_bot_y;
         if slice_thick.abs() > 1e-5 {
             let apex_dev = p_apex.y - p_bot.y;
-            apex_y = rail_base_y + if apex_dev > 0.0 { world_thick * (apex_dev / slice_thick) } else { apex_dev };
+            apex_y = rail_base_y
+                + if apex_dev > 0.0 {
+                    world_thick * (apex_dev / slice_thick)
+                } else {
+                    apex_dev
+                };
         }
     }
     apex_y = apex_y.max(rail_base_y - 2.0);
@@ -136,9 +141,19 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         let world_thick = top_y - actual_bot_y;
         if slice_thick.abs() > 1e-5 {
             let tuck_dev = p_tuck.y - p_bot.y;
-            tuck_y = rail_base_y + if tuck_dev > 0.0 { world_thick * (tuck_dev / slice_thick) } else { tuck_dev };
+            tuck_y = rail_base_y
+                + if tuck_dev > 0.0 {
+                    world_thick * (tuck_dev / slice_thick)
+                } else {
+                    tuck_dev
+                };
             let shoulder_dev = p_shoulder.y - p_bot.y;
-            shoulder_y = rail_base_y + if shoulder_dev > 0.0 { world_thick * (shoulder_dev / slice_thick) } else { shoulder_dev };
+            shoulder_y = rail_base_y
+                + if shoulder_dev > 0.0 {
+                    world_thick * (shoulder_dev / slice_thick)
+                } else {
+                    shoulder_dev
+                };
         }
     }
 
@@ -221,7 +236,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         0.0
     };
 
-        let get_local_rail_coeff = |x: f32| -> f32 {
+    let get_local_rail_coeff = |x: f32| -> f32 {
         let norm_x = if final_apex_x > inner_x {
             ((x - inner_x) / (final_apex_x - inner_x)).clamp(0.0, 1.0)
         } else {
