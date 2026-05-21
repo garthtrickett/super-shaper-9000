@@ -873,15 +873,25 @@ export class BoardViewport extends LitElement {
                 <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
               </label>
               
-              <label class="flex items-center justify-between cursor-pointer group mb-2">
-                <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showHeatmap ? 'text-orange-400' : 'text-zinc-500'}">Foil Ratio</span>
-                <input type="checkbox" .checked=${this.boardState?.showHeatmap ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showHeatmap', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-orange-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                            <label class="flex items-center justify-between cursor-pointer group mb-2">
+                <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showTopography ? 'text-emerald-400' : 'text-zinc-500'}">Topographic Map</span>
+                <input type="checkbox" .checked=${this.boardState?.showTopography ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showTopography', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
               </label>
 
-              <label class="flex items-center justify-between cursor-pointer group mb-2">
-                <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showZebra ? 'text-white' : 'text-zinc-500'}">Zebra Flow</span>
-                <input type="checkbox" .checked=${this.boardState?.showZebra ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showZebra', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-white bg-zinc-900 border-zinc-700 cursor-pointer" />
-              </label>
+                                          <label class="flex items-center justify-between cursor-pointer group mb-2">
+                              <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showTopography ? 'text-emerald-400' : 'text-zinc-500'}">Topographic Map</span>
+                              <input type="checkbox" .checked=${this.boardState?.showTopography ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showTopography', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                            </label>
+
+                            <label class="flex items-center justify-between cursor-pointer group mb-2">
+                              <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showHeatmap ? 'text-orange-400' : 'text-zinc-500'}">Foil Ratio</span>
+                              <input type="checkbox" .checked=${this.boardState?.showHeatmap ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showHeatmap', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-orange-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                            </label>
+
+                            <label class="flex items-center justify-between cursor-pointer group mb-2">
+                              <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showZebra ? 'text-white' : 'text-zinc-500'}">Zebra Flow</span>
+                              <input type="checkbox" .checked=${this.boardState?.showZebra ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showZebra', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-white bg-zinc-900 border-zinc-700 cursor-pointer" />
+                            </label>
 
               <div class="flex flex-col mb-2">
                 <label class="flex items-center justify-between cursor-pointer group">

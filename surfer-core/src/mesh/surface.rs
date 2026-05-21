@@ -102,11 +102,10 @@ pub fn build_surface(
             }
 
             let ctx = crate::geometry::ZRingContext::new(model, z_inches);
-            let center_thick = (ctx.profile.top_y - ctx.profile.bot_y).max(0.001);
+                        let center_thick = (ctx.profile.top_y - ctx.profile.bot_y).max(0.001);
             let rail_thick = (ctx.profile.apex_y - ctx.profile.bot_y).max(0.0);
             let foil_ratio = rail_thick / center_thick;
             let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
-            let heat_color = color_heatmap(normalized_foil);
 
             let t_apex = if let Some(b) = &ctx.blend {
                 b.t_apex
@@ -136,9 +135,9 @@ pub fn build_surface(
                 n_chunk[v_idx + 1] = normal.y;
                 n_chunk[v_idx + 2] = normal.z;
 
-                c_chunk[v_idx] = heat_color.x;
-                c_chunk[v_idx + 1] = heat_color.y;
-                c_chunk[v_idx + 2] = heat_color.z;
+                                c_chunk[v_idx] = normalized_foil;
+                c_chunk[v_idx + 1] = point.y - ctx.profile.bot_y; // Elevation relative to stringer (inches)
+                c_chunk[v_idx + 2] = 0.0;
 
                 let u_idx = j * 2;
                 u_chunk[u_idx] = u_tex;

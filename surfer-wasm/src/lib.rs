@@ -821,7 +821,7 @@ impl WasmEngine {
             let (view_proj, cam_pos) = self.get_camera_params(q, aspect);
             let view_proj_array = view_proj.to_cols_array();
 
-            let mut uniform_data = [0.0f32; 24];
+                        let mut uniform_data = [0.0f32; 28];
             uniform_data[0..16].copy_from_slice(&view_proj_array);
             uniform_data[16..19].copy_from_slice(&cam_pos.to_array());
             uniform_data[19] = 1.0;
@@ -849,6 +849,11 @@ impl WasmEngine {
                 0.0
             };
             uniform_data[23] = mri_z_world;
+            uniform_data[24] = if model.show_topography.unwrap_or(false) {
+                1.0
+            } else {
+                0.0
+            };
 
             uniforms.push(uniform_data);
         }
@@ -1375,29 +1380,35 @@ pub async fn create_wgpu_renderer(
         surface.configure(&device, &config);
 
         let shader_src = r#"
-                        struct CameraUniform {
+                                    struct CameraUniform {
                 view_proj: mat4x4<f32>,
                 camera_pos: vec4<f32>,
                 display_settings: vec4<f32>,
+                display_settings_2: vec4<f32>,
             };
             @group(0) @binding(0)
             var<uniform> camera: CameraUniform;
 
             struct VertexOutput {
                 @builtin(position) clip_position: vec4<f32>,
-                @location(0) color: vec3<f32>,
+                @location(0) custom_data: vec3<f32>,
                 @location(1) normal: vec3<f32>,
                 @location(2) world_pos: vec3<f32>,
             };
+
+            fn hsl_to_rgb(h: f32, s: f32, l: f32) -> vec3<f32> {
+                let rgb = clamp(abs(fract(h + vec3<f32>(0.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0) - 1.0, vec3<f32>(0.0), vec3<f32>(1.0));
+                return l + s * (rgb - 0.5) * (1.0 - abs(2.0 * l - 1.0));
+            }
 
             @vertex
             fn vs_main(
                 @location(0) position: vec3<f32>,
                 @location(1) normal: vec3<f32>,
-                @location(2) color: vec3<f32>,
+                @location(2) custom_data: vec3<f32>,
             ) -> VertexOutput {
                 var out: VertexOutput;
-                out.color = color;
+                out.custom_data = custom_data;
                 out.normal = normal;
                 out.world_pos = position;
                 out.clip_position = camera.view_proj * vec4<f32>(position, 1.0);
@@ -1410,6 +1421,7 @@ pub async fn create_wgpu_renderer(
                 let show_zebra = camera.display_settings.y > 0.5;
                 let show_mri = camera.display_settings.z > 0.5;
                 let mri_z = camera.display_settings.w;
+                let show_topography = camera.display_settings_2.x > 0.5;
 
                 if (show_mri) {
                     let dist = abs(in.world_pos.z - mri_z);
@@ -1421,12 +1433,30 @@ pub async fn create_wgpu_renderer(
                 let normal = normalize(in.normal);
                 let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);
 
-                                if (show_zebra) {
+                if (show_zebra) {
                     let reflection = reflect(-view_dir, normal);
                     let stripe = fract(reflection.y * 10.0);
                     let intensity = smoothstep(0.4, 0.6, stripe);
                     return vec4<f32>(vec3<f32>(intensity), 1.0);
                 } else {
+                    var base_color = vec3<f32>(0.9, 0.9, 0.9);
+
+                    if (show_heatmap) {
+                        let hue = (1.0 - in.custom_data.x) * 0.666;
+                        base_color = hsl_to_rgb(hue, 1.0, 0.5);
+                    } else if (show_topography) {
+                        let elev = in.custom_data.y;
+                        let t = clamp((elev + 0.25) / 1.75, 0.0, 1.0);
+                        let hue = (1.0 - t) * 0.666;
+                        base_color = hsl_to_rgb(hue, 0.8, 0.5);
+                        
+                        let contour_val = elev / 0.125;
+                        let f = fract(contour_val);
+                        let df = fwidth(contour_val);
+                        let line = smoothstep(df, 0.0, f) + smoothstep(1.0 - df, 1.0, f);
+                        base_color = mix(base_color, vec3<f32>(0.0, 0.0, 0.0), clamp(line, 0.0, 1.0) * 0.4);
+                    }
+
                     // Three-Point Studio Lighting Setup
                     let key_dir = normalize(vec3<f32>(5.0, 5.0, 10.0));
                     let fill_dir = normalize(vec3<f32>(-5.0, -5.0, 10.0));
@@ -1439,12 +1469,7 @@ pub async fn create_wgpu_renderer(
                     
                     let total_light = ambient + key + fill + rim;
 
-                    if (show_heatmap) {
-                        return vec4<f32>(in.color * total_light, 1.0);
-                    } else {
-                        let base_color = vec3<f32>(0.9, 0.9, 0.9);
-                        return vec4<f32>(base_color * total_light, 1.0);
-                    }
+                    return vec4<f32>(base_color * total_light, 1.0);
                 }
             }
         "#;
@@ -1474,7 +1499,7 @@ pub async fn create_wgpu_renderer(
         for i in 0..4 {
             let buf = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(&format!("Camera Buffer {}", i)),
-                size: 96,
+                                size: 112,
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -1501,10 +1526,11 @@ pub async fn create_wgpu_renderer(
             label: Some("Line Shader"),
             source: wgpu::ShaderSource::Wgsl(
                 r#"
-                                struct CameraUniform {
+                                                struct CameraUniform {
                     view_proj: mat4x4<f32>,
                     camera_pos: vec4<f32>,
                     display_settings: vec4<f32>,
+                    display_settings_2: vec4<f32>,
                 };
                 @group(0) @binding(0)
                 var<uniform> camera: CameraUniform;

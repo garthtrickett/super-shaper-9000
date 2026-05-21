@@ -33,6 +33,7 @@ export const SelectedNodeSchema = S.Struct({
 
 export const BoardModelSchema = S.Struct({
   showHeatmap: S.optional(S.Boolean),
+  showTopography: S.optional(S.Boolean),
     showZebra: S.optional(S.Boolean),
   showOutline: S.optional(S.Boolean),
   showRockerTop: S.optional(S.Boolean),
@@ -121,6 +122,7 @@ export interface ManualSnapshot {
 
 export interface BoardModel {
   showHeatmap?: boolean;
+  showTopography?: boolean;
     showZebra?: boolean;
   showOutline?: boolean;
   showRockerTop?: boolean;
@@ -196,6 +198,7 @@ const basicCrossSection: BezierCurveData = {
 
 export const INITIAL_STATE: BoardModel = {
   showHeatmap: false,
+  showTopography: false,
     showZebra: false,
   showOutline: true,
   showRockerTop: true,
