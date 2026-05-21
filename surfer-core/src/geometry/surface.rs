@@ -901,7 +901,7 @@ mod tests {
 
         let blend = get_cross_section_blend_at_z(&model.cross_sections, 50.0).unwrap();
         let t_apex = blend.t_apex;
-        let t_tuck = t_apex * 0.5;
+        let t_tuck = blend.t_tuck;
 
         let u_test = t_tuck / 2.0; // t = 0.25 (P1)
         let slice_pt = blend.evaluate(u_test);

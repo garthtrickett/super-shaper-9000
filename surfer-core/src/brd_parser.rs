@@ -270,6 +270,8 @@ fn convert_brd_curve(
             tangents1,
             tangents2,
             weights: None,
+            apex_ratio: None,
+            tuck_ratio: None,
         },
         is_thickness,
     ))
@@ -367,6 +369,8 @@ fn parse_aku_slice_curve(
             tangents1,
             tangents2,
             weights: None,
+            apex_ratio: None,
+            tuck_ratio: None,
         })
     }
 }
@@ -487,6 +491,8 @@ fn parse_aku_curve(
                 tangents1,
                 tangents2,
                 weights: None,
+                apex_ratio: None,
+                tuck_ratio: None,
             },
             is_thickness,
         ))

@@ -238,6 +238,8 @@ fn convert_s3dx_bezier3d(
         tangents1,
         tangents2,
         weights: final_weights,
+        apex_ratio: None,
+        tuck_ratio: None,
     })
 }
 
@@ -459,7 +461,7 @@ impl From<S3dxBoard> for BoardModel {
                                 .map(|p| p.z)
                                 .unwrap_or(bl / 2.0);
 
-                            depth_curve = BezierCurveData {
+                                                        depth_curve = BezierCurveData {
                                 control_points: vec![
                                     Vec3::new(0.0, depth_val, z_start),
                                     Vec3::new(0.0, depth_val, z_end),
@@ -473,6 +475,8 @@ impl From<S3dxBoard> for BoardModel {
                                     Vec3::new(0.0, depth_val, z_end),
                                 ],
                                 weights: None,
+                                apex_ratio: None,
+                                tuck_ratio: None,
                             };
                         }
 

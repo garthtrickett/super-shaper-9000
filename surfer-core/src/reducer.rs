@@ -86,38 +86,215 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::AddBottomChannel
         | BoardAction::RemoveBottomChannel { .. }
         | BoardAction::ToggleChannelSymmetry { .. }
-        | BoardAction::AddCrossSection { .. }) => handle_layer_toggles(model, dirty, act),
+        | BoardAction::AddCrossSection { .. }) => fn handle_layer_toggles(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
+    dirty.global_rebuild = true;
+    match action {
+        BoardAction::AddOutlineLayer => {
+            let mut layers = model.outline_layers.take().unwrap_or_default();
+            layers.push(OutlineLayer {
+                name: format!("Layer {}", layers.len()),
+                active: true,
+                otl_ext: BezierCurveData {
+                    control_points: vec![
+                        glam::Vec3::new(8.0, 0.0, 20.0),
+                        glam::Vec3::new(8.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(8.0, 0.0, 10.0),
+                        glam::Vec3::new(8.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(8.0, 0.0, 30.0),
+                        glam::Vec3::new(8.0, 0.0, 50.0),
+                    ],
+                    weights: None,
+                    apex_ratio: None,
+                    tuck_ratio: None,
+                },
+                otl_int: BezierCurveData {
+                    control_points: vec![
+                        glam::Vec3::new(7.0, 0.0, 20.0),
+                        glam::Vec3::new(7.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(7.0, 0.0, 10.0),
+                        glam::Vec3::new(7.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(7.0, 0.0, 30.0),
+                        glam::Vec3::new(7.0, 0.0, 50.0),
+                    ],
+                    weights: None,
+                    apex_ratio: None,
+                    tuck_ratio: None,
+                },
+            });
+            model.outline_layers = Some(layers);
+            push_history(model);
+        }
+        BoardAction::RemoveOutlineLayer { index } => {
+            if let Some(layers) = &mut model.outline_layers {
+                if index < layers.len() {
+                    layers.remove(index);
+                }
+            }
+            push_history(model);
+        }
+        BoardAction::ToggleOutlineLayer { index } => {
+            if let Some(layers) = &mut model.outline_layers {
+                if let Some(layer) = layers.get_mut(index) {
+                    layer.active = !layer.active;
+                }
+            }
+        }
+        BoardAction::AddBottomChannel => {
+            let mut channels = model.bottom_channels.take().unwrap_or_default();
+            channels.push(ChannelLayer {
+                name: format!("Channel {}", channels.len()),
+                is_symmetric: true,
+                left_outline: BezierCurveData {
+                    control_points: vec![
+                        glam::Vec3::new(-4.0, 0.0, 20.0),
+                        glam::Vec3::new(-4.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(-4.0, 0.0, 10.0),
+                        glam::Vec3::new(-4.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(-4.0, 0.0, 30.0),
+                        glam::Vec3::new(-4.0, 0.0, 50.0),
+                    ],
+                    weights: None,
+                    apex_ratio: None,
+                    tuck_ratio: None,
+                },
+                right_outline: BezierCurveData {
+                    control_points: vec![
+                        glam::Vec3::new(4.0, 0.0, 20.0),
+                        glam::Vec3::new(4.0, 0.0, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(4.0, 0.0, 10.0),
+                        glam::Vec3::new(4.0, 0.0, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(4.0, 0.0, 30.0),
+                        glam::Vec3::new(4.0, 0.0, 50.0),
+                    ],
+                    weights: None,
+                    apex_ratio: None,
+                    tuck_ratio: None,
+                },
+                left_depth: BezierCurveData {
+                    control_points: vec![
+                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(0.0, 0.5, 10.0),
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                        glam::Vec3::new(0.0, 0.5, 50.0),
+                    ],
+                    weights: None,
+                    apex_ratio: None,
+                    tuck_ratio: None,
+                },
+                right_depth: BezierCurveData {
+                    control_points: vec![
+                        glam::Vec3::new(0.0, 0.5, 20.0),
+                        glam::Vec3::new(0.0, 0.5, 40.0),
+                    ],
+                    tangents1: vec![
+                        glam::Vec3::new(0.0, 0.5, 10.0),
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                    ],
+                    tangents2: vec![
+                        glam::Vec3::new(0.0, 0.5, 30.0),
+                        glam::Vec3::new(0.0, 0.5, 50.0),
+                    ],
+                    weights: None,
+                    apex_ratio: None,
+                    tuck_ratio: None,
+                },
+            });
+            model.bottom_channels = Some(channels);
+            push_history(model);
+        }
+        BoardAction::RemoveBottomChannel { index } => {
+            if let Some(channels) = &mut model.bottom_channels {
+                if index < channels.len() {
+                    channels.remove(index);
+                }
+            }
+            push_history(model);
+        }
+        BoardAction::ToggleChannelSymmetry { index } => {
+            if let Some(channels) = &mut model.bottom_channels {
+                if let Some(channel) = channels.get_mut(index) {
+                    channel.is_symmetric = !channel.is_symmetric;
+                    if channel.is_symmetric {
+                        channel.left_outline = channel.right_outline.clone();
+                        for p in &mut channel.left_outline.control_points {
+                            p.x = -p.x;
+                        }
+                        for p in &mut channel.left_outline.tangents1 {
+                            p.x = -p.x;
+                        }
+                        for p in &mut channel.left_outline.tangents2 {
+                            p.x = -p.x;
+                        }
+                        channel.left_depth = channel.right_depth.clone();
+                    }
+                }
+            }
+        }
+        BoardAction::AddCrossSection { z } => {
+            let mut new_cs = model.cross_sections.first().cloned().unwrap_or_default();
+            for p in &mut new_cs.control_points {
+                p.z = z;
+            }
+            for p in &mut new_cs.tangents1 {
+                p.z = z;
+            }
+            for p in &mut new_cs.tangents2 {
+                p.z = z;
+            }
+
+            // To be accurate, we'd copy the blend from the actual geometry at z.
+            // For now, this just adds a copy of the first slice at position z.
+            model.cross_sections.push(new_cs);
+            model.cross_sections.sort_by(|a, b| {
+                let za = a.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                let zb = b.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                za.partial_cmp(&zb).unwrap()
+            });
+
+            let new_idx = model.cross_sections.iter().position(|cs| {
+                let za = cs.control_points.first().map(|p| p.z).unwrap_or(0.0);
+                (za - z).abs() < 1e-4
+            });
+
+            if let Some(idx) = new_idx {
+                model.selected_node = Some(SelectedNode {
+                    curve: format!("crossSection_{}", idx),
+                    index: 0,
+                    node_type: "anchor".to_string(),
+                });
+            }
+
+            push_history(model);
+        }
+        _ => {}
     }
-}
-
-pub fn push_history(model: &mut BoardModel) {
-    let snapshot = ManualSnapshot {
-        outline: model.outline.clone(),
-        outline_layers: model.outline_layers.clone(),
-        bottom_channels: model.bottom_channels.clone(),
-        rail_outline: model.rail_outline.clone(),
-        apex_outline: model.apex_outline.clone(),
-        rocker_top: model.rocker_top.clone(),
-        rocker_bottom: model.rocker_bottom.clone(),
-        apex_rocker: model.apex_rocker.clone(),
-        deck_shoulder: model.deck_shoulder.clone(),
-        cross_sections: model.cross_sections.clone(),
-    };
-
-    let mut history = model.history.take().unwrap_or_default();
-    let idx = model.history_index.unwrap_or(0);
-
-    if history.len() > idx + 1 {
-        history.truncate(idx + 1);
-    }
-
-    history.push(snapshot);
-    if history.len() > 50 {
-        history.remove(0);
-    }
-
-    model.history_index = Some(history.len().saturating_sub(1));
-    model.history = Some(history);
+    Vec::new()
 }
 
 fn handle_history(
