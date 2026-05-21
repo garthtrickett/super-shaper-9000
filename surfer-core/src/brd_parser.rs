@@ -636,8 +636,35 @@ mod tests {
             return;
         }
 
-        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
-        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+                let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let mut model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        // Emulate the frontend's behavior of preserving the active cross section
+        let basic_cs = crate::model::BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(6.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.0, 0.0),
+                Vec3::new(6.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(4.0, -1.25, 0.0),
+                Vec3::new(9.375, -0.5, 0.0),
+                Vec3::new(8.0, 1.25, 0.0),
+                Vec3::new(2.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(2.0, -1.25, 0.0),
+                Vec3::new(8.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.5, 0.0),
+                Vec3::new(4.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+        };
+        model.cross_sections = vec![basic_cs];
 
         let bounds = crate::geometry::get_board_bounds(&model);
 
