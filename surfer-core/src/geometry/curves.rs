@@ -1,6 +1,125 @@
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
+pub fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> BezierCurveData {
+    if curve.control_points.len() < 3 {
+        return curve;
+    }
+
+    let is_cap = |dz: f32, d_cross: f32| -> bool {
+        // Strip if it's perfectly flat in Z (micro-cap)
+        if dz < 0.05 {
+            return true;
+        }
+        // Strip if the slope is nearly vertical (a cap closing the shape)
+        if d_cross > 0.2 && d_cross > dz * 4.0 {
+            return true;
+        }
+        false
+    };
+
+    // 1. Clean up START
+    loop {
+        let p0 = curve.control_points[0];
+        let p1 = curve.control_points[1];
+        let dz = (p1.z - p0.z).abs();
+        let d_cross = if is_thickness {
+            (p1.y - p0.y).abs()
+        } else {
+            (p1.x - p0.x).abs()
+        };
+
+        if is_cap(dz, d_cross) {
+            curve.control_points.remove(0);
+            curve.tangents1.remove(0);
+            curve.tangents2.remove(0);
+            if let Some(w) = &mut curve.weights {
+                w.remove(0);
+            }
+            if curve.control_points.len() < 3 {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    // 2. Clean up END
+    loop {
+        let len = curve.control_points.len();
+        let p_last = curve.control_points[len - 1];
+        let p_prev = curve.control_points[len - 2];
+        let dz = (p_last.z - p_prev.z).abs();
+        let d_cross = if is_thickness {
+            (p_last.y - p_prev.y).abs()
+        } else {
+            (p_last.x - p_prev.x).abs()
+        };
+
+        if is_cap(dz, d_cross) {
+            curve.control_points.pop();
+            curve.tangents1.pop();
+            curve.tangents2.pop();
+            if let Some(w) = &mut curve.weights {
+                w.pop();
+            }
+            if curve.control_points.len() < 3 {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+
+    curve
+}
+
+pub fn inject_export_caps(mut curve: BezierCurveData, is_thickness: bool) -> BezierCurveData {
+    if curve.control_points.is_empty() {
+        return curve;
+    }
+
+    let check_val = |p: Vec3| -> f32 {
+        if is_thickness { p.y } else { p.x }
+    };
+
+    let first_p = curve.control_points[0];
+    if check_val(first_p).abs() > 1e-4 {
+        let mut new_p = first_p;
+        if is_thickness {
+            new_p.y = 0.0;
+        } else {
+            new_p.x = 0.0;
+        }
+        curve.control_points.insert(0, new_p);
+        curve.tangents1.insert(0, new_p);
+        curve.tangents2.insert(0, new_p);
+        
+        if let Some(w) = &mut curve.weights {
+            w.insert(0, 1.0);
+        }
+    }
+
+    let last_p = *curve.control_points.last().unwrap();
+    if check_val(last_p).abs() > 1e-4 {
+        let mut new_p = last_p;
+        if is_thickness {
+            new_p.y = 0.0;
+        } else {
+            new_p.x = 0.0;
+        }
+        curve.control_points.push(new_p);
+        curve.tangents1.push(new_p);
+        curve.tangents2.push(new_p);
+
+        if let Some(w) = &mut curve.weights {
+            w.push(1.0);
+        }
+    }
+
+    curve
+}
+
 #[inline]
 pub fn evaluate_curve_derivative(curve: &BezierCurveData, t: f32) -> Vec3 {
     let num_segments = curve.control_points.len().saturating_sub(1);
@@ -761,6 +880,43 @@ mod tests {
 
         let inner_x = evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, 98.0);
         assert!(inner_x > 0.0 && inner_x < 10.0);
+    }
+
+        #[test]
+    fn test_cap_injection_and_removal_parity() {
+        let curve = BezierCurveData {
+            control_points: vec![
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 50.0),
+                Vec3::new(5.0, 0.0, 100.0),
+            ],
+            tangents1: vec![
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 40.0),
+                Vec3::new(5.0, 0.0, 90.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, 0.0, 10.0),
+                Vec3::new(10.0, 0.0, 60.0),
+                Vec3::new(5.0, 0.0, 100.0),
+            ],
+            weights: None,
+            apex_ratio: None,
+            tuck_ratio: None,
+        };
+
+        let orig = curve.clone();
+
+        let injected = inject_export_caps(curve, false);
+        assert_eq!(injected.control_points.len(), 5);
+        assert_eq!(injected.control_points[0].x, 0.0);
+        assert_eq!(injected.control_points[4].x, 0.0);
+
+        let stripped = cleanup_vertical_ends(injected, false);
+        assert_eq!(stripped.control_points.len(), 3);
+        assert_eq!(stripped.control_points, orig.control_points);
+        assert_eq!(stripped.tangents1, orig.tangents1);
+        assert_eq!(stripped.tangents2, orig.tangents2);
     }
 
     #[test]

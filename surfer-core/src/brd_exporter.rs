@@ -14,9 +14,10 @@ fn format_aku_curve(
             return String::new();
         }
 
-        let mut pts = c.control_points.clone();
-        let mut t1 = c.tangents1.clone();
-        let mut t2 = c.tangents2.clone();
+        let injected = crate::geometry::inject_export_caps(c.clone(), is_thickness);
+        let mut pts = injected.control_points;
+        let mut t1 = injected.tangents1;
+        let mut t2 = injected.tangents2;
 
         pts.reverse();
         let old_t1 = t1.clone();

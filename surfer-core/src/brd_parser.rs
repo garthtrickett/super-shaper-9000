@@ -124,78 +124,7 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     Err("Could not find a valid Zlib, Gzip, or Raw Deflate stream in the first 128 bytes of the BRD file".into())
 }
 
-fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> BezierCurveData {
-    if curve.control_points.len() < 3 {
-        return curve;
-    }
 
-    let is_cap = |dz: f32, d_cross: f32| -> bool {
-        // Strip if it's perfectly flat in Z (micro-cap)
-        if dz < 0.05 {
-            return true;
-        }
-        // Strip if the slope is nearly vertical (a cap closing the shape)
-        if d_cross > 0.2 && d_cross > dz * 4.0 {
-            return true;
-        }
-        false
-    };
-
-    // 1. Clean up START
-    loop {
-        let p0 = curve.control_points[0];
-        let p1 = curve.control_points[1];
-        let dz = (p1.z - p0.z).abs();
-        let d_cross = if is_thickness {
-            (p1.y - p0.y).abs()
-        } else {
-            (p1.x - p0.x).abs()
-        };
-
-        if is_cap(dz, d_cross) {
-            curve.control_points.remove(0);
-            curve.tangents1.remove(0);
-            curve.tangents2.remove(0);
-            if let Some(w) = &mut curve.weights {
-                w.remove(0);
-            }
-            if curve.control_points.len() < 3 {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-
-    // 2. Clean up END
-    loop {
-        let len = curve.control_points.len();
-        let p_last = curve.control_points[len - 1];
-        let p_prev = curve.control_points[len - 2];
-        let dz = (p_last.z - p_prev.z).abs();
-        let d_cross = if is_thickness {
-            (p_last.y - p_prev.y).abs()
-        } else {
-            (p_last.x - p_prev.x).abs()
-        };
-
-        if is_cap(dz, d_cross) {
-            curve.control_points.pop();
-            curve.tangents1.pop();
-            curve.tangents2.pop();
-            if let Some(w) = &mut curve.weights {
-                w.pop();
-            }
-            if curve.control_points.len() < 3 {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-
-    curve
-}
 
 fn convert_brd_curve(
     container: &Option<BrdBezierContainer>,
@@ -256,7 +185,7 @@ fn convert_brd_curve(
     }
 
     // Enforce "Nose to Tail" traversal for parametric compatibility
-    if is_reversed {
+        if is_reversed {
         control_points.reverse();
         let old_t1 = tangents1.clone();
         let old_t2 = tangents2.clone();
@@ -264,7 +193,7 @@ fn convert_brd_curve(
         tangents2 = old_t1.into_iter().rev().collect();
     }
 
-    Some(cleanup_vertical_ends(
+    Some(crate::geometry::cleanup_vertical_ends(
         BezierCurveData {
             control_points,
             tangents1,
@@ -485,7 +414,7 @@ fn parse_aku_curve(
 
     if control_points.is_empty() {
         None
-    } else {
+        } else {
         // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
         control_points.reverse();
         let old_t1 = tangents1.clone();
@@ -493,7 +422,7 @@ fn parse_aku_curve(
         tangents1 = old_t2.into_iter().rev().collect();
         tangents2 = old_t1.into_iter().rev().collect();
 
-        Some(cleanup_vertical_ends(
+        Some(crate::geometry::cleanup_vertical_ends(
             BezierCurveData {
                 control_points,
                 tangents1,
