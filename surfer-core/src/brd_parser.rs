@@ -537,7 +537,46 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
         }
     }
 
+        let bounds_tip_z = model.length / 2.0;
+    let bounds_nose_z = -model.length / 2.0;
+    model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
+    model.v_concave_nose = extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
+
     Ok(model)
+}
+
+fn extract_concave_from_slices(slices: &[BezierCurveData], target_z: f32) -> f32 {
+    if slices.is_empty() {
+        return 0.0;
+    }
+    
+    let mut closest_slice = slices.first().unwrap();
+    let mut min_dist = f32::INFINITY;
+    
+    for cs in slices {
+        if let Some(first_cp) = cs.control_points.first() {
+            let dist = (first_cp.z - target_z).abs();
+            if dist < min_dist {
+                min_dist = dist;
+                closest_slice = cs;
+            }
+        }
+    }
+    
+    let t_apex = crate::geometry::find_apex_t(closest_slice);
+    let center_y = crate::geometry::evaluate_curve(closest_slice, 0.0).y;
+    let mut min_y = center_y;
+    
+    let steps = 50;
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32 * t_apex;
+        let p = crate::geometry::evaluate_curve(closest_slice, t);
+        if p.y < min_y {
+            min_y = p.y;
+        }
+    }
+    
+    (center_y - min_y).max(0.0)
 }
 
 pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
@@ -787,8 +826,11 @@ mod tests {
         assert!(model.rocker_bottom.is_some());
         assert!(model.rocker_top.is_some());
 
-        let outline = model.outline.as_ref().unwrap();
+                let outline = model.outline.as_ref().unwrap();
         assert!(outline.control_points.len() > 2);
+
+        assert!(model.v_concave_tail >= 0.0);
+        assert!(model.v_concave_nose >= 0.0);
 
         let bounds = crate::geometry::get_board_bounds(&model);
         let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z - 0.5, 0.5);

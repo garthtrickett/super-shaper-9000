@@ -508,12 +508,56 @@ impl From<S3dxBoard> for BoardModel {
         if !outline_layers.is_empty() {
             model.outline_layers = Some(outline_layers);
         }
-        if !bottom_channels.is_empty() {
+                if !bottom_channels.is_empty() {
             model.bottom_channels = Some(bottom_channels);
+        }
+
+        let bounds_tip_z = bl / 2.0 * scale;
+        let bounds_nose_z = -bl / 2.0 * scale;
+
+        if model.v_concave_tail.abs() < 1e-4 {
+            model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
+        }
+        if model.v_concave_nose.abs() < 1e-4 {
+            model.v_concave_nose = extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
         }
 
         model
     }
+}
+
+fn extract_concave_from_slices(slices: &[BezierCurveData], target_z: f32) -> f32 {
+    if slices.is_empty() {
+        return 0.0;
+    }
+    
+    let mut closest_slice = slices.first().unwrap();
+    let mut min_dist = f32::INFINITY;
+    
+    for cs in slices {
+        if let Some(first_cp) = cs.control_points.first() {
+            let dist = (first_cp.z - target_z).abs();
+            if dist < min_dist {
+                min_dist = dist;
+                closest_slice = cs;
+            }
+        }
+    }
+    
+    let t_apex = crate::geometry::find_apex_t(closest_slice);
+    let center_y = crate::geometry::evaluate_curve(closest_slice, 0.0).y;
+    let mut min_y = center_y;
+    
+    let steps = 50;
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32 * t_apex;
+        let p = crate::geometry::evaluate_curve(closest_slice, t);
+        if p.y < min_y {
+            min_y = p.y;
+        }
+    }
+    
+    (center_y - min_y).max(0.0)
 }
 
 #[cfg(test)]
@@ -820,11 +864,14 @@ mod tests {
             "Last cross section should be near the tail (positive Z)"
         );
 
-        let weights_opt = model.cross_sections[0].weights.as_ref();
+                let weights_opt = model.cross_sections[0].weights.as_ref();
         assert!(
             weights_opt.is_none() || weights_opt.unwrap()[0] == 1.0,
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
         );
+
+        assert!(model.v_concave_tail >= 0.0);
+        assert!(model.v_concave_nose >= 0.0);
     }
 
     #[test]
