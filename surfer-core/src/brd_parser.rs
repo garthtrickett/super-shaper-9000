@@ -134,7 +134,7 @@ fn cleanup_vertical_ends(mut curve: BezierCurveData, is_thickness: bool) -> Bezi
         if dz < 0.05 {
             return true;
         }
-                // Strip if the slope is nearly vertical (a cap closing the shape)
+        // Strip if the slope is nearly vertical (a cap closing the shape)
         if d_cross > 0.2 && d_cross > dz * 4.0 {
             return true;
         }
@@ -390,12 +390,20 @@ fn parse_aku_slices(
         if line.starts_with("(p36") || line.starts_with("p36") {
             let clean = line.replace(['(', ')'], "");
             let parts: Vec<&str> = clean.split([' ', '\t']).filter(|s| !s.is_empty()).collect();
-                        if parts.len() >= 2 {
+            if parts.len() >= 2 {
                 let px = parts[1].parse::<f32>().unwrap_or(0.0);
                 let slice_z = (board_length / 2.0 - px) * scale;
-                
-                let apex_ratio = if parts.len() >= 3 { parts[2].parse::<f32>().ok() } else { None };
-                let tuck_ratio = if parts.len() >= 4 { parts[3].parse::<f32>().ok() } else { None };
+
+                let apex_ratio = if parts.len() >= 3 {
+                    parts[2].parse::<f32>().ok()
+                } else {
+                    None
+                };
+                let tuck_ratio = if parts.len() >= 4 {
+                    parts[3].parse::<f32>().ok()
+                } else {
+                    None
+                };
 
                 if let Some(mut curve) = parse_aku_slice_curve(lines, slice_z, scale) {
                     curve.apex_ratio = apex_ratio;
@@ -647,7 +655,7 @@ mod tests {
             return;
         }
 
-                let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let mut model = parse_brd(&bytes).expect("Failed to parse BRD");
 
         // Emulate the frontend's behavior of preserving the active cross section
@@ -673,7 +681,8 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            ..Default::default()
         };
         model.cross_sections = vec![basic_cs];
 
@@ -682,7 +691,7 @@ mod tests {
         // Sweep longitudinally at a constant X = 3.0 inches (inside the concave belly of the board)
         let target_x = 3.0;
         let start_z = bounds.nose_z + 10.0; // avoid nose pointy end distortion
-        let end_z = bounds.tip_z - 10.0;   // avoid tail cap distortion
+        let end_z = bounds.tip_z - 10.0; // avoid tail cap distortion
 
         let steps = 400;
         let mut elevations = Vec::new();
@@ -692,7 +701,7 @@ mod tests {
             let z = start_z + (end_z - start_z) * f;
             let ctx = crate::geometry::ZRingContext::new(&model, z);
 
-                        let t_apex = ctx.blend.as_ref().map(|b| b.t_apex).unwrap_or(0.5);
+            let t_apex = ctx.blend.as_ref().map(|b| b.t_apex).unwrap_or(0.5);
 
             // Search for the exact U parameter corresponding to target_x within [0.0, t_apex]
             let mut best_u = t_apex * 0.5;
@@ -762,8 +771,10 @@ mod tests {
         println!("Max second derivative along Z: {}", max_second_dev);
 
         for i in (0..second_derivatives.len()).step_by(40) {
-            println!("Z = {:.2}\": Y = {:.5}\", dY/dZ = {:.5}, d2Y/dZ2 = {:.5}",
-                     elevations[i].0, elevations[i].1, first_derivatives[i], second_derivatives[i]);
+            println!(
+                "Z = {:.2}\": Y = {:.5}\", dY/dZ = {:.5}, d2Y/dZ2 = {:.5}",
+                elevations[i].0, elevations[i].1, first_derivatives[i], second_derivatives[i]
+            );
         }
         println!("=================================================\n");
 
@@ -893,7 +904,7 @@ mod tests {
 
         // The cap should be successfully stripped, meaning the outline safely stops
         // at the squash corner (~37.4) while the rocker continues to the stringer tip (~38.0)
-                        let top_diff = (outline_tail_z - rtop_tail_z).abs();
+        let top_diff = (outline_tail_z - rtop_tail_z).abs();
 
         assert!(
             top_diff > 0.4 && top_diff < 0.7,

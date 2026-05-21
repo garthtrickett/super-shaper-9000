@@ -130,7 +130,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let mut tuck_y = rail_base_y;
     let mut shoulder_y = rail_base_y + (top_y - rail_base_y) * 0.8;
 
-        if let Some(b) = &blend {
+    if let Some(b) = &blend {
         let p_bot = b.evaluate(0.0);
         let p_top = b.evaluate(1.0);
         let t_tuck = b.t_tuck;
@@ -165,7 +165,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             has_rail_outline = true;
         }
     }
-        if !has_rail_outline {
+    if !has_rail_outline {
         if let Some(b) = &blend {
             let p_bot = b.evaluate(0.0);
             let p_apex = b.evaluate(b.t_apex);
@@ -548,7 +548,8 @@ mod tests {
                 Vec3::new(8.0, 1.0, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
             ],
-            weights: Some(vec![1.0; 5]),
+                        weights: Some(vec![1.0; 5]),
+            ..Default::default()
         }];
 
         let mut model_mod_v = model_base.clone();

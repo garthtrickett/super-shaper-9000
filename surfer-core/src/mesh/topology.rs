@@ -276,7 +276,7 @@ pub fn generate_cap(
                     left_target_x
                 };
 
-                                let pos_bot_y = ring_pos[if side > 0.0 { 0 } else { num_cols - 1 }].y;
+                let pos_bot_y = ring_pos[if side > 0.0 { 0 } else { num_cols - 1 }].y;
                 let pos_top_y = ring_pos[if side > 0.0 { half } else { half + 1 }].y;
                 let y_frac = if (pos_top_y - pos_bot_y).abs() > 1e-5 {
                     ((pos.y - pos_bot_y) / (pos_top_y - pos_bot_y)).clamp(0.0, 1.0)
@@ -361,7 +361,7 @@ pub fn generate_cap(
                     vertices[d as usize * 3 + 2],
                 );
 
-                                let cap_dir = if is_nose {
+                let cap_dir = if is_nose {
                     Vec3::new(0.0, 0.0, -1.0)
                 } else {
                     Vec3::new(0.0, 0.0, 1.0)

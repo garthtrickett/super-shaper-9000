@@ -107,12 +107,16 @@ pub fn build_surface(
             let foil_ratio = rail_thick / center_thick;
             let normalized_foil = ((foil_ratio - 0.25) / 0.5).clamp(0.0, 1.0);
 
-                        let t_apex = if let Some(b) = &ctx.blend {
+            let t_apex = if let Some(b) = &ctx.blend {
                 b.t_apex
             } else {
                 0.5
             };
-            let t_tuck = if let Some(b) = &ctx.blend { b.t_tuck } else { 0.01_f32.max(t_apex * 0.5) };
+            let t_tuck = if let Some(b) = &ctx.blend {
+                b.t_tuck
+            } else {
+                0.01_f32.max(t_apex * 0.5)
+            };
             let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
             for (j, &(norm_u, side, is_stringer, u_tex)) in u_columns.iter().enumerate() {

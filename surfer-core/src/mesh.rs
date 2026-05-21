@@ -2636,7 +2636,8 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            ..Default::default()
         };
         model.cross_sections = vec![basic_cs];
 
@@ -2692,7 +2693,7 @@ mod tests {
                 // the face normal MUST point Down (-Y) and Right (+X).
                 // If Ny > 0.1, it's pointing UP into the board (Black triangle!).
                 // If Nx < -0.1, it's pointing LEFT into the stringer (Folded mesh!).
-                                if face_normal.y > 0.1 || face_normal.x < -0.4 {
+                if face_normal.y > 0.1 || face_normal.x < -0.4 {
                     inverted_faces += 1;
                 }
             }
@@ -2743,7 +2744,8 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            ..Default::default()
         };
         model.cross_sections = vec![basic_cs];
 
@@ -2781,7 +2783,7 @@ mod tests {
                 mesh.vertices[i3 * 3 + 2],
             );
 
-                        // Filter for tail cap triangles (Z is approximately tail_z)
+            // Filter for tail cap triangles (Z is approximately tail_z)
             if (v1.z - tail_z).abs() < 1e-3
                 && (v2.z - tail_z).abs() < 1e-3
                 && (v3.z - tail_z).abs() < 1e-3
@@ -2790,7 +2792,7 @@ mod tests {
 
                 // For a flat cap facing +Z, the CCW normal should be exactly (0, 0, 1)
                 // If it's inverted due to crossovers, Z will drop into the negative.
-                                if face_normal.z < -0.1 {
+                if face_normal.z < -0.1 {
                     tail_cap_inverted_triangles += 1;
                 }
             }

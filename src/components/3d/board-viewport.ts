@@ -1136,14 +1136,14 @@ export class BoardViewport extends LitElement {
                                       { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
                                   ]
                               };
-                              const curvesForThisView = CURVES_FOR_VIEW[this.maximizedView!] || [];
+                              const curvesForThisView = CURVES_FOR_VIEW[this.maximizedView] || [];
                               const fullMask = curvesForThisView.reduce((a,c)=>a|c.mask,0);
 
                               return html`
                                 <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1 py-1 border-b border-zinc-800/50 mb-1">
                                   <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Toggle All</span>
-                                  <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView!] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllLineMasks(this.maximizedView!, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Curves" />
-                                  <input type="checkbox" .checked=${(this.gizmoMasks[this.maximizedView!] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllGizmoMasks(this.maximizedView!, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Nodes" />
+                                  <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllLineMasks(this.maximizedView!, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Curves" />
+                                  <input type="checkbox" .checked=${(this.gizmoMasks[this.maximizedView] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllGizmoMasks(this.maximizedView!, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Nodes" />
                                 </div>
                                 ${curvesForThisView.map(c => html`
                                   <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">

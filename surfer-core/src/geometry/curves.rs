@@ -544,7 +544,7 @@ pub fn get_cross_section_blend_at_z<'a>(
     let t_apex0 = find_apex_t(s0);
     let t_apex1 = find_apex_t(s1);
     // Apex parameter interpolation remains strictly linear
-        let t_apex = (t_apex0 + (t_apex1 - t_apex0) * lerp_factor).clamp(0.0, 1.0);
+    let t_apex = (t_apex0 + (t_apex1 - t_apex0) * lerp_factor).clamp(0.0, 1.0);
 
     let t_tuck0 = s0.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex0 * 0.5));
     let t_tuck1 = s1.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex1 * 0.5));
@@ -719,8 +719,9 @@ mod tests {
         let outline = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+                        tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
             weights: None,
+            ..Default::default()
         };
         let z_target = 50.0;
         let hint_t = 0.5;
@@ -767,8 +768,9 @@ mod tests {
         let mut curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 50.0)],
-            tangents2: vec![Vec3::new(5.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
+                        tangents2: vec![Vec3::new(5.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
             weights: Some(vec![1.0, 1.0]),
+            ..Default::default()
         };
 
         let t_std = find_v_at_z(&curve, 50.0, 0.0, 1.0);

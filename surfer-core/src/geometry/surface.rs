@@ -5,7 +5,7 @@ use glam::Vec3;
 pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Vec3) -> Vec3 {
     let ctx = crate::geometry::ZRingContext::new(model, z);
 
-        let blend = match ctx.blend.as_ref() {
+    let blend = match ctx.blend.as_ref() {
         Some(b) => b,
         None => return local_pt,
     };
@@ -210,7 +210,7 @@ impl<'a> ZRingContext<'a> {
             let py = profile.bot_y + (profile.top_y - profile.bot_y) * u;
             return Vec3::new(profile.half_width, py, self.z_inches);
         }
-                let b = blend.unwrap();
+        let b = blend.unwrap();
         let t_tuck = b.t_tuck;
         let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
 
@@ -899,8 +899,7 @@ mod tests {
         };
         model.cross_sections = vec![cs];
 
-        let blend = get_cross_section_blend_at_z(&model.cross_sections, 50.0).unwrap();
-        let t_apex = blend.t_apex;
+                let blend = get_cross_section_blend_at_z(&model.cross_sections, 50.0).unwrap();
         let t_tuck = blend.t_tuck;
 
         let u_test = t_tuck / 2.0; // t = 0.25 (P1)
@@ -971,7 +970,8 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            ..Default::default()
         };
         model.cross_sections = vec![basic_cs];
         model.outline = Some(BezierCurveData {
@@ -1040,7 +1040,8 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            ..Default::default()
         };
         model.cross_sections = vec![basic_cs];
         model.outline = Some(BezierCurveData {

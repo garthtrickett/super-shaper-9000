@@ -80,12 +80,12 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
             handle_history(model, dirty, act)
         }
-                act @ (BoardAction::AddOutlineLayer
+        act @ (BoardAction::AddOutlineLayer
         | BoardAction::RemoveOutlineLayer { .. }
         | BoardAction::ToggleOutlineLayer { .. }
         | BoardAction::AddBottomChannel
         | BoardAction::RemoveBottomChannel { .. }
-                | BoardAction::ToggleChannelSymmetry { .. }
+        | BoardAction::ToggleChannelSymmetry { .. }
         | BoardAction::AddCrossSection { .. }) => handle_layer_toggles(model, dirty, act),
     }
 }
@@ -107,9 +107,11 @@ pub fn push_history(model: &mut BoardModel) {
     if model.history.is_none() {
         model.history = Some(Vec::new());
     }
-    
-        if let Some(history) = &mut model.history {
-        let idx = model.history_index.unwrap_or_else(|| history.len().saturating_sub(1));
+
+    if let Some(history) = &mut model.history {
+        let idx = model
+            .history_index
+            .unwrap_or_else(|| history.len().saturating_sub(1));
         history.truncate(idx + 1);
         history.push(snap);
         if history.len() > 50 {
@@ -1200,7 +1202,7 @@ fn handle_layer_toggles(
             layers.push(OutlineLayer {
                 name: format!("Layer {}", layers.len()),
                 active: true,
-                                otl_ext: BezierCurveData {
+                otl_ext: BezierCurveData {
                     control_points: vec![
                         glam::Vec3::new(8.0, 0.0, 20.0),
                         glam::Vec3::new(8.0, 0.0, 40.0),
@@ -1258,7 +1260,7 @@ fn handle_layer_toggles(
             channels.push(ChannelLayer {
                 name: format!("Channel {}", channels.len()),
                 is_symmetric: true,
-                                left_outline: BezierCurveData {
+                left_outline: BezierCurveData {
                     control_points: vec![
                         glam::Vec3::new(-4.0, 0.0, 20.0),
                         glam::Vec3::new(-4.0, 0.0, 40.0),

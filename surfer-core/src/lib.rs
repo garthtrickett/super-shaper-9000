@@ -67,7 +67,7 @@ impl SurferEngine {
         let v_tip = bounds.tip_t;
         let _v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, v_tip);
 
-                let ctx = crate::geometry::ZRingContext::new(&self.model, z_inches);
+        let ctx = crate::geometry::ZRingContext::new(&self.model, z_inches);
         let t_tuck = if let Some(b) = &ctx.blend {
             b.t_tuck
         } else {

@@ -19,16 +19,18 @@ mod tests {
         let outline = BezierCurveData {
             control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+                        tangents2: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             weights: None,
+            ..Default::default()
         };
         model.outline = Some(outline.clone());
 
         let wing_ext = BezierCurveData {
             control_points: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
             tangents1: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
-            tangents2: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
+                        tangents2: vec![Vec3::new(8.0, 0.0, 70.0), Vec3::new(8.0, 0.0, 80.0)],
             weights: None,
+            ..Default::default()
         };
 
         model.outline_layers = Some(vec![OutlineLayer {
@@ -219,7 +221,7 @@ pub fn compute_z_rings(
             all_z.push(tip_z);
         }
 
-                for &cz in &cliff_zs {
+        for &cz in &cliff_zs {
             if dirty.global_rebuild
                 || dirty
                     .dirty_z_ranges
@@ -310,8 +312,10 @@ pub fn compute_u_columns(
         }
     }
 
-        let prim_t_apex = find_apex_t(primary_cs);
-    let prim_t_tuck = primary_cs.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(prim_t_apex * 0.5));
+    let prim_t_apex = find_apex_t(primary_cs);
+    let prim_t_tuck = primary_cs
+        .tuck_ratio
+        .unwrap_or_else(|| 0.01_f32.max(prim_t_apex * 0.5));
     let prim_t_shoulder = prim_t_apex + (1.0 - prim_t_apex) * 0.5;
 
     for u in crate::bezier::adaptive_sample_t(primary_cs, tolerance_degrees_u, min_dist_u) {

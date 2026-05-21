@@ -74,11 +74,18 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
             if cs.control_points.is_empty() {
                 continue;
             }
-                        let slice_z = cs.control_points[0].z;
+            let slice_z = cs.control_points[0].z;
             let px = model.length / 2.0 - slice_z;
-            let apex_ratio = cs.apex_ratio.unwrap_or_else(|| crate::geometry::find_apex_t(cs));
-            let tuck_ratio = cs.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(apex_ratio * 0.5));
-            out.push_str(&format!("(p36 {:.6} {:.6} {:.6}\n", px, apex_ratio, tuck_ratio));
+            let apex_ratio = cs
+                .apex_ratio
+                .unwrap_or_else(|| crate::geometry::find_apex_t(cs));
+            let tuck_ratio = cs
+                .tuck_ratio
+                .unwrap_or_else(|| 0.01_f32.max(apex_ratio * 0.5));
+            out.push_str(&format!(
+                "(p36 {:.6} {:.6} {:.6}\n",
+                px, apex_ratio, tuck_ratio
+            ));
 
             for i in 0..cs.control_points.len() {
                 out.push_str(&format!(

@@ -826,8 +826,9 @@ mod tests {
         let mut curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 5.0, 0.0)],
-            tangents2: vec![Vec3::new(5.0, -5.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+                        tangents2: vec![Vec3::new(5.0, -5.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             weights: None,
+            ..Default::default()
         };
 
         let new_idx = insert_node(&mut curve, 0.5);

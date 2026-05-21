@@ -461,7 +461,7 @@ impl From<S3dxBoard> for BoardModel {
                                 .map(|p| p.z)
                                 .unwrap_or(bl / 2.0);
 
-                                                        depth_curve = BezierCurveData {
+                            depth_curve = BezierCurveData {
                                 control_points: vec![
                                     Vec3::new(0.0, depth_val, z_start),
                                     Vec3::new(0.0, depth_val, z_end),
@@ -499,7 +499,7 @@ impl From<S3dxBoard> for BoardModel {
                             left_depth: depth_curve.clone(),
                             right_depth: depth_curve.clone(),
                         });
-                                        } else {
+                    } else {
                         let is_active = calque.actif.unwrap_or(1) != 0;
                         outline_layers.push(crate::model::OutlineLayer {
                             name,
@@ -873,13 +873,13 @@ mod tests {
             "Last cross section should be near the tail (positive Z)"
         );
 
-                let weights_opt = model.cross_sections[0].weights.as_ref();
+        let weights_opt = model.cross_sections[0].weights.as_ref();
         assert!(
             weights_opt.is_none() || weights_opt.unwrap()[0] == 1.0,
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
         );
 
-                assert!(
+        assert!(
             model.v_concave_tail.abs() > 0.0,
             "Rounded pin should have tail concave/vee extracted"
         );
@@ -1164,7 +1164,7 @@ mod tests {
                 inner_x
             );
 
-                        // BUG 2: Massive mesh cliffs (Tears)
+            // BUG 2: Massive mesh cliffs (Tears)
             // Note: This board has a physical wing (flyer) that drops ~3.6 inches.
             if let Some(last_x) = last_apex_x {
                 let diff = (profile.apex_x - last_x).abs();
@@ -1198,7 +1198,7 @@ mod tests {
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
 
-                // BUG 1: Tail Cap Normals (Slerped instead of Flat)
+        // BUG 1: Tail Cap Normals (Slerped instead of Flat)
         let tail_z = bounds.tip_z * scale;
         let mut flat_cap_found = false;
         for i in 0..(mesh.vertices.len() / 3) {
@@ -1248,7 +1248,7 @@ mod tests {
             }
         }
 
-                        // Evaluate outline at the exact Z of the mesh ring
+        // Evaluate outline at the exact Z of the mesh ring
         let outline_x =
             crate::geometry::evaluate_composite_outline_at_z(&model, best_z / scale, 0.5).x * scale;
 
