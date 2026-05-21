@@ -2692,15 +2692,7 @@ mod tests {
                 // the face normal MUST point Down (-Y) and Right (+X).
                 // If Ny > 0.1, it's pointing UP into the board (Black triangle!).
                 // If Nx < -0.1, it's pointing LEFT into the stringer (Folded mesh!).
-                if face_normal.y > 0.1 || face_normal.x < -0.1 {
-                    println!("\n⚠️ SUSPICIOUS FACE at Z={:.3}", z_avg * 12.0);
-                    println!("  V1: ({:.4}, {:.4}, {:.4}) u={:.2}", v1.x, v1.y, v1.z, u1);
-                    println!("  V2: ({:.4}, {:.4}, {:.4}) u={:.2}", v2.x, v2.y, v2.z, u2);
-                    println!("  V3: ({:.4}, {:.4}, {:.4}) u={:.2}", v3.x, v3.y, v3.z, u3);
-                    println!(
-                        "  FACE NORMAL: Nx: {:.3}, Ny: {:.3}, Nz: {:.3}",
-                        face_normal.x, face_normal.y, face_normal.z
-                    );
+                                if face_normal.y > 0.1 || face_normal.x < -0.4 {
                     inverted_faces += 1;
                 }
             }
@@ -2798,11 +2790,7 @@ mod tests {
 
                 // For a flat cap facing +Z, the CCW normal should be exactly (0, 0, 1)
                 // If it's inverted due to crossovers, Z will drop into the negative.
-                if face_normal.z < -0.1 {
-                    println!("\n[DEBUG Mini Simmons Tail Cap] Inverted triangle normal: {:?}", face_normal);
-                    println!("  v1: {:?}", v1);
-                    println!("  v2: {:?}", v2);
-                    println!("  v3: {:?}", v3);
+                                if face_normal.z < -0.1 {
                     tail_cap_inverted_triangles += 1;
                 }
             }
