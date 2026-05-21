@@ -829,7 +829,7 @@ mod tests {
                 let outline = model.outline.as_ref().unwrap();
         assert!(outline.control_points.len() > 2);
 
-        assert!(model.v_concave_tail >= 0.0);
+                assert!(model.v_concave_tail > 0.0, "Mini Simmons should have tail concave extracted");
         assert!(model.v_concave_nose >= 0.0);
 
         let bounds = crate::geometry::get_board_bounds(&model);

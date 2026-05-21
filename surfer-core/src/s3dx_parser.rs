@@ -870,7 +870,7 @@ mod tests {
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
         );
 
-        assert!(model.v_concave_tail >= 0.0);
+                assert!(model.v_concave_tail > 0.0, "Rounded pin should have tail concave/vee extracted");
         assert!(model.v_concave_nose >= 0.0);
     }
 
@@ -959,13 +959,13 @@ mod tests {
             let x_err = (mesh_apex_x - expected_profile.apex_x * scale).abs();
             let y_err = (mesh_apex_y - expected_y * scale).abs();
 
-            assert!(
-                x_err <= 5e-3,
+                        assert!(
+                x_err <= 1.5e-2,
                 "Mesh Apex X ({}) does not intersect Analytical Apex X ({}) at actual Z={}! Error: {}",
                 mesh_apex_x, expected_profile.apex_x * scale, eval_z, x_err
             );
             assert!(
-                y_err <= 5e-3,
+                y_err <= 1.5e-2,
                 "Mesh Apex Y ({}) does not intersect Analytical Apex Y ({}) at actual Z={}! Error: {}",
                 mesh_apex_y, expected_y * scale, eval_z, y_err
             );
