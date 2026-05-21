@@ -361,27 +361,35 @@ pub fn generate_cap(
                     vertices[d as usize * 3 + 2],
                 );
 
-                if is_nose {
-                    if (pt_d - pt_a).cross(pt_b - pt_a).length() > 1e-9 {
-                        indices.push(a);
-                        indices.push(d);
-                        indices.push(b);
-                    }
-                    if (pt_c - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
-                        indices.push(a);
-                        indices.push(c);
-                        indices.push(d);
-                    }
+                                let cap_dir = if is_nose {
+                    Vec3::new(0.0, 0.0, -1.0)
                 } else {
-                    if (pt_b - pt_a).cross(pt_d - pt_a).length() > 1e-9 {
+                    Vec3::new(0.0, 0.0, 1.0)
+                };
+
+                let cross_abd = (pt_b - pt_a).cross(pt_d - pt_a);
+                if cross_abd.length_squared() > 1e-16 {
+                    if cross_abd.dot(cap_dir) > 0.0 {
                         indices.push(a);
                         indices.push(b);
                         indices.push(d);
+                    } else {
+                        indices.push(a);
+                        indices.push(d);
+                        indices.push(b);
                     }
-                    if (pt_d - pt_a).cross(pt_c - pt_a).length() > 1e-9 {
+                }
+
+                let cross_adc = (pt_d - pt_a).cross(pt_c - pt_a);
+                if cross_adc.length_squared() > 1e-16 {
+                    if cross_adc.dot(cap_dir) > 0.0 {
                         indices.push(a);
                         indices.push(d);
                         indices.push(c);
+                    } else {
+                        indices.push(a);
+                        indices.push(c);
+                        indices.push(d);
                     }
                 }
             }
