@@ -1207,16 +1207,7 @@ mod tests {
                 }
             }
         }
-        if !flat_cap_found {
-            println!("\n[DEBUG TomoLike] Flat cap not found! Nose Z = {}", nose_z);
-            for i in 0..(mesh.vertices.len() / 3) {
-                let z = mesh.vertices[i * 3 + 2];
-                if (z - nose_z).abs() < 1e-4 {
-                    println!("[DEBUG TomoLike] Normal at nose cap vertex: ({:.3}, {:.3}, {:.3})", mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]);
-                }
-            }
-        }
-        assert!(
+                assert!(
             flat_cap_found,
             "BUG: TomoLike blunt nose cap is missing its flat (-Z) normals! It might have been slerped."
         );
@@ -1249,11 +1240,9 @@ mod tests {
             }
         }
 
-                // Evaluate outline at the exact Z of the mesh ring
+                        // Evaluate outline at the exact Z of the mesh ring
         let outline_x =
             crate::geometry::evaluate_composite_outline_at_z(&model, best_z / scale, 0.5).x * scale;
-
-        println!("\n[DEBUG TomoLike Midpoint] mesh_max_x: {:.5}, outline_x: {:.5}, diff: {:.5}", max_x_at_mid, outline_x, (max_x_at_mid - outline_x).abs());
 
         assert!(
             (max_x_at_mid - outline_x).abs() < 5e-3,
