@@ -2789,7 +2789,7 @@ mod tests {
                 mesh.vertices[i3 * 3 + 2],
             );
 
-            // Filter for tail cap triangles (Z is approximately tail_z)
+                        // Filter for tail cap triangles (Z is approximately tail_z)
             if (v1.z - tail_z).abs() < 1e-3
                 && (v2.z - tail_z).abs() < 1e-3
                 && (v3.z - tail_z).abs() < 1e-3
@@ -2799,6 +2799,10 @@ mod tests {
                 // For a flat cap facing +Z, the CCW normal should be exactly (0, 0, 1)
                 // If it's inverted due to crossovers, Z will drop into the negative.
                 if face_normal.z < -0.1 {
+                    println!("\n[DEBUG Mini Simmons Tail Cap] Inverted triangle normal: {:?}", face_normal);
+                    println!("  v1: {:?}", v1);
+                    println!("  v2: {:?}", v2);
+                    println!("  v3: {:?}", v3);
                     tail_cap_inverted_triangles += 1;
                 }
             }

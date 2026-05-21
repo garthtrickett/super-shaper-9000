@@ -742,7 +742,9 @@ mod tests {
 
         // The cap should be successfully stripped, meaning the outline safely stops
         // at the squash corner (~37.4) while the rocker continues to the stringer tip (~38.0)
-        let top_diff = (outline_tail_z - rtop_tail_z).abs();
+                let top_diff = (outline_tail_z - rtop_tail_z).abs();
+
+        println!("\n[DEBUG Bump Squash] outline_tail_z: {:.3}, rtop_tail_z: {:.3}, diff: {:.3}", outline_tail_z, rtop_tail_z, top_diff);
 
         assert!(
             top_diff > 0.4 && top_diff < 0.7,
