@@ -530,38 +530,41 @@ fn extract_concave_from_slices(slices: &[BezierCurveData], target_z: f32) -> f32
 pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
     log::info!("[Rust Engine] parse_brd: Beginning BRD parsing pipeline");
 
-    // 1. Is it an AkuShaper proprietary encrypted format?
-    if bytes.starts_with(b"%BRD") {
+    let mut model = if bytes.starts_with(b"%BRD") {
         log::info!(
             "[Rust Engine] Detected AkuShaper encrypted format. Beginning PKCS#5 decryption..."
         );
         let decrypted_text = decrypt_aku_shaper(bytes)?;
         log::debug!("[Rust Engine] AkuShaper decrypted successfully.");
-        return parse_aku_shaper(&decrypted_text);
-    }
+        parse_aku_shaper(&decrypted_text)?
+    } else {
+        // 2. Otherwise, fall back to BoardCAD ZLIB/XML format
+        let xml = decompress_brd(bytes)?;
+        let start_idx = xml.find('<').unwrap_or(0);
+        let xml_slice = &xml[start_idx..];
+        let sanitized = xml_slice
+            .replace("<Ref. point>", "<Ref_point>")
+            .replace("</Ref. point>", "</Ref_point>");
 
-    // 2. Otherwise, fall back to BoardCAD ZLIB/XML format
-    let xml = decompress_brd(bytes)?;
-    let start_idx = xml.find('<').unwrap_or(0);
-    let xml_slice = &xml[start_idx..];
-    let sanitized = xml_slice
-        .replace("<Ref. point>", "<Ref_point>")
-        .replace("</Ref. point>", "</Ref_point>");
+        let brd: BrdBoard =
+            quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
 
-    let brd: BrdBoard =
-        quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
+        let mut m = BoardModel::default();
+        let bl = brd.length.unwrap_or(0.0);
+        let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
 
-    let mut model = BoardModel::default();
-    let bl = brd.length.unwrap_or(0.0);
-    let scale = if bl > 130.0 { 1.0 / 2.54 } else { 1.0 };
+        m.length = bl * scale;
+        m.width = brd.width.unwrap_or(0.0) * scale;
+        m.thickness = brd.thickness.unwrap_or(0.0) * scale;
 
-    model.length = bl * scale;
-    model.width = brd.width.unwrap_or(0.0) * scale;
-    model.thickness = brd.thickness.unwrap_or(0.0) * scale;
+        m.outline = convert_brd_curve(&brd.outline, bl, scale, false, true);
+        m.rocker_bottom = convert_brd_curve(&brd.bottom, bl, scale, true, true);
+        m.rocker_top = convert_brd_curve(&brd.deck, bl, scale, true, true);
 
-    model.outline = convert_brd_curve(&brd.outline, bl, scale, false, true);
-    model.rocker_bottom = convert_brd_curve(&brd.bottom, bl, scale, true, true);
-    model.rocker_top = convert_brd_curve(&brd.deck, bl, scale, true, true);
+        m
+    };
+
+    crate::geometry::sanitize_imported_model(&mut model);
 
     Ok(model)
 }
