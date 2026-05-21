@@ -1151,9 +1151,10 @@ export class BoardViewport extends LitElement {
                                   <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleLineMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
                                   ${c.key === 'crossSections' && this.maximizedView === 'top' ? html`<div></div>` : html`
                                     <input type="checkbox" .checked=${(this.gizmoMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleGizmoMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
-                                  `}
+                                                                    `}
                                 </div>
-                              `);
+                                `)}
+                              `;
                             })()}
                           </div>
 
