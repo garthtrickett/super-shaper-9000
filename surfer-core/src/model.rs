@@ -161,7 +161,17 @@ impl approx::AbsDiffEq for BezierCurveData {
                     }
                 }
             }
-            (None, None) => {}
+                        (None, None) => {}
+            _ => return false,
+        }
+        match (self.apex_ratio, other.apex_ratio) {
+            (Some(a), Some(b)) => if (a - b).abs() > epsilon { return false; },
+            (None, None) => {},
+            _ => return false,
+        }
+        match (self.tuck_ratio, other.tuck_ratio) {
+            (Some(a), Some(b)) => if (a - b).abs() > epsilon { return false; },
+            (None, None) => {},
             _ => return false,
         }
         true
@@ -493,8 +503,12 @@ pub struct BezierCurveData {
     pub tangents1: Vec<Vec3>,
     #[serde(with = "serde_vec3_as_array")]
     pub tangents2: Vec<Vec3>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weights: Option<Vec<f32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub apex_ratio: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tuck_ratio: Option<f32>,
 }
 
 #[derive(Debug, Clone, Default)]

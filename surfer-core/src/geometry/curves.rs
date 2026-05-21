@@ -321,6 +321,10 @@ pub fn evaluate_notch_inner_x(curve: &BezierCurveData, tip_t: f32, target_z: f32
 }
 
 pub fn find_apex_t(curve: &BezierCurveData) -> f32 {
+    if let Some(ar) = curve.apex_ratio {
+        return ar;
+    }
+
     let mut is_flat = true;
     for i in 0..curve.control_points.len() {
         if curve.control_points[i].x.abs() > 0.000001 {
@@ -405,6 +409,7 @@ pub fn compute_centripetal_tangents(
 
 pub struct BlendResult<'a> {
     pub t_apex: f32,
+    pub t_tuck: f32,
     pub s_prev: &'a BezierCurveData,
     pub s0: &'a BezierCurveData,
     pub s1: &'a BezierCurveData,
@@ -539,10 +544,15 @@ pub fn get_cross_section_blend_at_z<'a>(
     let t_apex0 = find_apex_t(s0);
     let t_apex1 = find_apex_t(s1);
     // Apex parameter interpolation remains strictly linear
-    let t_apex = (t_apex0 + (t_apex1 - t_apex0) * lerp_factor).clamp(0.0, 1.0);
+        let t_apex = (t_apex0 + (t_apex1 - t_apex0) * lerp_factor).clamp(0.0, 1.0);
+
+    let t_tuck0 = s0.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex0 * 0.5));
+    let t_tuck1 = s1.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex1 * 0.5));
+    let t_tuck = (t_tuck0 + (t_tuck1 - t_tuck0) * lerp_factor).clamp(0.0, 1.0);
 
     Some(BlendResult {
         t_apex,
+        t_tuck,
         s_prev,
         s0,
         s1,

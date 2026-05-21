@@ -14,6 +14,8 @@ export const BezierCurveSchema = S.Struct({
   tangents1: S.Array(Point3DSchema),
   tangents2: S.Array(Point3DSchema),
   weights: S.optional(S.Array(S.Number)),
+  apexRatio: S.optional(S.Number),
+  tuckRatio: S.optional(S.Number),
 });
 
 export const ChannelLayerSchema = S.Struct({
@@ -90,6 +92,8 @@ export interface BezierCurveData {
   tangents1: Point3D[];
   tangents2: Point3D[];
   weights?: number[];
+  apexRatio?: number;
+  tuckRatio?: number;
 }
 
 export interface ChannelLayer {

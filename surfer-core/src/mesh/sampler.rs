@@ -310,8 +310,8 @@ pub fn compute_u_columns(
         }
     }
 
-    let prim_t_apex = find_apex_t(primary_cs);
-    let prim_t_tuck = 0.01_f32.max(prim_t_apex * 0.5);
+        let prim_t_apex = find_apex_t(primary_cs);
+    let prim_t_tuck = primary_cs.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(prim_t_apex * 0.5));
     let prim_t_shoulder = prim_t_apex + (1.0 - prim_t_apex) * 0.5;
 
     for u in crate::bezier::adaptive_sample_t(primary_cs, tolerance_degrees_u, min_dist_u) {

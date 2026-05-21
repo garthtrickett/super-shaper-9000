@@ -130,10 +130,10 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let mut tuck_y = rail_base_y;
     let mut shoulder_y = rail_base_y + (top_y - rail_base_y) * 0.8;
 
-    if let Some(b) = &blend {
+        if let Some(b) = &blend {
         let p_bot = b.evaluate(0.0);
         let p_top = b.evaluate(1.0);
-        let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+        let t_tuck = b.t_tuck;
         let p_tuck = b.evaluate(t_tuck);
         let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
         let p_shoulder = b.evaluate(t_shoulder);
@@ -165,11 +165,11 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             has_rail_outline = true;
         }
     }
-    if !has_rail_outline {
+        if !has_rail_outline {
         if let Some(b) = &blend {
             let p_bot = b.evaluate(0.0);
             let p_apex = b.evaluate(b.t_apex);
-            let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+            let t_tuck = b.t_tuck;
             let p_tuck = b.evaluate(t_tuck);
             let slice_width = p_apex.x - p_bot.x;
             if slice_width.abs() > 1e-5 {

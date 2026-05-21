@@ -386,11 +386,16 @@ fn parse_aku_slices(
         if line.starts_with("(p36") || line.starts_with("p36") {
             let clean = line.replace(['(', ')'], "");
             let parts: Vec<&str> = clean.split([' ', '\t']).filter(|s| !s.is_empty()).collect();
-            if parts.len() >= 2 {
+                        if parts.len() >= 2 {
                 let px = parts[1].parse::<f32>().unwrap_or(0.0);
                 let slice_z = (board_length / 2.0 - px) * scale;
+                
+                let apex_ratio = if parts.len() >= 3 { parts[2].parse::<f32>().ok() } else { None };
+                let tuck_ratio = if parts.len() >= 4 { parts[3].parse::<f32>().ok() } else { None };
 
-                if let Some(curve) = parse_aku_slice_curve(lines, slice_z, scale) {
+                if let Some(mut curve) = parse_aku_slice_curve(lines, slice_z, scale) {
+                    curve.apex_ratio = apex_ratio;
+                    curve.tuck_ratio = tuck_ratio;
                     slices.push(curve);
                 }
             }

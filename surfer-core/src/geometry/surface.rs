@@ -5,11 +5,11 @@ use glam::Vec3;
 pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Vec3) -> Vec3 {
     let ctx = crate::geometry::ZRingContext::new(model, z);
 
-    let blend = match ctx.blend.as_ref() {
+        let blend = match ctx.blend.as_ref() {
         Some(b) => b,
         None => return local_pt,
     };
-    let t_tuck = 0.01_f32.max(blend.t_apex * 0.5);
+    let t_tuck = blend.t_tuck;
     let t_shoulder = blend.t_apex + (1.0 - blend.t_apex) * 0.5;
 
     let p_bot = blend.evaluate(0.0);
@@ -210,8 +210,8 @@ impl<'a> ZRingContext<'a> {
             let py = profile.bot_y + (profile.top_y - profile.bot_y) * u;
             return Vec3::new(profile.half_width, py, self.z_inches);
         }
-        let b = blend.unwrap();
-        let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
+                let b = blend.unwrap();
+        let t_tuck = b.t_tuck;
         let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
 
         let p = b.evaluate(u);
