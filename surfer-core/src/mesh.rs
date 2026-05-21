@@ -192,11 +192,17 @@ pub fn generate_lines_for_view(
         push_line_grad(line_vertices, line_colors, scale, p0, p1, color, color);
     }
 
-    fn bake_light(color: Vec3, normal: Vec3) -> Vec3 {
-        let light_dir = Vec3::new(1.0, 2.0, 3.0).normalize();
-        let ambient = 0.5;
-        let diffuse = 0.5 * normal.dot(light_dir).max(0.0);
-        color * (ambient + diffuse)
+        fn bake_light(color: Vec3, normal: Vec3) -> Vec3 {
+        let key_dir = Vec3::new(5.0, 5.0, 10.0).normalize();
+        let fill_dir = Vec3::new(-5.0, -5.0, 10.0).normalize();
+        let rim_dir = Vec3::new(0.0, 0.0, -10.0).normalize();
+
+        let ambient = 0.2;
+        let key = 0.6 * normal.dot(key_dir).max(0.0);
+        let fill = 0.3 * normal.dot(fill_dir).max(0.0);
+        let rim = 0.2 * normal.dot(rim_dir).max(0.0);
+
+        color * (ambient + key + fill + rim)
     }
 
     fn push_cube(

@@ -1421,22 +1421,30 @@ pub async fn create_wgpu_renderer(
                 let normal = normalize(in.normal);
                 let view_dir = normalize(camera.camera_pos.xyz - in.world_pos);
 
-                if (show_zebra) {
+                                if (show_zebra) {
                     let reflection = reflect(-view_dir, normal);
                     let stripe = fract(reflection.y * 10.0);
                     let intensity = smoothstep(0.4, 0.6, stripe);
                     return vec4<f32>(vec3<f32>(intensity), 1.0);
-                } else if (show_heatmap) {
-                    let light_dir = normalize(vec3<f32>(1.0, 2.0, 3.0));
-                    let ambient = 0.3;
-                    let diffuse = max(dot(normal, light_dir), 0.0) * 0.7;
-                    return vec4<f32>(in.color * (ambient + diffuse), 1.0);
                 } else {
-                    let light_dir = normalize(vec3<f32>(1.0, 2.0, 3.0));
-                    let ambient = 0.5;
-                    let diffuse = max(dot(normal, light_dir), 0.0) * 0.5;
-                    let base_color = vec3<f32>(0.9, 0.9, 0.9);
-                    return vec4<f32>(base_color * (ambient + diffuse), 1.0);
+                    // Three-Point Studio Lighting Setup
+                    let key_dir = normalize(vec3<f32>(5.0, 5.0, 10.0));
+                    let fill_dir = normalize(vec3<f32>(-5.0, -5.0, 10.0));
+                    let rim_dir = normalize(vec3<f32>(0.0, 0.0, -10.0));
+
+                    let ambient = 0.2;
+                    let key = max(dot(normal, key_dir), 0.0) * 0.6;
+                    let fill = max(dot(normal, fill_dir), 0.0) * 0.3;
+                    let rim = max(dot(normal, rim_dir), 0.0) * 0.2;
+                    
+                    let total_light = ambient + key + fill + rim;
+
+                    if (show_heatmap) {
+                        return vec4<f32>(in.color * total_light, 1.0);
+                    } else {
+                        let base_color = vec3<f32>(0.9, 0.9, 0.9);
+                        return vec4<f32>(base_color * total_light, 1.0);
+                    }
                 }
             }
         "#;
