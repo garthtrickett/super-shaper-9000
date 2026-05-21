@@ -867,18 +867,13 @@ export class BoardViewport extends LitElement {
                 <button @click=${() => this.toggleSettings(id)} class="text-zinc-500 hover:text-white">&times;</button>
               </div>
               
-              ${id === 'perspective' ? html`
+                            ${id === 'perspective' ? html`
               <label class="flex items-center justify-between cursor-pointer group mb-2">
                 <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                 <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
               </label>
-              
-                            <label class="flex items-center justify-between cursor-pointer group mb-2">
-                <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showTopography ? 'text-emerald-400' : 'text-zinc-500'}">Topographic Map</span>
-                <input type="checkbox" .checked=${this.boardState?.showTopography ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showTopography', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
-              </label>
 
-                                          <label class="flex items-center justify-between cursor-pointer group mb-2">
+                            <label class="flex items-center justify-between cursor-pointer group mb-2">
                               <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showTopography ? 'text-emerald-400' : 'text-zinc-500'}">Topographic Map</span>
                               <input type="checkbox" .checked=${this.boardState?.showTopography ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showTopography', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
                             </label>
@@ -1042,10 +1037,15 @@ export class BoardViewport extends LitElement {
                             <button @click=${() => this.toggleSettings(this.maximizedView!)} class="text-zinc-500 hover:text-white">&times;</button>
                           </div>
                           
-                          ${this.maximizedView === 'perspective' ? html`
+                                                    ${this.maximizedView === 'perspective' ? html`
                             <label class="flex items-center justify-between cursor-pointer group mb-2">
                               <span class="text-[10px] font-bold uppercase tracking-widest ${this.showSolidMesh ? 'text-zinc-200' : 'text-zinc-500'}">Solid Mesh</span>
                               <input type="checkbox" .checked=${this.showSolidMesh} @change=${() => this.toggleSolidMesh()} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
+                            </label>
+
+                            <label class="flex items-center justify-between cursor-pointer group mb-2">
+                              <span class="text-[10px] font-bold uppercase tracking-widest ${this.boardState?.showTopography ? 'text-emerald-400' : 'text-zinc-500'}">Topographic Map</span>
+                              <input type="checkbox" .checked=${this.boardState?.showTopography ?? false} @change=${(e: Event) => this.dispatchEvent(new CustomEvent('boolean-changed', { detail: { param: 'showTopography', value: (e.target as HTMLInputElement).checked }, bubbles: true, composed: true }))} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer" />
                             </label>
                             
                             <label class="flex items-center justify-between cursor-pointer group mb-2">
