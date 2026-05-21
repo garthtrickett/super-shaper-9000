@@ -959,11 +959,76 @@ mod tests {
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
         );
 
-        assert!(
+                assert!(
             model.v_concave_tail.abs() > 0.0,
             "Rounded pin should have tail concave/vee extracted"
         );
         assert!(model.v_concave_nose.abs() >= 0.0);
+    }
+
+    #[test]
+    fn test_s3dx_deck_computed_from_thickness() {
+        let xml = r#"<?xml version="1.0" encoding="iso-8859-1"?>
+<Shape3d_design>
+<Board>
+    <Length>100.0</Length>
+    <Width>10.0</Width>
+    <Thickness>10.0</Thickness>
+    <DeckComputed>1</DeckComputed>
+    <Number_of_slices>0</Number_of_slices>
+    <Otl>
+        <Bezier3d>
+            <Plan>1</Plan>
+            <Control_points>
+                <Polygone3d>
+                    <Point3d><x>0.0</x><y>5.0</y><z>0.0</z></Point3d>
+                    <Point3d><x>100.0</x><y>5.0</y><z>0.0</z></Point3d>
+                </Polygone3d>
+            </Control_points>
+        </Bezier3d>
+    </Otl>
+    <StrBot>
+        <Bezier3d>
+            <Plan>2</Plan>
+            <Control_points>
+                <Polygone3d>
+                    <Point3d><x>0.0</x><y>0.0</y><z>0.0</z></Point3d>
+                    <Point3d><x>100.0</x><y>0.0</y><z>0.0</z></Point3d>
+                </Polygone3d>
+            </Control_points>
+        </Bezier3d>
+    </StrBot>
+    <Thickness>
+        <Bezier3d>
+            <Plan>2</Plan>
+            <Control_points>
+                <Polygone3d>
+                    <Point3d><x>0.0</x><y>0.0</y><z>5.0</z></Point3d>
+                    <Point3d><x>100.0</x><y>0.0</y><z>5.0</z></Point3d>
+                </Polygone3d>
+            </Control_points>
+        </Bezier3d>
+    </Thickness>
+</Board>
+</Shape3d_design>"#;
+
+        let model = parse_s3dx(xml).expect("Failed to parse S3DX with relative thickness");
+
+        // Verify basic properties
+        assert_relative_eq!(model.length, 100.0);
+        assert_relative_eq!(model.width, 10.0);
+        assert_relative_eq!(model.thickness, 10.0);
+
+        // Verify top rocker is successfully computed and synthesized
+        assert!(model.rocker_top.is_some(), "Rocker top must be synthesized");
+        let rocker_top = model.rocker_top.unwrap();
+
+        // 50 steps = 51 control points
+        assert_eq!(rocker_top.control_points.len(), 51, "Should have been synthesized as a dense polyline of 51 points");
+
+        // Evaluate at the midpoint (Z=0.0)
+        let mid_p = crate::geometry::evaluate_bezier_at_z(&rocker_top, 0.0, 0.5);
+        assert_relative_eq!(mid_p.y, 5.0, epsilon = 1e-4);
     }
 
     #[test]
