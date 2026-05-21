@@ -580,7 +580,7 @@ export class BoardBuilderPage extends LitElement {
                   this.mathEngine.set_active_profile_slice(e.detail.slice);
               }
           }}
-          @set-hover-z=${(e: CustomEvent<{z?: number}>) => {
+                    @set-hover-z=${(e: CustomEvent<{z?: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_HOVER_Z", z: e.detail.z });
@@ -588,6 +588,18 @@ export class BoardBuilderPage extends LitElement {
               if (this.mathEngine) {
                   type EngineExt = WasmEngine & { set_hover_z(z?: number): void };
                   (this.mathEngine as unknown as EngineExt).set_hover_z(e.detail.z);
+              }
+          }}
+          @flip-camera=${() => {
+              const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+              if (worker) {
+                  worker.postMessage({ type: "FLIP_CAMERA" });
+              }
+              if (this.mathEngine) {
+                  type EngineExt = WasmEngine & { flip_camera(): void };
+                  if ((this.mathEngine as unknown as EngineExt).flip_camera) {
+                      (this.mathEngine as unknown as EngineExt).flip_camera();
+                  }
               }
           }}
           @node-selected=${(e: CustomEvent<{ node: { curve: string, index: number, type: 'anchor'|'tangent1'|'tangent2' } | null }>) => {

@@ -158,10 +158,20 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msg.type === "SET_HOVER_Z") {
+        if (msg.type === "SET_HOVER_Z") {
         if (engine) {
             type EngineExt = WasmEngine & { set_hover_z(z?: number): void };
             (engine as unknown as EngineExt).set_hover_z(msg.z);
+        }
+        return;
+    }
+
+    if (msg.type === "FLIP_CAMERA") {
+        if (engine) {
+            type EngineExt = WasmEngine & { flip_camera(): void };
+            if ((engine as unknown as EngineExt).flip_camera) {
+                (engine as unknown as EngineExt).flip_camera();
+            }
         }
         return;
     }

@@ -618,6 +618,11 @@ impl WasmEngine {
         }
     }
 
+        #[wasm_bindgen]
+    pub fn flip_camera(&mut self) {
+        self.camera_ctrl.pitch = -self.camera_ctrl.pitch;
+    }
+
     #[wasm_bindgen]
     pub fn set_view_mode(&mut self, mode: &str) {
         self.view_mode = mode.to_string();
