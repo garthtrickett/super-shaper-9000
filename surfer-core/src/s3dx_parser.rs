@@ -1191,7 +1191,28 @@ mod tests {
         let bounds = crate::geometry::get_board_bounds(&model);
 
         // BUG 1: Nose Cap Normals (Slerped instead of Flat)
-                let nose_z = bounds.nose_z * scale;
+                        let nose_z = bounds.nose_z * scale;
+        println!("\n=== DIAGNOSTICS: test_tomolike_mesh_integrity ===");
+        println!("bounds.nose_z: {}", bounds.nose_z);
+        println!("nose_z (scaled): {}", nose_z);
+        
+        // Find and print all vertices at the nose
+        let mut nose_vertex_count = 0;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - nose_z).abs() < 1e-3 {
+                nose_vertex_count += 1;
+                if nose_vertex_count <= 15 { // print first few
+                    println!("Vertex {}: pos=({:.5}, {:.5}, {:.5}), normal=({:.5}, {:.5}, {:.5})", 
+                             i, x, y, z, mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]);
+                }
+            }
+        }
+        println!("Total vertices near nose: {}", nose_vertex_count);
+        println!("==================================================\n");
+
         let mut flat_cap_found = false;
         for i in 0..(mesh.vertices.len() / 3) {
             let z = mesh.vertices[i * 3 + 2];
