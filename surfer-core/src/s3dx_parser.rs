@@ -32,6 +32,10 @@ pub struct S3dxBoard {
     #[serde(rename = "SwallowDepth")]
     pub swallow_depth: Option<f32>,
 
+        #[serde(rename = "DeckComputed")]
+    pub deck_computed: Option<u32>,
+    #[serde(rename = "ThicknessCurve")]
+    pub thickness_curve: Option<S3dxCurveContainer>,
     #[serde(rename = "Otl")]
     pub otl: Option<S3dxCurveContainer>,
     #[serde(rename = "StrBot")]
@@ -270,6 +274,33 @@ fn convert_s3dx_couples(
     convert_s3dx_bezier3d(bezier3d, board_length, scale)
 }
 
+fn preprocess_xml_thickness(xml: &str) -> String {
+    let mut result = xml.to_string();
+    let mut search_start = 0;
+    while let Some(thick_idx) = result[search_start..].find("<Thickness>").map(|idx| search_start + idx) {
+        let after_thick = &result[thick_idx + "<Thickness>".len()..];
+        if let Some(non_ws_idx) = after_thick.find(|c: char| !c.is_whitespace()) {
+            if after_thick[non_ws_idx..].starts_with("<Bezier3d>") {
+                // This <Thickness> tag encloses a curve, rename it to prevent Serde conflict with the float scalar
+                result.replace_range(thick_idx..thick_idx + "<Thickness>".len(), "<ThicknessCurve>");
+                
+                // Find the matching closing tag after the enclosed Bezier3d
+                if let Some(bezier_close_idx) = result[thick_idx..].find("</Bezier3d>") {
+                    let abs_bezier_close_idx = thick_idx + bezier_close_idx;
+                    if let Some(thick_close_idx) = result[abs_bezier_close_idx..].find("</Thickness>") {
+                        let abs_thick_close_idx = abs_bezier_close_idx + thick_close_idx;
+                        result.replace_range(abs_thick_close_idx..abs_thick_close_idx + "</Thickness>".len(), "</ThicknessCurve>");
+                    }
+                }
+                search_start = thick_idx + "<ThicknessCurve>".len();
+                continue;
+            }
+        }
+        search_start = thick_idx + "<Thickness>".len();
+    }
+    result
+}
+
 pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
     // S3DX files often contain unescaped ampersands in text fields which breaks standard XML parsers.
     let mut sanitized = String::with_capacity(xml.len() + 100);
@@ -316,6 +347,9 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
                 .replace(&end_tag_calque, "</Calque>");
         }
     }
+
+    // Preprocess the XML to safely isolate the thickness Bezier curve from the float scalar
+    sanitized = preprocess_xml_thickness(&sanitized);
 
     let design: Shape3dDesign =
         quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
