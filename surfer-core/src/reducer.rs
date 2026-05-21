@@ -85,15 +85,42 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::ToggleOutlineLayer { .. }
         | BoardAction::AddBottomChannel
         | BoardAction::RemoveBottomChannel { .. }
-        | BoardAction::ToggleChannelSymmetry { .. }
-        | BoardAction::AddCrossSection { .. }) => fn handle_layer_toggles(
-    model: &mut BoardModel,
-    dirty: &mut DirtyState,
-    action: BoardAction,
-) -> Vec<Effect> {
-    dirty.global_rebuild = true;
-    match action {
-        BoardAction::AddOutlineLayer => {
+                | BoardAction::ToggleChannelSymmetry { .. }
+        | BoardAction::AddCrossSection { .. }) => handle_layer_toggles(model, dirty, act),
+        _ => Vec::new(),
+    }
+}
+
+pub fn push_history(model: &mut BoardModel) {
+    let snap = ManualSnapshot {
+        outline: model.outline.clone(),
+        outline_layers: model.outline_layers.clone(),
+        bottom_channels: model.bottom_channels.clone(),
+        rail_outline: model.rail_outline.clone(),
+        apex_outline: model.apex_outline.clone(),
+        rocker_top: model.rocker_top.clone(),
+        rocker_bottom: model.rocker_bottom.clone(),
+        apex_rocker: model.apex_rocker.clone(),
+        deck_shoulder: model.deck_shoulder.clone(),
+        cross_sections: model.cross_sections.clone(),
+    };
+
+    if model.history.is_none() {
+        model.history = Some(Vec::new());
+    }
+    
+    if let Some(history) = &mut model.history {
+        let mut idx = model.history_index.unwrap_or_else(|| history.len().saturating_sub(1));
+        history.truncate(idx + 1);
+        history.push(snap);
+        if history.len() > 50 {
+            history.remove(0);
+        }
+        model.history_index = Some(history.len() - 1);
+    }
+}
+
+/* REMOVED_DUPLICATE_BLOCK
             let mut layers = model.outline_layers.take().unwrap_or_default();
             layers.push(OutlineLayer {
                 name: format!("Layer {}", layers.len()),
@@ -290,12 +317,13 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
                 });
             }
 
-            push_history(model);
+                        push_history(model);
         }
         _ => {}
     }
     Vec::new()
 }
+*/
 
 fn handle_history(
     model: &mut BoardModel,
