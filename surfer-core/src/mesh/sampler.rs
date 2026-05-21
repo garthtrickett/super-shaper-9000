@@ -219,7 +219,7 @@ pub fn compute_z_rings(
             all_z.push(tip_z);
         }
 
-        for &cz in &cliff_zs {
+                for &cz in &cliff_zs {
             if dirty.global_rebuild
                 || dirty
                     .dirty_z_ranges
@@ -229,6 +229,21 @@ pub fn compute_z_rings(
                 all_z.push(cz - 1e-3);
                 all_z.push(cz);
                 all_z.push(cz + 1e-3);
+            }
+        }
+
+        // Inject baseline density of evenly spaced Z-rings to get smooth topographic contours
+        let baseline_steps = 120;
+        for i in 0..=baseline_steps {
+            let f = i as f32 / baseline_steps as f32;
+            let z = nose_z + (tip_z - nose_z) * f;
+            if dirty.global_rebuild
+                || dirty
+                    .dirty_z_ranges
+                    .iter()
+                    .any(|&(min_z, max_z)| z >= min_z && z <= max_z)
+            {
+                all_z.push(z);
             }
         }
     }
