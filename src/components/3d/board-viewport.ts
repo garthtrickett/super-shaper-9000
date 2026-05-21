@@ -222,9 +222,23 @@ export class BoardViewport extends LitElement {
       localStorage.setItem(`lineMask_${quad}`, next.toString());
   }
 
-  private toggleGizmoMask(quad: ViewportId, mask: number, checked: boolean) {
+    private toggleGizmoMask(quad: ViewportId, mask: number, checked: boolean) {
       const current = this.gizmoMasks[quad];
       const next = checked ? (current | mask) : (current & ~mask);
+      this.gizmoMasks = { ...this.gizmoMasks, [quad]: next };
+      this.dispatchEvent(new CustomEvent('set-masks', { detail: { quad, lineMask: this.lineMasks[quad], gizmoMask: next }, bubbles: true, composed: true }));
+      localStorage.setItem(`gizmoMask_${quad}`, next.toString());
+  }
+
+  private toggleAllLineMasks(quad: ViewportId, checked: boolean) {
+      const next = checked ? 0x1FF : 0;
+      this.lineMasks = { ...this.lineMasks, [quad]: next };
+      this.dispatchEvent(new CustomEvent('set-masks', { detail: { quad, lineMask: next, gizmoMask: this.gizmoMasks[quad] }, bubbles: true, composed: true }));
+      localStorage.setItem(`lineMask_${quad}`, next.toString());
+  }
+
+  private toggleAllGizmoMasks(quad: ViewportId, checked: boolean) {
+      const next = checked ? 0x1FF : 0;
       this.gizmoMasks = { ...this.gizmoMasks, [quad]: next };
       this.dispatchEvent(new CustomEvent('set-masks', { detail: { quad, lineMask: this.lineMasks[quad], gizmoMask: next }, bubbles: true, composed: true }));
       localStorage.setItem(`gizmoMask_${quad}`, next.toString());
@@ -901,7 +915,7 @@ export class BoardViewport extends LitElement {
               </div>
               ` : ''}
 
-              <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
+                            <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
                 <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1 mb-1">
                   <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Curve</span>
                   <span class="text-[10px] font-bold text-zinc-500 text-center" title="Visibility">
@@ -911,6 +925,16 @@ export class BoardViewport extends LitElement {
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
                   </span>
                 </div>
+                ${(() => {
+                  const fullMask = curvesForThisView.reduce((a,c)=>a|c.mask,0);
+                  return html`
+                  <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1 py-1 border-b border-zinc-800/50 mb-1">
+                    <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Toggle All</span>
+                    <input type="checkbox" .checked=${(this.lineMasks[id] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllLineMasks(id, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Curves" />
+                    <input type="checkbox" .checked=${(this.gizmoMasks[id] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllGizmoMasks(id, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Nodes" />
+                  </div>
+                  `;
+                })()}
                 ${curvesForThisView.map(c => html`
                 <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
                   <span class="text-[10px] font-bold uppercase tracking-widest ${ (this.lineMasks[id] & c.mask) !== 0 ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
@@ -1071,7 +1095,7 @@ export class BoardViewport extends LitElement {
                             </div>
                           ` : ''}
 
-                          <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
+                                                    <div class="flex flex-col gap-2 pt-2 border-t border-zinc-800 pb-2 border-b mb-2">
                             <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1 mb-1">
                               <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Curve</span>
                               <span class="text-[10px] font-bold text-zinc-500 text-center" title="Visibility">
@@ -1112,8 +1136,17 @@ export class BoardViewport extends LitElement {
                                       { label: "Layers & Channels", mask: 1 << 8, key: "extras" }
                                   ]
                               };
-                              return (CURVES_FOR_VIEW[this.maximizedView] || []).map(c => html`
-                                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
+                              const curvesForThisView = CURVES_FOR_VIEW[this.maximizedView!] || [];
+                              const fullMask = curvesForThisView.reduce((a,c)=>a|c.mask,0);
+
+                              return html`
+                                <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1 py-1 border-b border-zinc-800/50 mb-1">
+                                  <span class="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">Toggle All</span>
+                                  <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView!] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllLineMasks(this.maximizedView!, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Curves" />
+                                  <input type="checkbox" .checked=${(this.gizmoMasks[this.maximizedView!] & fullMask) === fullMask} @change=${(e: Event) => this.toggleAllGizmoMasks(this.maximizedView!, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-emerald-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" title="Toggle All Nodes" />
+                                </div>
+                                ${curvesForThisView.map(c => html`
+                                  <div class="grid grid-cols-[1fr_auto_auto] gap-3 items-center px-1">
                                   <span class="text-[10px] font-bold uppercase tracking-widest ${ (this.lineMasks[this.maximizedView!] & c.mask) !== 0 ? 'text-zinc-200' : 'text-zinc-500'}">${c.label}</span>
                                   <input type="checkbox" .checked=${(this.lineMasks[this.maximizedView!] & c.mask) !== 0} @change=${(e: Event) => this.toggleLineMask(this.maximizedView!, c.mask, (e.target as HTMLInputElement).checked)} class="w-3.5 h-3.5 accent-blue-500 bg-zinc-900 border-zinc-700 cursor-pointer justify-self-center" />
                                   ${c.key === 'crossSections' && this.maximizedView === 'top' ? html`<div></div>` : html`
