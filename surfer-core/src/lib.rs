@@ -545,7 +545,7 @@ mod tests {
                             max_angle_divergence = angle;
                         }
                     }
-                }join_normal_pairs
+                }
             }
         }
 

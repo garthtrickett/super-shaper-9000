@@ -471,7 +471,7 @@ impl From<S3dxBoard> for BoardModel {
                     let type_calque = calque.type_calque.unwrap_or(0);
                     let x_max = calque.x_max.unwrap_or(0.0);
 
-                    if type_calque == 8 || type_calque == 4 {
+                                        if type_calque == 8 {
                         log::info!(
                             "[S3DX Parser] Ignoring non-structural Calque (Type {}): {}",
                             type_calque,

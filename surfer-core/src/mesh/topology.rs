@@ -307,7 +307,7 @@ pub fn generate_cap(
                     center_y + (pos.y - center_y) * fraction
                 };
 
-                vertices.push(new_x);
+                                vertices.push(new_x);
                 vertices.push(new_y);
                 vertices.push(pos.z);
 
@@ -319,7 +319,20 @@ pub fn generate_cap(
                 colors.push(color.y);
                 colors.push(color.z);
 
-                let blended_normal = fallback_mid;
+                let hull_n_idx = (ring_start_idx + j) * 3;
+                let hull_normal = Vec3::new(
+                    normals[hull_n_idx],
+                    normals[hull_n_idx + 1],
+                    normals[hull_n_idx + 2],
+                );
+
+                let blended_normal = if step == 0 {
+                    hull_normal
+                } else {
+                    let f = step as f32 / num_x_steps as f32;
+                    crate::geometry::slerp_normals(hull_normal, fallback_mid, f, fallback_mid)
+                };
+
                 normals.push(blended_normal.x);
                 normals.push(blended_normal.y);
                 normals.push(blended_normal.z);
