@@ -1016,7 +1016,7 @@ mod tests {
         assert!(outline.control_points.len() > 2);
     }
 
-    #[test]
+        #[test]
     fn test_mini_simmons_brd_import() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1055,5 +1055,105 @@ mod tests {
             profile.top_y,
             profile.bot_y
         );
+    }
+
+    #[test]
+    fn test_brd_mesh_width_vs_outline() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let mut model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        // Emulate the frontend's behavior of preserving the active cross section
+        let basic_cs = crate::model::BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(6.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.0, 0.0),
+                Vec3::new(6.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(4.0, -1.25, 0.0),
+                Vec3::new(9.375, -0.5, 0.0),
+                Vec3::new(8.0, 1.25, 0.0),
+                Vec3::new(2.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(2.0, -1.25, 0.0),
+                Vec3::new(8.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.5, 0.0),
+                Vec3::new(4.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            ..Default::default()
+        };
+        model.cross_sections = vec![basic_cs];
+
+        let mut engine = crate::SurferEngine::new();
+        engine.update(crate::model::BoardAction::LoadDesign {
+            state: Box::new(model.clone()),
+        });
+
+        let mesh = engine.compute_mesh();
+        let scale = 1.0 / 12.0;
+
+        println!("\n=== BRD MESH WIDTH VS OUTLINE DIAGNOSTIC ANALYSIS ===");
+        let bounds = crate::geometry::get_board_bounds(&model);
+        println!("Board bounds (inches): nose_z = {:.4}, tip_z = {:.4}", bounds.nose_z, bounds.tip_z);
+        println!("Board width (inches): model.width = {:.4}", model.width);
+
+        let mut failures = 0;
+        let steps = 10;
+        for i in 1..steps {
+            let f = i as f32 / steps as f32;
+            let z_inches = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * f;
+            let z_scaled = z_inches * scale;
+
+            // Evaluate the expected outline width analytically
+            let outline_pt = crate::geometry::evaluate_composite_outline_at_z(&model, z_inches, f);
+            let expected_x = outline_pt.x * scale; // Convert to feet to match mesh coords
+
+            // Search for the corresponding vertex in the generated mesh at this Z coordinate
+            let mut max_mesh_x = 0.0_f32;
+            let mut found_vertex = false;
+            for j in 0..(mesh.vertices.len() / 3) { 
+                let vx = mesh.vertices[j * 3];
+                let vz = mesh.vertices[j * 3 + 2];
+
+                if (vz - z_scaled).abs() < 1e-3 {
+                    if vx > max_mesh_x {
+                        max_mesh_x = vx;
+                        found_vertex = true;
+                    }
+                }
+            } 
+
+            if found_vertex {
+                let diff = expected_x - max_mesh_x;
+                let diff_inches = diff / scale;
+                println!(
+                    "Z = {:.2}\" (scaled: {:.4}): Outline X = {:.4} (\"{:?}), Mesh Max X = {:.4} (\"{:?}), Diff = {:.4} (\"{:?})",
+                    z_inches, z_scaled, expected_x, expected_x / scale, max_mesh_x, max_mesh_x / scale, diff, diff_inches
+                );
+                if diff > 1e-4 {
+                    failures += 1;
+                }
+            } else {
+                println!("Z = {:.2}\" (scaled: {:.4}): No corresponding vertex found in 3D mesh!", z_inches, z_scaled);
+            }
+        } 
+        println!("=====================================================\n");
+
+        assert_eq!(failures, 0, "Failed: Mesh is thinner than the analytical outline in {} sample points!", failures);
     }
 }

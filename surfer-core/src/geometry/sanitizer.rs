@@ -2,7 +2,7 @@ use crate::geometry::{get_board_bounds, RockerArcLengthTable};
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
-pub const BYPASS_CALIBRATION: bool = false; // Sandbox toggle to isolate parser vs. calibration bugs
+pub const BYPASS_CALIBRATION: bool = true; // Sandbox toggle to isolate parser vs. calibration bugs
 
 /// Calibrates the imported linear coordinates of the board by mapping curvilinear
 /// "tape-measure" distances back to flat Cartesian 3D Z-coordinates using the bottom rocker's arc length.
