@@ -562,8 +562,8 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
         m
     };
 
+        crate::geometry::sanitize_imported_model(&mut model);
     crate::geometry::calibrate_model_coordinates(&mut model);
-    crate::geometry::sanitize_imported_model(&mut model);
 
     Ok(model)
 }

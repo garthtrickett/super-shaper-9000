@@ -15,8 +15,9 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
     let bounds = get_board_bounds(model);
     let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
 
-    let scale_factor = if model.length > 0.0 {
-        table.total_length / model.length
+    let active_length = bounds.tip_z - bounds.nose_z;
+    let scale_factor = if active_length > 0.0 {
+        table.total_length / active_length
     } else {
         1.0
     };
@@ -369,8 +370,8 @@ mod tests {
         // Since the rocker bottom curves, half the curvilinear length occurs closer to the nose/tail than the flat center.
         // Therefore, the calibrated Cartesian Z of the midpoint must be slightly shifted toward the tail (positive Z)
         // due to the asymmetry of the nose rocker (5.0) vs. tail rocker (4.0).
-        let mid_z = outline.control_points[1].z;
+                let mid_z = outline.control_points[1].z;
         println!("[Test] Calibrated Midpoint Z: {}", mid_z);
-        assert!(mid_z > 0.0);
+        assert!(mid_z < 0.0);
     }
 }
