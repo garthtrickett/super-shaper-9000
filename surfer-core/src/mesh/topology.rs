@@ -111,7 +111,7 @@ pub fn generate_swallow_notch_wall(
             }
         }
 
-        for j in 0..=half {
+                for j in 0..=half {
             let hull_pos = get_pos(vertices, i, j);
             let color = get_col(colors, i, j);
             let (u, v_coord) = get_uv(uvs, i, j);
@@ -126,9 +126,26 @@ pub fn generate_swallow_notch_wall(
             colors.push(color.x);
             colors.push(color.y);
             colors.push(color.z);
-            normals.push(n_wall.x);
-            normals.push(n_wall.y);
-            normals.push(n_wall.z);
+
+            let hull_n_idx = (i * num_cols + j) * 3;
+            let hull_normal = Vec3::new(
+                normals[hull_n_idx],
+                normals[hull_n_idx + 1],
+                normals[hull_n_idx + 2],
+            );
+
+            let f = j as f32 / half as f32;
+            let blended_normal = if f < 0.5 {
+                let t = f * 2.0;
+                crate::geometry::slerp_normals(hull_normal, n_wall, t, n_wall)
+            } else {
+                let t = (f - 0.5) * 2.0;
+                crate::geometry::slerp_normals(n_wall, hull_normal, t, n_wall)
+            };
+
+            normals.push(blended_normal.x);
+            normals.push(blended_normal.y);
+            normals.push(blended_normal.z);
         }
     }
 
@@ -168,7 +185,7 @@ pub fn generate_swallow_notch_wall(
             }
         }
 
-        for j in (half + 1)..num_cols {
+                for j in (half + 1)..num_cols {
             let hull_pos = get_pos(vertices, i, j);
             let color = get_col(colors, i, j);
             let (u, v_coord) = get_uv(uvs, i, j);
@@ -183,9 +200,33 @@ pub fn generate_swallow_notch_wall(
             colors.push(color.x);
             colors.push(color.y);
             colors.push(color.z);
-            normals.push(n_wall.x);
-            normals.push(n_wall.y);
-            normals.push(n_wall.z);
+
+            let hull_n_idx = (i * num_cols + j) * 3;
+            let hull_normal = Vec3::new(
+                normals[hull_n_idx],
+                normals[hull_n_idx + 1],
+                normals[hull_n_idx + 2],
+            );
+
+            let num_left_steps = num_cols - 1 - (half + 1);
+            let step_idx = j - (half + 1);
+            let f = if num_left_steps > 0 {
+                step_idx as f32 / num_left_steps as f32
+            } else {
+                0.0
+            };
+
+            let blended_normal = if f < 0.5 {
+                let t = f * 2.0;
+                crate::geometry::slerp_normals(hull_normal, n_wall, t, n_wall)
+            } else {
+                let t = (f - 0.5) * 2.0;
+                crate::geometry::slerp_normals(n_wall, hull_normal, t, n_wall)
+            };
+
+            normals.push(blended_normal.x);
+            normals.push(blended_normal.y);
+            normals.push(blended_normal.z);
         }
     }
 
