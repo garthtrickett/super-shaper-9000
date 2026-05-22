@@ -56,8 +56,29 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
 
     let (outline_pt, mut outline_tangent) =
         evaluate_composite_outline_pos_and_tan_at_z(model, z_inches, hint_t);
-    let base_outline_pt = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), z_inches, hint_t);
-    let outline_delta = outline_pt.x - base_outline_pt.x;
+    
+    // Default base outline is the master outline
+    let mut base_outline_x = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), z_inches, hint_t).x;
+
+    // If an outline layer is active, the smooth uncut reference baseline is otl_ext
+    if let Some(layers) = &model.outline_layers {
+        for layer in layers {
+            if !layer.active || layer.otl_ext.control_points.is_empty() {
+                continue;
+            }
+            let min_z = layer.otl_ext.control_points.first().unwrap().z;
+            let max_z = layer.otl_ext.control_points.last().unwrap().z;
+            let z0 = min_z.min(max_z);
+            let z1 = min_z.max(max_z);
+
+            if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
+                let ext_pt = evaluate_bezier_at_z(&layer.otl_ext, z_inches, hint_t);
+                base_outline_x = ext_pt.x;
+            }
+        }
+    }
+
+    let outline_delta = outline_pt.x - base_outline_x;
 
     let blend = get_cross_section_blend_at_z(&model.cross_sections, z_inches);
 
