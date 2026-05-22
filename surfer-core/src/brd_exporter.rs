@@ -6,9 +6,7 @@ type DesCbcEnc = cbc::Encryptor<des::Des>;
 
 fn format_aku_curve(
     curve: &Option<BezierCurveData>,
-    board_length: f32,
     is_thickness: bool,
-    is_rocker_bottom: bool,
     table: &crate::geometry::RockerArcLengthTable,
     scale_factor: f32,
 ) -> String {
@@ -30,39 +28,27 @@ fn format_aku_curve(
 
         let mut out = String::new();
         for i in 0..pts.len() {
-            let px = if is_rocker_bottom {
-                board_length / 2.0 - pts[i].z
+            let s_from_tail = table.map_z_to_s(pts[i].z);
+            let px = if scale_factor > 0.0 {
+                (s_from_tail / scale_factor).max(0.0)
             } else {
-                let s_from_tail = table.map_z_to_s(pts[i].z);
-                if scale_factor > 0.0 {
-                    (s_from_tail / scale_factor).max(0.0)
-                } else {
-                    0.0
-                }
+                0.0
             };
             let py = if is_thickness { pts[i].y } else { pts[i].x };
 
-            let t1x = if is_rocker_bottom {
-                board_length / 2.0 - t1[i].z
+            let s_t1_from_tail = table.map_z_to_s(t1[i].z);
+            let t1x = if scale_factor > 0.0 {
+                (s_t1_from_tail / scale_factor).max(0.0)
             } else {
-                let s_t1_from_tail = table.map_z_to_s(t1[i].z);
-                if scale_factor > 0.0 {
-                    (s_t1_from_tail / scale_factor).max(0.0)
-                } else {
-                    0.0
-                }
+                0.0
             };
             let t1y = if is_thickness { t1[i].y } else { t1[i].x };
 
-            let t2x = if is_rocker_bottom {
-                board_length / 2.0 - t2[i].z
+            let s_t2_from_tail = table.map_z_to_s(t2[i].z);
+            let t2x = if scale_factor > 0.0 {
+                (s_t2_from_tail / scale_factor).max(0.0)
             } else {
-                let s_t2_from_tail = table.map_z_to_s(t2[i].z);
-                if scale_factor > 0.0 {
-                    (s_t2_from_tail / scale_factor).max(0.0)
-                } else {
-                    0.0
-                }
+                0.0
             };
             let t2y = if is_thickness { t2[i].y } else { t2[i].x };
 

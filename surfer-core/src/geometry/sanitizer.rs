@@ -41,11 +41,12 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
         }
     };
 
-    warp_curve(&mut model.outline);
+        warp_curve(&mut model.outline);
     warp_curve(&mut model.rail_outline);
     warp_curve(&mut model.apex_outline);
     warp_curve(&mut model.deck_shoulder);
     warp_curve(&mut model.rocker_top);
+    warp_curve(&mut model.rocker_bottom);
     warp_curve(&mut model.apex_rocker);
 
     if let Some(layers) = &mut model.outline_layers {
@@ -392,26 +393,27 @@ mod tests {
             ..Default::default()
         });
 
-        calibrate_model_coordinates(&mut model);
-
-        // Rocker bottom's Z coordinates must remain completely unchanged (stable reference spine)
-        let rocker_bottom = model.rocker_bottom.as_ref().unwrap();
-        assert_relative_eq!(rocker_bottom.control_points[0].z, -50.0, epsilon = 1e-4);
-        assert_relative_eq!(rocker_bottom.control_points[1].z, 0.0, epsilon = 1e-4);
-        assert_relative_eq!(rocker_bottom.control_points[2].z, 50.0, epsilon = 1e-4);
+                calibrate_model_coordinates(&mut model);
 
         // Nose and Tail boundaries must remain exactly at their Cartesian bounds
         let outline = model.outline.as_ref().unwrap();
         assert_relative_eq!(outline.control_points[0].z, -50.0, epsilon = 1e-4);
         assert_relative_eq!(outline.control_points[2].z, 50.0, epsilon = 1e-4);
 
+        let rocker_bottom = model.rocker_bottom.as_ref().unwrap();
+        assert_relative_eq!(rocker_bottom.control_points[0].z, -50.0, epsilon = 1e-4);
+        assert_relative_eq!(rocker_bottom.control_points[2].z, 50.0, epsilon = 1e-4);
+
         // The midpoint (Z_imported = 0.0, which means s_from_tail = 50.0, i.e., exactly half the board length)
         // Since the rocker bottom curves, half the curvilinear length occurs closer to the nose/tail than the flat center.
         // Therefore, the calibrated Cartesian Z of the midpoint must be slightly shifted toward the tail (positive Z)
         // due to the asymmetry of the nose rocker (5.0) vs. tail rocker (4.0).
-        let mid_z = outline.control_points[1].z;
+                let mid_z = outline.control_points[1].z;
         println!("[Test] Calibrated Midpoint Z: {}", mid_z);
         assert!(mid_z < 0.0);
+
+        let r_mid_z = rocker_bottom.control_points[1].z;
+        assert_relative_eq!(r_mid_z, mid_z, epsilon = 1e-4);
     }
 
     #[test]
