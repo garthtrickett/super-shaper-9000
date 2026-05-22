@@ -273,13 +273,14 @@ fn parse_aku_slice_curve(
                 .map(|s| s.trim().parse::<f32>().unwrap_or(0.0))
                 .collect();
 
-            if floats.len() >= 6 {
-                let px = floats[0] * scale;
-                let py = floats[1] * scale;
-                let t1x = floats[2] * scale;
-                let t1y = floats[3] * scale;
-                let t2x = floats[4] * scale;
-                let t2y = floats[5] * scale;
+                        if floats.len() >= 6 {
+                // Slices are always stored in inches in AkuShaper, so do not multiply by scale!
+                let px = floats[0];
+                let py = floats[1];
+                let t1x = floats[2];
+                let t1y = floats[3];
+                let t2x = floats[4];
+                let t2y = floats[5];
 
                 control_points.push(Vec3::new(px, py, slice_z));
                 tangents1.push(Vec3::new(t1x, t1y, slice_z));
@@ -318,8 +319,9 @@ fn parse_aku_slices(
             let clean = line.replace(['(', ')'], "");
             let parts: Vec<&str> = clean.split([' ', '\t']).filter(|s| !s.is_empty()).collect();
             if parts.len() >= 2 {
-                let px = parts[1].parse::<f32>().unwrap_or(0.0);
-                let slice_z = (board_length / 2.0 - px) * scale;
+                                let px = parts[1].parse::<f32>().unwrap_or(0.0);
+                // px represents distance from Nose, so Nose is px = 0 (negative Z) and Tail is px = board_length (positive Z)
+                let slice_z = (px - board_length / 2.0) * scale;
 
                 let apex_ratio = if parts.len() >= 3 {
                     parts[2].parse::<f32>().ok()
