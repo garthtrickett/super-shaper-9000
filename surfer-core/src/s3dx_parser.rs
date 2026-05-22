@@ -613,46 +613,9 @@ impl From<S3dxBoard> for BoardModel {
         let bounds_tip_z = bl / 2.0 * scale;
         let bounds_nose_z = -bl / 2.0 * scale;
 
-        if model.v_concave_tail.abs() < 1e-4 {
+                if model.v_concave_tail.abs() < 1e-4 {
             model.v_concave_tail =
-                fn extract_concave_from_slices(slices: &[BezierCurveData], target_z: f32) -> f32 {
-    let valid_slices: Vec<&BezierCurveData> = slices
-        .iter()
-        .filter(|cs| cs.control_points.len() > 1)
-        .collect();
-
-    if valid_slices.is_empty() {
-        return 0.0;
-    }
-
-    let mut closest_slice = valid_slices[0];
-    let mut min_dist = f32::INFINITY;
-
-    for cs in valid_slices {
-        if let Some(first_cp) = cs.control_points.first() {
-            let dist = (first_cp.z - target_z).abs();
-            if dist < min_dist {
-                min_dist = dist;
-                closest_slice = cs;
-            }
-        }
-    }
-
-    let t_apex = crate::geometry::find_apex_t(closest_slice);
-    let center_y = crate::geometry::evaluate_curve(closest_slice, 0.0).y;
-    let mut min_y = center_y;
-
-    let steps = 50;
-    for i in 0..=steps {
-        let t = i as f32 / steps as f32 * t_apex;
-        let p = crate::geometry::evaluate_curve(closest_slice, t);
-        if p.y < min_y {
-            min_y = p.y;
-        }
-    }
-
-    (center_y - min_y).max(0.0)
-}
+                extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
         }
         if model.v_concave_nose.abs() < 1e-4 {
             model.v_concave_nose =
