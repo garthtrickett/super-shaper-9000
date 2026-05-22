@@ -41,7 +41,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
         }
     };
 
-        warp_curve(&mut model.outline);
+    warp_curve(&mut model.outline);
     warp_curve(&mut model.rail_outline);
     warp_curve(&mut model.apex_outline);
     warp_curve(&mut model.deck_shoulder);
@@ -137,11 +137,23 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
                         w.remove(i);
                     }
                 }
-            } else {
+            } else { 
                 i += 1;
             }
         }
     }
+
+    let bounds = crate::geometry::get_board_bounds(model);
+
+    // Prune slices residing in the stripped nose/tail cap zones before calibration,
+    // preventing multiple boundary slices from stacking/collapsing at the same Z coordinate.
+    model.cross_sections.retain(|cs| {
+        if cs.control_points.is_empty() {
+            return false;
+        }
+        let z = cs.control_points[0].z;
+        z >= bounds.nose_z - 0.1 && z <= bounds.tip_z + 0.1
+    });
 
     // 2. Open Couple Synthesis
     let top_rocker = model.rocker_top.clone().unwrap_or_default();
@@ -214,7 +226,7 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
     let bounds = crate::geometry::get_board_bounds(model);
     let bottom_rocker = model.rocker_bottom.clone().unwrap_or_default();
 
-        if let Some(first_cs) = model.cross_sections.first() {
+    if let Some(first_cs) = model.cross_sections.first() {
         let first_z = first_cs.control_points.first().map(|p| p.z).unwrap_or(0.0);
         // Inject Nose Cap if missing (Nose is at negative Z in our coordinate space)
         if first_z > bounds.nose_z + 0.1 {
@@ -380,7 +392,7 @@ mod tests {
             ..Default::default()
         });
 
-                calibrate_model_coordinates(&mut model);
+        calibrate_model_coordinates(&mut model);
 
         // Rocker bottom's Z coordinates must remain completely unchanged (stable reference spine)
         let rocker_bottom = model.rocker_bottom.as_ref().unwrap();

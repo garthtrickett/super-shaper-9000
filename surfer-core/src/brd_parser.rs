@@ -718,6 +718,90 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_generate_decrypted_brd_fixtures() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/");
+        if !path.exists() {
+            return;
+        }
+
+        let entries = fs::read_dir(&path).expect("Failed to read brd directory");
+        for entry in entries {
+            let entry = entry.expect("Failed to read directory entry");
+            let file_path = entry.path();
+            if file_path.extension().is_some_and(|ext| ext == "brd") {
+                let bytes = fs::read(&file_path).expect("Failed to read BRD file");
+                
+                let decrypted_text = if bytes.starts_with(b"%BRD") {
+                    decrypt_aku_shaper(&bytes)
+                } else {
+                    decompress_brd(&bytes)
+                };
+
+                if let Ok(text) = decrypted_text {
+                    let mut txt_path = file_path.clone();
+                    txt_path.set_extension("brd.txt");
+                    fs::write(&txt_path, text).expect("Failed to write decrypted BRD text");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_egg_brd_tessellation_integrity() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/7'0-Egg.brd");
+
+        if !path.exists() {
+            println!("7'0-Egg.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        // Verify that there are no duplicate slice positions (stacked slices)
+        let mut seen_zs = Vec::new();
+        for cs in &model.cross_sections {
+            if cs.control_points.is_empty() {
+                continue;
+            }
+            let z = cs.control_points[0].z;
+            for &prev_z in &seen_zs {
+                assert!(
+                    (z - prev_z).abs() > 1e-4,
+                    "Stacked slice detected! Multiple cross-sections are mapped to the same Z-coordinate: {}",
+                    z
+                );
+            }
+            seen_zs.push(z);
+        }
+
+        // Generate the mesh to make sure it doesn't crash or flare out into NaN/extreme values
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
+
+        assert!(mesh.vertices.len() > 0);
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+            assert!(x.is_finite());
+            assert!(y.is_finite());
+            assert!(z.is_finite());
+            
+            // Assert that the board width does not expand crazily beyond normal limits (e.g. 3 feet)
+            assert!(
+                x.abs() < 3.0,
+                "Mesh flared out into extreme coordinate at Z={}: X={}",
+                z, x
+            );
+        } 
+    }
+
     #[test]
     fn test_egg_brd_import() {
         let _ = env_logger::builder().is_test(true).try_init();

@@ -87,7 +87,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 }
             }
 
-                        let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
+            let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
                 if pts.is_empty() {
                     return String::new();
                 }
@@ -384,7 +384,7 @@ mod tests {
         let model_b =
             crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
 
-                // 4. Assert Losslessness
+        // 4. Assert Losslessness
         // epsilon = 2.5e-1 provides enough leniency for numerical table bisection and tangent handle interpolation noise
         approx::assert_relative_eq!(model_a, model_b, epsilon = 2.5e-1);
     }
