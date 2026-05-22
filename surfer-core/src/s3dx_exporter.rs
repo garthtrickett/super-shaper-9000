@@ -2,6 +2,22 @@ use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
 pub fn export_s3dx(model: &BoardModel) -> String {
+    let rocker = model.rocker_bottom.as_ref();
+    let bounds = crate::geometry::get_board_bounds(model);
+    let default_rocker = BezierCurveData::default();
+    let table = crate::geometry::RockerArcLengthTable::new(
+        rocker.unwrap_or(&default_rocker),
+        bounds.nose_z,
+        bounds.tip_z,
+    );
+
+    let active_length = bounds.tip_z - bounds.nose_z;
+    let scale_factor = if active_length > 0.0 {
+        table.total_length / active_length
+    } else {
+        1.0
+    };
+
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
     xml.push_str("<Version>9</Version>\n<VersionNumber>9.1.0.4</VersionNumber>\n");
@@ -71,23 +87,27 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 }
             }
 
-            let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
+                        let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
                 if pts.is_empty() {
                     return String::new();
                 }
                 let mut p_str = String::new();
                 p_str.push_str(&format!("<{}>\n<Polygone3d>\n<Nb_of_points>{}</Nb_of_points>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n", tag, pts.len(), symmetry));
                 p_str.push_str(&format!("<Symmetry_center>\n<Point3d>\n<x>0.0</x><y>0.0</y><z>0.0</z><u>-1.0</u><color>0</color>\n</Point3d>\n</Symmetry_center>\n<Plan>{}</Plan>\n", plan));
-                let half_len = model.length / 2.0;
                 for (i, p) in pts.iter().enumerate() {
-                    let s3dx_x = (half_len - p.z).max(0.0);
+                    let s_from_tail = table.map_z_to_s(p.z);
+                    let s3dx_x = if scale_factor > 0.0 {
+                        (s_from_tail / scale_factor).max(0.0)
+                    } else {
+                        0.0
+                    };
                     let mut u = -1.0;
                     if let Some(w) = weights {
                         if i < w.len() {
                             u = w[i];
                             if (u - 1.0).abs() < 1e-5 {
                                 u = -1.0;
-                            }
+                            } 
                         }
                     }
                     p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>{:.6}</u><color>0</color>\n</Point3d>\n", s3dx_x, p.x, p.y, u));
