@@ -6,7 +6,9 @@ type DesCbcEnc = cbc::Encryptor<des::Des>;
 
 fn format_aku_curve(
     curve: &Option<BezierCurveData>,
+    board_length: f32,
     is_thickness: bool,
+    is_rocker_bottom: bool,
     table: &crate::geometry::RockerArcLengthTable,
     scale_factor: f32,
 ) -> String {
@@ -28,27 +30,39 @@ fn format_aku_curve(
 
         let mut out = String::new();
         for i in 0..pts.len() {
-            let s_from_tail = table.map_z_to_s(pts[i].z);
-            let px = if scale_factor > 0.0 {
-                (s_from_tail / scale_factor).max(0.0)
+            let px = if is_rocker_bottom {
+                board_length / 2.0 - pts[i].z
             } else {
-                0.0
+                let s_from_tail = table.map_z_to_s(pts[i].z);
+                if scale_factor > 0.0 {
+                    (s_from_tail / scale_factor).max(0.0)
+                } else {
+                    0.0
+                }
             };
             let py = if is_thickness { pts[i].y } else { pts[i].x };
 
-            let s_t1_from_tail = table.map_z_to_s(t1[i].z);
-            let t1x = if scale_factor > 0.0 {
-                (s_t1_from_tail / scale_factor).max(0.0)
+            let t1x = if is_rocker_bottom {
+                board_length / 2.0 - t1[i].z
             } else {
-                0.0
+                let s_t1_from_tail = table.map_z_to_s(t1[i].z);
+                if scale_factor > 0.0 {
+                    (s_t1_from_tail / scale_factor).max(0.0)
+                } else {
+                    0.0
+                }
             };
             let t1y = if is_thickness { t1[i].y } else { t1[i].x };
 
-            let s_t2_from_tail = table.map_z_to_s(t2[i].z);
-            let t2x = if scale_factor > 0.0 {
-                (s_t2_from_tail / scale_factor).max(0.0)
+            let t2x = if is_rocker_bottom {
+                board_length / 2.0 - t2[i].z
             } else {
-                0.0
+                let s_t2_from_tail = table.map_z_to_s(t2[i].z);
+                if scale_factor > 0.0 {
+                    (s_t2_from_tail / scale_factor).max(0.0)
+                } else {
+                    0.0
+                }
             };
             let t2y = if is_thickness { t2[i].y } else { t2[i].x };
 
@@ -86,17 +100,17 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     out.push_str(&format!("p04: {:.6}\n", model.width));
     out.push_str(&format!("p03: {:.6}\n", model.thickness));
 
-    let p32 = format_aku_curve(&model.outline, false, &table, scale_factor);
+        let p32 = format_aku_curve(&model.outline, model.length, false, false, &table, scale_factor);
     if !p32.is_empty() {
         out.push_str(&format!("p32:\n{}", p32));
     }
 
-    let p33 = format_aku_curve(&model.rocker_bottom, true, &table, scale_factor);
+    let p33 = format_aku_curve(&model.rocker_bottom, model.length, true, true, &table, scale_factor);
     if !p33.is_empty() {
         out.push_str(&format!("p33:\n{}", p33));
     }
 
-    let p34 = format_aku_curve(&model.rocker_top, true, &table, scale_factor);
+    let p34 = format_aku_curve(&model.rocker_top, model.length, true, false, &table, scale_factor);
     if !p34.is_empty() {
         out.push_str(&format!("p34:\n{}", p34));
     }
