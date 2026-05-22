@@ -1,5 +1,88 @@
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
+use crate::geometry::{get_board_bounds, RockerArcLengthTable, evaluate_bezier_at_z};
+
+/// Calibrates the imported linear coordinates of the board by mapping curvilinear 
+/// "tape-measure" distances back to flat Cartesian 3D Z-coordinates using the bottom rocker's arc length.
+pub fn calibrate_model_coordinates(model: &mut BoardModel) {
+    let rocker = match &model.rocker_bottom {
+        Some(r) => r,
+        None => return,
+    };
+    if rocker.control_points.is_empty() {
+        return;
+    }
+    let bounds = get_board_bounds(model);
+    let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
+
+    let mut warp_curve = |curve_opt: &mut Option<BezierCurveData>| {
+        if let Some(curve) = curve_opt {
+            for i in 0..curve.control_points.len() {
+                let z_imported = curve.control_points[i].z;
+                let s_from_tail = bounds.tip_z - z_imported;
+                let z_calibrated = table.map_s_to_z(s_from_tail);
+                let dz = z_calibrated - z_imported;
+
+                curve.control_points[i].z += dz;
+                if i < curve.tangents1.len() {
+                    curve.tangents1[i].z += dz;
+                }
+                if i < curve.tangents2.len() {
+                    curve.tangents2[i].z += dz;
+                }
+            }
+        }
+    };
+
+    warp_curve(&mut model.outline);
+    warp_curve(&mut model.rail_outline);
+    warp_curve(&mut model.apex_outline);
+    warp_curve(&mut model.deck_shoulder);
+    warp_curve(&mut model.rocker_top);
+    warp_curve(&mut model.rocker_bottom);
+    warp_curve(&mut model.apex_rocker);
+
+    if let Some(layers) = &mut model.outline_layers {
+        for l in layers {
+            let mut ext = Some(l.otl_ext.clone());
+            warp_curve(&mut ext);
+            if let Some(ext) = ext { l.otl_ext = ext; }
+
+            let mut int = Some(l.otl_int.clone());
+            warp_curve(&mut int);
+            if let Some(int) = int { l.otl_int = int; }
+        }
+    }
+
+    if let Some(channels) = &mut model.bottom_channels {
+        for c in channels {
+            let mut lo = Some(c.left_outline.clone()); warp_curve(&mut lo); if let Some(lo) = lo { c.left_outline = lo; }
+            let mut ro = Some(c.right_outline.clone()); warp_curve(&mut ro); if let Some(ro) = ro { c.right_outline = ro; }
+            let mut ld = Some(c.left_depth.clone()); warp_curve(&mut ld); if let Some(ld) = ld { c.left_depth = ld; }
+            let mut rd = Some(c.right_depth.clone()); warp_curve(&mut rd); if let Some(rd) = rd { c.right_depth = rd; }
+        }
+    }
+
+    for cs in &mut model.cross_sections {
+        if cs.control_points.is_empty() {
+            continue;
+        }
+        let z_imported = cs.control_points[0].z;
+        let s_from_tail = bounds.tip_z - z_imported;
+        let z_calibrated = table.map_s_to_z(s_from_tail);
+        let dz = z_calibrated - z_imported;
+
+        for p in &mut cs.control_points {
+            p.z += dz;
+        }
+        for p in &mut cs.tangents1 {
+            p.z += dz;
+        }
+        for p in &mut cs.tangents2 {
+            p.z += dz;
+        }
+    }
+}
 
 /// A strict normalization gatekeeper for all imported CAD files (.s3dx and .brd).
 /// Forces all cross-sections to perfectly anchor to the board's stringer (YZ-plane),
@@ -219,8 +302,49 @@ mod tests {
         assert_eq!(last_p.x, 0.0, "Synthesized top stringer must be at X=0.0");
         assert_eq!(last_p.y, 5.0, "Synthesized top stringer must match rocker_top height");
 
-        let last_t1 = sanitized_slice.tangents1.last().unwrap();
+                let last_t1 = sanitized_slice.tangents1.last().unwrap();
         assert_eq!(last_t1.y, last_p.y, "Top stringer T1 must be horizontal");
         assert_eq!(last_t1.z, last_p.z, "Top stringer T1 must be orthogonal to YZ plane");
+    }
+
+    #[test]
+    fn test_model_coordinates_calibration() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        
+        // Setup heavily rockered bottom (asymmetrical rocker: 5" nose vs 4" tail)
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 5.0, -50.0),
+                Vec3::new(0.0, -2.0, 0.0),
+                Vec3::new(0.0, 4.0, 50.0),
+            ],
+            ..Default::default()
+        });
+        
+        // Setup a straight outline where control points are evenly spaced in Cartesian Z
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(5.0, 0.0, -50.0), // Nose
+                Vec3::new(10.0, 0.0, 0.0),  // Midpoint
+                Vec3::new(5.0, 0.0, 50.0),  // Tail
+            ],
+            ..Default::default()
+        });
+        
+        calibrate_model_coordinates(&mut model);
+        
+        // Nose and Tail boundaries must remain exactly at their Cartesian bounds
+        let outline = model.outline.as_ref().unwrap();
+        assert_relative_eq!(outline.control_points[0].z, -50.0, epsilon = 1e-4);
+        assert_relative_eq!(outline.control_points[2].z, 50.0, epsilon = 1e-4);
+        
+        // The midpoint (Z_imported = 0.0, which means s_from_tail = 50.0, i.e., exactly half the board length)
+        // Since the rocker bottom curves, half the curvilinear length occurs closer to the nose/tail than the flat center.
+        // Therefore, the calibrated Cartesian Z of the midpoint must be slightly shifted toward the tail (positive Z)
+        // due to the asymmetry of the nose rocker (5.0) vs. tail rocker (4.0).
+        let mid_z = outline.control_points[1].z;
+        println!("[Test] Calibrated Midpoint Z: {}", mid_z);
+        assert!(mid_z > 0.0);
     }
 }

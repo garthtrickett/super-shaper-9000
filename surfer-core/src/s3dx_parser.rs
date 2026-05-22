@@ -354,7 +354,8 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
     let design: Shape3dDesign =
         quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
     
-    let mut model: BoardModel = design.board.into();
+        let mut model: BoardModel = design.board.into();
+    crate::geometry::calibrate_model_coordinates(&mut model);
     crate::geometry::sanitize_imported_model(&mut model);
     
     Ok(model)
