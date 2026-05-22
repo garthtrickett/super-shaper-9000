@@ -8,6 +8,8 @@ fn format_aku_curve(
     curve: &Option<BezierCurveData>,
     board_length: f32,
     is_thickness: bool,
+    table: &crate::geometry::RockerArcLengthTable,
+    scale_factor: f32,
 ) -> String {
     if let Some(c) = curve {
         if c.control_points.is_empty() {
@@ -27,13 +29,28 @@ fn format_aku_curve(
 
         let mut out = String::new();
         for i in 0..pts.len() {
-            let px = board_length / 2.0 - pts[i].z;
+            let s_from_tail = table.map_z_to_s(pts[i].z);
+            let px = if scale_factor > 0.0 {
+                (s_from_tail / scale_factor).max(0.0)
+            } else {
+                0.0
+            };
             let py = if is_thickness { pts[i].y } else { pts[i].x };
 
-            let t1x = board_length / 2.0 - t1[i].z;
+            let s_t1_from_tail = table.map_z_to_s(t1[i].z);
+            let t1x = if scale_factor > 0.0 {
+                (s_t1_from_tail / scale_factor).max(0.0)
+            } else {
+                0.0
+            };
             let t1y = if is_thickness { t1[i].y } else { t1[i].x };
 
-            let t2x = board_length / 2.0 - t2[i].z;
+            let s_t2_from_tail = table.map_z_to_s(t2[i].z);
+            let t2x = if scale_factor > 0.0 {
+                (s_t2_from_tail / scale_factor).max(0.0)
+            } else {
+                0.0
+            };
             let t2y = if is_thickness { t2[i].y } else { t2[i].x };
 
             out.push_str(&format!(
@@ -49,22 +66,38 @@ fn format_aku_curve(
 }
 
 pub fn serialize_aku_shaper(model: &BoardModel) -> String {
+    let rocker = model.rocker_bottom.as_ref();
+    let bounds = crate::geometry::get_board_bounds(model);
+    let default_rocker = BezierCurveData::default();
+    let table = crate::geometry::RockerArcLengthTable::new(
+        rocker.unwrap_or(&default_rocker),
+        bounds.nose_z,
+        bounds.tip_z,
+    );
+
+    let active_length = bounds.tip_z - bounds.nose_z;
+    let scale_factor = if active_length > 0.0 {
+        table.total_length / active_length
+    } else {
+        1.0
+    };
+
     let mut out = String::new();
     out.push_str(&format!("p01: {:.6}\n", model.length));
     out.push_str(&format!("p04: {:.6}\n", model.width));
     out.push_str(&format!("p03: {:.6}\n", model.thickness));
 
-    let p32 = format_aku_curve(&model.outline, model.length, false);
+    let p32 = format_aku_curve(&model.outline, model.length, false, &table, scale_factor);
     if !p32.is_empty() {
         out.push_str(&format!("p32:\n{}", p32));
     }
 
-    let p33 = format_aku_curve(&model.rocker_bottom, model.length, true);
+    let p33 = format_aku_curve(&model.rocker_bottom, model.length, true, &table, scale_factor);
     if !p33.is_empty() {
         out.push_str(&format!("p33:\n{}", p33));
     }
 
-    let p34 = format_aku_curve(&model.rocker_top, model.length, true);
+    let p34 = format_aku_curve(&model.rocker_top, model.length, true, &table, scale_factor);
     if !p34.is_empty() {
         out.push_str(&format!("p34:\n{}", p34));
     }
@@ -76,7 +109,12 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
                 continue;
             }
             let slice_z = cs.control_points[0].z;
-            let px = model.length / 2.0 - slice_z;
+            let s_slice_from_tail = table.map_z_to_s(slice_z);
+            let px = if scale_factor > 0.0 {
+                (s_slice_from_tail / scale_factor).max(0.0)
+            } else {
+                0.0
+            };
             let apex_ratio = cs
                 .apex_ratio
                 .unwrap_or_else(|| crate::geometry::find_apex_t(cs));
