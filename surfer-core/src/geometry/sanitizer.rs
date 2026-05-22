@@ -370,8 +370,65 @@ mod tests {
         // Since the rocker bottom curves, half the curvilinear length occurs closer to the nose/tail than the flat center.
         // Therefore, the calibrated Cartesian Z of the midpoint must be slightly shifted toward the tail (positive Z)
         // due to the asymmetry of the nose rocker (5.0) vs. tail rocker (4.0).
-                let mid_z = outline.control_points[1].z;
+                        let mid_z = outline.control_points[1].z;
         println!("[Test] Calibrated Midpoint Z: {}", mid_z);
         assert!(mid_z < 0.0);
+    }
+
+    #[test]
+    fn test_curvilinear_round_trip_symmetry() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+
+        // Setup a bottom rocker with complex curve
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 6.0, -50.0),
+                Vec3::new(0.0, -1.5, 0.0),
+                Vec3::new(0.0, 3.5, 50.0),
+            ],
+            ..Default::default()
+        });
+
+        // Setup a test curve (like outline) with some control points in raw "curvilinear" format.
+        let raw_outline = BezierCurveData {
+            control_points: vec![
+                Vec3::new(5.0, 0.0, -50.0),
+                Vec3::new(10.0, 0.0, -25.0),
+                Vec3::new(12.0, 0.0, 25.0),
+                Vec3::new(6.0, 0.0, 50.0),
+            ],
+            ..Default::default()
+        };
+        model.outline = Some(raw_outline.clone());
+
+        // Calibrate model to Cartesian space
+        calibrate_model_coordinates(&mut model);
+
+        // Retrieve table and scale_factor (simulating the export pass)
+        let rocker = model.rocker_bottom.as_ref().unwrap();
+        let bounds = get_board_bounds(&model);
+        let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
+        let active_length = bounds.tip_z - bounds.nose_z;
+        let scale_factor = if active_length > 0.0 {
+            table.total_length / active_length
+        } else {
+            1.0
+        };
+
+        // Warp the calibrated outline back into curvilinear space (export simulation)
+        let mut uncalibrated_outline = model.outline.clone().unwrap();
+        for p in &mut uncalibrated_outline.control_points {
+            let s_from_tail = table.map_z_to_s(p.z);
+            let uncalibrated_z = bounds.tip_z - (s_from_tail / scale_factor);
+            p.z = uncalibrated_z;
+        }
+
+        // Compare the uncalibrated outline with the original raw outline
+        for (p_orig, p_uncal) in raw_outline.control_points.iter().zip(uncalibrated_outline.control_points.iter()) {
+            assert_relative_eq!(p_orig.x, p_uncal.x, epsilon = 1e-4);
+            assert_relative_eq!(p_orig.y, p_uncal.y, epsilon = 1e-4);
+            assert_relative_eq!(p_orig.z, p_uncal.z, epsilon = 1e-4);
+        }
     }
 }
