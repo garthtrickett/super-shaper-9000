@@ -227,9 +227,39 @@ mod tests {
         let tail_z = table.map_s_to_z(0.0);
         assert!((tail_z - 35.0).abs() < 1e-3);
         
-        let mid_z = table.map_s_to_z(table.total_length * 0.5);
+                let mid_z = table.map_s_to_z(table.total_length * 0.5);
         // Midpoint should be close to 0.0 (middle of the board)
         assert!(mid_z.abs() < 5.0);
+    }
+
+    #[test]
+    fn test_inverse_mapping_solver() {
+        let rocker = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 5.0, -35.0),
+                Vec3::new(0.0, -2.0, 0.0),
+                Vec3::new(0.0, 4.0, 35.0),
+            ],
+            ..Default::default()
+        };
+        
+        let table = RockerArcLengthTable::new(&rocker, -35.0, 35.0);
+        
+        // Perform round-trip checks for 100 points along the board
+        let steps = 100;
+        for i in 0..=steps {
+            let f = i as f32 / steps as f32;
+            let original_z = -35.0 + 70.0 * f;
+            
+            // 1. Convert Cartesian Z to curvilinear S (from tail)
+            let s_from_tail = table.map_z_to_s(original_z);
+            
+            // 2. Convert curvilinear S back to Cartesian Z
+            let calibrated_z = table.map_s_to_z(s_from_tail);
+            
+            // 3. Assert they are mathematically identical down to the fourth decimal place
+            assert_relative_eq!(original_z, calibrated_z, epsilon = 1e-4);
+        }
     }
 }
 
@@ -293,7 +323,7 @@ impl RockerArcLengthTable {
         }
     }
 
-    /// Maps a curvilinear distance S (measured from the Tail, Z positive) back to a flat Cartesian Z.
+        /// Maps a curvilinear distance S (measured from the Tail, Z positive) back to a flat Cartesian Z.
     pub fn map_s_to_z(&self, s_from_tail: f32) -> f32 {
         let s_from_nose = (self.total_length - s_from_tail).clamp(0.0, self.total_length);
         
@@ -323,5 +353,37 @@ impl RockerArcLengthTable {
         
         let frac = (s_from_nose - s0) / ds;
         z0 + frac * (z1 - z0)
+    }
+
+    /// Maps an absolute Cartesian Z back to its curvilinear running distance S (measured from the Tail).
+    pub fn map_z_to_s(&self, target_z: f32) -> f32 {
+        // Binary search to find the lower-bound index in our Z table (Z values are sorted ascending)
+        let mut low = 0;
+        let mut high = self.z_values.len() - 1;
+        
+        while low < high {
+            let mid = (low + high) / 2;
+            if self.z_values[mid] < target_z {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+        
+        let idx = low.clamp(1, self.z_values.len() - 1);
+        let z0 = self.z_values[idx - 1];
+        let z1 = self.z_values[idx];
+        let s0 = self.s_values[idx - 1];
+        let s1 = self.s_values[idx];
+        
+        let dz = z1 - z0;
+        if dz < 1e-5 {
+            return (self.total_length - s0).max(0.0);
+        }
+        
+        let frac = (target_z - z0) / dz;
+        let s_from_nose = s0 + frac * (s1 - s0);
+        
+        (self.total_length - s_from_nose).max(0.0)
     }
 }
