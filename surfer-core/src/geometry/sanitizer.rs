@@ -41,32 +41,51 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
         }
     };
 
-    warp_curve(&mut model.outline);
+        warp_curve(&mut model.outline);
     warp_curve(&mut model.rail_outline);
     warp_curve(&mut model.apex_outline);
     warp_curve(&mut model.deck_shoulder);
     warp_curve(&mut model.rocker_top);
-    warp_curve(&mut model.rocker_bottom);
     warp_curve(&mut model.apex_rocker);
 
     if let Some(layers) = &mut model.outline_layers {
         for l in layers {
             let mut ext = Some(l.otl_ext.clone());
             warp_curve(&mut ext);
-            if let Some(ext) = ext { l.otl_ext = ext; }
+            if let Some(ext) = ext {
+                l.otl_ext = ext;
+            }
 
             let mut int = Some(l.otl_int.clone());
             warp_curve(&mut int);
-            if let Some(int) = int { l.otl_int = int; }
+            if let Some(int) = int {
+                l.otl_int = int;
+            }
         }
     }
 
     if let Some(channels) = &mut model.bottom_channels {
         for c in channels {
-            let mut lo = Some(c.left_outline.clone()); warp_curve(&mut lo); if let Some(lo) = lo { c.left_outline = lo; }
-            let mut ro = Some(c.right_outline.clone()); warp_curve(&mut ro); if let Some(ro) = ro { c.right_outline = ro; }
-            let mut ld = Some(c.left_depth.clone()); warp_curve(&mut ld); if let Some(ld) = ld { c.left_depth = ld; }
-            let mut rd = Some(c.right_depth.clone()); warp_curve(&mut rd); if let Some(rd) = rd { c.right_depth = rd; }
+            let mut lo = Some(c.left_outline.clone());
+            warp_curve(&mut lo);
+            if let Some(lo) = lo {
+                c.left_outline = lo;
+            }
+            let mut ro = Some(c.right_outline.clone());
+            warp_curve(&mut ro);
+            if let Some(ro) = ro {
+                c.right_outline = ro;
+            }
+            let mut ld = Some(c.left_depth.clone());
+            warp_curve(&mut ld);
+            if let Some(ld) = ld {
+                c.left_depth = ld;
+            }
+            let mut rd = Some(c.right_depth.clone());
+            warp_curve(&mut rd);
+            if let Some(rd) = rd {
+                c.right_depth = rd;
+            }
         }
     }
 
@@ -359,7 +378,13 @@ mod tests {
             ..Default::default()
         });
 
-        calibrate_model_coordinates(&mut model);
+                calibrate_model_coordinates(&mut model);
+
+        // Rocker bottom's Z coordinates must remain completely unchanged (stable reference spine)
+        let rocker_bottom = model.rocker_bottom.as_ref().unwrap();
+        assert_relative_eq!(rocker_bottom.control_points[0].z, -50.0, epsilon = 1e-4);
+        assert_relative_eq!(rocker_bottom.control_points[1].z, 0.0, epsilon = 1e-4);
+        assert_relative_eq!(rocker_bottom.control_points[2].z, 50.0, epsilon = 1e-4);
 
         // Nose and Tail boundaries must remain exactly at their Cartesian bounds
         let outline = model.outline.as_ref().unwrap();
@@ -370,7 +395,7 @@ mod tests {
         // Since the rocker bottom curves, half the curvilinear length occurs closer to the nose/tail than the flat center.
         // Therefore, the calibrated Cartesian Z of the midpoint must be slightly shifted toward the tail (positive Z)
         // due to the asymmetry of the nose rocker (5.0) vs. tail rocker (4.0).
-                        let mid_z = outline.control_points[1].z;
+        let mid_z = outline.control_points[1].z;
         println!("[Test] Calibrated Midpoint Z: {}", mid_z);
         assert!(mid_z < 0.0);
     }
@@ -425,7 +450,11 @@ mod tests {
         }
 
         // Compare the uncalibrated outline with the original raw outline
-        for (p_orig, p_uncal) in raw_outline.control_points.iter().zip(uncalibrated_outline.control_points.iter()) {
+        for (p_orig, p_uncal) in raw_outline
+            .control_points
+            .iter()
+            .zip(uncalibrated_outline.control_points.iter())
+        {
             assert_relative_eq!(p_orig.x, p_uncal.x, epsilon = 1e-4);
             assert_relative_eq!(p_orig.y, p_uncal.y, epsilon = 1e-4);
             assert_relative_eq!(p_orig.z, p_uncal.z, epsilon = 1e-4);

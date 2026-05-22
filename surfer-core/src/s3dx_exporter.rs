@@ -87,7 +87,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 }
             }
 
-                        let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
+            let format_poly = |tag: &str, pts: &[Vec3], weights: &Option<Vec<f32>>| -> String {
                 if pts.is_empty() {
                     return String::new();
                 }
@@ -107,7 +107,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                             u = w[i];
                             if (u - 1.0).abs() < 1e-5 {
                                 u = -1.0;
-                            } 
+                            }
                         }
                     }
                     p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>{:.6}</u><color>0</color>\n</Point3d>\n", s3dx_x, p.x, p.y, u));
