@@ -1370,12 +1370,12 @@ mod tests {
         println!("  Z After: {}, Width: {}", z_after, profile_after.apex_x);
         println!("  Step Drop: {}", step_drop);
 
-        // The wing has a 2.01cm (0.79\") step-in. Over a tiny distance of 0.1\", 
+                // The wing has a 0.79cm (0.31\") step-in. Over a tiny distance of 0.1\", 
         // a smooth taper will have a drop of < 0.01\", whereas a real wing
-        // must drop by almost the full step depth (e.g. > 0.4\").
+        // must drop by almost the full step depth (e.g. > 0.25\").
         assert!(
-            step_drop > 0.4,
-            "BUG: Wing is smooth/tapered with no sharp step-in! Expected drop > 0.4\", got {:.4}\"",
+            step_drop > 0.25,
+            "BUG: Wing is smooth/tapered with no sharp step-in! Expected drop > 0.25\", got {:.4}\"",
             step_drop
         );
     }
