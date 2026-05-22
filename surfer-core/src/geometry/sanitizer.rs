@@ -46,7 +46,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
         }
     };
 
-        warp_curve(&mut model.outline);
+    warp_curve(&mut model.outline);
     warp_curve(&mut model.rail_outline);
     warp_curve(&mut model.apex_outline);
     warp_curve(&mut model.deck_shoulder);
@@ -143,7 +143,7 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
                         w.remove(i);
                     }
                 }
-            } else { 
+            } else {
                 i += 1;
             }
         }
@@ -398,7 +398,7 @@ mod tests {
             ..Default::default()
         });
 
-                calibrate_model_coordinates(&mut model);
+        calibrate_model_coordinates(&mut model);
 
         // Nose and Tail boundaries must remain exactly at their Cartesian bounds
         let outline = model.outline.as_ref().unwrap();
@@ -413,7 +413,7 @@ mod tests {
         // Since the rocker bottom curves, half the curvilinear length occurs closer to the nose/tail than the flat center.
         // Therefore, the calibrated Cartesian Z of the midpoint must be slightly shifted toward the tail (positive Z)
         // due to the asymmetry of the nose rocker (5.0) vs. tail rocker (4.0).
-                let mid_z = outline.control_points[1].z;
+        let mid_z = outline.control_points[1].z;
         println!("[Test] Calibrated Midpoint Z: {}", mid_z);
         assert!(mid_z < 0.0);
 

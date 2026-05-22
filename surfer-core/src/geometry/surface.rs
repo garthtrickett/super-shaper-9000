@@ -30,7 +30,7 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
     let mut final_pos = Vec3::ZERO;
     final_pos.z = z;
 
-        if u <= t_tuck {
+    if u <= t_tuck {
         let t = if t_tuck > 1e-5 { u / t_tuck } else { 0.0 };
         let w_x = if (p_tuck.x - p_bot.x).abs() > 1e-5 {
             (local_pt.x - p_bot.x) / (p_tuck.x - p_bot.x)
@@ -48,9 +48,13 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
             scale_y_bot
         };
         final_pos.y = world_baseline_y + local_deviation * applied_scale;
-        } else if u <= blend.t_apex {
+    } else if u <= blend.t_apex {
         let denom = blend.t_apex - t_tuck;
-        let t = if denom > 1e-5 { (u - t_tuck) / denom } else { 0.0 };
+        let t = if denom > 1e-5 {
+            (u - t_tuck) / denom
+        } else {
+            0.0
+        };
         let w_x = if (p_apex.x - p_tuck.x).abs() > 1e-5 {
             (local_pt.x - p_tuck.x) / (p_apex.x - p_tuck.x)
         } else {
@@ -67,9 +71,13 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
             scale_y_bot
         };
         final_pos.y = world_baseline_y + local_deviation * applied_scale;
-        } else if u <= t_shoulder {
+    } else if u <= t_shoulder {
         let denom = t_shoulder - blend.t_apex;
-        let t = if denom > 1e-5 { (u - blend.t_apex) / denom } else { 0.0 };
+        let t = if denom > 1e-5 {
+            (u - blend.t_apex) / denom
+        } else {
+            0.0
+        };
         let w_x = if (p_shoulder.x - p_apex.x).abs() > 1e-5 {
             (local_pt.x - p_apex.x) / (p_shoulder.x - p_apex.x)
         } else {
@@ -87,9 +95,13 @@ pub fn map_slice_local_to_world(model: &BoardModel, z: f32, u: f32, local_pt: Ve
             scale_y_bot
         };
         final_pos.y = world_baseline_y + local_deviation * applied_scale;
-        } else {
+    } else {
         let denom = 1.0 - t_shoulder;
-        let t = if denom > 1e-5 { (u - t_shoulder) / denom } else { 0.0 };
+        let t = if denom > 1e-5 {
+            (u - t_shoulder) / denom
+        } else {
+            0.0
+        };
         let w_x = if (p_top.x - p_shoulder.x).abs() > 1e-5 {
             (local_pt.x - p_shoulder.x) / (p_top.x - p_shoulder.x)
         } else {
@@ -224,7 +236,7 @@ impl<'a> ZRingContext<'a> {
         };
         let scale_y_bot = 1.0;
 
-                if u <= t_tuck {
+        if u <= t_tuck {
             let t = if t_tuck > 1e-5 { u / t_tuck } else { 0.0 };
             let w_x = if (p_tuck.x - p_bot.x).abs() > 1e-5 {
                 (p.x - p_bot.x) / (p_tuck.x - p_bot.x)
@@ -242,9 +254,13 @@ impl<'a> ZRingContext<'a> {
                 scale_y_bot
             };
             final_pos.y = world_baseline_y + local_deviation * applied_scale;
-                } else if u <= b.t_apex {
+        } else if u <= b.t_apex {
             let denom = b.t_apex - t_tuck;
-            let t = if denom > 1e-5 { (u - t_tuck) / denom } else { 0.0 };
+            let t = if denom > 1e-5 {
+                (u - t_tuck) / denom
+            } else {
+                0.0
+            };
             let w_x = if (p_apex.x - p_tuck.x).abs() > 1e-5 {
                 (p.x - p_tuck.x) / (p_apex.x - p_tuck.x)
             } else {
@@ -261,9 +277,13 @@ impl<'a> ZRingContext<'a> {
                 scale_y_bot
             };
             final_pos.y = world_baseline_y + local_deviation * applied_scale;
-                } else if u <= t_shoulder {
+        } else if u <= t_shoulder {
             let denom = t_shoulder - b.t_apex;
-            let t = if denom > 1e-5 { (u - b.t_apex) / denom } else { 0.0 };
+            let t = if denom > 1e-5 {
+                (u - b.t_apex) / denom
+            } else {
+                0.0
+            };
             let w_x = if (p_shoulder.x - p_apex.x).abs() > 1e-5 {
                 (p.x - p_apex.x) / (p_shoulder.x - p_apex.x)
             } else {
@@ -280,9 +300,13 @@ impl<'a> ZRingContext<'a> {
                 scale_y_bot
             };
             final_pos.y = world_baseline_y + local_deviation * applied_scale;
-                } else {
+        } else {
             let denom = 1.0 - t_shoulder;
-            let t = if denom > 1e-5 { (u - t_shoulder) / denom } else { 0.0 };
+            let t = if denom > 1e-5 {
+                (u - t_shoulder) / denom
+            } else {
+                0.0
+            };
             let w_x = if (p_top.x - p_shoulder.x).abs() > 1e-5 {
                 (p.x - p_shoulder.x) / (p_top.x - p_shoulder.x)
             } else {

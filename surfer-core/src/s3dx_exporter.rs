@@ -94,7 +94,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                 let mut p_str = String::new();
                 p_str.push_str(&format!("<{}>\n<Polygone3d>\n<Nb_of_points>{}</Nb_of_points>\n<Open>1</Open>\n<Symmetry>{}</Symmetry>\n", tag, pts.len(), symmetry));
                 p_str.push_str(&format!("<Symmetry_center>\n<Point3d>\n<x>0.0</x><y>0.0</y><z>0.0</z><u>-1.0</u><color>0</color>\n</Point3d>\n</Symmetry_center>\n<Plan>{}</Plan>\n", plan));
-                                for (i, p) in pts.iter().enumerate() {
+                for (i, p) in pts.iter().enumerate() {
                     let s_from_tail = table.map_z_to_s(p.z);
                     let s3dx_x = if scale_factor > 0.0 {
                         (s_from_tail / scale_factor).max(0.0)
