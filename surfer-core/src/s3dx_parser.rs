@@ -1340,6 +1340,7 @@ mod tests {
 
     #[test]
         #[test]
+        #[test]
     fn test_gh60_wing_goes_in_not_out() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
@@ -1352,28 +1353,30 @@ mod tests {
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
         let bounds = crate::geometry::get_board_bounds(&model);
-        
-        // The wing start is roughly 9.85 inches from the tail tip.
         let wing_start_z = bounds.tip_z - 9.85;
 
-        let z_before = wing_start_z - 1.0; // Just before the wing starts (nose side)
-        let z_after = wing_start_z + 1.0;  // Just after the wing starts (tail side)
+        // Evaluate immediately before and after the wing start.
+        // A real wing step-in is a sharp discontinuity (corner), so the width
+        // must drop abruptly over a tiny distance.
+        let z_before = wing_start_z - 0.05;
+        let z_after = wing_start_z + 0.05;
 
         let profile_before = crate::geometry::get_board_profile_at_z(&model, z_before, 0.5);
         let profile_after = crate::geometry::get_board_profile_at_z(&model, z_after, 0.5);
 
-        let width_reduction = profile_before.apex_x - profile_after.apex_x;
-        println!("Wing Step Direction Analysis:");
+        let step_drop = profile_before.apex_x - profile_after.apex_x;
+        println!("Wing Sharp Step-In Analysis:");
         println!("  Z Before: {}, Width: {}", z_before, profile_before.apex_x);
         println!("  Z After: {}, Width: {}", z_after, profile_after.apex_x);
-        println!("  Width Reduction: {}", width_reduction);
+        println!("  Step Drop: {}", step_drop);
 
-        // A flyer transition must step INWARD substantially as we move toward the tail.
-        // Given the 0.79" physical wing cut, the width must decrease by at least 0.4".
+        // The wing has a 2.01cm (0.79\") step-in. Over a tiny distance of 0.1\", 
+        // a smooth taper will have a drop of < 0.01\", whereas a real wing
+        // must drop by almost the full step depth (e.g. > 0.4\").
         assert!(
-            width_reduction > 0.4,
-            "BUG: Wing does not step inward! Expected reduction > 0.4\", got {:.4}\"",
-            width_reduction
+            step_drop > 0.4,
+            "BUG: Wing is smooth/tapered with no sharp step-in! Expected drop > 0.4\", got {:.4}\"",
+            step_drop
         );
     }
 
