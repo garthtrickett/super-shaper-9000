@@ -370,19 +370,33 @@ pub fn evaluate_composite_outline_pos_and_tan_at_z(
 
     if let Some(layers) = &model.outline_layers {
         for layer in layers {
-            if !layer.active || layer.otl_int.control_points.is_empty() {
+            if !layer.active {
                 continue;
             }
-            let min_z = layer.otl_int.control_points.first().unwrap().z;
-            let max_z = layer.otl_int.control_points.last().unwrap().z;
+            
+            // If otl_int is empty (single-curve layer, e.g. the synthetic test), 
+            // the outer outline of the board is otl_ext. 
+            // If otl_int is present (dual-curve wing layer), it is otl_int.
+            let target_curve = if layer.otl_int.control_points.is_empty() {
+                &layer.otl_ext
+            } else {
+                &layer.otl_int
+            };
+
+            if target_curve.control_points.is_empty() {
+                continue;
+            }
+
+            let min_z = target_curve.control_points.first().unwrap().z;
+            let max_z = target_curve.control_points.last().unwrap().z;
             let z0 = min_z.min(max_z);
             let z1 = min_z.max(max_z);
 
             if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
-                let (int_pt, int_tan) = 
-                    evaluate_bezier_pos_and_tan_at_z(&layer.otl_int, z_inches, hint_t);
-                final_x = int_pt.x;
-                final_tan = int_tan;
+                let (pt, tan) = 
+                    evaluate_bezier_pos_and_tan_at_z(target_curve, z_inches, hint_t);
+                final_x = pt.x;
+                final_tan = tan;
             }
         }
     }
