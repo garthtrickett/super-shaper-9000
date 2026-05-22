@@ -214,7 +214,7 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
     let bounds = crate::geometry::get_board_bounds(model);
     let bottom_rocker = model.rocker_bottom.clone().unwrap_or_default();
 
-    if let Some(first_cs) = model.cross_sections.first() {
+        if let Some(first_cs) = model.cross_sections.first() {
         let first_z = first_cs.control_points.first().map(|p| p.z).unwrap_or(0.0);
         // Inject Nose Cap if missing (Nose is at negative Z in our coordinate space)
         if first_z > bounds.nose_z + 0.1 {
@@ -226,8 +226,9 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
                     control_points: vec![p],
                     tangents1: vec![p],
                     tangents2: vec![p],
-                    weights: Some(vec![1.0]),
-                    ..Default::default()
+                    weights: None,
+                    apex_ratio: Some(0.5),
+                    tuck_ratio: Some(0.25),
                 },
             );
         }
@@ -243,8 +244,9 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
                 control_points: vec![p],
                 tangents1: vec![p],
                 tangents2: vec![p],
-                weights: Some(vec![1.0]),
-                ..Default::default()
+                weights: None,
+                apex_ratio: Some(0.5),
+                tuck_ratio: Some(0.25),
             });
         }
     }
