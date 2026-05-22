@@ -86,38 +86,17 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     out.push_str(&format!("p04: {:.6}\n", model.width));
     out.push_str(&format!("p03: {:.6}\n", model.thickness));
 
-    let p32 = format_aku_curve(
-        &model.outline,
-        model.length,
-        false,
-        false,
-        &table,
-        scale_factor,
-    );
+        let p32 = format_aku_curve(&model.outline, false, &table, scale_factor);
     if !p32.is_empty() {
         out.push_str(&format!("p32:\n{}", p32));
     }
 
-    let p33 = format_aku_curve(
-        &model.rocker_bottom,
-        model.length,
-        true,
-        true,
-        &table,
-        scale_factor,
-    );
+    let p33 = format_aku_curve(&model.rocker_bottom, true, &table, scale_factor);
     if !p33.is_empty() {
         out.push_str(&format!("p33:\n{}", p33));
     }
 
-    let p34 = format_aku_curve(
-        &model.rocker_top,
-        model.length,
-        true,
-        false,
-        &table,
-        scale_factor,
-    );
+    let p34 = format_aku_curve(&model.rocker_top, true, &table, scale_factor);
     if !p34.is_empty() {
         out.push_str(&format!("p34:\n{}", p34));
     }
