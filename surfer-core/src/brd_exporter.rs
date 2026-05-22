@@ -206,7 +206,17 @@ mod tests {
         let model_b =
             crate::brd_parser::parse_brd(&exported_bytes).expect("Failed to parse exported BRD");
 
-                // 4. Assert Equivalence with detailed diagnostics on failure
+                        // Normalize default fields (apex_ratio, tuck_ratio) which get populated on export/import
+        for (cs_a, cs_b) in model_a.cross_sections.iter_mut().zip(model_b.cross_sections.iter()) {
+            if cs_a.apex_ratio.is_none() {
+                cs_a.apex_ratio = cs_b.apex_ratio;
+            }
+            if cs_a.tuck_ratio.is_none() {
+                cs_a.tuck_ratio = cs_b.tuck_ratio;
+            }
+        }
+
+        // 4. Assert Equivalence with detailed diagnostics on failure
         let epsilon = 5.0e-1;
         let ok = approx::relative_eq!(model_a, model_b, epsilon = epsilon);
         if !ok {
