@@ -318,10 +318,10 @@ fn parse_aku_slices(
         if line.starts_with("(p36") || line.starts_with("p36") {
             let clean = line.replace(['(', ')'], "");
             let parts: Vec<&str> = clean.split([' ', '\t']).filter(|s| !s.is_empty()).collect();
-            if parts.len() >= 2 {
+                        if parts.len() >= 2 {
                 let px = parts[1].parse::<f32>().unwrap_or(0.0);
-                // px represents distance from Nose, so Nose is px = 0 (negative Z) and Tail is px = board_length (positive Z)
-                let slice_z = (px - board_length / 2.0) * scale;
+                // px represents distance from Tail, so Tail is px = 0 (positive Z) and Nose is px = board_length (negative Z)
+                let slice_z = (board_length / 2.0 - px) * scale;
 
                 // Filter out negative sentinel values (-1.0), which signify undefined/default ratios
                 let apex_ratio = if parts.len() >= 3 {

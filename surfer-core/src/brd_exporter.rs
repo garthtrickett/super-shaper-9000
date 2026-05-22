@@ -206,8 +206,42 @@ mod tests {
         let model_b =
             crate::brd_parser::parse_brd(&exported_bytes).expect("Failed to parse exported BRD");
 
-        // 4. Assert Equivalence
-        // epsilon = 5.0e-1 provides enough leniency for numerical table bisection and tangent handle interpolation noise
-        approx::assert_relative_eq!(model_a, model_b, epsilon = 5.0e-1);
+                // 4. Assert Equivalence with detailed diagnostics on failure
+        let epsilon = 5.0e-1;
+        let ok = approx::relative_eq!(model_a, model_b, epsilon = epsilon);
+        if !ok {
+            println!("\n=== BRD ROUND-TRIP DIAGNOSTIC COMPARISON ===");
+            if (model_a.length - model_b.length).abs() > epsilon {
+                println!("Length mismatch: {} vs {}", model_a.length, model_b.length);
+            }
+            if (model_a.width - model_b.width).abs() > epsilon {
+                println!("Width mismatch: {} vs {}", model_a.width, model_b.width);
+            }
+            if (model_a.thickness - model_b.thickness).abs() > epsilon {
+                println!("Thickness mismatch: {} vs {}", model_a.thickness, model_b.thickness);
+            }
+            if (model_a.v_concave_tail - model_b.v_concave_tail).abs() > epsilon {
+                println!("VConcaveTail mismatch: {} vs {}", model_a.v_concave_tail, model_b.v_concave_tail);
+            }
+            if (model_a.v_concave_nose - model_b.v_concave_nose).abs() > epsilon {
+                println!("VConcaveNose mismatch: {} vs {}", model_a.v_concave_nose, model_b.v_concave_nose);
+            }
+            
+            println!("\nSlices comparison:");
+            println!("Model A Slices: {}", model_a.cross_sections.len());
+            for (i, cs) in model_a.cross_sections.iter().enumerate() {
+                if let Some(cp) = cs.control_points.first() {
+                    println!("  Slice A[{}] Z = {:.6}", i, cp.z);
+                }
+            }
+            println!("Model B Slices: {}", model_b.cross_sections.len());
+            for (i, cs) in model_b.cross_sections.iter().enumerate() {
+                if let Some(cp) = cs.control_points.first() {
+                    println!("  Slice B[{}] Z = {:.6}", i, cp.z);
+                }
+            }
+            println!("============================================\n");
+        }
+        approx::assert_relative_eq!(model_a, model_b, epsilon = epsilon);
     }
 }
