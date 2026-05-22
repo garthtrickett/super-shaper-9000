@@ -613,7 +613,7 @@ impl From<S3dxBoard> for BoardModel {
         let bounds_tip_z = bl / 2.0 * scale;
         let bounds_nose_z = -bl / 2.0 * scale;
 
-                if model.v_concave_tail.abs() < 1e-4 {
+        if model.v_concave_tail.abs() < 1e-4 {
             model.v_concave_tail =
                 extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
         }
@@ -1334,13 +1334,13 @@ mod tests {
                     z, diff
                 );
             }
-                        last_apex_x = Some(profile.apex_x);
+            last_apex_x = Some(profile.apex_x);
         }
     }
 
     #[test]
-        #[test]
-        #[test]
+    #[test]
+    #[test]
     fn test_gh60_wing_goes_in_not_out() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
@@ -1370,7 +1370,7 @@ mod tests {
         println!("  Z After: {}, Width: {}", z_after, profile_after.apex_x);
         println!("  Step Drop: {}", step_drop);
 
-                // The wing has a 0.79cm (0.31\") step-in. Over a tiny distance of 0.1\", 
+        // The wing has a 0.79cm (0.31\") step-in. Over a tiny distance of 0.1\",
         // a smooth taper will have a drop of < 0.01\", whereas a real wing
         // must drop by almost the full step depth (e.g. > 0.25\").
         assert!(
@@ -1454,7 +1454,7 @@ mod tests {
         let outline_x =
             crate::geometry::evaluate_composite_outline_at_z(&model, best_z / scale, 0.5).x * scale;
 
-                assert!(
+        assert!(
             (max_x_at_mid - outline_x).abs() < 5e-3,
             "BUG: Mesh is inside the outline! Mesh Apex X: {}, Outline X: {}",
             max_x_at_mid,
@@ -1477,7 +1477,11 @@ mod tests {
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
         let bounds = crate::geometry::get_board_bounds(&model);
-        log::info!("[FISH NOSE TEST] Bounds: nose_z = {}, tip_z = {}", bounds.nose_z, bounds.tip_z);
+        log::info!(
+            "[FISH NOSE TEST] Bounds: nose_z = {}, tip_z = {}",
+            bounds.nose_z,
+            bounds.tip_z
+        );
 
         let steps = 50;
         let scan_length = 10.0; // Scan the first 10 inches of the nose
@@ -1485,7 +1489,10 @@ mod tests {
         let mut last_tuck_x: Option<f32> = None;
 
         println!("\n=== DETAILED FISH NOSE DIAGNOSTIC SCAN ===");
-        println!("{:<10} | {:<10} | {:<10} | {:<10} | {:<10} | {:<10}", "Z (in)", "Apex X", "Tuck X", "Top Y", "Bot Y", "Thick");
+        println!(
+            "{:<10} | {:<10} | {:<10} | {:<10} | {:<10} | {:<10}",
+            "Z (in)", "Apex X", "Tuck X", "Top Y", "Bot Y", "Thick"
+        );
         println!("----------------------------------------------------------------------------");
 
         let mut monotonic_violations = 0;
@@ -1495,7 +1502,8 @@ mod tests {
         for i in 0..=steps {
             let f = i as f32 / steps as f32;
             let z = bounds.nose_z + scan_length * f;
-            let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
+            let v_outer =
+                crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
             let profile = crate::geometry::get_board_profile_at_z(&model, z, v_outer);
             let thickness = profile.top_y - profile.bot_y;
 
@@ -1506,7 +1514,12 @@ mod tests {
 
             // 1. Check for physical inside-out rail geometry (Tuck X should not be wider than Apex X)
             if profile.tuck_x > profile.apex_x + 1e-4 {
-                log::error!("[ANOMALY] Inside-out rail at Z = {:.2}: tuck_x ({:.4}) > apex_x ({:.4})", z, profile.tuck_x, profile.apex_x);
+                log::error!(
+                    "[ANOMALY] Inside-out rail at Z = {:.2}: tuck_x ({:.4}) > apex_x ({:.4})",
+                    z,
+                    profile.tuck_x,
+                    profile.apex_x
+                );
                 inside_out_violations += 1;
             }
 
@@ -1522,7 +1535,11 @@ mod tests {
             if let Some(prev_tuck) = last_tuck_x {
                 let diff = (profile.tuck_x - prev_tuck).abs();
                 if diff > 0.5 {
-                    log::error!("[ANOMALY] Sudden tuck_x discontinuity at Z = {:.2}: jump of {:.4} inches", z, diff);
+                    log::error!(
+                        "[ANOMALY] Sudden tuck_x discontinuity at Z = {:.2}: jump of {:.4} inches",
+                        z,
+                        diff
+                    );
                     sudden_jump_violations += 1;
                 }
             }
@@ -1532,8 +1549,20 @@ mod tests {
         }
         println!("===========================================\n");
 
-        assert_eq!(inside_out_violations, 0, "Found {} inside-out rail violations near the nose", inside_out_violations);
-        assert_eq!(monotonic_violations, 0, "Found {} non-monotonic nose width violations (pinched nose)", monotonic_violations);
-        assert_eq!(sudden_jump_violations, 0, "Found {} sudden geometry jumps near the nose", sudden_jump_violations);
+        assert_eq!(
+            inside_out_violations, 0,
+            "Found {} inside-out rail violations near the nose",
+            inside_out_violations
+        );
+        assert_eq!(
+            monotonic_violations, 0,
+            "Found {} non-monotonic nose width violations (pinched nose)",
+            monotonic_violations
+        );
+        assert_eq!(
+            sudden_jump_violations, 0,
+            "Found {} sudden geometry jumps near the nose",
+            sudden_jump_violations
+        );
     }
 }

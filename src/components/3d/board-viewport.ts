@@ -821,8 +821,11 @@ export class BoardViewport extends LitElement {
           <select  
             class="bg-zinc-950/90 hover:bg-zinc-800 text-[10px] font-bold text-zinc-300 hover:text-white uppercase tracking-widest rounded shadow backdrop-blur-sm transition-colors border border-zinc-800 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
             .value=${this.activeProfileSlice.toString()}
-            @change=${(e: Event) => {
+                        @change=${(e: Event) => {
               this.activeProfileSlice = parseInt((e.target as HTMLSelectElement).value, 10);
+              if (this.boardState?.selectedNode?.curve.startsWith('crossSection_')) {
+                this.dispatchEvent(new CustomEvent('node-selected', { detail: { node: null }, bubbles: true, composed: true }));
+              }
             }}
           >
             ${this.boardState.crossSections.map((_, idx) => html`

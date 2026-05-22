@@ -373,9 +373,9 @@ pub fn evaluate_composite_outline_pos_and_tan_at_z(
             if !layer.active {
                 continue;
             }
-            
-            // If otl_int is empty (single-curve layer, e.g. the synthetic test), 
-            // the outer outline of the board is otl_ext. 
+
+            // If otl_int is empty (single-curve layer, e.g. the synthetic test),
+            // the outer outline of the board is otl_ext.
             // If otl_int is present (dual-curve wing layer), it is otl_int.
             let target_curve = if layer.otl_int.control_points.is_empty() {
                 &layer.otl_ext
@@ -393,8 +393,7 @@ pub fn evaluate_composite_outline_pos_and_tan_at_z(
             let z1 = min_z.max(max_z);
 
             if z_inches >= z0 - 1e-4 && z_inches <= z1 + 1e-4 {
-                let (pt, tan) = 
-                    evaluate_bezier_pos_and_tan_at_z(target_curve, z_inches, hint_t);
+                let (pt, tan) = evaluate_bezier_pos_and_tan_at_z(target_curve, z_inches, hint_t);
                 final_x = pt.x;
                 final_tan = tan;
             }

@@ -1,4 +1,5 @@
 import { expect, fixture, html } from "@open-wc/testing";
+import sinon from "sinon";
 import { INITIAL_STATE } from "../pages/board-builder-page.logic";
 import "./board-viewport";
 import type { BoardViewport } from "./board-viewport";
@@ -47,10 +48,31 @@ describe("BoardViewport (3D Component)", () => {
       el.boardState = { ...INITIAL_STATE, crossSections: [INITIAL_STATE.crossSections[0], INITIAL_STATE.crossSections[0]] } as any;
       await el.updateComplete;
 
-      select!.value = "1";
+            select!.value = "1";
       select!.dispatchEvent(new Event("change"));
 
       expect((el as any).activeProfileSlice).to.equal(1);
+    });
+
+    it("clears selected node when active profile slice is changed via select", async () => {
+      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${{
+        ...INITIAL_STATE,
+        selectedNode: { curve: "crossSection_0", index: 0, type: "anchor" },
+        crossSections: [INITIAL_STATE.crossSections[0], INITIAL_STATE.crossSections[0]]
+      } as any}></board-viewport>`);
+
+      (el as any).maximizedView = null;
+      await el.updateComplete;
+
+      const select = el.querySelector('select')!;
+      const spy = sinon.spy();
+      el.addEventListener("node-selected", spy);
+
+      select.value = "1";
+      select.dispatchEvent(new Event("change"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail.node).to.be.null;
     });
 
     it("flips the board container when Flip button is clicked", async () => {

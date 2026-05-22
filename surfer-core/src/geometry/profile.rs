@@ -56,9 +56,10 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
 
     let (outline_pt, mut outline_tangent) =
         evaluate_composite_outline_pos_and_tan_at_z(model, z_inches, hint_t);
-    
+
     // Default base outline is the master outline
-    let mut base_outline_x = evaluate_bezier_at_z(model.outline.as_ref().unwrap(), z_inches, hint_t).x;
+    let mut base_outline_x =
+        evaluate_bezier_at_z(model.outline.as_ref().unwrap(), z_inches, hint_t).x;
 
     // If an outline layer is active, the smooth uncut reference baseline is resolved dynamically
     if let Some(layers) = &model.outline_layers {
@@ -66,7 +67,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
             if !layer.active {
                 continue;
             }
-            
+
             // If otl_int is present (dual-curve wing layer), the uncut otl_ext is the reference baseline
             if !layer.otl_int.control_points.is_empty() {
                 if layer.otl_ext.control_points.is_empty() {
@@ -127,7 +128,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
     let rail_base_y = actual_bot_y + v_concave_add;
     let mut apex_y = rail_base_y + (top_y - rail_base_y) * 0.3;
 
-        if let Some(ao) = &model.apex_outline {
+    if let Some(ao) = &model.apex_outline {
         if !ao.control_points.is_empty() {
             apex_x = (evaluate_bezier_at_z(ao, z_inches, hint_t).x + outline_delta).max(0.0);
         }

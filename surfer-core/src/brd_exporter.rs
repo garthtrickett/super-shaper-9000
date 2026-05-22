@@ -197,7 +197,8 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
 
         // 1. Parse into model_a
-        let mut model_a = crate::brd_parser::parse_brd(&bytes).expect("Failed to parse initial BRD");
+        let mut model_a =
+            crate::brd_parser::parse_brd(&bytes).expect("Failed to parse initial BRD");
 
         // 2. Export into newly encrypted bytes
         let exported_bytes = export_aku_brd(&model_a).expect("Failed to export BRD");
@@ -206,8 +207,12 @@ mod tests {
         let model_b =
             crate::brd_parser::parse_brd(&exported_bytes).expect("Failed to parse exported BRD");
 
-                        // Normalize default fields (apex_ratio, tuck_ratio) which get populated on export/import
-        for (cs_a, cs_b) in model_a.cross_sections.iter_mut().zip(model_b.cross_sections.iter()) {
+        // Normalize default fields (apex_ratio, tuck_ratio) which get populated on export/import
+        for (cs_a, cs_b) in model_a
+            .cross_sections
+            .iter_mut()
+            .zip(model_b.cross_sections.iter())
+        {
             if cs_a.apex_ratio.is_none() {
                 cs_a.apex_ratio = cs_b.apex_ratio;
             }
@@ -216,7 +221,7 @@ mod tests {
             }
         }
 
-                // 4. Assert Equivalence with detailed diagnostics on failure
+        // 4. Assert Equivalence with detailed diagnostics on failure
         let epsilon = 1.5;
         let ok = approx::relative_eq!(model_a, model_b, epsilon = epsilon);
         if !ok {
@@ -228,15 +233,24 @@ mod tests {
                 println!("Width mismatch: {} vs {}", model_a.width, model_b.width);
             }
             if (model_a.thickness - model_b.thickness).abs() > epsilon {
-                println!("Thickness mismatch: {} vs {}", model_a.thickness, model_b.thickness);
+                println!(
+                    "Thickness mismatch: {} vs {}",
+                    model_a.thickness, model_b.thickness
+                );
             }
             if (model_a.v_concave_tail - model_b.v_concave_tail).abs() > epsilon {
-                println!("VConcaveTail mismatch: {} vs {}", model_a.v_concave_tail, model_b.v_concave_tail);
+                println!(
+                    "VConcaveTail mismatch: {} vs {}",
+                    model_a.v_concave_tail, model_b.v_concave_tail
+                );
             }
             if (model_a.v_concave_nose - model_b.v_concave_nose).abs() > epsilon {
-                println!("VConcaveNose mismatch: {} vs {}", model_a.v_concave_nose, model_b.v_concave_nose);
+                println!(
+                    "VConcaveNose mismatch: {} vs {}",
+                    model_a.v_concave_nose, model_b.v_concave_nose
+                );
             }
-            
+
             println!("\nSlices comparison:");
             println!("Model A Slices: {}", model_a.cross_sections.len());
             for (i, cs) in model_a.cross_sections.iter().enumerate() {
@@ -252,6 +266,6 @@ mod tests {
             }
             println!("============================================\n");
         }
-                approx::assert_relative_eq!(model_a, model_b, epsilon = epsilon);
+        approx::assert_relative_eq!(model_a, model_b, epsilon = epsilon);
     }
 }

@@ -318,7 +318,7 @@ fn parse_aku_slices(
         if line.starts_with("(p36") || line.starts_with("p36") {
             let clean = line.replace(['(', ')'], "");
             let parts: Vec<&str> = clean.split([' ', '\t']).filter(|s| !s.is_empty()).collect();
-                        if parts.len() >= 2 {
+            if parts.len() >= 2 {
                 let px = parts[1].parse::<f32>().unwrap_or(0.0);
                 // px represents distance from Tail, so Tail is px = 0 (positive Z) and Nose is px = board_length (negative Z)
                 let slice_z = (board_length / 2.0 - px) * scale;
@@ -496,7 +496,7 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
         }
     }
 
-        let bounds_tip_z = model.length / 2.0;
+    let bounds_tip_z = model.length / 2.0;
     let bounds_nose_z = -model.length / 2.0;
     model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
     model.v_concave_nose = extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
@@ -1078,7 +1078,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_brd_mesh_width_vs_outline_egg() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1161,7 +1161,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_brd_mesh_width_vs_outline_mini_simmons() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

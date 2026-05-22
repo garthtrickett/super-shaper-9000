@@ -476,9 +476,9 @@ mod tests {
             .iter()
             .zip(uncalibrated_outline.control_points.iter())
         {
-             assert_relative_eq!(p_orig.x, p_uncal.x, epsilon = 1e-4);
- assert_relative_eq!(p_orig.y, p_uncal.y, epsilon = 1e-4);
- assert_relative_eq!(p_orig.z, p_uncal.z, epsilon = 5e-3);
+            assert_relative_eq!(p_orig.x, p_uncal.x, epsilon = 1e-4);
+            assert_relative_eq!(p_orig.y, p_uncal.y, epsilon = 1e-4);
+            assert_relative_eq!(p_orig.z, p_uncal.z, epsilon = 5e-3);
         }
     }
 }

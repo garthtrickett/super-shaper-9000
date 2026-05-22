@@ -59,4 +59,25 @@ describe("ImportModal", () => {
     cancelButton.click();
     expect(spy.calledOnce).to.be.true;
   });
+
+  it("renders stock board folders and toggles them", async () => {
+    const el = await fixture<ImportModal>(html`<import-modal></import-modal>`);
+    expect(el.textContent).to.include("Stock Boards Catalog");
+
+    const s3dxFolderBtn = el.querySelector("#s3dx-folder-btn") as HTMLButtonElement;
+    const brdFolderBtn = el.querySelector("#brd-folder-btn") as HTMLButtonElement;
+    
+    expect(s3dxFolderBtn).to.exist;
+    expect(brdFolderBtn).to.exist;
+
+    expect((el as any).s3dxFolderOpen).to.be.true;
+    s3dxFolderBtn.click();
+    await el.updateComplete;
+    expect((el as any).s3dxFolderOpen).to.be.false;
+
+    expect((el as any).brdFolderOpen).to.be.true;
+    brdFolderBtn.click();
+    await el.updateComplete;
+    expect((el as any).brdFolderOpen).to.be.false;
+  });
 });
