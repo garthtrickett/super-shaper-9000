@@ -1334,8 +1334,43 @@ mod tests {
                     z, diff
                 );
             }
-            last_apex_x = Some(profile.apex_x);
+                        last_apex_x = Some(profile.apex_x);
         }
+    }
+
+    #[test]
+    fn test_gh60_wing_goes_in_not_out() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
+        if !path.exists() {
+            println!("gh-60-winged-swallow.s3dx not found, skipping wing direction test");
+            return;
+        }
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        
+        // The wing start is roughly 9.85 inches from the tail tip.
+        let wing_start_z = bounds.tip_z - 9.85;
+
+        let z_before = wing_start_z - 1.0; // Just before the wing starts (nose side)
+        let z_after = wing_start_z + 1.0;  // Just after the wing starts (tail side)
+
+        let profile_before = crate::geometry::get_board_profile_at_z(&model, z_before, 0.5);
+        let profile_after = crate::geometry::get_board_profile_at_z(&model, z_after, 0.5);
+
+        println!("Wing Step Direction Analysis:");
+        println!("  Z Before: {}, Width: {}", z_before, profile_before.apex_x);
+        println!("  Z After: {}, Width: {}", z_after, profile_after.apex_x);
+
+        // A flyer transition must step INWARD (decrease in width) as we move toward the tail.
+        // If the width increases, the wing incorrectly flares outward.
+        assert!(
+            profile_after.apex_x < profile_before.apex_x,
+            "BUG: Wing flares OUTWARD instead of stepping INWARD! apex_x after >= before"
+        );
     }
 
     #[test]
