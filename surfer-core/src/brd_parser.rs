@@ -124,8 +124,6 @@ pub fn decompress_brd(bytes: &[u8]) -> Result<String, String> {
     Err("Could not find a valid Zlib, Gzip, or Raw Deflate stream in the first 128 bytes of the BRD file".into())
 }
 
-
-
 fn convert_brd_curve(
     container: &Option<BrdBezierContainer>,
     board_length: f32,
@@ -185,7 +183,7 @@ fn convert_brd_curve(
     }
 
     // Enforce "Nose to Tail" traversal for parametric compatibility
-        if is_reversed {
+    if is_reversed {
         control_points.reverse();
         let old_t1 = tangents1.clone();
         let old_t2 = tangents2.clone();
@@ -414,7 +412,7 @@ fn parse_aku_curve(
 
     if control_points.is_empty() {
         None
-        } else {
+    } else {
         // AkuShaper often stores Tail -> Nose. Our engine requires Nose -> Tail.
         control_points.reverse();
         let old_t1 = tangents1.clone();
@@ -614,7 +612,7 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
             ..Default::default()
         };
         model.cross_sections = vec![basic_cs];

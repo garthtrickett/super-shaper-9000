@@ -32,7 +32,7 @@ pub struct S3dxBoard {
     #[serde(rename = "SwallowDepth")]
     pub swallow_depth: Option<f32>,
 
-        #[serde(rename = "DeckComputed")]
+    #[serde(rename = "DeckComputed")]
     pub deck_computed: Option<u32>,
     #[serde(rename = "ThicknessCurve")]
     pub thickness_curve: Option<S3dxCurveContainer>,
@@ -277,19 +277,30 @@ fn convert_s3dx_couples(
 fn preprocess_xml_thickness(xml: &str) -> String {
     let mut result = xml.to_string();
     let mut search_start = 0;
-    while let Some(thick_idx) = result[search_start..].find("<Thickness>").map(|idx| search_start + idx) {
+    while let Some(thick_idx) = result[search_start..]
+        .find("<Thickness>")
+        .map(|idx| search_start + idx)
+    {
         let after_thick = &result[thick_idx + "<Thickness>".len()..];
         if let Some(non_ws_idx) = after_thick.find(|c: char| !c.is_whitespace()) {
             if after_thick[non_ws_idx..].starts_with("<Bezier3d>") {
                 // This <Thickness> tag encloses a curve, rename it to prevent Serde conflict with the float scalar
-                result.replace_range(thick_idx..thick_idx + "<Thickness>".len(), "<ThicknessCurve>");
-                
+                result.replace_range(
+                    thick_idx..thick_idx + "<Thickness>".len(),
+                    "<ThicknessCurve>",
+                );
+
                 // Find the matching closing tag after the enclosed Bezier3d
                 if let Some(bezier_close_idx) = result[thick_idx..].find("</Bezier3d>") {
                     let abs_bezier_close_idx = thick_idx + bezier_close_idx;
-                    if let Some(thick_close_idx) = result[abs_bezier_close_idx..].find("</Thickness>") {
+                    if let Some(thick_close_idx) =
+                        result[abs_bezier_close_idx..].find("</Thickness>")
+                    {
                         let abs_thick_close_idx = abs_bezier_close_idx + thick_close_idx;
-                        result.replace_range(abs_thick_close_idx..abs_thick_close_idx + "</Thickness>".len(), "</ThicknessCurve>");
+                        result.replace_range(
+                            abs_thick_close_idx..abs_thick_close_idx + "</Thickness>".len(),
+                            "</ThicknessCurve>",
+                        );
                     }
                 }
                 search_start = thick_idx + "<ThicknessCurve>".len();
@@ -353,11 +364,11 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
 
     let design: Shape3dDesign =
         quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
-    
-        let mut model: BoardModel = design.board.into();
+
+    let mut model: BoardModel = design.board.into();
     crate::geometry::calibrate_model_coordinates(&mut model);
     crate::geometry::sanitize_imported_model(&mut model);
-    
+
     Ok(model)
 }
 
@@ -380,14 +391,15 @@ impl From<S3dxBoard> for BoardModel {
         model.tail_type = s3dx.tail_type.unwrap_or_else(|| "squash".to_string());
         model.swallow_depth = s3dx.swallow_depth.unwrap_or(0.0) * scale;
 
-                model.outline = convert_s3dx_curve(&s3dx.otl, bl, scale);
-        
+        model.outline = convert_s3dx_curve(&s3dx.otl, bl, scale);
+
         let rocker_bottom = convert_s3dx_curve(&s3dx.str_bot, bl, scale);
         model.rocker_bottom = rocker_bottom.clone();
 
         // If the S3DX design computes the deck profile relative to the bottom rocker + thickness spline
         if s3dx.deck_computed.unwrap_or(0) != 0 && s3dx.thickness_curve.is_some() {
-            let thickness_curve = convert_s3dx_curve(&s3dx.thickness_curve, bl, scale).unwrap_or_default();
+            let thickness_curve =
+                convert_s3dx_curve(&s3dx.thickness_curve, bl, scale).unwrap_or_default();
             if let Some(bot_curve) = &rocker_bottom {
                 let mut control_points = Vec::new();
                 let mut tangents1 = Vec::new();
@@ -958,7 +970,7 @@ mod tests {
             "S3DX default u=-1.0 should map to weight=1.0 (or None if optimized)"
         );
 
-                assert!(
+        assert!(
             model.v_concave_tail.abs() > 0.0,
             "Rounded pin should have tail concave/vee extracted"
         );
@@ -1023,7 +1035,11 @@ mod tests {
         let rocker_top = model.rocker_top.unwrap();
 
         // 50 steps = 51 control points
-        assert_eq!(rocker_top.control_points.len(), 51, "Should have been synthesized as a dense polyline of 51 points");
+        assert_eq!(
+            rocker_top.control_points.len(),
+            51,
+            "Should have been synthesized as a dense polyline of 51 points"
+        );
 
         // Evaluate at the midpoint (Z=0.0)
         let mid_p = crate::geometry::evaluate_bezier_at_z(&rocker_top, 0.0, 0.5);

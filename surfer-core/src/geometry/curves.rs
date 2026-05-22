@@ -80,7 +80,11 @@ pub fn inject_export_caps(mut curve: BezierCurveData, is_thickness: bool) -> Bez
     }
 
     let check_val = |p: Vec3| -> f32 {
-        if is_thickness { p.y } else { p.x }
+        if is_thickness {
+            p.y
+        } else {
+            p.x
+        }
     };
 
     let first_p = curve.control_points[0];
@@ -94,7 +98,7 @@ pub fn inject_export_caps(mut curve: BezierCurveData, is_thickness: bool) -> Bez
         curve.control_points.insert(0, new_p);
         curve.tangents1.insert(0, new_p);
         curve.tangents2.insert(0, new_p);
-        
+
         if let Some(w) = &mut curve.weights {
             w.insert(0, 1.0);
         }
@@ -838,7 +842,7 @@ mod tests {
         let outline = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6667)],
-                        tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
             weights: None,
             ..Default::default()
         };
@@ -882,7 +886,7 @@ mod tests {
         assert!(inner_x > 0.0 && inner_x < 10.0);
     }
 
-        #[test]
+    #[test]
     fn test_cap_injection_and_removal_parity() {
         let curve = BezierCurveData {
             control_points: vec![
@@ -924,7 +928,7 @@ mod tests {
         let mut curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 50.0)],
-                        tangents2: vec![Vec3::new(5.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
             weights: Some(vec![1.0, 1.0]),
             ..Default::default()
         };

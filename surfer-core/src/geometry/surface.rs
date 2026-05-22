@@ -899,7 +899,7 @@ mod tests {
         };
         model.cross_sections = vec![cs];
 
-                let blend = get_cross_section_blend_at_z(&model.cross_sections, 50.0).unwrap();
+        let blend = get_cross_section_blend_at_z(&model.cross_sections, 50.0).unwrap();
         let t_tuck = blend.t_tuck;
 
         let u_test = t_tuck / 2.0; // t = 0.25 (P1)
@@ -970,7 +970,7 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
             ..Default::default()
         };
         model.cross_sections = vec![basic_cs];
@@ -1040,7 +1040,7 @@ mod tests {
                 Vec3::new(4.0, 1.25, 0.0),
                 Vec3::new(0.0, 1.25, 0.0),
             ],
-                        weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
             ..Default::default()
         };
         model.cross_sections = vec![basic_cs];
