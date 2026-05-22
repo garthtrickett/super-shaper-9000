@@ -762,8 +762,8 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-        // Verify that there are no duplicate slice positions (stacked slices)
-        let mut seen_zs = Vec::new();
+                // Verify that there are no duplicate slice positions (stacked slices)
+        let mut seen_zs: Vec<f32> = Vec::new();
         for cs in &model.cross_sections {
             if cs.control_points.is_empty() {
                 continue;
