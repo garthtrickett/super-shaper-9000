@@ -274,13 +274,13 @@ fn parse_aku_slice_curve(
                 .collect();
 
                         if floats.len() >= 6 {
-                // Slices are always stored in inches in AkuShaper, so do not multiply by scale!
-                let px = floats[0];
-                let py = floats[1];
-                let t1x = floats[2];
-                let t1y = floats[3];
-                let t2x = floats[4];
-                let t2y = floats[5];
+                                // Slices are scaled in the same units (e.g. centimeters) as length and width
+                let px = floats[0] * scale;
+                let py = floats[1] * scale;
+                let t1x = floats[2] * scale;
+                let t1y = floats[3] * scale;
+                let t2x = floats[4] * scale;
+                let t2y = floats[5] * scale;
 
                 control_points.push(Vec3::new(px, py, slice_z));
                 tangents1.push(Vec3::new(t1x, t1y, slice_z));
@@ -323,13 +323,16 @@ fn parse_aku_slices(
                 // px represents distance from Nose, so Nose is px = 0 (negative Z) and Tail is px = board_length (positive Z)
                 let slice_z = (px - board_length / 2.0) * scale;
 
+                                // Filter out negative sentinel values (-1.0), which signify undefined/default ratios
                 let apex_ratio = if parts.len() >= 3 {
-                    parts[2].parse::<f32>().ok()
+                    let val = parts[2].parse::<f32>().unwrap_or(-1.0);
+                    if val >= 0.0 { Some(val) } else { None }
                 } else {
                     None
                 };
                 let tuck_ratio = if parts.len() >= 4 {
-                    parts[3].parse::<f32>().ok()
+                    let val = parts[3].parse::<f32>().unwrap_or(-1.0);
+                    if val >= 0.0 { Some(val) } else { None }
                 } else {
                     None
                 };
@@ -1046,7 +1049,7 @@ mod tests {
         );
         assert!(model.v_concave_nose >= 0.0);
 
-        let bounds = crate::geometry::get_board_bounds(&model);
+                let bounds = crate::geometry::get_board_bounds(&model);
         let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z - 0.5, 0.5);
 
         assert!(
@@ -1055,6 +1058,79 @@ mod tests {
             profile.top_y,
             profile.bot_y
         );
+    }
+
+    #[test]
+    fn test_brd_mesh_width_vs_outline() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/7'0-Egg.brd");
+
+        if !path.exists() {
+            println!("7'0-Egg.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let mut engine = crate::SurferEngine::new();
+        engine.update(crate::model::BoardAction::LoadDesign {
+            state: Box::new(model.clone()),
+        });
+
+        let mesh = engine.compute_mesh();
+        let scale = 1.0 / 12.0;
+
+        println!("\n=== BRD MESH WIDTH VS OUTLINE DIAGNOSTIC ANALYSIS ===");
+        let bounds = crate::geometry::get_board_bounds(&model);
+        println!("Board bounds (inches): nose_z = {:.4}, tip_z = {:.4}", bounds.nose_z, bounds.tip_z);
+        println!("Board width (inches): model.width = {:.4}", model.width);
+
+        let mut failures = 0;
+        let steps = 15;
+        for i in 1..steps {
+            let f = i as f32 / steps as f32;
+            let z_inches = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * f;
+            let z_scaled = z_inches * scale;
+
+            // Evaluate the expected outline width analytically
+            let outline_pt = crate::geometry::evaluate_composite_outline_at_z(&model, z_inches, f);
+            let expected_x = outline_pt.x * scale; // Convert to feet to match mesh coords
+
+            // Search for the corresponding vertex in the generated mesh at this Z coordinate
+            let mut max_mesh_x = 0.0_f32;
+            let mut found_vertex = false;
+            for j in 0..(mesh.vertices.len() / 3) { 
+                let vx = mesh.vertices[j * 3];
+                let vz = mesh.vertices[j * 3 + 2];
+
+                if (vz - z_scaled).abs() < 2e-3 {
+                    if vx > max_mesh_x {
+                        max_mesh_x = vx;
+                        found_vertex = true;
+                    }
+                }
+            } 
+
+            if found_vertex {
+                let diff = expected_x - max_mesh_x;
+                let diff_inches = diff / scale;
+                println!(
+                    "Z = {:.2}\" (scaled: {:.4}): Outline X = {:.4} (\"{:?}), Mesh Max X = {:.4} (\"{:?}), Diff = {:.4} (\"{:?})",
+                    z_inches, z_scaled, expected_x, expected_x / scale, max_mesh_x, max_mesh_x / scale, diff, diff_inches
+                );
+                // Expect the 3D mesh width to match the analytical outline within a tiny margin (0.25 inches)
+                if diff_inches.abs() > 0.25 {
+                    failures += 1;
+                }
+            } else {
+                println!("Z = {:.2}\" (scaled: {:.4}): No corresponding vertex found in 3D mesh!", z_inches, z_scaled);
+            }
+        } 
+        println!("=====================================================\n");
+
+        assert_eq!(failures, 0, "Failed: Mesh is thinner than the analytical outline in {} sample points!", failures);
     }
 
     #[test]
