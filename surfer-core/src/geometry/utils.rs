@@ -1,5 +1,6 @@
 use super::curves::evaluate_curve;
 use crate::model::{BezierCurveData, BoardModel};
+use approx::assert_relative_eq;
 use glam::Vec3;
 
 pub fn intersect_ray_sphere(ro: Vec3, rd: Vec3, center: Vec3, radius: f32) -> Option<f32> {

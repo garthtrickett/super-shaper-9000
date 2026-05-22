@@ -1,4 +1,5 @@
 use crate::model::{BezierCurveData, BoardModel};
+use approx::assert_relative_eq;
 use glam::Vec3;
 use crate::geometry::{get_board_bounds, RockerArcLengthTable, evaluate_bezier_at_z};
 
@@ -15,7 +16,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
     let bounds = get_board_bounds(model);
     let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
 
-    let mut warp_curve = |curve_opt: &mut Option<BezierCurveData>| {
+    let warp_curve = |curve_opt: &mut Option<BezierCurveData>| {
         if let Some(curve) = curve_opt {
             for i in 0..curve.control_points.len() {
                 let z_imported = curve.control_points[i].z;
