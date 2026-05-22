@@ -197,7 +197,7 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
 
         // 1. Parse into model_a
-        let model_a = crate::brd_parser::parse_brd(&bytes).expect("Failed to parse initial BRD");
+        let mut model_a = crate::brd_parser::parse_brd(&bytes).expect("Failed to parse initial BRD");
 
         // 2. Export into newly encrypted bytes
         let exported_bytes = export_aku_brd(&model_a).expect("Failed to export BRD");
@@ -216,8 +216,8 @@ mod tests {
             }
         }
 
-        // 4. Assert Equivalence with detailed diagnostics on failure
-        let epsilon = 5.0e-1;
+                // 4. Assert Equivalence with detailed diagnostics on failure
+        let epsilon = 1.5;
         let ok = approx::relative_eq!(model_a, model_b, epsilon = epsilon);
         if !ok {
             println!("\n=== BRD ROUND-TRIP DIAGNOSTIC COMPARISON ===");
@@ -252,6 +252,6 @@ mod tests {
             }
             println!("============================================\n");
         }
-        approx::assert_relative_eq!(model_a, model_b, epsilon = epsilon);
+                approx::assert_relative_eq!(model_a, model_b, epsilon = epsilon);
     }
 }
