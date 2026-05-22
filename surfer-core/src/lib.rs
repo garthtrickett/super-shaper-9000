@@ -401,10 +401,159 @@ mod tests {
             }
         }
 
-        assert_eq!(
+                assert_eq!(
             identical_floats,
             tail_vertices_run1.len(),
             "Cache missed! Vertices in the unaffected tail region were re-computed and lost bitwise identicality."
+        );
+    }
+
+    #[test]
+    fn test_tail_to_rail_transition_smoothness() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut model = BoardModel::default();
+        model.length = 70.0;
+        model.width = 20.0;
+        model.thickness = 2.5;
+        model.tail_type = "squash".to_string();
+
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -35.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(4.0, 0.0, 35.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        });
+
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 35.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 35.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        }];
+
+        let mut engine = SurferEngine::new();
+        engine.update(BoardAction::LoadDesign { 
+            state: Box::new(model) 
+        });
+
+        let mesh = engine.compute_mesh();
+
+        use std::collections::HashMap;
+        let mut edge_counts = HashMap::new();
+
+        let get_vertex = |idx: u32| -> Vec3 {
+            let i = idx as usize * 3;
+            Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
+        };
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
+
+            let hash_pt = |v: Vec3| -> (i32, i32, i32) {
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
+            };
+
+            let v1 = hash_pt(get_vertex(i1));
+            let v2 = hash_pt(get_vertex(i2));
+            let v3 = hash_pt(get_vertex(i3));
+
+            if v1 == v2 || v2 == v3 || v3 == v1 {
+                continue;
+            }
+
+            let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_counts.entry(key).or_insert(0) += 1;
+            };
+
+            add_edge(v1, v2);
+            add_edge(v2, v3);
+            add_edge(v3, v1);
+        }
+
+        let scale = 1.0 / 12.0;
+        let tail_z_scaled = 35.0 * scale;
+        let mut open_tail_edges = 0;
+
+        for (edge, count) in &edge_counts {
+            if *count == 1 {
+                let z1 = (edge.0).2 as f32 / 10000.0;
+                let z2 = (edge.1).2 as f32 / 10000.0;
+
+                if z1 > 34.0 * scale && z2 > 34.0 * scale {
+                    open_tail_edges += 1;
+                }
+            }
+        }
+
+        assert_eq!(
+            open_tail_edges, 0,
+            "Found {} open boundary edges near the tail-to-rail interface! The tail does not meet the rail watertight.",
+            open_tail_edges
+        );
+
+        let mut max_angle_divergence = 0.0_f32;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let z = mesh.vertices[i * 3 + 2];
+            let x = mesh.vertices[i * 3];
+
+            if (z - tail_z_scaled).abs() < 1e-4 && x.abs() > 0.01 {
+                let n1 = Vec3::new(mesh.normals[i * 3], mesh.normals[i * 3 + 1], mesh.normals[i * 3 + 2]);
+                
+                for j in 0..(mesh.vertices.len() / 3) {
+                    if i == j {
+                        continue;
+                    }
+                    let z_other = mesh.vertices[j * 3 + 2];
+                    let x_other = mesh.vertices[j * 3];
+                    let y_other = mesh.vertices[j * 3 + 1];
+                    let y = mesh.vertices[i * 3 + 1];
+
+                    if (z_other - z).abs() < 1e-4 && (x_other - x).abs() < 1e-4 && (y_other - y).abs() < 1e-4 {
+                        let n2 = Vec3::new(mesh.normals[j * 3], mesh.normals[j * 3 + 1], mesh.normals[j * 3 + 2]);
+                        let dot = n1.dot(n2).clamp(-1.0, 1.0);
+                        let angle = dot.acos();
+                        if angle > max_angle_divergence {
+                            max_angle_divergence = angle;
+                        }
+                    }
+                }join_normal_pairs
+            }
+        }
+
+        let max_allowed_divergence = 45.0_f32.to_radians();
+        assert!(
+            max_angle_divergence <= max_allowed_divergence,
+            "Discontinuous normal transition detected at tail-to-rail junction! Max angle: {:.2} degrees",
+            max_angle_divergence.to_degrees()
         );
     }
 }
