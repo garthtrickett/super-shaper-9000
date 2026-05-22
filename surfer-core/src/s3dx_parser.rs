@@ -1412,11 +1412,86 @@ mod tests {
         let outline_x =
             crate::geometry::evaluate_composite_outline_at_z(&model, best_z / scale, 0.5).x * scale;
 
-        assert!(
+                assert!(
             (max_x_at_mid - outline_x).abs() < 5e-3,
             "BUG: Mesh is inside the outline! Mesh Apex X: {}, Outline X: {}",
             max_x_at_mid,
             outline_x
         );
+    }
+
+    #[test]
+    fn test_fish_nose_geometric_anomaly_detector() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/FISH.s3dx");
+        if !path.exists() {
+            println!("FISH.s3dx not found, skipping nose anomaly detector");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read FISH.s3dx");
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        log::info!("[FISH NOSE TEST] Bounds: nose_z = {}, tip_z = {}", bounds.nose_z, bounds.tip_z);
+
+        let steps = 50;
+        let scan_length = 10.0; // Scan the first 10 inches of the nose
+        let mut last_apex_x: Option<f32> = None;
+        let mut last_tuck_x: Option<f32> = None;
+
+        println!("\n=== DETAILED FISH NOSE DIAGNOSTIC SCAN ===");
+        println!("{:<10} | {:<10} | {:<10} | {:<10} | {:<10} | {:<10}", "Z (in)", "Apex X", "Tuck X", "Top Y", "Bot Y", "Thick");
+        println!("----------------------------------------------------------------------------");
+
+        let mut monotonic_violations = 0;
+        let mut inside_out_violations = 0;
+        let mut sudden_jump_violations = 0;
+
+        for i in 0..=steps {
+            let f = i as f32 / steps as f32;
+            let z = bounds.nose_z + scan_length * f;
+            let v_outer = crate::geometry::find_v_at_z(model.outline.as_ref().unwrap(), z, 0.0, bounds.tip_t);
+            let profile = crate::geometry::get_board_profile_at_z(&model, z, v_outer);
+            let thickness = profile.top_y - profile.bot_y;
+
+            println!(
+                "{:<10.2} | {:<10.5} | {:<10.5} | {:<10.5} | {:<10.5} | {:<10.5}",
+                z, profile.apex_x, profile.tuck_x, profile.top_y, profile.bot_y, thickness
+            );
+
+            // 1. Check for physical inside-out rail geometry (Tuck X should not be wider than Apex X)
+            if profile.tuck_x > profile.apex_x + 1e-4 {
+                log::error!("[ANOMALY] Inside-out rail at Z = {:.2}: tuck_x ({:.4}) > apex_x ({:.4})", z, profile.tuck_x, profile.apex_x);
+                inside_out_violations += 1;
+            }
+
+            // 2. Monotonicity check: For a nose flaring out, the width (Apex X) should strictly increase as we move back (Z increases)
+            if let Some(prev_apex) = last_apex_x {
+                if profile.apex_x < prev_apex - 1e-4 {
+                    log::error!("[ANOMALY] Pinched nose width (non-monotonic) at Z = {:.2}: current apex_x ({:.4}) < previous ({:.4})", z, profile.apex_x, prev_apex);
+                    monotonic_violations += 1;
+                }
+            }
+
+            // 3. Sudden jump check: No abrupt discontinuous cliffs in tuck_x or apex_x
+            if let Some(prev_tuck) = last_tuck_x {
+                let diff = (profile.tuck_x - prev_tuck).abs();
+                if diff > 0.5 {
+                    log::error!("[ANOMALY] Sudden tuck_x discontinuity at Z = {:.2}: jump of {:.4} inches", z, diff);
+                    sudden_jump_violations += 1;
+                }
+            }
+
+            last_apex_x = Some(profile.apex_x);
+            last_tuck_x = Some(profile.tuck_x);
+        }
+        println!("===========================================\n");
+
+        assert_eq!(inside_out_violations, 0, "Found {} inside-out rail violations near the nose", inside_out_violations);
+        assert_eq!(monotonic_violations, 0, "Found {} non-monotonic nose width violations (pinched nose)", monotonic_violations);
+        assert_eq!(sudden_jump_violations, 0, "Found {} sudden geometry jumps near the nose", sudden_jump_violations);
     }
 }
