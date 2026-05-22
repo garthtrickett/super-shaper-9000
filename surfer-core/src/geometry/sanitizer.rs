@@ -15,11 +15,17 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
     let bounds = get_board_bounds(model);
     let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
 
+    let scale_factor = if model.length > 0.0 {
+        table.total_length / model.length
+    } else {
+        1.0
+    };
+
     let warp_curve = |curve_opt: &mut Option<BezierCurveData>| {
         if let Some(curve) = curve_opt {
             for i in 0..curve.control_points.len() {
                 let z_imported = curve.control_points[i].z;
-                let s_from_tail = bounds.tip_z - z_imported;
+                let s_from_tail = (bounds.tip_z - z_imported) * scale_factor;
                 let z_calibrated = table.map_s_to_z(s_from_tail);
                 let dz = z_calibrated - z_imported;
 
@@ -46,40 +52,20 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
         for l in layers {
             let mut ext = Some(l.otl_ext.clone());
             warp_curve(&mut ext);
-            if let Some(ext) = ext {
-                l.otl_ext = ext;
-            }
+            if let Some(ext) = ext { l.otl_ext = ext; }
 
             let mut int = Some(l.otl_int.clone());
             warp_curve(&mut int);
-            if let Some(int) = int {
-                l.otl_int = int;
-            }
+            if let Some(int) = int { l.otl_int = int; }
         }
     }
 
     if let Some(channels) = &mut model.bottom_channels {
         for c in channels {
-            let mut lo = Some(c.left_outline.clone());
-            warp_curve(&mut lo);
-            if let Some(lo) = lo {
-                c.left_outline = lo;
-            }
-            let mut ro = Some(c.right_outline.clone());
-            warp_curve(&mut ro);
-            if let Some(ro) = ro {
-                c.right_outline = ro;
-            }
-            let mut ld = Some(c.left_depth.clone());
-            warp_curve(&mut ld);
-            if let Some(ld) = ld {
-                c.left_depth = ld;
-            }
-            let mut rd = Some(c.right_depth.clone());
-            warp_curve(&mut rd);
-            if let Some(rd) = rd {
-                c.right_depth = rd;
-            }
+            let mut lo = Some(c.left_outline.clone()); warp_curve(&mut lo); if let Some(lo) = lo { c.left_outline = lo; }
+            let mut ro = Some(c.right_outline.clone()); warp_curve(&mut ro); if let Some(ro) = ro { c.right_outline = ro; }
+            let mut ld = Some(c.left_depth.clone()); warp_curve(&mut ld); if let Some(ld) = ld { c.left_depth = ld; }
+            let mut rd = Some(c.right_depth.clone()); warp_curve(&mut rd); if let Some(rd) = rd { c.right_depth = rd; }
         }
     }
 
@@ -88,7 +74,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
             continue;
         }
         let z_imported = cs.control_points[0].z;
-        let s_from_tail = bounds.tip_z - z_imported;
+        let s_from_tail = (bounds.tip_z - z_imported) * scale_factor;
         let z_calibrated = table.map_s_to_z(s_from_tail);
         let dz = z_calibrated - z_imported;
 
