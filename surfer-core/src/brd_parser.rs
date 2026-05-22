@@ -784,15 +784,47 @@ mod tests {
         let mut cache = crate::mesh::MeshCache::default();
         let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
 
-        assert!(mesh.vertices.len() > 0);
+                assert!(mesh.vertices.len() > 0);
+        let mut found_non_finite = false;
         for i in 0..(mesh.vertices.len() / 3) {
             let x = mesh.vertices[i * 3];
             let y = mesh.vertices[i * 3 + 1];
             let z = mesh.vertices[i * 3 + 2];
-            assert!(x.is_finite());
-            assert!(y.is_finite());
-            assert!(z.is_finite());
             
+            if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+                println!("\n=== DIAGNOSTIC: NON-FINITE VERTEX FOUND ===");
+                println!("Vertex Index: {}", i);
+                println!("Coordinates: [X={}, Y={}, Z={}]", x, y, z);
+                
+                let z_inches = z * 12.0;
+                println!("Z-Coordinate in Inches: {}", z_inches);
+                
+                let bounds = crate::geometry::get_board_bounds(&model);
+                println!("Board Bounds: nose_z={}, tip_z={}, notch_z={}, tip_t={}", bounds.nose_z, bounds.tip_z, bounds.notch_z, bounds.tip_t);
+                
+                if let Some(outline) = &model.outline {
+                    println!("Outline endpoints Z: nose={}, tail={}", outline.control_points.first().unwrap().z, outline.control_points.last().unwrap().z);
+                    let v_outer = crate::geometry::find_v_at_z(outline, z_inches, 0.0, bounds.tip_t);
+                    println!("Calculated v_outer at Z-ring: {}", v_outer);
+                    
+                    let profile = crate::geometry::get_board_profile_at_z(&model, z_inches, v_outer);
+                    println!("Board Profile at Z-ring:\n  top_y={}\n  bot_y={}\n  apex_x={}\n  apex_y={}\n  tuck_x={}\n  tuck_y={}\n  shoulder_x={}\n  shoulder_y={}\n  half_width={}", 
+                        profile.top_y, profile.bot_y, profile.apex_x, profile.apex_y, profile.tuck_x, profile.tuck_y, profile.shoulder_x, profile.shoulder_y, profile.half_width
+                    );
+                }
+                println!("===========================================\n");
+                found_non_finite = true;
+                break;
+            }
+        }
+
+        if found_non_finite {
+            panic!("Test failed due to non-finite (NaN/Inf) vertices in the generated mesh.");
+        }
+
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
             // Assert that the board width does not expand crazily beyond normal limits (e.g. 3 feet)
             assert!(
                 x.abs() < 3.0,
