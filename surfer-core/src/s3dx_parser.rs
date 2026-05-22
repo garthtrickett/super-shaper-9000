@@ -1339,6 +1339,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_gh60_wing_goes_in_not_out() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
@@ -1361,15 +1362,18 @@ mod tests {
         let profile_before = crate::geometry::get_board_profile_at_z(&model, z_before, 0.5);
         let profile_after = crate::geometry::get_board_profile_at_z(&model, z_after, 0.5);
 
+        let width_reduction = profile_before.apex_x - profile_after.apex_x;
         println!("Wing Step Direction Analysis:");
         println!("  Z Before: {}, Width: {}", z_before, profile_before.apex_x);
         println!("  Z After: {}, Width: {}", z_after, profile_after.apex_x);
+        println!("  Width Reduction: {}", width_reduction);
 
-        // A flyer transition must step INWARD (decrease in width) as we move toward the tail.
-        // If the width increases, the wing incorrectly flares outward.
+        // A flyer transition must step INWARD substantially as we move toward the tail.
+        // Given the 0.79" physical wing cut, the width must decrease by at least 0.4".
         assert!(
-            profile_after.apex_x < profile_before.apex_x,
-            "BUG: Wing flares OUTWARD instead of stepping INWARD! apex_x after >= before"
+            width_reduction > 0.4,
+            "BUG: Wing does not step inward! Expected reduction > 0.4\", got {:.4}\"",
+            width_reduction
         );
     }
 
