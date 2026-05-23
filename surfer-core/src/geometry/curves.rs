@@ -761,6 +761,7 @@ pub fn get_cross_section_blend_at_z<'a>(
 mod tests {
     use super::*;
     use crate::model::BezierCurveData;
+    use approx::assert_relative_eq;
     use glam::Vec3;
 
     #[test]
