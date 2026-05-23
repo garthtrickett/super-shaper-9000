@@ -247,7 +247,42 @@ impl<'a> ZRingContext<'a> {
                 }
             }
         }
-        self.cached_channel_us = cached;
+                self.cached_channel_us = cached;
+    }
+
+    pub fn get_rocker_bottom_slope_with_respect_to_z(&self, hint_t: f32) -> f32 {
+        if let Some(r_bot) = &self.model.rocker_bottom {
+            let t = evaluate_bezier_t_at_z_robust(r_bot, self.z_inches, hint_t);
+            let deriv = evaluate_curve_derivative(r_bot, t);
+            if deriv.z.abs() > 1e-5 {
+                return deriv.y / deriv.z;
+            }
+        }
+        0.0
+    }
+
+    pub fn get_rocker_top_slope_with_respect_to_z(&self, hint_t: f32) -> f32 {
+        if let Some(r_top) = &self.model.rocker_top {
+            let t = evaluate_bezier_t_at_z_robust(r_top, self.z_inches, hint_t);
+            let deriv = evaluate_curve_derivative(r_top, t);
+            if deriv.z.abs() > 1e-5 {
+                return deriv.y / deriv.z;
+            }
+        }
+        0.0
+    }
+
+    pub fn get_composite_outline_slope_with_respect_to_z(&self, hint_t: f32) -> f32 {
+        let (_, tan) = evaluate_composite_outline_pos_and_tan_at_z(
+            self.model,
+            self.z_inches,
+            hint_t,
+        );
+        if tan.z.abs() > 1e-5 {
+            tan.x / tan.z
+        } else {
+            0.0
+        }
     }
 
     pub fn get_point_at_uv_base(&self, u: f32, _side: f32) -> Vec3 {

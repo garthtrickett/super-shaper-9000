@@ -1296,7 +1296,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_longboard_tail_block_integrity() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

@@ -277,7 +277,7 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     }
 }
 
-fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> f32 {
+pub fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> f32 {
     let mut best_t = hint_t;
     let mut min_z_err = f32::INFINITY;
     let steps = 50;
@@ -1048,8 +1048,26 @@ mod tests {
         let t_weighted = find_v_at_z(&curve, 50.0, 0.0, 1.0);
         let pt_weighted = evaluate_curve(&curve, t_weighted);
 
-        assert!((pt_std.z - 50.0).abs() < 1e-3);
+                assert!((pt_std.z - 50.0).abs() < 1e-3);
         assert!((pt_weighted.z - 50.0).abs() < 1e-3);
         assert!(t_weighted < t_std);
+    }
+
+    #[test]
+    fn test_evaluate_curve_derivative_analytical() {
+        let curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(3.0, 6.0, 9.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(2.0, 4.0, 6.0)],
+            tangents2: vec![Vec3::new(1.0, 2.0, 3.0), Vec3::new(3.0, 6.0, 9.0)],
+            ..Default::default()
+        };
+
+        let deriv = evaluate_curve_derivative(&curve, 1.0);
+        assert_relative_eq!(deriv.x, 3.0, epsilon = 1e-4);
+        assert_relative_eq!(deriv.y, 6.0, epsilon = 1e-4);
+        assert_relative_eq!(deriv.z, 9.0, epsilon = 1e-4);
+
+        let dy_dz = deriv.y / deriv.z;
+        assert_relative_eq!(dy_dz, 6.0 / 9.0, epsilon = 1e-4);
     }
 }
