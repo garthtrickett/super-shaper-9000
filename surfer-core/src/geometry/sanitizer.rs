@@ -90,7 +90,7 @@ pub fn synchronize_board_endpoints(model: &mut BoardModel) {
         }
     }
 
-    let mut clip_curve = |curve_opt: &mut Option<BezierCurveData>| {
+    let clip_curve = |curve_opt: &mut Option<BezierCurveData>| {
         if let Some(curve) = curve_opt {
             clip_curve_to_z_bounds(curve, min_z, max_z);
         }
