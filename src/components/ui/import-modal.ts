@@ -18,6 +18,10 @@ import singleChannelsS3dx from "../../assets/fixtures/s3dx/Single Channels.s3dx?
 import miniSimmonsBrd from "../../assets/fixtures/brd/5'4-Mini-Simmons.brd?url";
 import bumpSquashBrd from "../../assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd?url";
 import eggBrd from "../../assets/fixtures/brd/7'0-Egg.brd?url";
+import thumbTailBrd from "../../assets/fixtures/brd/6'0-Thumb-Tail-Hybrid.brd?url";
+import miniLongboardBrd from "../../assets/fixtures/brd/6'10-Mini-Longboard.brd?url";
+import doubleWingBrd from "../../assets/fixtures/brd/6'5-Double-Wing-Groveler.brd?url";
+import channelPintailBrd from "../../assets/fixtures/brd/7'7-Channel-Pintail.brd?url";
 
 @customElement("import-modal")
 export class ImportModal extends LitElement {
@@ -203,10 +207,14 @@ export class ImportModal extends LitElement {
                 
                 ${this.brdFolderOpen ? html`
                   <div class="p-2 space-y-1 divide-y divide-zinc-800/30">
-                    ${[
+                                        ${[
                       { name: "5'4\" Mini Simmons", url: miniSimmonsBrd, desc: "Ultra-wide, super fast planning hull" },
+                      { name: "6'0\" Thumb Tail Hybrid", url: thumbTailBrd, desc: "Versatile, flowing shortboard with a thumb tail" },
                       { name: "6'4\" Bump Squash (Full Nose)", url: bumpSquashBrd, desc: "Aggressive shortboard with forward volume" },
-                      { name: "7'0\" Egg", url: eggBrd, desc: "Classic midlength egg for smooth, flowing lines" }
+                      { name: "6'5\" Double Wing Groveler", url: doubleWingBrd, desc: "High performance wide-tail design with double wing steps" },
+                      { name: "7'0\" Egg", url: eggBrd, desc: "Classic midlength egg for smooth, flowing lines" },
+                      { name: "6'10\" Mini Longboard", url: miniLongboardBrd, desc: "Fun-sized longboard for easy paddling and clean glides" },
+                      { name: "7'7\" Channel Pintail", url: channelPintailBrd, desc: "Performance step-up design with channel bottom" }
                     ].map(board => html`
                       <div class="flex items-center justify-between p-2 hover:bg-zinc-800/20 transition-all rounded">
                         <div class="flex flex-col">
