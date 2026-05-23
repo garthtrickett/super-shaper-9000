@@ -1295,7 +1295,7 @@ mod tests {
         );
     }
 
-            #[test]
+    #[test]
         #[test]
     fn test_longboard_tail_block_integrity() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -1381,19 +1381,37 @@ mod tests {
         );
 
         // 2. Normal Vector Outward Orientation at the Tail Block Apex
-        // Find the vertex on the absolute tail Z ring that has the maximum X-coordinate (rail apex)
-        // Constrain search strictly to the hull vertices to prevent selecting coincident cap vertices
-        let mut max_x = 0.0_f32;
+        // On a blunt squash tail, the side forms a vertical rail wall where multiple vertices
+        // share the same maximum X coordinate. We resolve this tie by selecting the vertex closest
+        // to the mid-rail height, which corresponds to the true rail apex (u = t_apex).
+        let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
+        let mid_y = (profile.bot_y + profile.top_y) / 2.0;
+        let mid_y_scaled = mid_y * scale;
+
+        let mut best_x = 0.0_f32;
+        let mut best_y_diff = f32::INFINITY;
         let mut apex_idx = None;
-        let hull_vertex_count = cache.z_rings.len() * cache.u_columns.len();
+        let hull_vertex_count = cache.vertices.len() / 3;
 
         for i in 0..hull_vertex_count {
             let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
             let z = mesh.vertices[i * 3 + 2];
             if (z - tail_z).abs() < 2e-3 {
-                if x > max_x {
-                    max_x = x;
+                let x_diff = x - best_x;
+                if x_diff > 1e-4 {
+                    // Strictly better X
+                    best_x = x;
+                    best_y_diff = (y - mid_y_scaled).abs();
                     apex_idx = Some(i);
+                } else if x_diff.abs() <= 1e-4 {
+                    // Tie/near-tie on the vertical wall, prefer the one closest to mid-rail height
+                    let y_diff = (y - mid_y_scaled).abs();
+                    if y_diff < best_y_diff {
+                        best_x = x;
+                        best_y_diff = y_diff;
+                        apex_idx = Some(i);
+                    }
                 }
             } 
         }
