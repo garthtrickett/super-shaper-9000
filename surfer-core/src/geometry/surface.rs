@@ -156,6 +156,7 @@ pub struct ZRingContext<'a> {
     pub profile: BoardProfile,
     pub blend: Option<BlendResult<'a>>,
     pub rail_coeff: f32,
+    pub cached_channel_us: Vec<(f32, f32)>,
 }
 
 impl<'a> ZRingContext<'a> {
@@ -171,7 +172,7 @@ impl<'a> ZRingContext<'a> {
         let inner_x = if let Some(outline) = &model.outline {
             if z_inches > bounds.notch_z {
                 evaluate_notch_inner_x(outline, bounds.tip_t, z_inches)
-            } else {
+            } else { 
                 0.0
             }
         } else {
@@ -193,7 +194,7 @@ impl<'a> ZRingContext<'a> {
             1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
         };
 
-        Self {
+        let mut ctx = Self {
             model,
             z_inches,
             bounds,
@@ -202,7 +203,50 @@ impl<'a> ZRingContext<'a> {
             profile,
             blend,
             rail_coeff,
+            cached_channel_us: Vec::new(),
+        };
+
+        ctx.populate_cached_channels();
+        ctx
+    }
+
+    fn populate_cached_channels(&mut self) {
+        let mut cached = Vec::new();
+        let blend = match &self.blend {
+            Some(b) => b,
+            None => return,
+        };
+        let t_apex = blend.t_apex;
+
+        if let Some(channels) = &self.model.bottom_channels {
+            for channel in channels {
+                let outlines = [&channel.left_outline, &channel.right_outline];
+                for outline in outlines {
+                    if outline.control_points.is_empty() {
+                        continue;
+                    }
+                    let min_z = outline.control_points.first().unwrap().z;
+                    let max_z = outline.control_points.last().unwrap().z;
+                    if self.z_inches >= min_z - 1e-4 && self.z_inches <= max_z + 1e-4 {
+                        let chan_x = evaluate_bezier_at_z(outline, self.z_inches, 0.5).x.abs();
+
+                        if cached.iter().any(|(x, _)| (x - chan_x).abs() < 1e-4) {
+                            continue;
+                        }
+
+                        let u_search = solve_u_for_target_x(
+                            |u| self.get_point_at_uv_base(u, 1.0).x - chan_x,
+                            0.0,
+                            t_apex,
+                            1e-4,
+                            15,
+                        );
+                        cached.push((chan_x, u_search));
+                    }
+                }
+            }
         }
+        self.cached_channel_us = cached;
     }
 
     pub fn get_point_at_uv_base(&self, u: f32, _side: f32) -> Vec3 {
@@ -351,28 +395,25 @@ impl<'a> ZRingContext<'a> {
         final_pos
     }
 
-    pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
+        pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
         let mut final_pos = self.get_point_at_uv_base(u, side);
 
         let blend = self.blend.as_ref();
         let t_apex = if let Some(b) = blend { b.t_apex } else { 0.5 };
 
         if u <= t_apex {
-            if let Some((mut chan_x, chan_depth)) =
+            if let Some((mut chan_x, chan_depth)) = 
                 get_channel_profile_at_z(self.model, side < 0.0, self.z_inches)
             {
                 let profile = &self.profile;
                 let apex_x = profile.apex_x.max(0.001);
                 chan_x = chan_x.abs();
                 if chan_x > self.inner_x && chan_x < apex_x {
-                                        let target_x = chan_x.abs();
-                    let u_chan = crate::geometry::solve_u_for_target_x(
-                        |u| self.get_point_at_uv_base(u, 1.0).x - target_x,
-                        0.0,
-                        t_apex,
-                        1e-4,
-                        15,
-                    );
+                    let u_chan = self.cached_channel_us.iter()
+                        .find(|(cx, _)| (cx - chan_x).abs() < 1e-3)
+                        .map(|(_, val)| *val)
+                        .unwrap_or(0.0);
+
                     let mut channel_applied = false;
                     let mut t = 0.0;
 
