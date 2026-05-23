@@ -2979,7 +2979,7 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_blunt_tail_crease_preservation() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2995,65 +2995,57 @@ mod tests {
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
         let tail_z = bounds.tip_z * scale;
+        let hull_vertex_count = cache.vertices.len() / 3;
 
-        use std::collections::HashMap;
-        let mut groups: HashMap<(i32, i32), Vec<(usize, [f32; 3])>> = HashMap::new();
+        let mut checked_vertices = 0;
 
-        for i in 0..(mesh.vertices.len() / 3) {
-            let x = mesh.vertices[i * 3];
-            let y = mesh.vertices[i * 3 + 1];
-            let z = mesh.vertices[i * 3 + 2];
+        for i in 0..hull_vertex_count {
+            let xi = mesh.vertices[i * 3];
+            let yi = mesh.vertices[i * 3 + 1];
+            let zi = mesh.vertices[i * 3 + 2];
 
-            if (z - tail_z).abs() < 2e-3 {
-                let rx = (x * 1000.0).round() as i32;
-                let ry = (y * 1000.0).round() as i32;
-                
-                let norm = [
-                    mesh.normals[i * 3],
-                    mesh.normals[i * 3 + 1],
-                    mesh.normals[i * 3 + 2],
-                ];
+            if (zi - tail_z).abs() < 2e-3 && xi.abs() > 10.0 * scale {
+                let mut found_cap_match = false;
 
-                groups.entry((rx, ry)).or_default().push((i, norm));
-            } 
-        }
+                for j in hull_vertex_count..(mesh.vertices.len() / 3) {
+                    let xj = mesh.vertices[j * 3];
+                    let yj = mesh.vertices[j * 3 + 1];
+                    let zj = mesh.vertices[j * 3 + 2];
 
-        let mut checked_groups = 0;
-        for ((rx, _ry), normals_list) in &groups {
-            if rx.abs() > 10 {
-                checked_groups += 1;
-                assert!(
-                    normals_list.len() >= 2,
-                    "Expected at least 2 coincident vertices at boundary rx={}, but found {}",
-                    rx,
-                    normals_list.len()
-                );
+                    if (zj - tail_z).abs() < 2e-3 {
+                        let dist_sq = (xi - xj) * (xi - xj) + (yi - yj) * (yi - yj);
+                        if dist_sq < 1e-8 {
+                            found_cap_match = true;
+                            checked_vertices += 1;
 
-                let mut found_hull_normal = false;
-                let mut found_cap_normal = false;
+                            let n_hull_z = mesh.normals[i * 3 + 2];
+                            let n_cap_z = mesh.normals[j * 3 + 2];
 
-                for &(_idx, norm) in normals_list {
-                    let nz = norm[2];
-                    if nz > 0.95 {
-                        found_cap_normal = true;
-                    } else if nz.abs() < 0.5 {
-                        found_hull_normal = true;
+                            assert!(
+                                n_hull_z.abs() < 0.3,
+                                "Hull vertex {} at X={} on trailing edge has collapsed normal: Nz = {}. Expected Nz < 0.3",
+                                i, xi / scale, n_hull_z
+                            );
+
+                            assert!(
+                                n_cap_z > 0.95,
+                                "Cap vertex {} at X={} on trailing edge has skewed normal: Nz = {}. Expected Nz > 0.95",
+                                j, xj / scale, n_cap_z
+                            );
+                            break;
+                        }
                     }
                 }
 
                 assert!(
-                    found_cap_normal,
-                    "Boundary group at rx={} missing a flat-facing cap normal (Nz > 0.95)",
-                    rx
-                );
-                assert!(
-                    found_hull_normal,
-                    "Boundary group at rx={} missing a side-facing hull normal (Nz < 0.5)",
-                    rx
+                    found_cap_match,
+                    "No coincident cap vertex found for hull vertex {} at [X={}, Y={}]",
+                    i, xi / scale, yi / scale
                 );
             }
         }
 
-        assert!(checked_groups > 0, "No boundary groups found to check!");
+        assert!(checked_vertices > 0, "No boundary vertices found to validate!");
+        println!("Successfully validated {} boundary vertex pairs for crease preservation.", checked_vertices);
     }
 }
