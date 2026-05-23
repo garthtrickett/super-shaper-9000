@@ -308,13 +308,17 @@ self.onmessage = async (e: MessageEvent<any>) => {
             const foilData = engine.get_foil_stats() as Float32Array;
 
             console.debug(`[BoardWorker] Propose completed. Posting STATE_UPDATED back for sequence ID: ${msg.seq}`);
+                        const transferList = [];
+            if (foilData && foilData.buffer && typeof SharedArrayBuffer !== "undefined" && !(foilData.buffer instanceof SharedArrayBuffer)) {
+                transferList.push(foilData.buffer);
+            }
             (self as unknown as Worker).postMessage({
                 type: "STATE_UPDATED",
                 seq: msg.seq,
                 state,
                 stats,
                 foilData
-            }, [foilData.buffer]); // Transfer ownership of the buffers
+            }, transferList);
 
         } catch (err) { 
             console.error("[BoardWorker] Error encountered during action proposal!", err);
