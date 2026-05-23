@@ -78,6 +78,20 @@ mod tests {
     }
 
     #[test]
+    fn test_u_column_struct_properties() {
+        let col = crate::mesh::UColumn {
+            norm_u: 0.5,
+            side: -1.0,
+            is_stringer: false,
+            u_tex: 0.25,
+        };
+        assert_eq!(col.norm_u, 0.5);
+        assert_eq!(col.side, -1.0);
+        assert_eq!(col.is_stringer, false);
+        assert_eq!(col.u_tex, 0.25);
+    }
+
+    #[test]
     fn test_abs_u_to_norm_u_and_back() {
         let t_tuck = 0.2;
         let t_apex = 0.4;
@@ -291,7 +305,7 @@ pub fn compute_u_columns(
     outline: &crate::model::BezierCurveData,
     notch_z: f32,
     v_tip: f32,
-) -> Vec<(f32, f32, bool, f32)> {
+) -> Vec<crate::mesh::UColumn> {
     if !dirty.global_rebuild && !cache.u_columns.is_empty() && dirty.dirty_z_ranges.is_empty() {
         return cache.u_columns.clone();
     }
@@ -372,35 +386,16 @@ pub fn compute_u_columns(
                             } else {
                                 0.0
                             };
-                            let mut best_u = 0.0;
-                            let mut min_diff = f32::INFINITY;
 
                             let ctx = crate::geometry::ZRingContext::new(model, *z);
-                            for i in 0..=50 {
-                                let test_u = i as f32 / 50.0 * b.t_apex;
-                                let test_pt = ctx.get_point_at_uv_base(test_u, 1.0);
-                                let diff = (test_pt.x - chan_x.abs()).abs();
-                                if diff < min_diff {
-                                    min_diff = diff;
-                                    best_u = test_u;
-                                }
-                            }
-                            let mut u_search = best_u;
-                            let mut step = b.t_apex / 50.0;
-                            for _ in 0..10 {
-                                step *= 0.5;
-                                let u_left = 0.0_f32.max(u_search - step);
-                                let u_right = b.t_apex.min(u_search + step);
-                                let pt_left = ctx.get_point_at_uv_base(u_left, 1.0);
-                                let pt_right = ctx.get_point_at_uv_base(u_right, 1.0);
-                                if (pt_left.x - chan_x.abs()).abs() < min_diff {
-                                    min_diff = (pt_left.x - chan_x.abs()).abs();
-                                    u_search = u_left;
-                                } else if (pt_right.x - chan_x.abs()).abs() < min_diff {
-                                    min_diff = (pt_right.x - chan_x.abs()).abs();
-                                    u_search = u_right;
-                                }
-                            }
+                            let target_x = chan_x.abs();
+                            let u_search = crate::geometry::solve_u_for_target_x(
+                                |u| ctx.get_point_at_uv_base(u, 1.0).x - target_x,
+                                0.0,
+                                b.t_apex,
+                                1e-4,
+                                15,
+                            );
 
                             let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
                             let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
@@ -465,11 +460,21 @@ pub fn compute_u_columns(
     let half = u_params_half.len() - 1;
     for (idx, &u) in u_params_half.iter().enumerate() {
         let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, 1.0, is_stringer, get_u_tex(u))); // Right side
+        u_columns.push(crate::mesh::UColumn {
+            norm_u: u,
+            side: 1.0,
+            is_stringer,
+            u_tex: get_u_tex(u),
+        });
     }
     for (idx, &u) in u_params_half.iter().rev().enumerate() {
         let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, -1.0, is_stringer, get_u_tex(u))); // Left side
+        u_columns.push(crate::mesh::UColumn {
+            norm_u: u,
+            side: -1.0,
+            is_stringer,
+            u_tex: get_u_tex(u),
+        });
     }
 
     u_columns

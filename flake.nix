@@ -87,8 +87,8 @@
           echo "Node: $(node --version)"
           echo "🦀 Rust Nightly (with rust-src) is ready for -Z build-std WASM threading."
           
-          # --- RUST TOOLCHAIN SETUP ---
-          export RUSTFLAGS="-C target-feature=+atomics,+bulk-memory"
+                                        # --- RUST TOOLCHAIN SETUP ---
+          unset RUSTFLAGS
           
           # --- PLAYWRIGHT CONFIG ---
           export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1

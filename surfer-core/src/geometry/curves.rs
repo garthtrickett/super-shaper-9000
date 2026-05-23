@@ -264,23 +264,10 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     }
     tip_t = t_search;
 
-    // Use Rocker for absolute Z bounds to prevent amputation when outline caps are stripped
-    let nose_z = if let Some(rb) = &model.rocker_bottom {
-        evaluate_curve(rb, 0.0).z.min(out_nose_z)
-    } else {
-        out_nose_z
-    };
-
-    let mut tip_z = if let Some(rb) = &model.rocker_bottom {
-        evaluate_curve(rb, 1.0).z.max(out_tip_z)
-    } else {
-        out_tip_z
-    };
-
-    // If the rocker is somehow shorter than the outline, fall back to the outline's tip
-    if out_tip_z > tip_z {
-        tip_z = out_tip_z;
-    }
+    // With unified endpoint synchronization implemented, the outline's boundaries
+    // represent the absolute, canonical start and end Z-positions of the board.
+    let nose_z = out_nose_z;
+    let tip_z = out_tip_z;
 
     BoardBounds {
         nose_z,
@@ -290,7 +277,7 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     }
 }
 
-fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> f32 {
+pub fn evaluate_bezier_t_at_z_robust(curve: &BezierCurveData, target_z: f32, hint_t: f32) -> f32 {
     let mut best_t = hint_t;
     let mut min_z_err = f32::INFINITY;
     let steps = 50;
@@ -543,6 +530,62 @@ pub fn compute_centripetal_tangents(
     (m1, m2)
 }
 
+fn combine_curves(
+    c0: &BezierCurveData,
+    c1: &BezierCurveData,
+    c2: &BezierCurveData,
+    a0: f32,
+    a1: f32,
+    a2: f32,
+) -> BezierCurveData {
+    let mut out = BezierCurveData::default();
+    let len = c0
+        .control_points
+        .len()
+        .min(c1.control_points.len())
+        .min(c2.control_points.len());
+
+    for i in 0..len {
+        out.control_points.push(
+            c0.control_points[i] * a0 + c1.control_points[i] * a1 + c2.control_points[i] * a2,
+        );
+    }
+
+    let t1_len = c0
+        .tangents1
+        .len()
+        .min(c1.tangents1.len())
+        .min(c2.tangents1.len());
+    for i in 0..t1_len {
+        out.tangents1
+            .push(c0.tangents1[i] * a0 + c1.tangents1[i] * a1 + c2.tangents1[i] * a2);
+    }
+
+    let t2_len = c0
+        .tangents2
+        .len()
+        .min(c1.tangents2.len())
+        .min(c2.tangents2.len());
+    for i in 0..t2_len {
+        out.tangents2
+            .push(c0.tangents2[i] * a0 + c1.tangents2[i] * a1 + c2.tangents2[i] * a2);
+    }
+
+    out
+}
+
+fn set_curve_z(curve: &mut BezierCurveData, z: f32) {
+    for p in &mut curve.control_points {
+        p.z = z;
+    }
+    for p in &mut curve.tangents1 {
+        p.z = z;
+    }
+    for p in &mut curve.tangents2 {
+        p.z = z;
+    }
+}
+
 pub struct BlendResult<'a> {
     pub t_apex: f32,
     pub t_tuck: f32,
@@ -551,74 +594,38 @@ pub struct BlendResult<'a> {
     pub s1: &'a BezierCurveData,
     pub s_next: &'a BezierCurveData,
     pub lerp_factor: f32,
+    pub m1_pos: BezierCurveData,
+    pub m2_pos: BezierCurveData,
+    pub m1_deriv_u: BezierCurveData,
+    pub m2_deriv_u: BezierCurveData,
+    pub m1_deriv_z: BezierCurveData,
+    pub m2_deriv_z: BezierCurveData,
 }
 
 impl<'a> BlendResult<'a> {
     pub fn evaluate(&self, t_mid: f32) -> Vec3 {
-        let p0 = evaluate_curve(self.s_prev, t_mid);
         let p1 = evaluate_curve(self.s0, t_mid);
         let p2 = evaluate_curve(self.s1, t_mid);
-        let p3 = evaluate_curve(self.s_next, t_mid);
-
-        let z1 = self.s0.control_points.first().unwrap().z;
-        let z2 = self.s1.control_points.first().unwrap().z;
-        let dz = z2 - z1;
-
-        let dt0 = p0.distance(p1).sqrt();
-        let dt1 = p1.distance(p2).sqrt();
-        let dt2 = p2.distance(p3).sqrt();
-
-        let (mut m1, mut m2) = compute_centripetal_tangents(p0, p1, p2, p3, dt0, dt1, dt2);
-
-        // Preserve mathematically strict Z linearity
-        m1.z = dz;
-        m2.z = dz;
+        let m1 = evaluate_curve(&self.m1_pos, t_mid);
+        let m2 = evaluate_curve(&self.m2_pos, t_mid);
 
         crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, self.lerp_factor)
     }
 
     pub fn evaluate_derivative_u(&self, t_mid: f32) -> Vec3 {
-        let dp0 = evaluate_curve_derivative(self.s_prev, t_mid);
         let dp1 = evaluate_curve_derivative(self.s0, t_mid);
         let dp2 = evaluate_curve_derivative(self.s1, t_mid);
-        let dp3 = evaluate_curve_derivative(self.s_next, t_mid);
-
-        let p0 = evaluate_curve(self.s_prev, t_mid);
-        let p1 = evaluate_curve(self.s0, t_mid);
-        let p2 = evaluate_curve(self.s1, t_mid);
-        let p3 = evaluate_curve(self.s_next, t_mid);
-
-        let dt0 = p0.distance(p1).sqrt();
-        let dt1 = p1.distance(p2).sqrt();
-        let dt2 = p2.distance(p3).sqrt();
-
-        let (mut m1, mut m2) = compute_centripetal_tangents(dp0, dp1, dp2, dp3, dt0, dt1, dt2);
-
-        // U-derivative of Z is 0 (cross sections are flat in Z)
-        m1.z = 0.0;
-        m2.z = 0.0;
+        let m1 = evaluate_curve_derivative(&self.m1_deriv_u, t_mid);
+        let m2 = evaluate_curve_derivative(&self.m2_deriv_u, t_mid);
 
         crate::bezier::evaluate_cubic_hermite(dp1, dp2, m1, m2, self.lerp_factor)
     }
 
     pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
-        let p0 = evaluate_curve(self.s_prev, t_mid);
         let p1 = evaluate_curve(self.s0, t_mid);
         let p2 = evaluate_curve(self.s1, t_mid);
-        let p3 = evaluate_curve(self.s_next, t_mid);
-
-        let z1 = self.s0.control_points.first().unwrap().z;
-        let z2 = self.s1.control_points.first().unwrap().z;
-        let dz = z2 - z1;
-
-        let dt0 = p0.distance(p1).sqrt();
-        let dt1 = p1.distance(p2).sqrt();
-        let dt2 = p2.distance(p3).sqrt();
-
-        let (mut m1, mut m2) = compute_centripetal_tangents(p0, p1, p2, p3, dt0, dt1, dt2);
-
-        m1.z = dz;
-        m2.z = dz;
+        let m1 = evaluate_curve(&self.m1_deriv_z, t_mid);
+        let m2 = evaluate_curve(&self.m2_deriv_z, t_mid);
 
         crate::bezier::evaluate_cubic_hermite_derivative(p1, p2, m1, m2, self.lerp_factor)
     }
@@ -686,6 +693,53 @@ pub fn get_cross_section_blend_at_z<'a>(
     let t_tuck1 = s1.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex1 * 0.5));
     let t_tuck = (t_tuck0 + (t_tuck1 - t_tuck0) * lerp_factor).clamp(0.0, 1.0);
 
+    let v_prev = s_prev.control_points.first().copied().unwrap_or(Vec3::ZERO);
+    let v0 = s0.control_points.first().copied().unwrap_or(Vec3::ZERO);
+    let v1 = s1.control_points.first().copied().unwrap_or(Vec3::ZERO);
+    let v_next = s_next.control_points.first().copied().unwrap_or(Vec3::ZERO);
+
+    let dt0 = v0.distance(v_prev).sqrt();
+    let dt1 = v1.distance(v0).sqrt();
+    let dt2 = v_next.distance(v1).sqrt();
+    let dz = v1.z - v0.z;
+
+    let (a0, a1, a2) = if dt1 < 1e-5 || dt0 < 1e-5 {
+        (0.0, -1.0, 1.0)
+    } else {
+        let k = dt1 / (dt0 + dt1);
+        let a0 = -(dt1 / dt0) * k;
+        let a2 = (dt0 / dt1) * k;
+        let a1 = -a0 - a2;
+        (a0, a1, a2)
+    };
+
+    let (b1, b2, b3) = if dt1 < 1e-5 {
+        (0.0, 0.0, 0.0)
+    } else if dt2 < 1e-5 {
+        (-1.0, 1.0, 0.0)
+    } else {
+        let k2 = dt1 / (dt1 + dt2);
+        let b1 = -(dt2 / dt1) * k2;
+        let b3 = (dt1 / dt2) * k2;
+        let b2 = -b1 - b3;
+        (b1, b2, b3)
+    };
+
+    let mut m1_pos = combine_curves(s_prev, s0, s1, a0, a1, a2);
+    let mut m2_pos = combine_curves(s0, s1, s_next, b1, b2, b3);
+
+    set_curve_z(&mut m1_pos, dz);
+    set_curve_z(&mut m2_pos, dz);
+
+    let mut m1_deriv_u = combine_curves(s_prev, s0, s1, a0, a1, a2);
+    let mut m2_deriv_u = combine_curves(s0, s1, s_next, b1, b2, b3);
+
+    set_curve_z(&mut m1_deriv_u, 0.0);
+    set_curve_z(&mut m2_deriv_u, 0.0);
+
+    let m1_deriv_z = m1_pos.clone();
+    let m2_deriv_z = m2_pos.clone();
+
     Some(BlendResult {
         t_apex,
         t_tuck,
@@ -694,6 +748,12 @@ pub fn get_cross_section_blend_at_z<'a>(
         s1,
         s_next,
         lerp_factor,
+        m1_pos,
+        m2_pos,
+        m1_deriv_u,
+        m2_deriv_u,
+        m1_deriv_z,
+        m2_deriv_z,
     })
 }
 
@@ -701,6 +761,7 @@ pub fn get_cross_section_blend_at_z<'a>(
 mod tests {
     use super::*;
     use crate::model::BezierCurveData;
+    use approx::assert_relative_eq;
     use glam::Vec3;
 
     #[test]
@@ -937,6 +998,41 @@ mod tests {
     }
 
     #[test]
+    fn test_blend_context_tangent_identity() {
+        let cs0 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            ..Default::default()
+        };
+        let cs1 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 10.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 10.0)],
+            ..Default::default()
+        };
+        let cs2 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(5.0, 0.0, 20.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
+            ..Default::default()
+        };
+        let cs3 = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(10.0, 0.0, 30.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(5.0, 0.0, 30.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 30.0), Vec3::new(10.0, 0.0, 30.0)],
+            ..Default::default()
+        };
+
+        let sections = vec![cs0, cs1, cs2, cs3];
+        let blend = get_cross_section_blend_at_z(&sections, 15.0).unwrap();
+
+        let pt = blend.evaluate(0.5);
+        assert!(!pt.x.is_nan());
+        assert_eq!(pt.z, 15.0);
+    }
+
+    #[test]
     fn test_rational_geometry_integration() {
         let mut curve = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
@@ -956,5 +1052,23 @@ mod tests {
         assert!((pt_std.z - 50.0).abs() < 1e-3);
         assert!((pt_weighted.z - 50.0).abs() < 1e-3);
         assert!(t_weighted < t_std);
+    }
+
+    #[test]
+    fn test_evaluate_curve_derivative_analytical() {
+        let curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(3.0, 6.0, 9.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(2.0, 4.0, 6.0)],
+            tangents2: vec![Vec3::new(1.0, 2.0, 3.0), Vec3::new(3.0, 6.0, 9.0)],
+            ..Default::default()
+        };
+
+        let deriv = evaluate_curve_derivative(&curve, 1.0);
+        assert_relative_eq!(deriv.x, 3.0, epsilon = 1e-4);
+        assert_relative_eq!(deriv.y, 6.0, epsilon = 1e-4);
+        assert_relative_eq!(deriv.z, 9.0, epsilon = 1e-4);
+
+        let dy_dz = deriv.y / deriv.z;
+        assert_relative_eq!(dy_dz, 6.0 / 9.0, epsilon = 1e-4);
     }
 }

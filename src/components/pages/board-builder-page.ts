@@ -247,16 +247,18 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-  private _lastSyncedModel?: BoardModel;
+    private _lastSyncedModel?: BoardModel;
   private _hasLoadedSavedState = false;
   private _autoSaveTimeout?: number;
 
   protected override willUpdate(changedProperties: PropertyValues) {
+    console.info("[BoardBuilderPage] Entering willUpdate...");
     super.willUpdate(changedProperties);
     
     const modelToSync = this.wasmCtrl.model || INITIAL_STATE;
 
     if (!this._hasLoadedSavedState && this.wasmCtrl.model) {
+      console.info("[BoardBuilderPage] Checking localStorage for saved design...");
       this._hasLoadedSavedState = true;
       try {
         const saved = localStorage.getItem("super_shaper_saved_board");
@@ -275,6 +277,7 @@ export class BoardBuilderPage extends LitElement {
     }
 
     if (this._hasLoadedSavedState && this.wasmCtrl.model) {
+      console.info("[BoardBuilderPage] Scheduling auto-save timer...");
       clearTimeout(this._autoSaveTimeout);
       this._autoSaveTimeout = window.setTimeout(() => {
         localStorage.setItem("super_shaper_saved_board", JSON.stringify(this.wasmCtrl.model));
@@ -282,14 +285,17 @@ export class BoardBuilderPage extends LitElement {
     }
 
     if (this.mathEngine && modelToSync !== this._lastSyncedModel) {
+        console.info("[BoardBuilderPage] Synchronizing main-thread mathEngine with modelToSync...");
         try {
             this._lastSyncedModel = modelToSync;
             const cleanState = JSON.parse(JSON.stringify(modelToSync)) as BoardModel;
             this.mathEngine.propose({ type: "LOAD_DESIGN", state: cleanState });
+            console.info("[BoardBuilderPage] main-thread mathEngine synchronization complete.");
         } catch (err) {
             console.error("Failed to sync main thread mathEngine:", err);
         }
     }
+    console.info("[BoardBuilderPage] Exiting willUpdate.");
   }
 
           private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }) {
@@ -341,12 +347,13 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  override render() {
+    override render() {
+    console.info("[BoardBuilderPage] Entering render...");
     const state = this.wasmCtrl.model || INITIAL_STATE;
-        const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
+    const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
     const foilData = (this.wasmCtrl as unknown as { foilData?: Float32Array }).foilData;
 
-    return html`
+    const res = html`
       ${this.showExportModal ? html`
         <export-modal 
           .jsonString=${JSON.stringify(state, null, 2)} 
@@ -631,9 +638,11 @@ export class BoardBuilderPage extends LitElement {
               this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" });
           }}
                     @gizmo-dragged=${this._handleGizmoDrag}
-        ></board-viewport>
+                ></board-viewport>
       </div>
     `;
+    console.info("[BoardBuilderPage] Exiting render.");
+    return res;
   }
 }
 

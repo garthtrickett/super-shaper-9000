@@ -1,4 +1,5 @@
 use super::{curves::*, profile::*};
+use crate::geometry::solve_u_for_target_x;
 use crate::model::BoardModel;
 use glam::Vec3;
 
@@ -156,6 +157,7 @@ pub struct ZRingContext<'a> {
     pub profile: BoardProfile,
     pub blend: Option<BlendResult<'a>>,
     pub rail_coeff: f32,
+    pub cached_channel_us: Vec<(f32, f32)>,
 }
 
 impl<'a> ZRingContext<'a> {
@@ -193,7 +195,7 @@ impl<'a> ZRingContext<'a> {
             1.0 + (model.rail_coefficient_nose - 1.0) * ease_t
         };
 
-        Self {
+        let mut ctx = Self {
             model,
             z_inches,
             bounds,
@@ -202,6 +204,81 @@ impl<'a> ZRingContext<'a> {
             profile,
             blend,
             rail_coeff,
+            cached_channel_us: Vec::new(),
+        };
+
+        ctx.populate_cached_channels();
+        ctx
+    }
+
+    fn populate_cached_channels(&mut self) {
+        let mut cached = Vec::new();
+        let blend = match &self.blend {
+            Some(b) => b,
+            None => return,
+        };
+        let t_apex = blend.t_apex;
+
+        if let Some(channels) = &self.model.bottom_channels {
+            for channel in channels {
+                let outlines = [&channel.left_outline, &channel.right_outline];
+                for outline in outlines {
+                    if outline.control_points.is_empty() {
+                        continue;
+                    }
+                    let min_z = outline.control_points.first().unwrap().z;
+                    let max_z = outline.control_points.last().unwrap().z;
+                    if self.z_inches >= min_z - 1e-4 && self.z_inches <= max_z + 1e-4 {
+                        let chan_x = evaluate_bezier_at_z(outline, self.z_inches, 0.5).x.abs();
+
+                        if cached.iter().any(|(x, _)| (x - chan_x).abs() < 1e-4) {
+                            continue;
+                        }
+
+                        let u_search = solve_u_for_target_x(
+                            |u| self.get_point_at_uv_base(u, 1.0).x - chan_x,
+                            0.0,
+                            t_apex,
+                            1e-4,
+                            15,
+                        );
+                        cached.push((chan_x, u_search));
+                    }
+                }
+            }
+        }
+        self.cached_channel_us = cached;
+    }
+
+    pub fn get_rocker_bottom_slope_with_respect_to_z(&self, hint_t: f32) -> f32 {
+        if let Some(r_bot) = &self.model.rocker_bottom {
+            let t = evaluate_bezier_t_at_z_robust(r_bot, self.z_inches, hint_t);
+            let deriv = evaluate_curve_derivative(r_bot, t);
+            if deriv.z.abs() > 1e-5 {
+                return deriv.y / deriv.z;
+            }
+        }
+        0.0
+    }
+
+    pub fn get_rocker_top_slope_with_respect_to_z(&self, hint_t: f32) -> f32 {
+        if let Some(r_top) = &self.model.rocker_top {
+            let t = evaluate_bezier_t_at_z_robust(r_top, self.z_inches, hint_t);
+            let deriv = evaluate_curve_derivative(r_top, t);
+            if deriv.z.abs() > 1e-5 {
+                return deriv.y / deriv.z;
+            }
+        }
+        0.0
+    }
+
+    pub fn get_composite_outline_slope_with_respect_to_z(&self, hint_t: f32) -> f32 {
+        let (_, tan) =
+            evaluate_composite_outline_pos_and_tan_at_z(self.model, self.z_inches, hint_t);
+        if tan.z.abs() > 1e-5 {
+            tan.x / tan.z
+        } else {
+            0.0
         }
     }
 
@@ -351,54 +428,27 @@ impl<'a> ZRingContext<'a> {
         final_pos
     }
 
-    pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
+        pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
         let mut final_pos = self.get_point_at_uv_base(u, side);
 
         let blend = self.blend.as_ref();
         let t_apex = if let Some(b) = blend { b.t_apex } else { 0.5 };
 
         if u <= t_apex {
-            if let Some((mut chan_x, chan_depth)) =
+            if let Some((mut chan_x, chan_depth)) = 
                 get_channel_profile_at_z(self.model, side < 0.0, self.z_inches)
             {
                 let profile = &self.profile;
                 let apex_x = profile.apex_x.max(0.001);
                 chan_x = chan_x.abs();
                 if chan_x > self.inner_x && chan_x < apex_x {
-                    let mut best_u = 0.0;
-                    let mut min_diff = f32::INFINITY;
+                    let u_chan = self
+                        .cached_channel_us
+                        .iter()
+                        .find(|(cx, _)| (cx - chan_x).abs() < 1e-3)
+                        .map(|(_, val)| *val)
+                        .unwrap_or(0.0);
 
-                    for i in 0..=50 {
-                        let test_u = (i as f32 / 50.0) * t_apex;
-                        let test_pt = self.get_point_at_uv_base(test_u, 1.0);
-                        let diff = (test_pt.x - chan_x).abs();
-                        if diff < min_diff {
-                            min_diff = diff;
-                            best_u = test_u;
-                        }
-                    }
-
-                    let mut u_search = best_u;
-                    let mut step = t_apex / 50.0;
-                    for _ in 0..10 {
-                        step *= 0.5;
-                        let u_l = 0.0_f32.max(u_search - step);
-                        let u_r = t_apex.min(u_search + step);
-                        let p_l = self.get_point_at_uv_base(u_l, 1.0);
-                        let p_r = self.get_point_at_uv_base(u_r, 1.0);
-                        let d_l = (p_l.x - chan_x).abs();
-                        let d_r = (p_r.x - chan_x).abs();
-
-                        if d_l < min_diff && d_l <= d_r {
-                            min_diff = d_l;
-                            u_search = u_l;
-                        } else if d_r < min_diff {
-                            min_diff = d_r;
-                            u_search = u_r;
-                        }
-                    }
-
-                    let u_chan = u_search;
                     let mut channel_applied = false;
                     let mut t = 0.0;
 
@@ -412,7 +462,7 @@ impl<'a> ZRingContext<'a> {
                         channel_applied = true;
                     }
 
-                    if channel_applied {
+                                        if channel_applied {
                         let normal = self.get_surface_normal_base_at_uvz(u, side);
                         final_pos.x *= side;
                         final_pos -= normal * (t * chan_depth);
@@ -457,36 +507,28 @@ impl<'a> ZRingContext<'a> {
             t_u = Vec3::new(side, 0.0, 0.0);
         }
 
-        let dz = 1e-3;
-        let mut t_v = if self.z_inches <= bounds.nose_z + 1e-4 {
-            let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
-            let mut pt_plus_v = ctx_plus.get_point_at_uv_base(u, side);
-            pt_plus_v.x *= side;
-            let mut pt_c = self.get_point_at_uv_base(u, side);
-            pt_c.x *= side;
-            (pt_plus_v - pt_c).normalize()
-        } else if self.z_inches >= bounds.tip_z - 1e-4 {
-            let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
-            let mut pt_minus_v = ctx_minus.get_point_at_uv_base(u, side);
-            pt_minus_v.x *= side;
-            let mut pt_c = self.get_point_at_uv_base(u, side);
-            pt_c.x *= side;
-            (pt_c - pt_minus_v).normalize()
-        } else {
-            let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
-            let mut pt_plus_v = ctx_plus.get_point_at_uv_base(u, side);
-            pt_plus_v.x *= side;
-            let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
-            let mut pt_minus_v = ctx_minus.get_point_at_uv_base(u, side);
-            pt_minus_v.x *= side;
-            (pt_plus_v - pt_minus_v).normalize()
-        };
-        if t_v.is_nan() || t_v.length_squared() < 1e-6 {
-            t_v = Vec3::new(0.0, 0.0, 1.0);
+        let t_v =
+            if self.z_inches <= bounds.nose_z + 0.5 {
+                Vec3::new(0.0, 0.0, 1.0)
+            } else if self.z_inches >= bounds.tip_z - 0.5 {
+                Vec3::new(0.0, 0.0, 1.0)
+            } else {
+                let dz = 1e-3;
+                let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
+                let mut pt_plus_v = ctx_plus.get_point_at_uv_base(u, side);
+                pt_plus_v.x *= side;
+                let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
+                let mut pt_minus_v = ctx_minus.get_point_at_uv_base(u, side);
+                pt_minus_v.x *= side;
+                (pt_plus_v - pt_minus_v).normalize()
+            };
+        let mut t_v_norm = t_v;
+        if t_v_norm.is_nan() || t_v_norm.length_squared() < 1e-6 {
+            t_v_norm = Vec3::new(0.0, 0.0, 1.0);
         }
 
-        let cross = t_u.cross(t_v);
-        let mut n = if cross.length_squared() > 1e-6 {
+        let cross = t_u.cross(t_v_norm);
+        let mut n = if cross.length_squared() > 1e-6 { 
             cross.normalize()
         } else {
             Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0)
@@ -495,21 +537,21 @@ impl<'a> ZRingContext<'a> {
             n = -n;
         }
 
-        let pt = self.get_point_at_uv_base(u, side);
-        if pt.x.abs() < 1e-4 && self.inner_x < 1e-4 {
-            n.x = 0.0;
-            let len_sq = n.length_squared();
-            if len_sq > 1e-6 {
-                n /= len_sq.sqrt();
-            } else {
-                n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
-            }
-        }
+                     let pt = self.get_point_at_uv_base(u, side);
+ if pt.x.abs() < 1e-4 && self.inner_x < 1e-4 {
+ n.x = 0.0;
+ let len_sq = n.length_squared();
+ if len_sq > 1e-6 {
+ n /= len_sq.sqrt();
+ } else {
+ n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
+ }
+ }
 
-        n
-    }
+ n
+ }
 
-    pub fn get_surface_normal_at_uvz(&self, u: f32, side: f32) -> Vec3 {
+ pub fn get_surface_normal_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
         if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
@@ -541,35 +583,27 @@ impl<'a> ZRingContext<'a> {
             t_u = Vec3::new(side, 0.0, 0.0);
         }
 
-        let dz = 1e-3;
-        let mut t_v = if self.z_inches <= bounds.nose_z + 1e-4 {
-            let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
-            let mut pt_plus_v = ctx_plus.get_point_at_uv(u, side);
-            pt_plus_v.x *= side;
-            let mut pt_c = self.get_point_at_uv(u, side);
-            pt_c.x *= side;
-            (pt_plus_v - pt_c).normalize()
-        } else if self.z_inches >= bounds.tip_z - 1e-4 {
-            let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
-            let mut pt_minus_v = ctx_minus.get_point_at_uv(u, side);
-            pt_minus_v.x *= side;
-            let mut pt_c = self.get_point_at_uv(u, side);
-            pt_c.x *= side;
-            (pt_c - pt_minus_v).normalize()
-        } else {
-            let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
-            let mut pt_plus_v = ctx_plus.get_point_at_uv(u, side);
-            pt_plus_v.x *= side;
-            let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
-            let mut pt_minus_v = ctx_minus.get_point_at_uv(u, side);
-            pt_minus_v.x *= side;
-            (pt_plus_v - pt_minus_v).normalize()
-        };
-        if t_v.is_nan() || t_v.length_squared() < 1e-6 {
-            t_v = Vec3::new(0.0, 0.0, 1.0);
+        let t_v =
+            if self.z_inches <= bounds.nose_z + 0.5 {
+                Vec3::new(0.0, 0.0, 1.0)
+            } else if self.z_inches >= bounds.tip_z - 0.5 {
+                Vec3::new(0.0, 0.0, 1.0)
+            } else {
+                let dz = 1e-3;
+                let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
+                let mut pt_plus_v = ctx_plus.get_point_at_uv(u, side);
+                pt_plus_v.x *= side;
+                let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
+                let mut pt_minus_v = ctx_minus.get_point_at_uv(u, side);
+                pt_minus_v.x *= side;
+                (pt_plus_v - pt_minus_v).normalize()
+            };
+        let mut t_v_norm = t_v;
+        if t_v_norm.is_nan() || t_v_norm.length_squared() < 1e-6 {
+            t_v_norm = Vec3::new(0.0, 0.0, 1.0);
         }
 
-        let cross = t_u.cross(t_v);
+        let cross = t_u.cross(t_v_norm);
         let mut n = if cross.length_squared() > 1e-6 {
             cross.normalize()
         } else {
@@ -580,7 +614,7 @@ impl<'a> ZRingContext<'a> {
         }
 
         let pt = self.get_point_at_uv(u, side);
-        if pt.x.abs() < 1e-4 && self.inner_x < 1e-4 {
+        if pt.x.abs() < 1e-4 && self.inner_x < 1e-4 { 
             n.x = 0.0;
             let len_sq = n.length_squared();
             if len_sq > 1e-6 {
@@ -649,6 +683,7 @@ pub fn get_pole_normals(model: &BoardModel, z_inches: f32, _is_nose: bool) -> (V
 mod tests {
     use super::*;
     use crate::model::BezierCurveData;
+    use approx::assert_relative_eq;
     use glam::Vec3;
 
     #[test]
@@ -1219,6 +1254,58 @@ mod tests {
             (pt.y - (-1.0)).abs() < 1e-4,
             "Concave point was squished during mapping! Expected -1.0, got {}",
             pt.y
+        );
+    }
+
+    #[test]
+    fn test_z_ring_channel_cache_coverage() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            ..Default::default()
+        }];
+
+        let ctx_no_channels = ZRingContext::new(&model, 50.0);
+        assert!(ctx_no_channels.cached_channel_us.is_empty());
+
+        model.bottom_channels = Some(vec![crate::model::ChannelLayer {
+            name: "Test Channel".to_string(),
+            is_symmetric: true,
+            left_outline: BezierCurveData::default(),
+            left_depth: BezierCurveData::default(),
+            right_outline: BezierCurveData {
+                control_points: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)],
+                ..Default::default()
+            },
+            right_depth: BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+                ..Default::default()
+            },
+        }]);
+
+        let ctx_with_channels = ZRingContext::new(&model, 50.0);
+        assert!(!ctx_with_channels.cached_channel_us.is_empty());
+        assert_eq!(ctx_with_channels.cached_channel_us.len(), 1);
+        assert_relative_eq!(
+            ctx_with_channels.cached_channel_us[0].0,
+            5.0,
+            epsilon = 1e-4
         );
     }
 

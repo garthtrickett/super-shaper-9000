@@ -26,12 +26,14 @@ test('Board Builder UI updates correctly on slider changes', async ({ page }) =>
   
   console.log(`[Test] Initial Vertices: ${initialVertices}`);
 
-  // 2. Drag the Length slider to change the board size
+    // 2. Drag the Length slider to change the board size
   const lengthContainer = boardControls.locator('.mb-4').filter({ hasText: /^Length$/i }).first();
   const lengthSlider = lengthContainer.locator('input[type="range"]');
 
+  const startTime = Date.now();
+
   // Change length from 70 to 90 (significantly longer to trigger adaptive subdivision)
-    await lengthSlider.fill('90'); 
+  await lengthSlider.fill('90'); 
   await lengthSlider.dispatchEvent('input');
   await lengthSlider.dispatchEvent('pointerup');
 
@@ -43,6 +45,9 @@ test('Board Builder UI updates correctly on slider changes', async ({ page }) =>
   // Rust successfully generated a denser mesh, and the Worker posted the new state back to the UI.
   await expect(vertexDisplay).not.toHaveText(initialVertices as string);
   
+  const duration = Date.now() - startTime;
+  console.log(`[Performance] WASM Mesh Rebuild and HUD Update completed in ${duration}ms`);
+
   const newVertices = await vertexDisplay.textContent();
   console.log(`[Test] New Vertices: ${newVertices}`);
 });

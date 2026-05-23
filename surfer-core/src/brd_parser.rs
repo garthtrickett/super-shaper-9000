@@ -972,16 +972,12 @@ mod tests {
         let outline_tail_z = outline.control_points.last().unwrap().z;
         let rtop_tail_z = rocker_top.control_points.last().unwrap().z;
 
-        // The cap should be successfully stripped, meaning the outline safely stops
-        // at the squash corner (~37.4) while the rocker continues to the stringer tip (~38.0)
+        // With unified endpoint synchronization implemented, both the outline and the
+        // rockers are aligned to terminate precisely at the stripped squash corner.
+        // Therefore, the discrepancy (top_diff) is now exactly 0.0.
         let top_diff = (outline_tail_z - rtop_tail_z).abs();
 
-        assert!(
-            top_diff > 0.4 && top_diff < 0.7,
-            "Tail cap was not properly stripped! Outline Z: {}, Rocker Z: {}",
-            outline_tail_z,
-            rtop_tail_z
-        );
+        assert_relative_eq!(top_diff, 0.0, epsilon = 1e-4);
     }
 
     #[test]
@@ -1162,6 +1158,34 @@ mod tests {
     }
 
     #[test]
+    fn test_brd_import_endpoint_synchronization() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let outline = model.outline.as_ref().expect("Missing outline");
+        let rocker_bottom = model.rocker_bottom.as_ref().expect("Missing rocker bottom");
+        let rocker_top = model.rocker_top.as_ref().expect("Missing rocker top");
+
+        let outline_nose_z = outline.control_points.first().unwrap().z;
+        let rbot_nose_z = rocker_bottom.control_points.first().unwrap().z;
+        let rtop_nose_z = rocker_top.control_points.first().unwrap().z;
+
+        let outline_tail_z = outline.control_points.last().unwrap().z;
+        let rbot_tail_z = rocker_bottom.control_points.last().unwrap().z;
+        let rtop_tail_z = rocker_top.control_points.last().unwrap().z;
+
+        // Rocker and outline endpoints must share identical nose and tail bounds
+        assert_relative_eq!(outline_nose_z, rbot_nose_z, epsilon = 1e-4);
+        assert_relative_eq!(outline_nose_z, rtop_nose_z, epsilon = 1e-4);
+        assert_relative_eq!(outline_tail_z, rbot_tail_z, epsilon = 1e-4);
+        assert_relative_eq!(outline_tail_z, rtop_tail_z, epsilon = 1e-4);
+    }
+
+    #[test]
     fn test_brd_mesh_width_vs_outline_mini_simmons() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1268,6 +1292,376 @@ mod tests {
             failures, 0,
             "Failed: Mesh is thinner than the analytical outline in {} sample points!",
             failures
+        );
+    }
+
+    #[test]
+    fn test_longboard_tail_block_integrity() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'10-Mini-Longboard.brd");
+
+        if !path.exists() {
+            println!("6'10-Mini-Longboard.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse longboard BRD");
+
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
+
+        assert!(mesh.vertices.len() > 0);
+
+        // 1. Watertightness / Hole Detection at the Tail
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        use std::collections::HashMap;
+        let mut edge_counts = HashMap::new();
+
+        let get_vertex = |idx: u32| -> glam::Vec3 {
+            let i = idx as usize * 3;
+            glam::Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
+        };
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
+
+            let hash_pt = |v: glam::Vec3| -> (i32, i32, i32) {
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
+            };
+
+            let v1 = hash_pt(get_vertex(i1));
+            let v2 = hash_pt(get_vertex(i2));
+            let v3 = hash_pt(get_vertex(i3));
+
+            if v1 == v2 || v2 == v3 || v3 == v1 {
+                continue;
+            } 
+
+            let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_counts.entry(key).or_insert(0) += 1;
+            };
+
+            add_edge(v1, v2);
+            add_edge(v2, v3);
+            add_edge(v3, v1);
+        }
+
+        let mut tail_holes = 0;
+        for (edge, count) in &edge_counts {
+            if *count == 1 {
+                let z1 = (edge.0).2 as f32 / 10000.0;
+                let z2 = (edge.1).2 as f32 / 10000.0;
+
+                if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
+                    tail_holes += 1;
+                }
+            } 
+        }
+
+        // We expect the tail block to be perfectly watertight
+        assert_eq!(
+            tail_holes, 0,
+            "Found {} boundary edges (holes) near the tail block!",
+            tail_holes
+        );
+
+        // 2. Normal Vector Outward Orientation at the Tail Block Apex
+        // On a blunt squash tail, the side forms a vertical rail wall where multiple vertices
+        // share the same maximum X coordinate. We resolve this tie by selecting the vertex closest
+        // to the mid-rail height, which corresponds to the true rail apex (u = t_apex).
+        let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
+        let mid_y = (profile.tuck_y + profile.apex_y) / 2.0;
+        let mid_y_scaled = mid_y * scale;
+
+        let mut best_x = 0.0_f32;
+        let mut best_y_diff = f32::INFINITY;
+        let mut apex_idx = None;
+        let hull_vertex_count = cache.vertices.len() / 3;
+
+        for i in 0..hull_vertex_count {
+            let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - tail_z).abs() < 2e-3 {
+                let x_diff = x - best_x;
+                if x_diff > 1e-4 {
+                    // Strictly better X
+                    best_x = x;
+                    best_y_diff = (y - mid_y_scaled).abs();
+                    apex_idx = Some(i);
+                } else if x_diff.abs() <= 1e-4 {
+                    // Tie/near-tie on the vertical wall, prefer the one closest to mid-rail height
+                    let y_diff = (y - mid_y_scaled).abs();
+                    if y_diff < best_y_diff {
+                        best_x = x;
+                        best_y_diff = y_diff;
+                        apex_idx = Some(i);
+                    }
+                }
+            }
+        }
+
+        let idx = apex_idx.expect("No vertices found at the absolute tail Z ring!");
+        let normal = glam::Vec3::new(
+            mesh.normals[idx * 3],
+            mesh.normals[idx * 3 + 1],
+            mesh.normals[idx * 3 + 2],
+        );
+
+        println!("=== DIAGNOSTIC TAIL APEX NORMAL ===");
+        println!("Apex Vertex Index: {}", idx);
+        println!(
+            "Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]",
+            mesh.vertices[idx * 3] / scale,
+            mesh.vertices[idx * 3 + 1] / scale,
+            mesh.vertices[idx * 3 + 2] / scale
+        );
+        println!(
+            "Apex Normal Vector: [{:.5}, {:.5}, {:.5}]",
+            normal.x, normal.y, normal.z
+        );
+        println!("===================================");
+
+        // Under correct projection, the normal at the rail apex MUST point outward (having a strong X component)
+        // instead of collapsing/twisting straight down to [0, -1, 0] or straight back to [0, 0, 1].
+        assert!(
+            normal.x > 0.5,
+            "Normal at tail block rail apex is collapsed/twisted! Expected X component > 0.5, got: {:?}",
+            normal
+        );
+    }
+
+    #[test]
+    fn deleted_test_longboard_tail_block_integrity_old() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let brd_text = r#"p01: 209.55
+p02: 210.89806848025611
+p03: 6.984913328972571
+p04: 57.0992
+p32:
+(
+[0.0 0.0 0.0 0.0 0.0 1.265930]
+[0.000000 8.534076 0.000000 6.821705 0.000000 9.579073]
+[110.746779 28.500183 17.621581 27.570594 202.835824 29.419429]
+[209.550000 0.000000 208.045616 17.424436 211.710609 -25.025125]
+)
+p33:
+(
+[0.0 5.667065 0.0 5.667065 17.592118 1.559067]
+[106.697763 0.003041 60.522539 0.156619 188.016909 -0.168681]
+[209.550000 9.820483 204.887319 6.978153 229.675960 22.089092]
+)
+p34:
+(
+[0.0 5.667065 0.0 5.667065 0.0 5.667065]
+[0.000000 8.283940 0.000000 8.283940 14.699430 7.421540]
+[105.340520 6.992051 42.257961 7.285992 166.495664 6.707091]
+[209.550000 11.590853 197.161503 8.571049 209.550000 11.430290]
+[209.550000 9.820483 209.550000 9.820483 209.550000 9.820483]
+)
+p35:
+(
+(p36 0.0 -1.0 -1.0
+[0.0 0.0 0.0 0.0 0.0 0.0]
+)
+(p36 1.905000 -1.0 -1.0
+[0.0 0.0 -4.006033 0.0 0.0 0.0]
+[10.327575 0.365280 10.276205 0.238585 10.327575 0.365280]
+[10.088197 1.992449 10.698638 1.262662 9.077190 3.201117]
+[0.0 2.927339 7.111578 2.927339 -4.464456 2.927339]
+)
+(p36 22.875000 -1.0 -1.0
+[0.0 0.0 -7.416961 0.0 0.0 0.0]
+[19.120962 0.279578 8.088721 0.174996 19.120962 0.279578]
+[17.813393 3.945744 19.862842 3.426332 15.991637 4.407450]
+[0.0 4.984060 1.288280 4.984060 -8.265705 4.984060]
+)
+(p36 105.132188 -1.0 -1.0
+[0.0 0.0 -10.749720 0.0 23.618125 0.0]
+[27.316829 0.373041 26.422689 0.333860 28.027633 0.404188]
+[28.377904 2.903213 28.586509 1.582857 27.719829 7.068477]
+[0.0 6.984288 2.799506 6.984288 -11.979842 6.984288]
+)
+(p36 186.690000 -1.0 -1.0
+[0.0 0.0 -9.022187 0.0 20.470479 0.0]
+[22.753494 0.124706 22.318800 0.093490 22.993716 0.141957]
+[23.408810 2.029629 23.609009 0.546736 23.072116 4.523559]
+[0.0 4.936812 12.666112 4.936812 -10.054623 4.936812]
+)
+(p36 209.550000 -1.0 -1.0
+[-0.0 0.0 -0.0 0.0 -0.0 0.0]
+)
+)
+"#;
+
+        let encrypted_bytes = crate::brd_exporter::encrypt_aku_shaper(brd_text).unwrap();
+        let model = parse_brd(&encrypted_bytes).expect("Failed to parse longboard BRD");
+
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
+
+        // Print core parameters
+        println!("=== LONGBOARD INTEGRITY DIAGNOSTIC INFO ===");
+        println!("Model length: {}", model.length);
+        println!("Model width: {}", model.width);
+        println!("Model thickness: {}", model.thickness);
+        let bounds = crate::geometry::get_board_bounds(&model);
+        println!(
+            "Bounds: nose_z: {}, tip_z: {}, notch_z: {}",
+            bounds.nose_z, bounds.tip_z, bounds.notch_z
+        );
+
+        // Count unique Z coordinates
+        let scale = 1.0 / 12.0;
+        let mut unique_zs: Vec<f32> = mesh
+            .vertices
+            .chunks_exact(3)
+            .map(|v| v[2] / scale)
+            .collect();
+        unique_zs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        unique_zs.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
+        println!("Unique Z coordinates count in mesh: {}", unique_zs.len());
+        if let Some(&last_z) = unique_zs.last() {
+            println!(
+                "Last Z in mesh: {} inches (tip_z is {} inches)",
+                last_z, bounds.tip_z
+            );
+        }
+
+        // Print vertices exactly at the tail
+        let tail_z_scaled = bounds.tip_z * scale;
+        println!("Vertices at absolute tail (Z = {}):", bounds.tip_z);
+        let mut tail_vert_count = 0;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - tail_z_scaled).abs() < 2e-3 {
+                tail_vert_count += 1;
+                if tail_vert_count <= 25 {
+                    println!(
+                        "  Vertex {}: [X={:.5}, Y={:.5}, Z={:.5}]",
+                        i,
+                        x / scale,
+                        y / scale,
+                        z / scale
+                    );
+                }
+            }
+        }
+        println!("Total vertices at absolute tail: {}", tail_vert_count);
+
+        // Check if there are any cap vertices (vertices with non-hull UV coordinates or different normals)
+        // Cap vertices have custom UVs, let's see their coordinates
+        println!("Checking for flat-facing normals near tail:");
+        let mut cap_vert_count = 0;
+        for i in 0..(mesh.vertices.len() / 3) {
+            let nz = mesh.normals[i * 3 + 2];
+            if nz > 0.95 {
+                let x = mesh.vertices[i * 3];
+                let y = mesh.vertices[i * 3 + 1];
+                let z = mesh.vertices[i * 3 + 2];
+                cap_vert_count += 1;
+                if cap_vert_count <= 10 {
+                    println!("  Cap Vertex {}: [X={:.5}, Y={:.5}, Z={:.5}] Normal: [{:.5}, {:.5}, {:.5}]", i, x / scale, y / scale, z / scale, mesh.normals[i * 3], mesh.normals[i * 3 + 1], nz);
+                }
+            }
+        }
+        println!(
+            "Total cap vertices (flat-facing normals): {}",
+            cap_vert_count
+        );
+        println!("===========================================");
+
+        // 1. Watertightness / Hole Detection at the Tail
+        let tail_z = bounds.tip_z * scale;
+
+        use std::collections::HashMap;
+        let mut edge_counts = HashMap::new();
+
+        let get_vertex = |idx: u32| -> glam::Vec3 {
+            let i = idx as usize * 3;
+            glam::Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
+        };
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
+
+            let hash_pt = |v: glam::Vec3| -> (i32, i32, i32) {
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
+            };
+
+            let v1 = hash_pt(get_vertex(i1));
+            let v2 = hash_pt(get_vertex(i2));
+            let v3 = hash_pt(get_vertex(i3));
+
+            if v1 == v2 || v2 == v3 || v3 == v1 {
+                continue;
+            }
+
+            let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_counts.entry(key).or_insert(0) += 1;
+            };
+
+            add_edge(v1, v2);
+            add_edge(v2, v3);
+            add_edge(v3, v1);
+        }
+
+        let mut tail_holes = 0;
+        println!("Boundary edges near tail:");
+        for (edge, count) in &edge_counts {
+            if *count == 1 {
+                let z1 = (edge.0).2 as f32 / 10000.0;
+                let z2 = (edge.1).2 as f32 / 10000.0;
+
+                if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
+                    let v1_x = (edge.0).0 as f32 / 10000.0;
+                    let v1_y = (edge.0).1 as f32 / 10000.0;
+                    let v1_z = (edge.0).2 as f32 / 10000.0;
+                    let v2_x = (edge.1).0 as f32 / 10000.0;
+                    let v2_y = (edge.1).1 as f32 / 10000.0;
+                    let v2_z = (edge.1).2 as f32 / 10000.0;
+                    println!(
+                        "  Edge: [X={:.5}, Y={:.5}, Z={:.5}] -> [X={:.5}, Y={:.5}, Z={:.5}]",
+                        v1_x / scale,
+                        v1_y / scale,
+                        v1_z / scale,
+                        v2_x / scale,
+                        v2_y / scale,
+                        v2_z / scale
+                    );
+                    tail_holes += 1;
+                }
+            }
+        }
+
+        // We expect the tail block to be perfectly watertight
+        assert_eq!(
+            tail_holes, 0,
+            "Found {} boundary edges (holes) near the tail block!",
+            tail_holes
         );
     }
 }

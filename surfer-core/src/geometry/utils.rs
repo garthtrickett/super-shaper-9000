@@ -139,6 +139,78 @@ pub fn get_curve<'a>(model: &'a BoardModel, curve_name: &str) -> Option<&'a Bezi
     }
 }
 
+pub fn solve_u_for_target_x<F>(
+    mut f: F,
+    mut a: f32,
+    mut b: f32,
+    tolerance: f32,
+    max_iterations: usize,
+) -> f32
+where
+    F: FnMut(f32) -> f32,
+{
+    let mut fa = f(a);
+    let mut fb = f(b);
+
+    if fa.abs() < tolerance {
+        return a;
+    }
+    if fb.abs() < tolerance {
+        return b;
+    }
+
+    if fa * fb > 0.0 {
+        return if fa.abs() < fb.abs() { a } else { b };
+    }
+
+    let mut last_side = 0;
+
+    for _ in 0..max_iterations {
+        if (b - a).abs() < tolerance {
+            break;
+        }
+
+        let denominator = fb - fa;
+        let mut next = if denominator.abs() > 1e-6 {
+            b - fb * (b - a) / denominator
+        } else {
+            0.5 * (a + b)
+        };
+
+        let margin = 0.01 * (b - a).abs();
+        if next < a.min(b) + margin || next > a.max(b) - margin {
+            next = 0.5 * (a + b);
+        }
+
+        let fnext = f(next);
+        if fnext.abs() < tolerance {
+            return next;
+        }
+
+        if fnext * fa < 0.0 {
+            b = next;
+            fb = fnext;
+            if last_side == 1 {
+                fa /= 2.0;
+            }
+            last_side = 1;
+        } else {
+            a = next;
+            fa = fnext;
+            if last_side == 2 {
+                fb /= 2.0;
+            }
+            last_side = 2;
+        }
+    }
+
+    if fa.abs() < fb.abs() {
+        a
+    } else {
+        b
+    }
+}
+
 pub fn find_closest_t_to_ray(curve: &BezierCurveData, ro: Vec3, rd: Vec3) -> f32 {
     let mut best_t = 0.0;
     let mut min_dist_sq = f32::INFINITY;
@@ -234,6 +306,21 @@ mod tests {
         let mid_z = table.map_s_to_z(table.total_length * 0.5);
         // Midpoint should be close to 0.0 (middle of the board)
         assert!(mid_z.abs() < 5.0);
+    }
+
+    #[test]
+    fn test_hybrid_solver_precision() {
+        let root = solve_u_for_target_x(|x| x * x - 4.0, 0.0, 5.0, 1e-5, 20);
+        assert_relative_eq!(root, 2.0, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_hybrid_solver_bounds_safety() {
+        let root_flat = solve_u_for_target_x(|_x| 1.0, 0.0, 5.0, 1e-5, 10);
+        assert!(root_flat == 0.0 || root_flat == 5.0);
+
+        let root_out = solve_u_for_target_x(|x| x + 10.0, 0.0, 5.0, 1e-5, 10);
+        assert_eq!(root_out, 0.0);
     }
 
     #[test]

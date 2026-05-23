@@ -201,8 +201,9 @@ export class BoardControls extends LitElement {
     `;
   }
 
-    override render() {
-        return html`
+      override render() {
+    console.info("[BoardControls] Entering render...");
+    const res = html`
       <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar relative">
         <!-- Import / Export Actions -->
         <div class="mb-2">
@@ -404,8 +405,10 @@ export class BoardControls extends LitElement {
             {value: "standard", label: "Standard (4oz+4oz Deck / 4oz Bottom)"},
             {value: "light", label: "Light Pro (4oz Deck / 4oz Bottom)"}
           ], this.glassingSchedule)}
-        `, false)}
+                `, false)}
       </div>
     `;
+    console.info("[BoardControls] Exiting render.");
+    return res;
   }
 }
