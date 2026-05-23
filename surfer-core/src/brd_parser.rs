@@ -1157,8 +1157,7 @@ mod tests {
         );
     }
 
-        #[test]
-        #[test]
+    #[test]
     fn test_brd_import_endpoint_synchronization() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

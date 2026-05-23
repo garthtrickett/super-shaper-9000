@@ -2707,9 +2707,7 @@ mod tests {
         );
     }
 
-        #[test]
-        #[test]
-        #[test]
+    #[test]
     fn test_mesh_boundary_watertightness() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
