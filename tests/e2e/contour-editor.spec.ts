@@ -43,6 +43,8 @@ test.describe("Bottom Contour Editor E2E", () => {
     // Use toBeAttached to bypass potential SVG 0-size bounding box issues in headless Chromium
     await expect(contourEditor.locator('circle').first()).toBeAttached({ timeout: 10000 });
 
+        const startTime = Date.now();
+
     // 4. Drag a node asymmetrically in the SVG
     await page.evaluate(() => {
       const editor = document.querySelector('bottom-contour-editor');
@@ -60,13 +62,16 @@ test.describe("Bottom Contour Editor E2E", () => {
       svg.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
     });
 
-        // Wait for WASM to compute the asymmetric mesh
+    // Wait for WASM to compute the asymmetric mesh
     await page.waitForTimeout(1500);
 
     // 5. Close Editor
     const closeBtn = contourEditor.locator('button').first();
     await closeBtn.click();
     await expect(contourEditor).toBeHidden({ timeout: 10000 });
+
+    const duration = Date.now() - startTime;
+    console.log(`[Performance] 2D Contour Drag & Close completed in ${duration}ms`);
 
         // Verify no WebGL or NaN errors
     const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
