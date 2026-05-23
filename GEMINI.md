@@ -57,6 +57,13 @@ Before generating an edit, ask yourself these questions in order:
   16. The Snapshot is the Only Source of Truth: In sequential, multi-step refactoring tasks, you MUST assume your memory of the codebase is stale. The project snapshot provided at the beginning of each prompt is the only valid source for creating search blocks. Before generating an edit, always find the target file in the current snapshot and copy the necessary lines verbatim. Do not reconstruct code from memory or prior knowledge of the file. Failure to do so is the most common cause of patch failure.
 
 
+17. To prevent the patcher from matching function calls instead of their actual definitions:
+
+    Default to smart_replace: When a function's name is called earlier in the file than where its definition resides, avoid replace_function and use smart_replace instead.
+
+    Anchor the Search Block: smart_replace is highly precise because it matches a unique multiline block of code (specifically containing the signature pub fn slerp_normals), ensuring the patch applies exactly where intended.
+
+
     ```
 
 --- 
