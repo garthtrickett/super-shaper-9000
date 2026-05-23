@@ -993,9 +993,8 @@ export class BoardViewport extends LitElement {
         `;
       };
 
-      return html`
-                        console.info("[BoardViewport] Exiting render.");
-            return html`
+          console.info("[BoardViewport] Exiting render.");
+    return html`
             <canvas id="wgpu-canvas" class="absolute inset-0 w-full h-full outline-none touch-none" style="z-index: 0;"></canvas>
 
             ${!this.isRendererReady ? html`
