@@ -77,6 +77,20 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_u_column_struct_properties() {
+        let col = crate::mesh::UColumn {
+            norm_u: 0.5,
+            side: -1.0,
+            is_stringer: false,
+            u_tex: 0.25,
+        };
+        assert_eq!(col.norm_u, 0.5);
+        assert_eq!(col.side, -1.0);
+        assert_eq!(col.is_stringer, false);
+        assert_eq!(col.u_tex, 0.25);
+    }
+
     #[test]
     fn test_abs_u_to_norm_u_and_back() {
         let t_tuck = 0.2;
@@ -291,7 +305,7 @@ pub fn compute_u_columns(
     outline: &crate::model::BezierCurveData,
     notch_z: f32,
     v_tip: f32,
-) -> Vec<(f32, f32, bool, f32)> {
+) -> Vec<crate::mesh::UColumn> {
     if !dirty.global_rebuild && !cache.u_columns.is_empty() && dirty.dirty_z_ranges.is_empty() {
         return cache.u_columns.clone();
     }
@@ -444,15 +458,25 @@ pub fn compute_u_columns(
         len_at_t / total_cs_len
     };
 
-    let mut u_columns = Vec::new();
+        let mut u_columns = Vec::new();
     let half = u_params_half.len() - 1;
     for (idx, &u) in u_params_half.iter().enumerate() {
         let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, 1.0, is_stringer, get_u_tex(u))); // Right side
+        u_columns.push(crate::mesh::UColumn {
+            norm_u: u,
+            side: 1.0,
+            is_stringer,
+            u_tex: get_u_tex(u),
+        });
     }
     for (idx, &u) in u_params_half.iter().rev().enumerate() {
         let is_stringer = idx == 0 || idx == half;
-        u_columns.push((u, -1.0, is_stringer, get_u_tex(u))); // Left side
+        u_columns.push(crate::mesh::UColumn {
+            norm_u: u,
+            side: -1.0,
+            is_stringer,
+            u_tex: get_u_tex(u),
+        });
     }
 
     u_columns

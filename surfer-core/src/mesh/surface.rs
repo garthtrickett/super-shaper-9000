@@ -15,7 +15,7 @@ pub fn build_surface(
     dirty: &crate::model::DirtyState,
     cache: &crate::mesh::MeshCache,
     z_rings: &[f32],
-    u_columns: &[(f32, f32, bool, f32)],
+    u_columns: &[crate::mesh::UColumn],
     outline: &crate::model::BezierCurveData,
     _notch_z: f32,
     v_tip: f32,
@@ -119,16 +119,16 @@ pub fn build_surface(
             };
             let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
-            for (j, &(norm_u, side, is_stringer, u_tex)) in u_columns.iter().enumerate() {
-                let abs_u =
-                    crate::mesh::sampler::norm_u_to_abs_u(norm_u, t_tuck, t_apex, t_shoulder);
-                let mut point = ctx.get_point_at_uv(abs_u, side);
-                if is_stringer {
+                        for (j, col) in u_columns.iter().enumerate() {
+                let abs_u = 
+                    crate::mesh::sampler::norm_u_to_abs_u(col.norm_u, t_tuck, t_apex, t_shoulder);
+                let mut point = ctx.get_point_at_uv(abs_u, col.side);
+                if col.is_stringer {
                     point.x = ctx.inner_x;
                 }
-                point.x *= side;
+                point.x *= col.side;
 
-                let normal = ctx.get_surface_normal_at_uvz(abs_u, side);
+                let normal = ctx.get_surface_normal_at_uvz(abs_u, col.side);
 
                 let v_idx = j * 3;
                 v_chunk[v_idx] = point.x * scale;
@@ -144,7 +144,7 @@ pub fn build_surface(
                 c_chunk[v_idx + 2] = 0.0;
 
                 let u_idx = j * 2;
-                u_chunk[u_idx] = u_tex;
+                u_chunk[u_idx] = col.u_tex;
                 u_chunk[u_idx + 1] = v_coord;
             }
         });

@@ -6,10 +6,18 @@ pub mod surface;
 pub mod topology;
 pub mod volume;
 
+@derive(Debug, Clone, Copy, PartialEq)
+pub struct UColumn {
+    pub norm_u: f32,
+    pub side: f32,
+    pub is_stringer: bool,
+    pub u_tex: f32,
+}
+
 #[derive(Default, Clone)]
 pub struct MeshCache {
     pub z_rings: Vec<f32>,
-    pub u_columns: Vec<(f32, f32, bool, f32)>,
+    pub u_columns: Vec<UColumn>,
     pub vertices: Vec<f32>,
     pub normals: Vec<f32>,
     pub colors: Vec<f32>,
@@ -51,12 +59,12 @@ pub fn generate_mesh(
     let right_half_cols = num_cols / 2;
     let half = right_half_cols.saturating_sub(1);
 
-    if cache.u_columns.len() != u_columns.len()
+        if cache.u_columns.len() != u_columns.len()
         || cache
             .u_columns
             .iter()
             .zip(u_columns.iter())
-            .any(|(a, b)| (a.0 - b.0).abs() > 1e-5)
+            .any(|(a, b)| (a.norm_u - b.norm_u).abs() > 1e-5)
     {
         dirty.global_rebuild = true;
     }

@@ -215,7 +215,7 @@ pub fn generate_cap(
     num_cols: usize,
     half: usize,
     right_half_cols: usize,
-    u_columns: &[(f32, f32, bool, f32)],
+    u_columns: &[crate::mesh::UColumn],
     scale: f32,
     vertices: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
@@ -268,9 +268,9 @@ pub fn generate_cap(
             for j in 0..num_cols {
                 let pos = ring_pos[j];
                 let color = ring_color[j];
-                let side = u_columns[j].1;
+                                let side = u_columns[j].side;
 
-                let target_x = if side > 0.0 {
+                                let target_x = if side > 0.0 {
                     right_target_x
                 } else {
                     left_target_x
