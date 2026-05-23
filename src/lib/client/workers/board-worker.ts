@@ -43,22 +43,27 @@ init().then(async (wasmInstance) => {
         return;
     }
     
-    console.info("[BoardWorker] Retrieving initial state details from WasmEngine...");
+        console.info("[BoardWorker] Retrieving initial state details from WasmEngine...");
     try {
         const initialState = engine.get_state() as BoardModel;
-        console.info("[BoardWorker] Initial state retrieved:", initialState); 
+        console.info("[BoardWorker] Initial state retrieved:", initialState);
         const stats = engine.get_stats();
-        console.info("[BoardWorker] Initial mesh stats retrieved:", stats); 
+        console.info("[BoardWorker] Initial mesh stats retrieved:", stats);
         const foilData = engine.get_foil_stats() as Float32Array;
-        console.info("[BoardWorker] Initial foil stats retrieved. Array size:", foilData.length); 
+        console.info("[BoardWorker] Initial foil stats retrieved. Array size:", foilData.length);
         
+        const transferList = [];
+        if (foilData && foilData.buffer && typeof SharedArrayBuffer !== "undefined" && !(foilData.buffer instanceof SharedArrayBuffer)) {
+            transferList.push(foilData.buffer);
+        }
+
         console.info("[BoardWorker] Posting initial state back to the main thread...");
         (self as unknown as Worker).postMessage({
             type: "STATE_UPDATED",
             state: initialState,
             stats,
             foilData: foilData
-        }, [foilData.buffer]);
+        }, transferList);
         console.info("[BoardWorker] Initial state posted successfully.");
     } catch (err) {
         console.error("[BoardWorker] Failed during post-init state sync!", err);
@@ -230,15 +235,19 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msgType === "GET_SLICE_PROFILE") {
+        if (msgType === "GET_SLICE_PROFILE") {
         console.info(`[BoardWorker] Computing 2D slice profile at Z position: ${msg.z}`);
         const profile = engine.get_slice_profile(msg.z) as Float32Array;
-        (self as unknown as Worker).postMessage({ 
+        const transferList = [];
+        if (profile && profile.buffer && typeof SharedArrayBuffer !== "undefined" && !(profile.buffer instanceof SharedArrayBuffer)) {
+            transferList.push(profile.buffer);
+        }
+        (self as unknown as Worker).postMessage({
             type: "SLICE_PROFILE_RESULT",
             id: msg.id,
             seq: msg.seq,
             profile
-        }, [profile.buffer]);
+        }, transferList);
         return;
     }
 
@@ -256,15 +265,19 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msgType === "EXPORT_BRD") {
+        if (msgType === "EXPORT_BRD") {
         console.info("[BoardWorker] Generating .brd encrypted binary file payload...");
-        try { 
+        try {
             const brdBytes = engine.export_brd();
+            const transferList = [];
+            if (brdBytes && brdBytes.buffer && typeof SharedArrayBuffer !== "undefined" && !(brdBytes.buffer instanceof SharedArrayBuffer)) {
+                transferList.push(brdBytes.buffer);
+            }
             (self as unknown as Worker).postMessage(
                 { type: "EXPORT_BRD_RESULT", id: msg.id, seq: msg.seq, brdBytes },
-                [brdBytes.buffer]
+                transferList
             );
-        } catch (err) { 
+        } catch (err) {
             console.error("[BoardWorker] Failed to generate encrypted BRD file!", err);
             (self as unknown as Worker).postMessage({ type: "ERROR", seq: msg.seq, error: String(err) });
         }
