@@ -500,7 +500,6 @@ mod tests {
         }
 
         let scale = 1.0 / 12.0;
-        let tail_z_scaled = 35.0 * scale;
         let mut open_tail_edges = 0;
 
         for (edge, count) in &edge_counts {

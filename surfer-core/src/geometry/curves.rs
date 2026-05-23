@@ -530,61 +530,7 @@ pub fn compute_centripetal_tangents(
     (m1, m2)
 }
 
-fn combine_curves(
-    c0: &BezierCurveData,
-    c1: &BezierCurveData,
-    c2: &BezierCurveData,
-    a0: f32,
-    a1: f32,
-    a2: f32,
-) -> BezierCurveData {
-    let mut out = BezierCurveData::default();
-    let len = c0
-        .control_points
-        .len()
-        .min(c1.control_points.len())
-        .min(c2.control_points.len());
 
-    for i in 0..len {
-        out.control_points.push(
-            c0.control_points[i] * a0 + c1.control_points[i] * a1 + c2.control_points[i] * a2,
-        );
-    }
-
-    let t1_len = c0
-        .tangents1
-        .len()
-        .min(c1.tangents1.len())
-        .min(c2.tangents1.len());
-    for i in 0..t1_len {
-        out.tangents1
-            .push(c0.tangents1[i] * a0 + c1.tangents1[i] * a1 + c2.tangents1[i] * a2);
-    }
-
-    let t2_len = c0
-        .tangents2
-        .len()
-        .min(c1.tangents2.len())
-        .min(c2.tangents2.len());
-    for i in 0..t2_len {
-        out.tangents2
-            .push(c0.tangents2[i] * a0 + c1.tangents2[i] * a1 + c2.tangents2[i] * a2);
-    }
-
-    out
-}
-
-fn set_curve_z(curve: &mut BezierCurveData, z: f32) {
-    for p in &mut curve.control_points {
-        p.z = z;
-    }
-    for p in &mut curve.tangents1 {
-        p.z = z;
-    }
-    for p in &mut curve.tangents2 {
-        p.z = z;
-    }
-}
 
 pub struct BlendResult<'a> {
     pub t_apex: f32,
