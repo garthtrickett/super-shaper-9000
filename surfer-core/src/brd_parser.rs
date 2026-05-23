@@ -1296,6 +1296,7 @@ mod tests {
     }
 
             #[test]
+        #[test]
     fn test_longboard_tail_block_integrity() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1368,7 +1369,7 @@ mod tests {
                 if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
                     tail_holes += 1;
                 } 
-            }
+            } 
         }
 
         // We expect the tail block to be perfectly watertight
@@ -1381,18 +1382,20 @@ mod tests {
 
         // 2. Normal Vector Outward Orientation at the Tail Block Apex
         // Find the vertex on the absolute tail Z ring that has the maximum X-coordinate (rail apex)
+        // Constrain search strictly to the hull vertices to prevent selecting coincident cap vertices
         let mut max_x = 0.0_f32;
         let mut apex_idx = None;
+        let hull_vertex_count = cache.z_rings.len() * cache.u_columns.len();
 
-        for i in 0..(mesh.vertices.len() / 3) {
+        for i in 0..hull_vertex_count {
             let x = mesh.vertices[i * 3];
             let z = mesh.vertices[i * 3 + 2];
             if (z - tail_z).abs() < 2e-3 {
                 if x > max_x {
                     max_x = x;
                     apex_idx = Some(i);
-                } 
-            }
+                }
+            } 
         }
 
         let idx = apex_idx.expect("No vertices found at the absolute tail Z ring!");

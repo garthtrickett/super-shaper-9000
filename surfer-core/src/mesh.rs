@@ -987,7 +987,6 @@ mod tests {
     use glam::Vec3;
 
     #[test]
-        #[test]
     fn test_patch_caps_for_squash_tails() {
         // This test verifies that blunt tails (like a square/squash tail) are generated
         // as a "patch" (a grid of vertices) instead of a "pole".
