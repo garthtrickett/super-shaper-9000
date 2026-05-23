@@ -2693,19 +2693,36 @@ mod tests {
             // Only check faces near the bottom/tuck (U < 0.5) in the last 10 inches of the tail on the right side
             if avg_u < 0.5 && z_avg > tail_scan_z && x_avg > 0.0 {
                 total_bottom_faces += 1;
-                let face_normal = (v2 - v1).cross(v3 - v1).normalize();
+                                    let face_normal = (v2 - v1).cross(v3 - v1).normalize();
 
-                // If it's the right side hull (X > 0) and bottom (U < 0.5),
-                // the face normal MUST point Down (-Y) and Right (+X).
-                // If Ny > 0.1, it's pointing UP into the board (Black triangle!).
-                // If Nx < -0.1, it's pointing LEFT into the stringer (Folded mesh!).
-                if face_normal.y > 0.1 || face_normal.x < -0.4 {
-                    inverted_faces += 1;
+                    // If it's the right side hull (X > 0) and bottom (U < 0.5),
+                    // the face normal MUST point Down (-Y) and Right (+X).
+                    // If Ny > 0.1, it's pointing UP into the board (Black triangle!).
+                    // If Nx < -0.1, it's pointing LEFT into the stringer (Folded mesh!).
+                    if face_normal.y > 0.1 || face_normal.x < -0.4 {
+                        inverted_faces += 1;
+                        println!(
+                            "Inverted Face detected at Triangle Index {}: \n\
+                               Indices: [{}, {}, {}]\n\
+                               v1: [X={:.5}, Y={:.5}, Z={:.5}] (scaled: [X={:.5}, Y={:.5}, Z={:.5}]) u1: {:.5}\n\
+                               v2: [X={:.5}, Y={:.5}, Z={:.5}] (scaled: [X={:.5}, Y={:.5}, Z={:.5}]) u2: {:.5}\n\
+                               v3: [X={:.5}, Y={:.5}, Z={:.5}] (scaled: [X={:.5}, Y={:.5}, Z={:.5}]) u3: {:.5}\n\
+                               avg_u: {:.5}, z_avg: {:.5} (in: {:.2}\"), x_avg: {:.5} (in: {:.2}\")\n\
+                               Face Normal: [X={:.5}, Y={:.5}, Z={:.5}]\n\
+                               Reason: y_normal > 0.1: {} | x_normal < -0.4: {}",
+                            i / 3, i1, i2, i3,
+                            v1.x, v1.y, v1.z, v1.x / scale, v1.y / scale, v1.z / scale, u1,
+                            v2.x, v2.y, v2.z, v2.x / scale, v2.y / scale, v2.z / scale, u2,
+                            v3.x, v3.y, v3.z, v3.x / scale, v3.y / scale, v3.z / scale, u3,
+                            avg_u, z_avg, z_avg / scale, x_avg, x_avg / scale,
+                            face_normal.x, face_normal.y, face_normal.z,
+                            face_normal.y > 0.1, face_normal.x < -0.4
+                        );
+                    }
                 }
             }
-        }
 
-        println!("Checked {} bottom faces.", total_bottom_faces);
+            println!("Checked {} bottom faces.", total_bottom_faces);
         assert_eq!(
             inverted_faces, 0,
             "Found {} inverted faces on the bottom of the hull! The mesh is folded over.",
