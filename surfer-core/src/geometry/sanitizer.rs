@@ -1,8 +1,108 @@
-use crate::geometry::{get_board_bounds, RockerArcLengthTable};
+use crate::geometry::{evaluate_curve, find_v_at_z, get_board_bounds, RockerArcLengthTable};
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
 pub const BYPASS_CALIBRATION: bool = false; // Sandbox toggle to isolate parser vs. calibration bugs
+
+/// Trims or snaps a spline to lie strictly within [min_z, max_z] coordinates by evaluating its
+/// shape at the boundary and adjusting the end control points and adjacent handles accordingly.
+fn clip_curve_to_z_bounds(curve: &mut BezierCurveData, min_z: f32, max_z: f32) {
+    if curve.control_points.is_empty() {
+        return;
+    }
+
+    // 1. Trim start (usually nose at minimum Z)
+    let first_p = curve.control_points[0];
+    if first_p.z < min_z {
+        let t = find_v_at_z(curve, min_z, 0.0, 1.0);
+        let pt = evaluate_curve(curve, t);
+
+        let old_anchor = curve.control_points[0];
+        let old_t2 = curve.tangents2.get(0).copied().unwrap_or(old_anchor);
+        let t2_offset = old_t2 - old_anchor;
+
+        curve.control_points[0] = pt;
+        if !curve.tangents1.is_empty() {
+            curve.tangents1[0] = pt;
+        }
+        if !curve.tangents2.is_empty() {
+            curve.tangents2[0] = pt + t2_offset;
+        }
+    } else if first_p.z > min_z {
+        curve.control_points[0].z = min_z;
+        if !curve.tangents1.is_empty() {
+            curve.tangents1[0].z = min_z;
+        }
+        if !curve.tangents2.is_empty() {
+            curve.tangents2[0].z = min_z;
+        }
+    }
+
+    // 2. Trim end (usually tail at maximum Z)
+    let last_idx = curve.control_points.len() - 1;
+    let last_p = curve.control_points[last_idx];
+    if last_p.z > max_z {
+        let t = find_v_at_z(curve, max_z, 0.0, 1.0);
+        let pt = evaluate_curve(curve, t);
+
+        let old_anchor = curve.control_points[last_idx];
+        let old_t1 = curve.tangents1.get(last_idx).copied().unwrap_or(old_anchor);
+        let t1_offset = old_t1 - old_anchor;
+
+        curve.control_points[last_idx] = pt;
+        if !curve.tangents2.is_empty() {
+            curve.tangents2[last_idx] = pt;
+        }
+        if !curve.tangents1.is_empty() {
+            curve.tangents1[last_idx] = pt + t1_offset;
+        }
+    } else if last_p.z < max_z {
+        curve.control_points[last_idx].z = max_z;
+        if !curve.tangents1.is_empty() {
+            curve.tangents1[last_idx].z = max_z;
+        }
+        if !curve.tangents2.is_empty() {
+            curve.tangents2[last_idx].z = max_z;
+        }
+    }
+}
+
+/// Synchronizes the nose and tail endpoints of all rocker and reference curves
+/// to match the outline's actual Z boundaries.
+pub fn synchronize_board_endpoints(model: &mut BoardModel) {
+    let outline = match &model.outline {
+        Some(o) => o,
+        None => return,
+    };
+    if outline.control_points.is_empty() {
+        return;
+    }
+
+    let min_z = evaluate_curve(outline, 0.0).z;
+
+    let mut max_z = f32::NEG_INFINITY;
+    let steps = 50;
+    for i in 0..=steps {
+        let t = i as f32 / steps as f32;
+        let p = evaluate_curve(outline, t);
+        if p.z > max_z {
+            max_z = p.z;
+        }
+    }
+
+    let mut clip_curve = |curve_opt: &mut Option<BezierCurveData>| {
+        if let Some(curve) = curve_opt {
+            clip_curve_to_z_bounds(curve, min_z, max_z);
+        }
+    };
+
+    clip_curve(&mut model.rocker_top);
+    clip_curve(&mut model.rocker_bottom);
+    clip_curve(&mut model.apex_rocker);
+    clip_curve(&mut model.rail_outline);
+    clip_curve(&mut model.apex_outline);
+    clip_curve(&mut model.deck_shoulder);
+}
 
 /// Calibrates the imported linear coordinates of the board by mapping curvilinear
 /// "tape-measure" distances back to flat Cartesian 3D Z-coordinates using the bottom rocker's arc length.
@@ -143,11 +243,15 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
                         w.remove(i);
                     }
                 }
-            } else {
+            } else { 
                 i += 1;
             }
         }
     }
+
+    // 2. Synchronize Board Endpoints
+    // Rockers and outline must share identical boundaries to prevent flat-clamped out-of-bounds evaluations.
+    synchronize_board_endpoints(model);
 
     let bounds = crate::geometry::get_board_bounds(model);
 
