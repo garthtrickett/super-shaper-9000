@@ -311,8 +311,8 @@ pub fn generate_cap(
                 vertices.push(new_y);
                 // Microscopic Z dome offset (0.1 micrometers per step)
                 // prevents 1D collinear collapse of perfectly flat rail blocks.
-                let z_dir = if is_nose { -1.0 } else { 1.0 };
-                vertices.push(pos.z + z_dir * (step as f32) * 1e-6);
+                                let z_dir = if is_nose { -1.0 } else { 1.0 };
+                vertices.push(pos.z + z_dir * (step as f32) * 1e-4);
 
                 // Prevent UV degeneracy which poisons WebGL tangent generation and causes black holes
                 uvs.push(new_x);
