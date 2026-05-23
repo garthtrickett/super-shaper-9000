@@ -428,14 +428,14 @@ impl<'a> ZRingContext<'a> {
         final_pos
     }
 
-    pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
+        pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
         let mut final_pos = self.get_point_at_uv_base(u, side);
 
         let blend = self.blend.as_ref();
         let t_apex = if let Some(b) = blend { b.t_apex } else { 0.5 };
 
         if u <= t_apex {
-            if let Some((mut chan_x, chan_depth)) =
+            if let Some((mut chan_x, chan_depth)) = 
                 get_channel_profile_at_z(self.model, side < 0.0, self.z_inches)
             {
                 let profile = &self.profile;
@@ -444,7 +444,7 @@ impl<'a> ZRingContext<'a> {
                 if chan_x > self.inner_x && chan_x < apex_x {
                     let u_chan = self
                         .cached_channel_us
-                        .iter()
+                        .iter
                         .find(|(cx, _)| (cx - chan_x).abs() < 1e-3)
                         .map(|(_, val)| *val)
                         .unwrap_or(0.0);
@@ -463,7 +463,19 @@ impl<'a> ZRingContext<'a> {
                     }
 
                     if channel_applied {
-                        let normal = self.    pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
+                        let normal = self.get_surface_normal_base_at_uvz(u, side);
+                        final_pos.x *= side;
+                        final_pos -= normal * (t * chan_depth);
+                        final_pos.x *= side;
+                    }
+                }
+            }
+        }
+
+        final_pos
+    }
+
+    pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
         if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
@@ -527,126 +539,7 @@ impl<'a> ZRingContext<'a> {
         }
 
         let cross = t_u.cross(t_v);
-        let mut n = if cross.length_squared() > 1e-6 {
-            cross.normalize()
-        } else {
-            Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0)
-        };
-        if side < 0.0 {
-            n = -n;
-        }
-
-        let pt = self.get_point_at_uv_base(u, side);
-        if pt.x.abs() < 1e-4 && self.inner_x < 1e-4 {
-            n.x = 0.0;
-            let len_sq = n.length_squared();
-            if len_sq > 1e-6 {
-                n /= len_sq.sqrt();
-            } else {
-                n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
-            }join
-        }
-
-        n
-    }
-                        final_pos.x *= side;
-                        final_pos -= normal * (t * chan_depth);
-                        final_pos.x *= side;
-                    }
-                }
-            }
-        }
-
-        final_pos
-    }
-
-    pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
-        let bounds = &self.bounds;
-
-        if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
-            let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
-            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
-            if side < 0.0 {
-                n.x = -n.x;
-            }
-            return n;
-        }
-        if (self.z_inches - bounds.tip_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
-            let (n_top, n_bot) = get_pole_normals(self.model, bounds.tip_z, false);
-            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, 1.0));
-            if side < 0.0 {
-                n.x = -n.x;
-            }
-            return n;
-        }
-
-        let du = 1e-4;
-        let u_plus = (u + du).min(1.0);
-        let u_minus = (u - du).max(0.0);
-        let mut pt_plus_u = self.get_point_at_uv_base(u_plus, side);
-        pt_plus_u.x *= side;
-        let mut pt_minus_u = self.get_point_at_uv_base(u_minus, side);
-        pt_minus_u.x *= side;
-        let mut t_u = (pt_plus_u - pt_minus_u).normalize();
-        if t_u.is_nan() || t_u.length_squared() < 1e-6 {
-            t_u = Vec3::new(side, 0.0, 0.0);
-        }
-
-        let mut t_v =
-            if self.z_inches <= bounds.nose_z + 1e-4 || self.z_inches >= bounds.tip_z - 1e-4 {
-                if self.profile.apex_x >= 0.1 {
-                    let blend = self.blend.as_ref();
-                    let t_apex = if let Some(b) = blend { b.t_apex } else { 0.5 };
-                    let dy_bot = self.get_rocker_bottom_slope_with_respect_to_z(u);
-                    let dy_top = self.get_rocker_top_slope_with_respect_to_z(u);
-                    let dx_out = self.get_composite_outline_slope_with_respect_to_z(u);
-
-                    let (slope_x, slope_y) = if u <= t_apex {
-                        let f = if t_apex > 1e-5 { u / t_apex } else { 1.0 };
-                        (f * dx_out * side, dy_bot)
-                    } else {
-                        let f = if 1.0 - t_apex > 1e-5 {
-                            (1.0 - u) / (1.0 - t_apex)
-                        } else {
-                            1.0
-                        };
-                        (f * dx_out * side, dy_top)
-                    };
-                    Vec3::new(slope_x, slope_y, 1.0).normalize()
-                } else {
-                    let dz = 1e-3;
-                    if self.z_inches <= bounds.nose_z + 1e-4 {
-                        let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
-                        let mut pt_plus_v = ctx_plus.get_point_at_uv_base(u, side);
-                        pt_plus_v.x *= side;
-                        let mut pt_c = self.get_point_at_uv_base(u, side);
-                        pt_c.x *= side;
-                        (pt_plus_v - pt_c).normalize()
-                    } else {
-                        let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
-                        let mut pt_minus_v = ctx_minus.get_point_at_uv_base(u, side);
-                        pt_minus_v.x *= side;
-                        let mut pt_c = self.get_point_at_uv_base(u, side);
-                        pt_c.x *= side;
-                        (pt_c - pt_minus_v).normalize()
-                    }
-                }
-            } else {
-                let dz = 1e-3;
-                let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
-                let mut pt_plus_v = ctx_plus.get_point_at_uv_base(u, side);
-                pt_plus_v.x *= side;
-                let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
-                let mut pt_minus_v = ctx_minus.get_point_at_uv_base(u, side);
-                pt_minus_v.x *= side;
-                (pt_plus_v - pt_minus_v).normalize()
-            };
-        if t_v.is_nan() || t_v.length_squared() < 1e-6 {
-            t_v = Vec3::new(0.0, 0.0, 1.0);
-        }
-
-        let cross = t_u.cross(t_v);
-        let mut n = if cross.length_squared() > 1e-6 {
+        let mut n = if cross.length_squared() > 1e-6 { 
             cross.normalize()
         } else {
             Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0)
@@ -669,7 +562,7 @@ impl<'a> ZRingContext<'a> {
         n
     }
 
-        pub fn get_surface_normal_at_uvz(&self, u: f32, side: f32) -> Vec3 {
+    pub fn get_surface_normal_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
         if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
