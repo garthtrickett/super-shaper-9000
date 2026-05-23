@@ -2709,6 +2709,7 @@ mod tests {
 
         #[test]
         #[test]
+        #[test]
     fn test_mesh_boundary_watertightness() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -2751,25 +2752,40 @@ mod tests {
 
         let scale = 1.0 / 12.0;
         let bounds = crate::geometry::get_board_bounds(&model);
-        let tail_z = bounds.tip_z * scale;
 
-        let mut tail_vertices = Vec::new();
+        // 1. Gather all unique Z-coordinates generated in the last 2 inches of the tail
+        let mut unique_zs = Vec::new();
         for chunk in mesh.vertices.chunks_exact(3) {
-            let x = chunk[0];
             let z = chunk[2];
-            if z > (bounds.tip_z - 1.0) * scale {
-                tail_vertices.push((x, z));
+            if z > (bounds.tip_z - 2.0) * scale {
+                unique_zs.push(z);
             }
         }
+
+        // 2. Sort Z-coordinates in descending order (tip first) and deduplicate
+        unique_zs.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        unique_zs.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
+
+        assert!(
+            unique_zs.len() >= 2,
+            "Not enough Z-rings generated near the tail! Found: {:?}",
+            unique_zs
+        );
+
+        let tip_z = unique_zs[0];      // The absolute tail cap ring (largest Z)
+        let adjacent_z = unique_zs[1]; // The first ring just ahead of the tail cap
 
         let mut max_x_near_tip = 0.0_f32;
         let mut max_x_further_up = 0.0_f32;
 
-        for &(x, z) in &tail_vertices {
-            if (z - tail_z).abs() < 1e-4 {
-                max_x_near_tip = max_x_near_tip.max(x.abs());
-            } else if (z - (bounds.tip_z - 0.5) * scale).abs() < 5e-3 {
-                max_x_further_up = max_x_further_up.max(x.abs());
+        // 3. Extract the maximum absolute width (X coordinate) for each of these two rings
+        for chunk in mesh.vertices.chunks_exact(3) {
+            let x = chunk[0].abs();
+            let z = chunk[2];
+            if (z - tip_z).abs() < 1e-4 {
+                max_x_near_tip = max_x_near_tip.max(x);
+            } else if (z - adjacent_z).abs() < 1e-4 {
+                max_x_further_up = max_x_further_up.max(x);
             }
         }
 
