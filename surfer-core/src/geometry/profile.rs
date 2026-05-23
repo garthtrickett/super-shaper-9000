@@ -286,7 +286,7 @@ pub fn get_board_profile_at_z(model: &BoardModel, z_inches: f32, hint_t: f32) ->
         }
     };
 
-        let apex_y_final = apply_rail_coeff(apex_y, final_apex_x);
+    let apex_y_final = apply_rail_coeff(apex_y, final_apex_x);
     let tuck_y_final = apply_rail_coeff(tuck_y, final_tuck_x).min(apex_y_final);
     let shoulder_y_final = apply_rail_coeff(shoulder_y, final_shoulder_x).max(apex_y_final);
 

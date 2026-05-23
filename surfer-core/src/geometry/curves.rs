@@ -530,8 +530,6 @@ pub fn compute_centripetal_tangents(
     (m1, m2)
 }
 
-
-
 pub struct BlendResult<'a> {
     pub t_apex: f32,
     pub t_tuck: f32,
@@ -588,7 +586,7 @@ impl<'a> BlendResult<'a> {
 
     pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
         let p1 = evaluate_curve(self.s0, t_mid);
-        let p2 = evaluate_curve(self.s1, t_mid); 
+        let p2 = evaluate_curve(self.s1, t_mid);
 
         let p_prev = evaluate_curve(self.s_prev, t_mid);
         let p0 = evaluate_curve(self.s0, t_mid);

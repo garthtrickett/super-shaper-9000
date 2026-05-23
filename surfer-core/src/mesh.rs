@@ -2606,13 +2606,13 @@ mod tests {
         );
     }
 
-        #[test]
-    fn test_mini_simmons_no_inverted_hull_triangles() { 
+    #[test]
+    fn test_mini_simmons_no_inverted_hull_triangles() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
 
-        if !path.exists() { 
+        if !path.exists() {
             println!("5'4-Mini-Simmons.brd not found.");
             return;
         }
@@ -2659,12 +2659,12 @@ mod tests {
         let mut inverted_faces = 0;
         let mut total_bottom_faces = 0;
 
-        for i in (0..mesh.indices.len()).step_by(3) { 
+        for i in (0..mesh.indices.len()).step_by(3) {
             let i1 = mesh.indices[i] as usize;
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            if i1 >= hull_vertex_count || i2 >= hull_vertex_count || i3 >= hull_vertex_count { 
+            if i1 >= hull_vertex_count || i2 >= hull_vertex_count || i3 >= hull_vertex_count {
                 continue; // Ignore appended caps/notches
             }
 
@@ -2694,7 +2694,7 @@ mod tests {
             let x_avg = (v1.x + v2.x + v3.x) / 3.0;
 
             // Only check faces near the bottom/tuck (U < 0.5) in the last 10 inches of the tail on the right side
-            if avg_u < 0.5 && z_avg > tail_scan_z && x_avg > 0.0 { 
+            if avg_u < 0.5 && z_avg > tail_scan_z && x_avg > 0.0 {
                 total_bottom_faces += 1;
                 let face_normal = (v2 - v1).cross(v3 - v1).normalize();
 
@@ -2702,7 +2702,7 @@ mod tests {
                 // the face normal MUST point Down (-Y) and Right (+X).
                 // If Ny > 0.1, it's pointing UP into the board (Black triangle!).
                 // If Nx < -0.1, it's pointing LEFT into the stringer (Folded mesh!).
-                if face_normal.y > 0.1 || face_normal.x < -0.4 { 
+                if face_normal.y > 0.1 || face_normal.x < -0.4 {
                     inverted_faces += 1;
                     println!(
                         "Inverted Face detected at Triangle Index {}: \n\
@@ -2968,7 +2968,7 @@ mod tests {
                         apex_idx = Some(i);
                     }
                 }
-            } 
+            }
         }
 
         let idx = apex_idx.expect("No vertices found at the absolute tail Z ring for TomoLike!");
@@ -2979,7 +2979,7 @@ mod tests {
         );
 
         println!("=== DIAGNOSTIC TOMOLIKE TAIL APEX NORMAL ===");
-        println!( 
+        println!(
             "Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]",
             mesh.vertices[idx * 3] / scale,
             mesh.vertices[idx * 3 + 1] / scale,
@@ -3060,12 +3060,20 @@ mod tests {
                 assert!(
                     found_cap_match,
                     "No coincident cap vertex found for hull vertex {} at [X={}, Y={}]",
-                    i, xi / scale, yi / scale
+                    i,
+                    xi / scale,
+                    yi / scale
                 );
             }
         }
 
-        assert!(checked_vertices > 0, "No boundary vertices found to validate!");
-        println!("Successfully validated {} boundary vertex pairs for crease preservation.", checked_vertices);
+        assert!(
+            checked_vertices > 0,
+            "No boundary vertices found to validate!"
+        );
+        println!(
+            "Successfully validated {} boundary vertex pairs for crease preservation.",
+            checked_vertices
+        );
     }
 }

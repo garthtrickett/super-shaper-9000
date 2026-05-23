@@ -111,7 +111,7 @@ pub fn generate_swallow_notch_wall(
             }
         }
 
-                for j in 0..=half {
+        for j in 0..=half {
             let hull_pos = get_pos(vertices, i, j);
             let color = get_col(colors, i, j);
             let (u, v_coord) = get_uv(uvs, i, j);
@@ -185,7 +185,7 @@ pub fn generate_swallow_notch_wall(
             }
         }
 
-                for j in (half + 1)..num_cols {
+        for j in (half + 1)..num_cols {
             let hull_pos = get_pos(vertices, i, j);
             let color = get_col(colors, i, j);
             let (u, v_coord) = get_uv(uvs, i, j);
@@ -348,7 +348,7 @@ pub fn generate_cap(
                     center_y + (pos.y - center_y) * fraction
                 };
 
-                                vertices.push(new_x);
+                vertices.push(new_x);
                 vertices.push(new_y);
                 // Microscopic Z dome offset (0.1 micrometers per step)
                 // prevents 1D collinear collapse of perfectly flat rail blocks.
@@ -363,7 +363,7 @@ pub fn generate_cap(
                 colors.push(color.y);
                 colors.push(color.z);
 
-                                let blended_normal = fallback_mid;
+                let blended_normal = fallback_mid;
                 normals.push(blended_normal.x);
                 normals.push(blended_normal.y);
                 normals.push(blended_normal.z);

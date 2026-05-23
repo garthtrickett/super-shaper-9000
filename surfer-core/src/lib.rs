@@ -401,7 +401,7 @@ mod tests {
             }
         }
 
-                assert_eq!(
+        assert_eq!(
             identical_floats,
             tail_vertices_run1.len(),
             "Cache missed! Vertices in the unaffected tail region were re-computed and lost bitwise identicality."
@@ -454,8 +454,8 @@ mod tests {
         }];
 
         let mut engine = SurferEngine::new();
-        engine.update(BoardAction::LoadDesign { 
-            state: Box::new(model) 
+        engine.update(BoardAction::LoadDesign {
+            state: Box::new(model),
         });
 
         let mesh = engine.compute_mesh();
@@ -513,10 +513,10 @@ mod tests {
             }
         }
 
-                                assert_eq!(
+        assert_eq!(
                             open_tail_edges, 0,
                             "Found {} open boundary edges near the tail-to-rail interface! The tail does not meet the rail watertight.",
                             open_tail_edges
                         );
-                    }
-                }
+    }
+}

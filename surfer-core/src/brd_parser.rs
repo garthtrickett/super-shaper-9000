@@ -1347,7 +1347,7 @@ mod tests {
 
             if v1 == v2 || v2 == v3 || v3 == v1 {
                 continue;
-            } 
+            }
 
             let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
                 let key = if a < b { (a, b) } else { (b, a) };
@@ -1368,7 +1368,7 @@ mod tests {
                 if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
                     tail_holes += 1;
                 }
-            } 
+            }
         }
 
         // We expect the tail block to be perfectly watertight
