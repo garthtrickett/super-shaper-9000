@@ -1,4 +1,5 @@
 use super::{curves::*, profile::*};
+use crate::geometry::solve_u_for_target_x;
 use crate::model::BoardModel;
 use glam::Vec3;
 

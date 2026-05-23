@@ -6,7 +6,7 @@ pub mod surface;
 pub mod topology;
 pub mod volume;
 
-@derive(Debug, Clone, Copy, PartialEq)
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct UColumn {
     pub norm_u: f32,
     pub side: f32,
