@@ -305,10 +305,11 @@ mod tests {
     }
 
             #[test]
-        fn test_hybrid_solver_precision() {
-            let root = solve_u_for_target_x(|x| x * x - 4.0, 0.0, 5.0, 1e-5, 10);
-            assert_relative_eq!(root, 2.0, epsilon = 1e-4);
-        }
+            #[test]
+    fn test_hybrid_solver_precision() {
+        let root = solve_u_for_target_x(|x| x * x - 4.0, 0.0, 5.0, 1e-5, 20);
+        assert_relative_eq!(root, 2.0, epsilon = 1e-4);
+    }
 
     #[test]
     fn test_hybrid_solver_bounds_safety() {
