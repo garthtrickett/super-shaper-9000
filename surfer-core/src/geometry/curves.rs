@@ -594,20 +594,30 @@ pub struct BlendResult<'a> {
     pub s1: &'a BezierCurveData,
     pub s_next: &'a BezierCurveData,
     pub lerp_factor: f32,
-    pub m1_pos: BezierCurveData,
-    pub m2_pos: BezierCurveData,
-    pub m1_deriv_u: BezierCurveData,
-    pub m2_deriv_u: BezierCurveData,
-    pub m1_deriv_z: BezierCurveData,
-    pub m2_deriv_z: BezierCurveData,
+    pub a0: f32,
+    pub a1: f32,
+    pub a2: f32,
+    pub b1: f32,
+    pub b2: f32,
+    pub b3: f32,
+    pub dz: f32,
 }
 
 impl<'a> BlendResult<'a> {
     pub fn evaluate(&self, t_mid: f32) -> Vec3 {
         let p1 = evaluate_curve(self.s0, t_mid);
         let p2 = evaluate_curve(self.s1, t_mid);
-        let m1 = evaluate_curve(&self.m1_pos, t_mid);
-        let m2 = evaluate_curve(&self.m2_pos, t_mid);
+
+        let p_prev = evaluate_curve(self.s_prev, t_mid);
+        let p0 = evaluate_curve(self.s0, t_mid);
+        let p1_eval = evaluate_curve(self.s1, t_mid);
+        let p_next = evaluate_curve(self.s_next, t_mid);
+
+        let mut m1 = p_prev * self.a0 + p0 * self.a1 + p1_eval * self.a2;
+        let mut m2 = p0 * self.b1 + p1_eval * self.b2 + p_next * self.b3;
+
+        m1.z = self.dz;
+        m2.z = self.dz;
 
         crate::bezier::evaluate_cubic_hermite(p1, p2, m1, m2, self.lerp_factor)
     }
@@ -615,17 +625,35 @@ impl<'a> BlendResult<'a> {
     pub fn evaluate_derivative_u(&self, t_mid: f32) -> Vec3 {
         let dp1 = evaluate_curve_derivative(self.s0, t_mid);
         let dp2 = evaluate_curve_derivative(self.s1, t_mid);
-        let m1 = evaluate_curve_derivative(&self.m1_deriv_u, t_mid);
-        let m2 = evaluate_curve_derivative(&self.m2_deriv_u, t_mid);
+
+        let dp_prev = evaluate_curve_derivative(self.s_prev, t_mid);
+        let dp0 = evaluate_curve_derivative(self.s0, t_mid);
+        let dp1_eval = evaluate_curve_derivative(self.s1, t_mid);
+        let dp_next = evaluate_curve_derivative(self.s_next, t_mid);
+
+        let mut m1 = dp_prev * self.a0 + dp0 * self.a1 + dp1_eval * self.a2;
+        let mut m2 = dp0 * self.b1 + dp1_eval * self.b2 + dp_next * self.b3;
+
+        m1.z = 0.0;
+        m2.z = 0.0;
 
         crate::bezier::evaluate_cubic_hermite(dp1, dp2, m1, m2, self.lerp_factor)
     }
 
     pub fn evaluate_derivative_z(&self, t_mid: f32) -> Vec3 {
         let p1 = evaluate_curve(self.s0, t_mid);
-        let p2 = evaluate_curve(self.s1, t_mid);
-        let m1 = evaluate_curve(&self.m1_deriv_z, t_mid);
-        let m2 = evaluate_curve(&self.m2_deriv_z, t_mid);
+        let p2 = evaluate_curve(self.s1, t_mid); 
+
+        let p_prev = evaluate_curve(self.s_prev, t_mid);
+        let p0 = evaluate_curve(self.s0, t_mid);
+        let p1_eval = evaluate_curve(self.s1, t_mid);
+        let p_next = evaluate_curve(self.s_next, t_mid);
+
+        let mut m1 = p_prev * self.a0 + p0 * self.a1 + p1_eval * self.a2;
+        let mut m2 = p0 * self.b1 + p1_eval * self.b2 + p_next * self.b3;
+
+        m1.z = self.dz;
+        m2.z = self.dz;
 
         crate::bezier::evaluate_cubic_hermite_derivative(p1, p2, m1, m2, self.lerp_factor)
     }
@@ -725,21 +753,6 @@ pub fn get_cross_section_blend_at_z<'a>(
         (b1, b2, b3)
     };
 
-    let mut m1_pos = combine_curves(s_prev, s0, s1, a0, a1, a2);
-    let mut m2_pos = combine_curves(s0, s1, s_next, b1, b2, b3);
-
-    set_curve_z(&mut m1_pos, dz);
-    set_curve_z(&mut m2_pos, dz);
-
-    let mut m1_deriv_u = combine_curves(s_prev, s0, s1, a0, a1, a2);
-    let mut m2_deriv_u = combine_curves(s0, s1, s_next, b1, b2, b3);
-
-    set_curve_z(&mut m1_deriv_u, 0.0);
-    set_curve_z(&mut m2_deriv_u, 0.0);
-
-    let m1_deriv_z = m1_pos.clone();
-    let m2_deriv_z = m2_pos.clone();
-
     Some(BlendResult {
         t_apex,
         t_tuck,
@@ -748,12 +761,13 @@ pub fn get_cross_section_blend_at_z<'a>(
         s1,
         s_next,
         lerp_factor,
-        m1_pos,
-        m2_pos,
-        m1_deriv_u,
-        m2_deriv_u,
-        m1_deriv_z,
-        m2_deriv_z,
+        a0,
+        a1,
+        a2,
+        b1,
+        b2,
+        b3,
+        dz,
     })
 }
 
