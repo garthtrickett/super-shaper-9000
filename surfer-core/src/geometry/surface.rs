@@ -507,10 +507,10 @@ impl<'a> ZRingContext<'a> {
             t_u = Vec3::new(side, 0.0, 0.0);
         }
 
-                let mut t_v =
-            if self.z_inches <= bounds.nose_z + 1e-4 {
+                        let mut t_v =
+            if self.z_inches <= bounds.nose_z + 0.5 {
                 Vec3::new(0.0, 0.0, 1.0)
-            } else if self.z_inches >= bounds.tip_z - 1e-4 {
+            } else if self.z_inches >= bounds.tip_z - 0.5 {
                 Vec3::new(0.0, 0.0, 1.0)
             } else {
                 let dz = 1e-3;
@@ -582,10 +582,10 @@ impl<'a> ZRingContext<'a> {
             t_u = Vec3::new(side, 0.0, 0.0);
         }
 
-                let mut t_v =
-            if self.z_inches <= bounds.nose_z + 1e-4 {
+                        let mut t_v =
+            if self.z_inches <= bounds.nose_z + 0.5 {
                 Vec3::new(0.0, 0.0, 1.0)
-            } else if self.z_inches >= bounds.tip_z - 1e-4 {
+            } else if self.z_inches >= bounds.tip_z - 0.5 {
                 Vec3::new(0.0, 0.0, 1.0)
             } else {
                 let dz = 1e-3;

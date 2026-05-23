@@ -3004,7 +3004,7 @@ mod tests {
             let yi = mesh.vertices[i * 3 + 1];
             let zi = mesh.vertices[i * 3 + 2];
 
-            if (zi - tail_z).abs() < 2e-3 && xi.abs() > 10.0 * scale {
+                        if (zi - tail_z).abs() < 2e-3 && xi.abs() > 1.5 * scale {
                 let mut found_cap_match = false;
 
                 for j in hull_vertex_count..(mesh.vertices.len() / 3) {

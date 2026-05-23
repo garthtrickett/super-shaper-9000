@@ -1382,8 +1382,8 @@ mod tests {
         // On a blunt squash tail, the side forms a vertical rail wall where multiple vertices
         // share the same maximum X coordinate. We resolve this tie by selecting the vertex closest
         // to the mid-rail height, which corresponds to the true rail apex (u = t_apex).
-        let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
-        let mid_y = (profile.bot_y + profile.top_y) / 2.0;
+                let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
+        let mid_y = profile.apex_y;
         let mid_y_scaled = mid_y * scale;
 
         let mut best_x = 0.0_f32;
