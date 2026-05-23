@@ -12,6 +12,8 @@ import roundedPinS3dx from "../../assets/fixtures/s3dx/rounded-pin-6-1.s3dx?url"
 import dumpsterDiverS3dx from "../../assets/fixtures/s3dx/CI-Dumpster-Diver.s3dx?url";
 import wildcatS3dx from "../../assets/fixtures/s3dx/wildcat-fixed-winged-pin.s3dx?url";
 import gh60S3dx from "../../assets/fixtures/s3dx/gh-60-winged-swallow.s3dx?url";
+import midBevelS3dx from "../../assets/fixtures/s3dx/Mid Bevel.s3dx?url";
+import singleChannelsS3dx from "../../assets/fixtures/s3dx/Single Channels.s3dx?url";
 
 import miniSimmonsBrd from "../../assets/fixtures/brd/5'4-Mini-Simmons.brd?url";
 import bumpSquashBrd from "../../assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd?url";
@@ -166,8 +168,10 @@ export class ImportModal extends LitElement {
                       { name: "Tomo-Like (Modern Planing)", url: tomoLikeS3dx, desc: "Parallel rail, stubby nose high performance design" },
                       { name: "Rounded Pin 6'1\"", url: roundedPinS3dx, desc: "Sleek step-up rounded pin model" },
                       { name: "CI Dumpster Diver", url: dumpsterDiverS3dx, desc: "Short, wide, high performance groveler" },
-                      { name: "Wildcat (Winged Pin)", url: wildcatS3dx, desc: "Modern channel bottom winged pintail hybrid" },
-                      { name: "GH-60 (Winged Swallow)", url: gh60S3dx, desc: "Classic performance hybrid winged swallow tail" }
+                                            { name: "Wildcat (Winged Pin)", url: wildcatS3dx, desc: "Modern channel bottom winged pintail hybrid" },
+                      { name: "GH-60 (Winged Swallow)", url: gh60S3dx, desc: "Classic performance hybrid winged swallow tail" },
+                      { name: "Mid Bevel", url: midBevelS3dx, desc: "Performance midlength with chined/beveled rail panels" },
+                      { name: "Single Channels", url: singleChannelsS3dx, desc: "Classic channel bottom design with customized tail exits" }
                     ].map(board => html`
                       <div class="flex items-center justify-between p-2 hover:bg-zinc-800/20 transition-all rounded">
                         <div class="flex flex-col">
