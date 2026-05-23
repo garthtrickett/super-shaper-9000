@@ -72,10 +72,16 @@ init().then(async (wasmInstance) => {
     }
 
     console.info(`[BoardWorker] Processing ${messageQueue.length} queued messages...`);
+        console.info("[BoardWorker] Beginning queue processing. messageQueue length is: " + messageQueue.length);
     for (const queuedMsg of messageQueue) {
         if (self.onmessage) {
             console.info("[BoardWorker] Dispatching queued message type:", queuedMsg.data?.type);
-            await (self.onmessage as unknown as (e: MessageEvent) => Promise<void>)(queuedMsg);
+            try {
+                await (self.onmessage as unknown as (e: MessageEvent) => Promise<void>)(queuedMsg);
+                console.info("[BoardWorker] Queue successfully processed message:", queuedMsg.data?.type);
+            } catch (err) {
+                console.error("[BoardWorker] Queue failed to process message:", queuedMsg.data?.type, err);
+            }
         }
     }
     messageQueue.length = 0;
