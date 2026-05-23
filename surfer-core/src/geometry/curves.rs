@@ -744,7 +744,125 @@ mod tests {
         };
 
         let sections = vec![cs1, cs2, cs3];
-        let blend = get_cross_section_blend_at_z(&sections, 15.0).unwrap();
+        let blend = pub fn get_cross_section_blend_at_z<'a>(
+    cross_sections: &'a [BezierCurveData],
+    z_inches: f32,
+) -> Option<BlendResult<'a>> {
+    let valid_sections: Vec<&'a BezierCurveData> = cross_sections
+        .iter()
+        .filter(|cs| {
+            cs.control_points.len() > 1
+                && !cs.control_points.iter().all(|p| p.x.abs() < 1e-4)
+        })
+        .collect();
+
+    if valid_sections.is_empty() {
+        return None;
+    }
+    let min_z = valid_sections
+        .first()
+        .unwrap()
+        .control_points
+        .first()
+        .unwrap()
+        .z;
+    let max_z = valid_sections
+        .last()
+        .unwrap()
+        .control_points
+        .first()
+        .unwrap()
+        .z;
+
+    let mut k0 = 0;
+    let mut lerp_factor = 0.0;
+
+    if z_inches <= min_z {
+        k0 = 0;
+    } else if z_inches >= max_z {
+        k0 = valid_sections.len().saturating_sub(1);
+    } else {
+        for k in 0..valid_sections.len() - 1 {
+            let z0 = valid_sections[k].control_points.first().unwrap().z;
+            let z1 = valid_sections[k + 1].control_points.first().unwrap().z;
+            if z_inches >= z0 && z_inches <= z1 {
+                k0 = k;
+                let dz = z1 - z0;
+                if dz > 1e-5 {
+                    lerp_factor = (z_inches - z0) / dz;
+                }
+                break;
+            }
+        }
+    }
+
+    let k_prev = k0.saturating_sub(1);
+    let1 = (k0 + 1).min(valid_sections.len() - 1);
+    let k_next = (k0 + 2).min(valid_sections.len() - 1);
+
+    let s_prev = valid_sections[k_prev];
+    let s0 = valid_sections[k0];
+    let s1 = valid_sections[k1];
+    let s_next = valid_sections[k_next];
+
+    let t_apex0 = find_apex_t(s0);
+    let t_apex1 = find_apex_t(s1);
+    // Apex parameter interpolation remains strictly linear
+    let t_apex = (t_apex0 + (t_apex1 - t_apex0) * lerp_factor).clamp(0.0, 1.0);
+
+    let t_tuck0 = s0.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex0 * 0.5));
+    let t_tuck1 = s1.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex1 * 0.5));
+    let t_tuck = (t_tuck0 + (t_tuck1 - t_tuck0) * lerp_factor).clamp(0.0, 1.0);
+
+    let v_prev = s_prev.control_points.first().copied().unwrap_or(Vec3::ZERO);
+    let v0 = s0.control_points.first().copied().unwrap_or(Vec3::ZERO);
+    let v1 = s1.control_points.first().copied().unwrap_or(Vec3::ZERO);
+    let v_next = s_next.control_points.first().copied().unwrap_or(Vec3::ZERO);
+
+    let dt0 = v0.distance(v_prev).sqrt();
+    let dt1 = v1.distance(v0).sqrt();
+    let dt2 = v_next.distance(v1).sqrt();
+    let dz = v1.z - v0.z;
+
+    let (a0, a1, a2) = if dt1 < 1e-5 || dt0 < 1e-5 {
+        (0.0, -1.0, 1.0)
+    } else {
+        let k = dt1 / (dt0 + dt1);
+        let a0 = -(dt1 / dt0) * k;
+        let a2 = (dt0 / dt1) * k;
+        let a1 = -a0 - a2;
+        (a0, a1, a2)
+    };
+
+    let (b1, b2, b3) = if dt1 < 1e-5 {
+        (0.0, 0.0, 0.0)
+    } else if dt2 < 1e-5 {
+        (-1.0, 1.0, 0.0)
+    } else {
+        let k2 = dt1 / (dt1 + dt2);
+        let b1 = -(dt2 / dt1) * k2;
+        let b3 = (dt1 / dt2) * k2;
+        let b2 = -b1 - b3;
+        (b1, b2, b3)
+    };
+
+    Some(BlendResult {
+        t_apex,
+        t_tuck,
+        s_prev,
+        s0,
+        s1,
+        s_next,
+        lerp_factor,
+        a0,
+        a1,
+        a2,
+        b1,
+        b2,
+        b3,
+        dz,
+    })
+}
 
         assert_eq!(blend.lerp_factor, 0.5);
 
