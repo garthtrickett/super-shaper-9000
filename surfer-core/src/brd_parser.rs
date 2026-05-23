@@ -1461,13 +1461,21 @@ p35:
             add_edge(v3, v1);
         }
 
-        let mut tail_holes = 0;
+                let mut tail_holes = 0;
+        println!("Boundary edges near tail:");
         for (edge, count) in &edge_counts {
             if *count == 1 {
                 let z1 = (edge.0).2 as f32 / 10000.0;
                 let z2 = (edge.1).2 as f32 / 10000.0;
 
                 if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
+                    let v1_x = (edge.0).0 as f32 / 10000.0;
+                    let v1_y = (edge.0).1 as f32 / 10000.0;
+                    let v1_z = (edge.0).2 as f32 / 10000.0;
+                    let v2_x = (edge.1).0 as f32 / 10000.0;
+                    let v2_y = (edge.1).1 as f32 / 10000.0;
+                    let v2_z = (edge.1).2 as f32 / 10000.0;
+                    println!("  Edge: [X={:.5}, Y={:.5}, Z={:.5}] -> [X={:.5}, Y={:.5}, Z={:.5}]", v1_x / scale, v1_y / scale, v1_z / scale, v2_x / scale, v2_y / scale, v2_z / scale);
                     tail_holes += 1;
                 } 
             }
