@@ -465,8 +465,20 @@ impl<'a> ZRingContext<'a> {
                         channel_applied = true;
                     }
 
-                    if channel_applied {
-                        let normal = self.    pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
+                                        if channel_applied {
+                        let normal = self.get_surface_normal_base_at_uvz(u, side);
+                        final_pos.x *= side;
+                        final_pos -= normal * (t * chan_depth);
+                        final_pos.x *= side;
+                    }
+                }
+            }
+        }
+
+        final_pos
+    }
+
+    pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
         if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
