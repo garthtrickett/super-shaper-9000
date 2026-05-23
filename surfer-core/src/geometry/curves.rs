@@ -264,23 +264,10 @@ pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     }
     tip_t = t_search;
 
-    // Use Rocker for absolute Z bounds to prevent amputation when outline caps are stripped
-    let nose_z = if let Some(rb) = &model.rocker_bottom {
-        evaluate_curve(rb, 0.0).z.min(out_nose_z)
-    } else {
-        out_nose_z
-    };
-
-    let mut tip_z = if let Some(rb) = &model.rocker_bottom {
-        evaluate_curve(rb, 1.0).z.max(out_tip_z)
-    } else {
-        out_tip_z
-    };
-
-    // If the rocker is somehow shorter than the outline, fall back to the outline's tip
-    if out_tip_z > tip_z {
-        tip_z = out_tip_z;
-    }
+        // With unified endpoint synchronization implemented, the outline's boundaries
+    // represent the absolute, canonical start and end Z-positions of the board.
+    let nose_z = out_nose_z;
+    let tip_z = out_tip_z;
 
     BoardBounds {
         nose_z,

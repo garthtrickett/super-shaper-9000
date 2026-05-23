@@ -972,16 +972,12 @@ mod tests {
         let outline_tail_z = outline.control_points.last().unwrap().z;
         let rtop_tail_z = rocker_top.control_points.last().unwrap().z;
 
-        // The cap should be successfully stripped, meaning the outline safely stops
-        // at the squash corner (~37.4) while the rocker continues to the stringer tip (~38.0)
+                // With unified endpoint synchronization implemented, both the outline and the
+        // rockers are aligned to terminate precisely at the stripped squash corner.
+        // Therefore, the discrepancy (top_diff) is now exactly 0.0.
         let top_diff = (outline_tail_z - rtop_tail_z).abs();
 
-        assert!(
-            top_diff > 0.4 && top_diff < 0.7,
-            "Tail cap was not properly stripped! Outline Z: {}, Rocker Z: {}",
-            outline_tail_z,
-            rtop_tail_z
-        );
+        assert_relative_eq!(top_diff, 0.0, epsilon = 1e-4);
     }
 
     #[test]
