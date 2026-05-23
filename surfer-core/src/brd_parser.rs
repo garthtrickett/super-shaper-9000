@@ -1295,8 +1295,130 @@ mod tests {
         );
     }
 
-        #[test]
+            #[test]
     fn test_longboard_tail_block_integrity() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'10-Mini-Longboard.brd");
+
+        if !path.exists() {
+            println!("6'10-Mini-Longboard.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse longboard BRD");
+
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
+
+        assert!(mesh.vertices.len() > 0);
+
+        // 1. Watertightness / Hole Detection at the Tail
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        use std::collections::HashMap;
+        let mut edge_counts = HashMap::new();
+
+        let get_vertex = |idx: u32| -> glam::Vec3 {
+            let i = idx as usize * 3;
+            glam::Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
+        };
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
+
+            let hash_pt = |v: glam::Vec3| -> (i32, i32, i32) {
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
+            };
+
+            let v1 = hash_pt(get_vertex(i1));
+            let v2 = hash_pt(get_vertex(i2));
+            let v3 = hash_pt(get_vertex(i3));
+
+            if v1 == v2 || v2 == v3 || v3 == v1 {
+                continue;
+            }
+
+            let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_counts.entry(key).or_insert(0) += 1;
+            };
+
+            add_edge(v1, v2);
+            add_edge(v2, v3);
+            add_edge(v3, v1);
+        }
+
+        let mut tail_holes = 0;
+        for (edge, count) in &edge_counts {
+            if *count == 1 {
+                let z1 = (edge.0).2 as f32 / 10000.0;
+                let z2 = (edge.1).2 as f32 / 10000.0;
+
+                if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
+                    tail_holes += 1;
+                } 
+            }
+        }
+
+        // We expect the tail block to be perfectly watertight
+        assert_eq!(
+            tail_holes,
+            0,
+            "Found {} boundary edges (holes) near the tail block!",
+            tail_holes
+        );
+
+        // 2. Normal Vector Outward Orientation at the Tail Block Apex
+        // Find the vertex on the absolute tail Z ring that has the maximum X-coordinate (rail apex)
+        let mut max_x = 0.0_f32;
+        let mut apex_idx = None;
+
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - tail_z).abs() < 2e-3 {
+                if x > max_x {
+                    max_x = x;
+                    apex_idx = Some(i);
+                } 
+            }
+        }
+
+        let idx = apex_idx.expect("No vertices found at the absolute tail Z ring!");
+        let normal = glam::Vec3::new(
+            mesh.normals[idx * 3],
+            mesh.normals[idx * 3 + 1],
+            mesh.normals[idx * 3 + 2],
+        );
+
+        println!("=== DIAGNOSTIC TAIL APEX NORMAL ===");
+        println!("Apex Vertex Index: {}", idx);
+        println!("Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]", mesh.vertices[idx * 3] / scale, mesh.vertices[idx * 3 + 1] / scale, mesh.vertices[idx * 3 + 2] / scale);
+        println!("Apex Normal Vector: [{:.5}, {:.5}, {:.5}]", normal.x, normal.y, normal.z);
+        println!("===================================");
+
+        // Under correct projection, the normal at the rail apex MUST point outward (having a strong X component)
+        // instead of collapsing/twisting straight down to [0, -1, 0] or straight back to [0, 0, 1].
+        assert!(
+            normal.x > 0.5,
+            "Normal at tail block rail apex is collapsed/twisted! Expected X component > 0.5, got: {:?}",
+            normal
+        );
+    }
+
+    #[test]
+    fn deleted_test_longboard_tail_block_integrity_old() {
         let _ = env_logger::builder().is_test(true).try_init();
         let brd_text = r#"p01: 209.55
 p02: 210.89806848025611
