@@ -920,6 +920,81 @@ mod tests {
         assert_eq!(degenerate_count, 0, "Found {} degenerate triangles! These cause visual dark spots.", degenerate_count);
     }
 
+        #[test]
+    fn test_rounded_pin_import_shading_defects() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let bytes = fs::read(&path).expect("Failed to read rounded pin fixture file");
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
+
+        // 1. Check for un-normalizable / NaN normals (the main source of pure black rendering spots)
+        let mut nan_normals = 0;
+        for i in (0..mesh.normals.len()).step_by(3) {
+            let n = glam::Vec3::new(mesh.normals[i], mesh.normals[i + 1], mesh.normals[i + 2]);
+            if !n.is_finite() {
+                nan_normals += 1;
+            }
+        }
+        assert_eq!(nan_normals, 0, "Found {} NaN normal vectors. These cause black shading artifacts.", nan_normals);
+
+        // 2. Check for degenerate (zero-area) triangles near the nose/tail tip
+        let mut degenerate_count = 0;
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+
+            let v1 = glam::Vec3::new(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2]);
+            let v2 = glam::Vec3::new(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2]);
+            let v3 = glam::Vec3::new(mesh.vertices[i3 * 3], mesh.vertices[i3 * 3 + 1], mesh.vertices[i3 * 3 + 2]);
+
+            let area = (v2 - v1).cross(v3 - v1).length();
+            if area < 1e-10 {
+                degenerate_count += 1;
+            }
+        }
+        assert_eq!(degenerate_count, 0, "Found {} degenerate triangles! These cause visual dark spots.", degenerate_count);
+
+        // 3. Assert smooth normal vector transitions across the 0.5-inch boundary
+        // We step from 0.1" to 1.0" from the nose tip. On the current codebase,
+        // normal vectors jump abruptly over the 0.5" line, exceeding 15 degrees of divergence.
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let mut max_angle_change_deg = 0.0_f32;
+        let mut prev_normal: Option<glam::Vec3> = None;
+        let steps = 100;
+        let start_z = bounds.nose_z + 0.1;
+        let end_z = bounds.nose_z + 1.0;
+        
+        for i in 0..=steps {
+            let f = i as f32 / steps as f32;
+            let z = start_z + (end_z - start_z) * f;
+            let ctx_z = crate::geometry::ZRingContext::new(&model, z);
+            let n = ctx_z.get_surface_normal_at_uvz(0.0, 1.0);
+            
+            if let Some(prev_n) = prev_normal {
+                let dot = prev_n.dot(n).clamp(-1.0, 1.0);
+                let angle_deg = dot.acos().to_degrees();
+                if angle_deg > max_angle_change_deg {
+                    max_angle_change_deg = angle_deg;
+                }
+            }
+            prev_normal = Some(n);
+        }
+
+        assert!(
+            max_angle_change_deg < 1.5,
+            "Discontinuous normal vector cliff detected! Adjacent normal vectors diverged by {:.2} degrees near the 0.5\" boundary.",
+            max_angle_change_deg
+        );
+    }
+
     #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
