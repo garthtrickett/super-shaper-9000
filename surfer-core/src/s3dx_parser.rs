@@ -877,6 +877,49 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_rounded_pin_import_shading_defects() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        let bytes = fs::read(&path).expect("Failed to read rounded pin fixture file");
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+        
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
+
+        // 1. Check for un-normalizable / NaN normals (the main source of pure black rendering spots)
+        let mut nan_normals = 0;
+        for i in (0..mesh.normals.len()).step_by(3) {
+            let n = glam::Vec3::new(mesh.normals[i], mesh.normals[i + 1], mesh.normals[i + 2]);
+            if !n.is_finite() {
+                nan_normals += 1;
+            }
+        }
+        assert_eq!(nan_normals, 0, "Found {} NaN normal vectors. These cause black shading artifacts.", nan_normals);
+
+        // 2. Check for degenerate (zero-area) triangles near the nose/tail tip
+        let mut degenerate_count = 0;
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i] as usize;
+            let i2 = mesh.indices[i + 1] as usize;
+            let i3 = mesh.indices[i + 2] as usize;
+
+            let v1 = glam::Vec3::new(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2]);
+            let v2 = glam::Vec3::new(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2]);
+            let v3 = glam::Vec3::new(mesh.vertices[i3 * 3], mesh.vertices[i3 * 3 + 1], mesh.vertices[i3 * 3 + 2]);
+
+            let area = (v2 - v1).cross(v3 - v1).length();
+            if area < 1e-10 {
+                degenerate_count += 1;
+            }
+        }
+        assert_eq!(degenerate_count, 0, "Found {} degenerate triangles! These cause visual dark spots.", degenerate_count);
+    }
+
     #[test]
     fn test_imported_fish_nose_mesh_integrity() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
