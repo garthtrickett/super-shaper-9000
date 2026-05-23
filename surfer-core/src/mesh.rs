@@ -987,6 +987,7 @@ mod tests {
     use glam::Vec3;
 
     #[test]
+        #[test]
     fn test_patch_caps_for_squash_tails() {
         // This test verifies that blunt tails (like a square/squash tail) are generated
         // as a "patch" (a grid of vertices) instead of a "pole".
@@ -1057,20 +1058,18 @@ mod tests {
             .collect();
 
         let scale = 1.0 / 12.0;
-        let (min_z, max_z) = vertices
-            .iter()
-            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min_z, max_z), v| {
-                (min_z.min(v.z), max_z.max(v.z))
-            });
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let nose_z = bounds.nose_z * scale;
+        let tail_z = bounds.tip_z * scale;
 
         // There should be a small tolerance for floating point comparisons
         let nose_rail_vertices = vertices
             .iter()
-            .filter(|v| (v.z - min_z).abs() < 1e-4 && (v.x.abs() - 5.0 * scale).abs() < 1e-4)
+            .filter(|v| (v.z - nose_z).abs() < 1e-4 && (v.x.abs() - 5.0 * scale).abs() < 1e-4)
             .count();
         let tail_rail_vertices = vertices
             .iter()
-            .filter(|v| (v.z - max_z).abs() < 1e-4 && (v.x.abs() - 5.0 * scale).abs() < 1e-4)
+            .filter(|v| (v.z - tail_z).abs() < 1e-4 && (v.x.abs() - 5.0 * scale).abs() < 1e-4)
             .count();
 
         // Since we explicitly modelled a square nose and tail (X=5.0), the cap should be a patch
