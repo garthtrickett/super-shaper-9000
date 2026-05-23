@@ -2971,11 +2971,89 @@ mod tests {
         );
         println!("===========================================");
 
-        // Outward orientation check: Blunt tail normal must point outward along the X-axis
+                // Outward orientation check: Blunt tail normal must point outward along the X-axis
         assert!(
             normal.x > 0.5,
             "Blunt tail rail normal is collapsed/twisted! Expected X component > 0.5, got: {:?}",
             normal
         );
+    }
+
+    #[test]
+    fn test_blunt_tail_crease_preservation() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
+
+        let bytes = std::fs::read(&path).expect("Failed to read BRD fixture");
+        let model = crate::brd_parser::parse_brd(&bytes).expect("Failed to parse BRD");
+
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = MeshCache::default();
+        let mesh = generate_mesh(&model, &mut dirty, &mut cache);
+
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        use std::collections::HashMap;
+        let mut groups: HashMap<(i32, i32), Vec<(usize, [f32; 3])>> = HashMap::new();
+
+        for i in 0..(mesh.vertices.len() / 3) {
+            let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+
+            if (z - tail_z).abs() < 2e-3 {
+                let rx = (x * 1000.0).round() as i32;
+                let ry = (y * 1000.0).round() as i32;
+                
+                let norm = [
+                    mesh.normals[i * 3],
+                    mesh.normals[i * 3 + 1],
+                    mesh.normals[i * 3 + 2],
+                ];
+
+                groups.entry((rx, ry)).or_default().push((i, norm));
+            } 
+        }
+
+        let mut checked_groups = 0;
+        for ((rx, _ry), normals_list) in &groups {
+            if rx.abs() > 10 {
+                checked_groups += 1;
+                assert!(
+                    normals_list.len() >= 2,
+                    "Expected at least 2 coincident vertices at boundary rx={}, but found {}",
+                    rx,
+                    normals_list.len()
+                );
+
+                let mut found_hull_normal = false;
+                let mut found_cap_normal = false;
+
+                for &(_idx, norm) in normals_list {
+                    let nz = norm[2];
+                    if nz > 0.95 {
+                        found_cap_normal = true;
+                    } else if nz.abs() < 0.5 {
+                        found_hull_normal = true;
+                    }
+                }
+
+                assert!(
+                    found_cap_normal,
+                    "Boundary group at rx={} missing a flat-facing cap normal (Nz > 0.95)",
+                    rx
+                );
+                assert!(
+                    found_hull_normal,
+                    "Boundary group at rx={} missing a side-facing hull normal (Nz < 0.5)",
+                    rx
+                );
+            }
+        }
+
+        assert!(checked_groups > 0, "No boundary groups found to check!");
     }
 }
