@@ -480,7 +480,39 @@ impl<'a> ZRingContext<'a> {
 
         if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
             let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
-            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
+            let mut n = /// Spherical Linear Interpolation for normal vectors.
+pub fn slerp_normals(n1: Vec3, n2: Vec3, t: f32, mut fallback_mid: Vec3) -> Vec3 {
+    let t = t.clamp(0.0, 1.0);
+    let dot = n1.dot(n2).clamp(-1.0, 1.0);
+
+    if dot > 0.9999 {
+        return n1.lerp(n2, t).normalize();
+    }
+
+    if dot < -0.9999 {
+        // If fallback_mid is collinear with n1 (and thus n2), find a true perpendicular vector to prevent infinite recursion
+        if fallback_mid.dot(n1).abs() > 0.9999 {
+            let mut perp = n1.cross(Vec3::X);
+            if perp.length_squared() < 1e-5 {
+                perp = n1.cross(Vec3::Y);
+            }
+            fallback_mid = perp.normalize();
+        }
+
+        if t < 0.5 {
+            return slerp_normals(n1, fallback_mid, t * 2.0, fallback_mid);
+        } else {
+            return slerp_normals(fallback_mid, n2, (t - 0.5) * 2.0, fallback_mid);
+        }
+    }
+
+    let theta = dot.acos();
+    let sin_theta = theta.sin();
+    let w1 = ((1.0 - t) * theta).sin() / sin_theta;
+    let w2 = (t * theta).sin() / sin_theta;
+
+    (n1 * w1 + n2 * w2).normalize()
+}
             if side < 0.0 {
                 n.x = -n.x;
             }
