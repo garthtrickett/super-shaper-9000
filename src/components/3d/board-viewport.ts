@@ -137,7 +137,8 @@ export class BoardViewport extends LitElement {
 
   private _lastDispatchedSlice = -1;
 
-  override updated() {
+    override updated() {
+    console.info("[BoardViewport] Entering updated...");
     const prevSlice = this.activeProfileSlice;
     if (this.boardState?.selectedNode?.curve.startsWith('crossSection_')) {
         const idx = parseInt(this.boardState.selectedNode.curve.split('_')[1] || "0", 10);
@@ -149,13 +150,16 @@ export class BoardViewport extends LitElement {
         this.activeProfileSlice = Math.max(0, this.boardState.crossSections.length - 1);
     }
     if (prevSlice !== this.activeProfileSlice) {
+        console.info("[BoardViewport] activeProfileSlice changed. prevSlice: " + prevSlice + " | newSlice: " + this.activeProfileSlice + ". Requesting update...");
         this.requestUpdate();
     }
     
     if (this.activeProfileSlice !== this._lastDispatchedSlice) {
+        console.info("[BoardViewport] Dispatching active profile slice changed: " + this.activeProfileSlice);
         this._lastDispatchedSlice = this.activeProfileSlice;
         this.dispatchEvent(new CustomEvent('set-active-profile-slice', { detail: { slice: this.activeProfileSlice }, bubbles: true, composed: true }));
     }
+    console.info("[BoardViewport] Exiting updated.");
   }
 
   override disconnectedCallback() {
@@ -810,7 +814,8 @@ export class BoardViewport extends LitElement {
     this.dispatchEvent(new CustomEvent('viewport-pointer', { detail: { type: "up", x: e.clientX, y: e.clientY, quad: "" }, bubbles: true, composed: true }));
   };
 
-  override render() {
+    override render() {
+    console.info("[BoardViewport] Entering render...");
     const expandIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l-5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>`;
     const collapseIcon = html`<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h6m0 0v6m0-6l-7 7m17-11h-6m0 0V4m0 6l7-7m-7 17v-6m0 0h6m-6 0l7 7M10 4v6m0 0H4m6 0L3 3"></path></svg>`;
     
@@ -1193,8 +1198,10 @@ export class BoardViewport extends LitElement {
                       </div>
                     </div>
                   </div>
-                `}
+                                `}
             </div>
       `;
+      console.info("[BoardViewport] Exiting render.");
+      return res;
   }
 }
