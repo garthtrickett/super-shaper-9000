@@ -1288,7 +1288,7 @@ mod tests {
         }
         println!("=====================================================\n");
 
-                assert_eq!(
+        assert_eq!(
             failures, 0,
             "Failed: Mesh is thinner than the analytical outline in {} sample points!",
             failures
@@ -1367,14 +1367,13 @@ mod tests {
 
                 if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
                     tail_holes += 1;
-                } 
-            } 
+                }
+            }
         }
 
         // We expect the tail block to be perfectly watertight
         assert_eq!(
-            tail_holes,
-            0,
+            tail_holes, 0,
             "Found {} boundary edges (holes) near the tail block!",
             tail_holes
         );
@@ -1412,7 +1411,7 @@ mod tests {
                         apex_idx = Some(i);
                     }
                 }
-            } 
+            }
         }
 
         let idx = apex_idx.expect("No vertices found at the absolute tail Z ring!");
@@ -1424,8 +1423,16 @@ mod tests {
 
         println!("=== DIAGNOSTIC TAIL APEX NORMAL ===");
         println!("Apex Vertex Index: {}", idx);
-        println!("Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]", mesh.vertices[idx * 3] / scale, mesh.vertices[idx * 3 + 1] / scale, mesh.vertices[idx * 3 + 2] / scale);
-        println!("Apex Normal Vector: [{:.5}, {:.5}, {:.5}]", normal.x, normal.y, normal.z);
+        println!(
+            "Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]",
+            mesh.vertices[idx * 3] / scale,
+            mesh.vertices[idx * 3 + 1] / scale,
+            mesh.vertices[idx * 3 + 2] / scale
+        );
+        println!(
+            "Apex Normal Vector: [{:.5}, {:.5}, {:.5}]",
+            normal.x, normal.y, normal.z
+        );
         println!("===================================");
 
         // Under correct projection, the normal at the rail apex MUST point outward (having a strong X component)
@@ -1513,16 +1520,26 @@ p35:
         println!("Model width: {}", model.width);
         println!("Model thickness: {}", model.thickness);
         let bounds = crate::geometry::get_board_bounds(&model);
-        println!("Bounds: nose_z: {}, tip_z: {}, notch_z: {}", bounds.nose_z, bounds.tip_z, bounds.notch_z);
+        println!(
+            "Bounds: nose_z: {}, tip_z: {}, notch_z: {}",
+            bounds.nose_z, bounds.tip_z, bounds.notch_z
+        );
 
         // Count unique Z coordinates
         let scale = 1.0 / 12.0;
-        let mut unique_zs: Vec<f32> = mesh.vertices.chunks_exact(3).map(|v| v[2] / scale).collect();
+        let mut unique_zs: Vec<f32> = mesh
+            .vertices
+            .chunks_exact(3)
+            .map(|v| v[2] / scale)
+            .collect();
         unique_zs.sort_by(|a, b| a.partial_cmp(b).unwrap());
         unique_zs.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
         println!("Unique Z coordinates count in mesh: {}", unique_zs.len());
         if let Some(&last_z) = unique_zs.last() {
-            println!("Last Z in mesh: {} inches (tip_z is {} inches)", last_z, bounds.tip_z);
+            println!(
+                "Last Z in mesh: {} inches (tip_z is {} inches)",
+                last_z, bounds.tip_z
+            );
         }
 
         // Print vertices exactly at the tail
@@ -1536,7 +1553,13 @@ p35:
             if (z - tail_z_scaled).abs() < 2e-3 {
                 tail_vert_count += 1;
                 if tail_vert_count <= 25 {
-                    println!("  Vertex {}: [X={:.5}, Y={:.5}, Z={:.5}]", i, x / scale, y / scale, z / scale);
+                    println!(
+                        "  Vertex {}: [X={:.5}, Y={:.5}, Z={:.5}]",
+                        i,
+                        x / scale,
+                        y / scale,
+                        z / scale
+                    );
                 }
             }
         }
@@ -1555,10 +1578,13 @@ p35:
                 cap_vert_count += 1;
                 if cap_vert_count <= 10 {
                     println!("  Cap Vertex {}: [X={:.5}, Y={:.5}, Z={:.5}] Normal: [{:.5}, {:.5}, {:.5}]", i, x / scale, y / scale, z / scale, mesh.normals[i * 3], mesh.normals[i * 3 + 1], nz);
-                } 
+                }
             }
         }
-        println!("Total cap vertices (flat-facing normals): {}", cap_vert_count);
+        println!(
+            "Total cap vertices (flat-facing normals): {}",
+            cap_vert_count
+        );
         println!("===========================================");
 
         // 1. Watertightness / Hole Detection at the Tail
@@ -1603,7 +1629,7 @@ p35:
             add_edge(v3, v1);
         }
 
-                let mut tail_holes = 0;
+        let mut tail_holes = 0;
         println!("Boundary edges near tail:");
         for (edge, count) in &edge_counts {
             if *count == 1 {
@@ -1617,16 +1643,23 @@ p35:
                     let v2_x = (edge.1).0 as f32 / 10000.0;
                     let v2_y = (edge.1).1 as f32 / 10000.0;
                     let v2_z = (edge.1).2 as f32 / 10000.0;
-                    println!("  Edge: [X={:.5}, Y={:.5}, Z={:.5}] -> [X={:.5}, Y={:.5}, Z={:.5}]", v1_x / scale, v1_y / scale, v1_z / scale, v2_x / scale, v2_y / scale, v2_z / scale);
+                    println!(
+                        "  Edge: [X={:.5}, Y={:.5}, Z={:.5}] -> [X={:.5}, Y={:.5}, Z={:.5}]",
+                        v1_x / scale,
+                        v1_y / scale,
+                        v1_z / scale,
+                        v2_x / scale,
+                        v2_y / scale,
+                        v2_z / scale
+                    );
                     tail_holes += 1;
-                } 
+                }
             }
         }
 
-                // We expect the tail block to be perfectly watertight
+        // We expect the tail block to be perfectly watertight
         assert_eq!(
-            tail_holes,
-            0,
+            tail_holes, 0,
             "Found {} boundary edges (holes) near the tail block!",
             tail_holes
         );

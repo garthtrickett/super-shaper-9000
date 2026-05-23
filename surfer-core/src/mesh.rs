@@ -2894,7 +2894,7 @@ mod tests {
             }
         }
 
-                assert_eq!(tail_cap_inverted_triangles, 0, "Found inverted triangles on the tail cap! This is caused by Y-coordinate crossovers during cap generation.");
+        assert_eq!(tail_cap_inverted_triangles, 0, "Found inverted triangles on the tail cap! This is caused by Y-coordinate crossovers during cap generation.");
     }
 
     #[test]
@@ -2959,8 +2959,16 @@ mod tests {
         );
 
         println!("=== DIAGNOSTIC TOMOLIKE TAIL APEX NORMAL ===");
-        println!("Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]", mesh.vertices[idx * 3] / scale, mesh.vertices[idx * 3 + 1] / scale, mesh.vertices[idx * 3 + 2] / scale);
-        println!("Apex Normal Vector: [{:.5}, {:.5}, {:.5}]", normal.x, normal.y, normal.z);
+        println!(
+            "Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]",
+            mesh.vertices[idx * 3] / scale,
+            mesh.vertices[idx * 3 + 1] / scale,
+            mesh.vertices[idx * 3 + 2] / scale
+        );
+        println!(
+            "Apex Normal Vector: [{:.5}, {:.5}, {:.5}]",
+            normal.x, normal.y, normal.z
+        );
         println!("===========================================");
 
         // Outward orientation check: Blunt tail normal must point outward along the X-axis

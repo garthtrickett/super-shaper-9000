@@ -1049,7 +1049,7 @@ mod tests {
         let t_weighted = find_v_at_z(&curve, 50.0, 0.0, 1.0);
         let pt_weighted = evaluate_curve(&curve, t_weighted);
 
-                assert!((pt_std.z - 50.0).abs() < 1e-3);
+        assert!((pt_std.z - 50.0).abs() < 1e-3);
         assert!((pt_weighted.z - 50.0).abs() < 1e-3);
         assert!(t_weighted < t_std);
     }
