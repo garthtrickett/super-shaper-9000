@@ -25,50 +25,69 @@ export class WasmSamController implements ReactiveController {
     host.addController(this);
     
     runClientUnscoped(clientLog("info", "[WasmSamController] Starting main-thread synchronous mathEngine init..."));
+    console.info("[WasmSamController] Starting main-thread synchronous mathEngine init...");
     
     // Initialize synchronous math engine for the UI (Instant calculations like Gizmo snapping)
     init().then(() => {
       runClientUnscoped(clientLog("info", "[WasmSamController] Synchronous WASM initialized. Instantiating main-thread WasmEngine..."));
+      console.info("[WasmSamController] Synchronous WASM initialized. Instantiating main-thread WasmEngine...");
       this.mathEngine = new WasmEngine();
       this.mathEngine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
       runClientUnscoped(clientLog("info", "[WasmSamController] Main-thread WasmEngine instantiated and synchronized."));
+      console.info("[WasmSamController] Main-thread WasmEngine instantiated and synchronized.");
       this.host.requestUpdate();
     }).catch(err => { 
       runClientUnscoped(clientLog("error", "[WasmSamController] Main-thread mathEngine init failed!", err));
+      console.error("[WasmSamController] Main-thread mathEngine init failed!", err);
     });
 
     runClientUnscoped(clientLog("info", "[WasmSamController] Instantiating Web Worker thread..."));
+    console.info("[WasmSamController] Instantiating Web Worker thread...");
     this.worker = new Worker(new URL("./workers/board-worker.ts", import.meta.url), { type: "module" });
     
     this.worker.addEventListener("message", (e: MessageEvent) => {
       const msg = e.data;
-      if (msg.type === "STATE_UPDATED") {
-        if (msg.seq !== undefined && msg.seq < this.currentSequence) {
-          runClientUnscoped(clientLog("debug", `[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`));
-          return;
-        }
-        runClientUnscoped(clientLog("debug", `[WasmSamController] Applying state update for sequence: ${msg.seq}`));
-        this.model = msg.state;
-        this.mesh = msg.stats;
-        this.foilData = msg.foilData;
-        this.host.requestUpdate();
-      } else if (msg.type === "RENDERER_READY") {
-        runClientUnscoped(clientLog("info", "[WasmSamController] Received RENDERER_READY event from Web Worker."));
-      } else if (msg.type === "GIZMO_DRAG_COMPLETE") {
-        runClientUnscoped(clientLog("debug", "[WasmSamController] Received GIZMO_DRAG_COMPLETE confirmation from Web Worker."));
-      } else if (msg.type === "ERROR") {
-        runClientUnscoped(clientLog("error", `[WasmSamController] Error received from Web Worker thread: ${msg.error}`));
+      console.info("[WasmSamController] Main thread received message from Worker of type:", msg?.type, msg);
+      
+      try {
+          if (msg.type === "STATE_UPDATED") {
+            if (msg.seq !== undefined && msg.seq < this.currentSequence) {
+              runClientUnscoped(clientLog("debug", `[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`));
+              console.warn(`[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`);
+              return;
+            }
+            runClientUnscoped(clientLog("debug", `[WasmSamController] Applying state update for sequence: ${msg.seq}`));
+            console.info(`[WasmSamController] Applying state update to host for sequence: ${msg.seq}`);
+            this.model = msg.state;
+            this.mesh = msg.stats;
+            this.foilData = msg.foilData;
+            this.host.requestUpdate();
+            console.info(`[WasmSamController] host.requestUpdate() dispatched successfully for sequence: ${msg.seq}`);
+          } else if (msg.type === "RENDERER_READY") {
+            runClientUnscoped(clientLog("info", "[WasmSamController] Received RENDERER_READY event from Web Worker."));
+            console.info("[WasmSamController] Received RENDERER_READY event from Web Worker.");
+          } else if (msg.type === "GIZMO_DRAG_COMPLETE") {
+            runClientUnscoped(clientLog("debug", "[WasmSamController] Received GIZMO_DRAG_COMPLETE confirmation from Web Worker."));
+            console.debug("[WasmSamController] Received GIZMO_DRAG_COMPLETE confirmation from Web Worker.");
+          } else if (msg.type === "ERROR") {
+            runClientUnscoped(clientLog("error", `[WasmSamController] Error received from Web Worker thread: ${msg.error}`));
+            console.error(`[WasmSamController] Error received from Web Worker thread: ${msg.error}`);
+          }
+      } catch (err) {
+          console.error("[WasmSamController] CRITICAL EXCEPTION in main thread message listener!", err);
       } 
     });
     runClientUnscoped(clientLog("info", "[WasmSamController] Web Worker instantiated. Handlers registered."));
+    console.info("[WasmSamController] Web Worker instantiated. Handlers registered.");
   }
 
   propose(action: BoardAction) {
     this.currentSequence++;
     runClientUnscoped(clientLog("info", `[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`));
+    console.info(`[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`, action);
     
     // Keep local math engine perfectly in sync with the worker's reality
-    if (this.mathEngine) {
+    if (this.mathEngine) { 
       try {
         if ((this.mathEngine as any).propose_state_only) {
             (this.mathEngine as any).propose_state_only(action);
@@ -80,6 +99,7 @@ export class WasmSamController implements ReactiveController {
         }
       } catch (e) { 
         runClientUnscoped(clientLog("error", "[WasmSamController] Local mathEngine failed to process proposed action!", e));
+        console.error("[WasmSamController] Local mathEngine failed to process proposed action!", e);
       }
     }
 
@@ -90,9 +110,11 @@ export class WasmSamController implements ReactiveController {
 
   hostDisconnected() {
     runClientUnscoped(clientLog("info", "[WasmSamController] Component disconnecting. Terminating Web Worker..."));
+    console.info("[WasmSamController] Component disconnecting. Terminating Web Worker...");
     this.worker.terminate();
-    if (this.mathEngine) {
+    if (this.mathEngine) { 
       runClientUnscoped(clientLog("info", "[WasmSamController] Freeing synchronous main-thread mathEngine..."));
+      console.info("[WasmSamController] Freeing synchronous main-thread mathEngine...");
       this.mathEngine.free();
       this.mathEngine = null;
     }
