@@ -204,7 +204,11 @@ where
         }
     }
 
-    if fa.abs() < fb.abs() { a } else { b }
+    if fa.abs() < fb.abs() {
+        a
+    } else {
+        b
+    }
 }
 
 pub fn find_closest_t_to_ray(curve: &BezierCurveData, ro: Vec3, rd: Vec3) -> f32 {
@@ -304,8 +308,7 @@ mod tests {
         assert!(mid_z.abs() < 5.0);
     }
 
-            #[test]
-            #[test]
+    #[test]
     fn test_hybrid_solver_precision() {
         let root = solve_u_for_target_x(|x| x * x - 4.0, 0.0, 5.0, 1e-5, 20);
         assert_relative_eq!(root, 2.0, epsilon = 1e-4);

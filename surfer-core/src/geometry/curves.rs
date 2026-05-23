@@ -693,7 +693,7 @@ pub fn get_cross_section_blend_at_z<'a>(
     let t_tuck1 = s1.tuck_ratio.unwrap_or_else(|| 0.01_f32.max(t_apex1 * 0.5));
     let t_tuck = (t_tuck0 + (t_tuck1 - t_tuck0) * lerp_factor).clamp(0.0, 1.0);
 
-        let v_prev = s_prev.control_points.first().copied().unwrap_or(Vec3::ZERO);
+    let v_prev = s_prev.control_points.first().copied().unwrap_or(Vec3::ZERO);
     let v0 = s0.control_points.first().copied().unwrap_or(Vec3::ZERO);
     let v1 = s1.control_points.first().copied().unwrap_or(Vec3::ZERO);
     let v_next = s_next.control_points.first().copied().unwrap_or(Vec3::ZERO);

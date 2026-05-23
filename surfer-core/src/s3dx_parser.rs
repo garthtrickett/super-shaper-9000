@@ -1339,7 +1339,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_gh60_wing_goes_in_not_out() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx");
