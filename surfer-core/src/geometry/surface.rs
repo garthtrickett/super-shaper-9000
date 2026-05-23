@@ -444,7 +444,7 @@ impl<'a> ZRingContext<'a> {
                 if chan_x > self.inner_x && chan_x < apex_x {
                     let u_chan = self
                         .cached_channel_us
-                        .iter
+                        .iter()
                         .find(|(cx, _)| (cx - chan_x).abs() < 1e-3)
                         .map(|(_, val)| *val)
                         .unwrap_or(0.0);
@@ -508,16 +508,16 @@ impl<'a> ZRingContext<'a> {
         }
 
         let mut t_v =
-            if self.z_inches <= bounds.nose_z + 1e-4 {
-                let dz = 1e-3;
+                        if self.z_inches <= bounds.nose_z + 1e-4 {
+                let dz = 0.1;
                 let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
                 let mut pt_plus_v = ctx_plus.get_point_at_uv_base(u, side);
                 pt_plus_v.x *= side;
                 let mut pt_c = self.get_point_at_uv_base(u, side);
                 pt_c.x *= side;
                 (pt_plus_v - pt_c).normalize()
-            } else if self.z_inches >= bounds.tip_z - 1e-4 {
-                let dz = 1e-3;
+                        } else if self.z_inches >= bounds.tip_z - 1e-4 {
+                let dz = 0.1;
                 let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
                 let mut pt_minus_v = ctx_minus.get_point_at_uv_base(u, side);
                 pt_minus_v.x *= side;
@@ -595,16 +595,16 @@ impl<'a> ZRingContext<'a> {
         }
 
         let mut t_v =
-            if self.z_inches <= bounds.nose_z + 1e-4 {
-                let dz = 1e-3;
+                        if self.z_inches <= bounds.nose_z + 1e-4 {
+                let dz = 0.1;
                 let ctx_plus = ZRingContext::new(self.model, self.z_inches + dz);
                 let mut pt_plus_v = ctx_plus.get_point_at_uv(u, side);
                 pt_plus_v.x *= side;
                 let mut pt_c = self.get_point_at_uv(u, side);
                 pt_c.x *= side;
                 (pt_plus_v - pt_c).normalize()
-            } else if self.z_inches >= bounds.tip_z - 1e-4 {
-                let dz = 1e-3;
+                        } else if self.z_inches >= bounds.tip_z - 1e-4 {
+                let dz = 0.1;
                 let ctx_minus = ZRingContext::new(self.model, self.z_inches - dz);
                 let mut pt_minus_v = ctx_minus.get_point_at_uv(u, side);
                 pt_minus_v.x *= side;
