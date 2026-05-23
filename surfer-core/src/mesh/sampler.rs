@@ -375,32 +375,15 @@ pub fn compute_u_columns(
                             let mut best_u = 0.0;
                             let mut min_diff = f32::INFINITY;
 
-                            let ctx = crate::geometry::ZRingContext::new(model, *z);
-                            for i in 0..=50 {
-                                let test_u = i as f32 / 50.0 * b.t_apex;
-                                let test_pt = ctx.get_point_at_uv_base(test_u, 1.0);
-                                let diff = (test_pt.x - chan_x.abs()).abs();
-                                if diff < min_diff {
-                                    min_diff = diff;
-                                    best_u = test_u;
-                                }
-                            }
-                            let mut u_search = best_u;
-                            let mut step = b.t_apex / 50.0;
-                            for _ in 0..10 {
-                                step *= 0.5;
-                                let u_left = 0.0_f32.max(u_search - step);
-                                let u_right = b.t_apex.min(u_search + step);
-                                let pt_left = ctx.get_point_at_uv_base(u_left, 1.0);
-                                let pt_right = ctx.get_point_at_uv_base(u_right, 1.0);
-                                if (pt_left.x - chan_x.abs()).abs() < min_diff {
-                                    min_diff = (pt_left.x - chan_x.abs()).abs();
-                                    u_search = u_left;
-                                } else if (pt_right.x - chan_x.abs()).abs() < min_diff {
-                                    min_diff = (pt_right.x - chan_x.abs()).abs();
-                                    u_search = u_right;
-                                }
-                            }
+                                                                let ctx = crate::geometry::ZRingContext::new(model, *z);
+                                    let target_x = chan_x.abs();
+                                    let u_search = crate::geometry::solve_u_for_target_x(
+                                        |u| ctx.get_point_at_uv_base(u, 1.0).x - target_x,
+                                        0.0,
+                                        b.t_apex,
+                                        1e-4,
+                                        15,
+                                    );
 
                             let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
                             let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
