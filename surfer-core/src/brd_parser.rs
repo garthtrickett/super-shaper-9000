@@ -1473,7 +1473,7 @@ p35:
             }
         }
 
-        // We expect the tail block to be perfectly watertight
+                // We expect the tail block to be perfectly watertight
         assert_eq!(
             tail_holes,
             0,
@@ -1481,3 +1481,4 @@ p35:
             tail_holes
         );
     }
+}
