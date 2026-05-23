@@ -1288,10 +1288,179 @@ mod tests {
         }
         println!("=====================================================\n");
 
-        assert_eq!(
+                assert_eq!(
             failures, 0,
             "Failed: Mesh is thinner than the analytical outline in {} sample points!",
             failures
+        );
+    }
+
+    #[test]
+    fn test_longboard_tail_block_integrity() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let brd_text = r#"p01: 209.55
+p02: 210.89806848025611
+p03: 6.984913328972571
+p04: 57.0992
+p32:
+(
+[0.0 0.0 0.0 0.0 0.0 1.265930]
+[0.000000 8.534076 0.000000 6.821705 0.000000 9.579073]
+[110.746779 28.500183 17.621581 27.570594 202.835824 29.419429]
+[209.550000 0.000000 208.045616 17.424436 211.710609 -25.025125]
+)
+p33:
+(
+[0.0 5.667065 0.0 5.667065 17.592118 1.559067]
+[106.697763 0.003041 60.522539 0.156619 188.016909 -0.168681]
+[209.550000 9.820483 204.887319 6.978153 229.675960 22.089092]
+)
+p34:
+(
+[0.0 5.667065 0.0 5.667065 0.0 5.667065]
+[0.000000 8.283940 0.000000 8.283940 14.699430 7.421540]
+[105.340520 6.992051 42.257961 7.285992 166.495664 6.707091]
+[209.550000 11.590853 197.161503 8.571049 209.550000 11.430290]
+[209.550000 9.820483 209.550000 9.820483 209.550000 9.820483]
+)
+p35:
+(
+(p36 0.0 -1.0 -1.0
+[0.0 0.0 0.0 0.0 0.0 0.0]
+)
+(p36 1.905000 -1.0 -1.0
+[0.0 0.0 -4.006033 0.0 0.0 0.0]
+[10.327575 0.365280 10.276205 0.238585 10.327575 0.365280]
+[10.088197 1.992449 10.698638 1.262662 9.077190 3.201117]
+[0.0 2.927339 7.111578 2.927339 -4.464456 2.927339]
+)
+(p36 22.875000 -1.0 -1.0
+[0.0 0.0 -7.416961 0.0 0.0 0.0]
+[19.120962 0.279578 8.088721 0.174996 19.120962 0.279578]
+[17.813393 3.945744 19.862842 3.426332 15.991637 4.407450]
+[0.0 4.984060 1.288280 4.984060 -8.265705 4.984060]
+)
+(p36 105.132188 -1.0 -1.0
+[0.0 0.0 -10.749720 0.0 23.618125 0.0]
+[27.316829 0.373041 26.422689 0.333860 28.027633 0.404188]
+[28.377904 2.903213 28.586509 1.582857 27.719829 7.068477]
+[0.0 6.984288 2.799506 6.984288 -11.979842 6.984288]
+)
+(p36 186.690000 -1.0 -1.0
+[0.0 0.0 -9.022187 0.0 20.470479 0.0]
+[22.753494 0.124706 22.318800 0.093490 22.993716 0.141957]
+[23.408810 2.029629 23.609009 0.546736 23.072116 4.523559]
+[0.0 4.936812 12.666112 4.936812 -10.054623 4.936812]
+)
+(p36 209.550000 -1.0 -1.0
+[-0.0 0.0 -0.0 0.0 -0.0 0.0]
+)
+)
+"#;
+
+        let encrypted_bytes = crate::brd_exporter::encrypt_aku_shaper(brd_text).unwrap();
+        let model = parse_brd(&encrypted_bytes).expect("Failed to parse longboard BRD");
+
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
+
+        assert!(mesh.vertices.len() > 0);
+
+        // 1. Watertightness / Hole Detection at the Tail
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        use std::collections::HashMap;
+        let mut edge_counts = HashMap::new();
+
+        let get_vertex = |idx: u32| -> glam::Vec3 {
+            let i = idx as usize * 3;
+            glam::Vec3::new(mesh.vertices[i], mesh.vertices[i + 1], mesh.vertices[i + 2])
+        };
+
+        for i in (0..mesh.indices.len()).step_by(3) {
+            let i1 = mesh.indices[i];
+            let i2 = mesh.indices[i + 1];
+            let i3 = mesh.indices[i + 2];
+
+            let hash_pt = |v: glam::Vec3| -> (i32, i32, i32) {
+                (
+                    (v.x * 10000.0).round() as i32,
+                    (v.y * 10000.0).round() as i32,
+                    (v.z * 10000.0).round() as i32,
+                )
+            };
+
+            let v1 = hash_pt(get_vertex(i1));
+            let v2 = hash_pt(get_vertex(i2));
+            let v3 = hash_pt(get_vertex(i3));
+
+            if v1 == v2 || v2 == v3 || v3 == v1 {
+                continue;
+            }
+
+            let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
+                let key = if a < b { (a, b) } else { (b, a) };
+                *edge_counts.entry(key).or_insert(0) += 1;
+            };
+
+            add_edge(v1, v2);
+            add_edge(v2, v3);
+            add_edge(v3, v1);
+        }
+
+        let mut tail_holes = 0;
+        for (edge, count) in &edge_counts {
+            if *count == 1 {
+                let z1 = (edge.0).2 as f32 / 10000.0;
+                let z2 = (edge.1).2 as f32 / 10000.0;
+
+                if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
+                    tail_holes += 1;
+                } 
+            }
+        }
+
+        // We expect the tail block to be perfectly watertight
+        assert_eq!(
+            tail_holes,
+            0,
+            "Found {} boundary edges (holes) near the tail block!",
+            tail_holes
+        );
+
+        // 2. Mesh Width vs Outline at the Tail Block Corner
+        let mut max_mesh_x_at_tail = 0.0_f32;
+        let mut found_vertex = false;
+
+        for j in 0..(mesh.vertices.len() / 3) {
+            let vx = mesh.vertices[j * 3];
+            let vz = mesh.vertices[j * 3 + 2];
+
+            if (vz - tail_z).abs() < 2e-3 {
+                if vx > max_mesh_x_at_tail {
+                    max_mesh_x_at_tail = vx;
+                    found_vertex = true;
+                } 
+            }
+        }
+
+        assert!(found_vertex, "No vertices found at the absolute tail Z ring!");
+
+        let expected_tail_x = (8.534076 / 2.54) * scale; // Convert cm to inches, then to feet
+        let diff = (expected_tail_x - max_mesh_x_at_tail).abs() / scale;
+
+        println!("[Test] Tail Z: {}, Expected Tail X: {}, Mesh Max X: {}, Diff (inches): {}", tail_z, expected_tail_x, max_mesh_x_at_tail, diff);
+
+        // Ensure the mesh correctly reaches the tail block corner width
+        assert!(
+            diff < 0.25,
+            "Tail block is distorted or shrunk! Expected half width: {} inches, got: {} inches (diff: {} inches)",
+            expected_tail_x / scale,
+            max_mesh_x_at_tail / scale,
+            diff
         );
     }
 }
