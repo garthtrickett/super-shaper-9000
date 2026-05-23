@@ -365,40 +365,14 @@ impl<'a> ZRingContext<'a> {
                 let apex_x = profile.apex_x.max(0.001);
                 chan_x = chan_x.abs();
                 if chan_x > self.inner_x && chan_x < apex_x {
-                    let mut best_u = 0.0;
-                    let mut min_diff = f32::INFINITY;
-
-                    for i in 0..=50 {
-                        let test_u = (i as f32 / 50.0) * t_apex;
-                        let test_pt = self.get_point_at_uv_base(test_u, 1.0);
-                        let diff = (test_pt.x - chan_x).abs();
-                        if diff < min_diff {
-                            min_diff = diff;
-                            best_u = test_u;
-                        }
-                    }
-
-                    let mut u_search = best_u;
-                    let mut step = t_apex / 50.0;
-                    for _ in 0..10 {
-                        step *= 0.5;
-                        let u_l = 0.0_f32.max(u_search - step);
-                        let u_r = t_apex.min(u_search + step);
-                        let p_l = self.get_point_at_uv_base(u_l, 1.0);
-                        let p_r = self.get_point_at_uv_base(u_r, 1.0);
-                        let d_l = (p_l.x - chan_x).abs();
-                        let d_r = (p_r.x - chan_x).abs();
-
-                        if d_l < min_diff && d_l <= d_r {
-                            min_diff = d_l;
-                            u_search = u_l;
-                        } else if d_r < min_diff {
-                            min_diff = d_r;
-                            u_search = u_r;
-                        }
-                    }
-
-                    let u_chan = u_search;
+                                        let target_x = chan_x.abs();
+                    let u_chan = crate::geometry::solve_u_for_target_x(
+                        |u| self.get_point_at_uv_base(u, 1.0).x - target_x,
+                        0.0,
+                        t_apex,
+                        1e-4,
+                        15,
+                    );
                     let mut channel_applied = false;
                     let mut t = 0.0;
 
