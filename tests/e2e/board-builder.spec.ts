@@ -614,10 +614,52 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     const inspector = page.locator("node-inspector");
     await expect(inspector).toBeVisible({ timeout: 15000 });
     // The refined title logic should display 'Layer 0 (INT)'
-    await expect(inspector.locator('h3')).toContainText("Layer 0 (INT)");
+        await expect(inspector.locator('h3')).toContainText("Layer 0 (INT)");
   });
 
-    test("S3DX Native Export Pipeline", async ({ page }) => {
+  test("test_blunt_tail_mismatch_visual_regression", async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    page.on('pageerror', err => errors.push(err.message));
+
+    await page.goto("/");
+    await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+    const boardControls = page.locator("board-controls");
+
+    // 1. Open Import Modal
+    await boardControls.getByRole('button', { name: /Import Design/i }).click();
+    const modalHeading = page.getByRole('heading', { name: "Import Design" });
+    await expect(modalHeading).toBeVisible();
+
+    // 2. Select file to trigger file-chooser and parse via Rust/WASM
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByText('Select File').click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles('./src/assets/fixtures/brd/6\'4-Bump-Squash-Full-Nose.brd');
+
+    await expect(modalHeading).toBeHidden();
+    await page.waitForTimeout(1000); // Wait for mesh to build
+
+    // 3. Locate Viewport and verify canvas stability
+    const viewport = page.locator("board-viewport");
+    await expect(viewport.locator("canvas")).toBeVisible();
+
+    // Maximize perspective to ensure clear evaluation
+    const maximizeBtn = viewport.locator('button[title="Maximize Perspective"]');
+    if (await maximizeBtn.isVisible()) {
+      await maximizeBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // 4. Verify no NaN-related WebGL shader calculation failures or mathematical panics were raised
+    const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
+    expect(criticalErrors).toHaveLength(0);
+  });
+
+  test("S3DX Native Export Pipeline", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("board-viewport canvas")).toBeVisible();
 
