@@ -972,7 +972,7 @@ mod tests {
         let outline_tail_z = outline.control_points.last().unwrap().z;
         let rtop_tail_z = rocker_top.control_points.last().unwrap().z;
 
-                // With unified endpoint synchronization implemented, both the outline and the
+        // With unified endpoint synchronization implemented, both the outline and the
         // rockers are aligned to terminate precisely at the stripped squash corner.
         // Therefore, the discrepancy (top_diff) is now exactly 0.0.
         let top_diff = (outline_tail_z - rtop_tail_z).abs();

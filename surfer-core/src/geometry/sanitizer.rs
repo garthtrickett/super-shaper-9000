@@ -18,7 +18,7 @@ fn clip_curve_to_z_bounds(curve: &mut BezierCurveData, min_z: f32, max_z: f32) {
         let pt = evaluate_curve(curve, t);
 
         let old_anchor = curve.control_points[0];
-        let old_t2 = curve.tangents2.get(0).copied().unwrap_or(old_anchor);
+        let old_t2 = curve.tangents2.first().copied().unwrap_or(old_anchor);
         let t2_offset = old_t2 - old_anchor;
 
         curve.control_points[0] = pt;
@@ -243,7 +243,7 @@ pub fn sanitize_imported_model(model: &mut BoardModel) {
                         w.remove(i);
                     }
                 }
-            } else { 
+            } else {
                 i += 1;
             }
         }

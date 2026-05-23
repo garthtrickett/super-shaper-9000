@@ -173,7 +173,7 @@ impl<'a> ZRingContext<'a> {
         let inner_x = if let Some(outline) = &model.outline {
             if z_inches > bounds.notch_z {
                 evaluate_notch_inner_x(outline, bounds.tip_t, z_inches)
-            } else { 
+            } else {
                 0.0
             }
         } else {
@@ -396,21 +396,23 @@ impl<'a> ZRingContext<'a> {
         final_pos
     }
 
-        pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
+    pub fn get_point_at_uv(&self, u: f32, side: f32) -> Vec3 {
         let mut final_pos = self.get_point_at_uv_base(u, side);
 
         let blend = self.blend.as_ref();
         let t_apex = if let Some(b) = blend { b.t_apex } else { 0.5 };
 
         if u <= t_apex {
-            if let Some((mut chan_x, chan_depth)) = 
+            if let Some((mut chan_x, chan_depth)) =
                 get_channel_profile_at_z(self.model, side < 0.0, self.z_inches)
             {
                 let profile = &self.profile;
                 let apex_x = profile.apex_x.max(0.001);
                 chan_x = chan_x.abs();
                 if chan_x > self.inner_x && chan_x < apex_x {
-                    let u_chan = self.cached_channel_us.iter()
+                    let u_chan = self
+                        .cached_channel_us
+                        .iter()
                         .find(|(cx, _)| (cx - chan_x).abs() < 1e-3)
                         .map(|(_, val)| *val)
                         .unwrap_or(0.0);
@@ -665,6 +667,7 @@ pub fn get_pole_normals(model: &BoardModel, z_inches: f32, _is_nose: bool) -> (V
 mod tests {
     use super::*;
     use crate::model::BezierCurveData;
+    use approx::assert_relative_eq;
     use glam::Vec3;
 
     #[test]
@@ -1238,7 +1241,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_z_ring_channel_cache_coverage() {
         let mut model = BoardModel::default();
         model.outline = Some(BezierCurveData {
@@ -1282,8 +1285,12 @@ mod tests {
 
         let ctx_with_channels = ZRingContext::new(&model, 50.0);
         assert!(!ctx_with_channels.cached_channel_us.is_empty());
-        assert_eq!(ctx_with_channels.cached_channel_us.len(), 1); 
-        assert_relative_eq!(ctx_with_channels.cached_channel_us[0].0, 5.0, epsilon = 1e-4);
+        assert_eq!(ctx_with_channels.cached_channel_us.len(), 1);
+        assert_relative_eq!(
+            ctx_with_channels.cached_channel_us[0].0,
+            5.0,
+            epsilon = 1e-4
+        );
     }
 
     #[test]

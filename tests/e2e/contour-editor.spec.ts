@@ -71,7 +71,7 @@ test.describe("Bottom Contour Editor E2E", () => {
     await expect(contourEditor).toBeHidden({ timeout: 10000 });
 
     const duration = Date.now() - startTime;
-    console.log(`[Performance] 2D Contour Drag & Close completed in ${duration}ms`);
+    console.info(`[Performance] 2D Contour Drag & Close completed in ${duration}ms`);
 
         // Verify no WebGL or NaN errors
     const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));

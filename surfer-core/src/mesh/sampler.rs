@@ -77,7 +77,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_u_column_struct_properties() {
         let col = crate::mesh::UColumn {
             norm_u: 0.5,
@@ -386,18 +386,16 @@ pub fn compute_u_columns(
                             } else {
                                 0.0
                             };
-                            let mut best_u = 0.0;
-                            let mut min_diff = f32::INFINITY;
 
-                                                                let ctx = crate::geometry::ZRingContext::new(model, *z);
-                                    let target_x = chan_x.abs();
-                                    let u_search = crate::geometry::solve_u_for_target_x(
-                                        |u| ctx.get_point_at_uv_base(u, 1.0).x - target_x,
-                                        0.0,
-                                        b.t_apex,
-                                        1e-4,
-                                        15,
-                                    );
+                            let ctx = crate::geometry::ZRingContext::new(model, *z);
+                            let target_x = chan_x.abs();
+                            let u_search = crate::geometry::solve_u_for_target_x(
+                                |u| ctx.get_point_at_uv_base(u, 1.0).x - target_x,
+                                0.0,
+                                b.t_apex,
+                                1e-4,
+                                15,
+                            );
 
                             let t_tuck = 0.01_f32.max(b.t_apex * 0.5);
                             let t_shoulder = b.t_apex + (1.0 - b.t_apex) * 0.5;
@@ -458,7 +456,7 @@ pub fn compute_u_columns(
         len_at_t / total_cs_len
     };
 
-        let mut u_columns = Vec::new();
+    let mut u_columns = Vec::new();
     let half = u_params_half.len() - 1;
     for (idx, &u) in u_params_half.iter().enumerate() {
         let is_stringer = idx == 0 || idx == half;

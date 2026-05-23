@@ -196,7 +196,11 @@ where
         }
     }
 
-    if fa.abs() < fb.abs() { a } else { b }
+    if fa.abs() < fb.abs() {
+        a
+    } else {
+        b
+    }
 }
 
 pub fn find_closest_t_to_ray(curve: &BezierCurveData, ro: Vec3, rd: Vec3) -> f32 {
@@ -296,23 +300,23 @@ mod tests {
         assert!(mid_z.abs() < 5.0);
     }
 
-            #[test]
-        fn test_hybrid_solver_precision() {
-            let root = solve_u_for_target_x(|x| x * x - 4.0, 0.0, 5.0, 1e-5, 8);
-            assert_relative_eq!(root, 2.0, epsilon = 1e-4);
-        }
+    #[test]
+    fn test_hybrid_solver_precision() {
+        let root = solve_u_for_target_x(|x| x * x - 4.0, 0.0, 5.0, 1e-5, 8);
+        assert_relative_eq!(root, 2.0, epsilon = 1e-4);
+    }
 
-        #[test]
-        fn test_hybrid_solver_bounds_safety() {
-            let root_flat = solve_u_for_target_x(|_x| 1.0, 0.0, 5.0, 1e-5, 10);
-            assert!(root_flat == 0.0 || root_flat == 5.0);
+    #[test]
+    fn test_hybrid_solver_bounds_safety() {
+        let root_flat = solve_u_for_target_x(|_x| 1.0, 0.0, 5.0, 1e-5, 10);
+        assert!(root_flat == 0.0 || root_flat == 5.0);
 
-            let root_out = solve_u_for_target_x(|x| x + 10.0, 0.0, 5.0, 1e-5, 10);
-            assert_eq!(root_out, 0.0);
-        }
+        let root_out = solve_u_for_target_x(|x| x + 10.0, 0.0, 5.0, 1e-5, 10);
+        assert_eq!(root_out, 0.0);
+    }
 
-        #[test]
-        fn test_inverse_mapping_solver() {
+    #[test]
+    fn test_inverse_mapping_solver() {
         let rocker = BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, 5.0, -35.0),

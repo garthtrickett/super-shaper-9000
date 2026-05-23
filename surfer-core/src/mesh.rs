@@ -59,7 +59,7 @@ pub fn generate_mesh(
     let right_half_cols = num_cols / 2;
     let half = right_half_cols.saturating_sub(1);
 
-        if cache.u_columns.len() != u_columns.len()
+    if cache.u_columns.len() != u_columns.len()
         || cache
             .u_columns
             .iter()
@@ -2778,7 +2778,7 @@ mod tests {
             unique_zs
         );
 
-        let tip_z = unique_zs[0];      // The absolute tail cap ring (largest Z)
+        let tip_z = unique_zs[0]; // The absolute tail cap ring (largest Z)
         let adjacent_z = unique_zs[1]; // The first ring just ahead of the tail cap
 
         let mut max_x_near_tip = 0.0_f32;
@@ -2800,7 +2800,8 @@ mod tests {
         assert!(
             max_x_near_tip < max_x_further_up - 1e-4,
             "Flat tail clamping detected! Tip width {} matches further-up width {}",
-            max_x_near_tip, max_x_further_up
+            max_x_near_tip,
+            max_x_further_up
         );
     }
 

@@ -119,8 +119,8 @@ pub fn build_surface(
             };
             let t_shoulder = t_apex + (1.0 - t_apex) * 0.5;
 
-                        for (j, col) in u_columns.iter().enumerate() {
-                let abs_u = 
+            for (j, col) in u_columns.iter().enumerate() {
+                let abs_u =
                     crate::mesh::sampler::norm_u_to_abs_u(col.norm_u, t_tuck, t_apex, t_shoulder);
                 let mut point = ctx.get_point_at_uv(abs_u, col.side);
                 if col.is_stringer {

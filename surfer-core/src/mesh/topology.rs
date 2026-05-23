@@ -268,9 +268,9 @@ pub fn generate_cap(
             for j in 0..num_cols {
                 let pos = ring_pos[j];
                 let color = ring_color[j];
-                                let side = u_columns[j].side;
+                let side = u_columns[j].side;
 
-                                let target_x = if side > 0.0 {
+                let target_x = if side > 0.0 {
                     right_target_x
                 } else {
                     left_target_x
