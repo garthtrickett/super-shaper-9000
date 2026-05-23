@@ -537,29 +537,19 @@ impl<'a> ZRingContext<'a> {
             n = -n;
         }
 
-        let pt = self.get_point_at_uv_base(u, side);
-        if pt.x.abs() < 1e-4 && self.inner_x < 1e-4 {
-            n.x = 0.0;
-            let len_sq = n.length_squared();
-            if len_sq > 1e-6 {
-                n /= len_sq.sqrt();
-            } else {
-                n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
-            }
-        }
-
-        n
-    }
-                        final_pos.x *= side;
-                        final_pos -= normal * (t * chan_depth);
-                        final_pos.x *= side;
-                    }
+                    let pt = self.get_point_at_uv_base(u, side);
+            if pt.x.abs() < 1e-4 && self.inner_x < 1e-4 {
+                n.x = 0.0;
+                let len_sq = n.length_squared();
+                if len_sq > 1e-6 {
+                    n /= len_sq.sqrt();
+                } else {
+                    n = Vec3::new(0.0, if u < 0.5 { -1.0 } else { 1.0 }, 0.0);
                 }
             }
-        }
 
-        final_pos
-    }
+            n
+        }
 
     pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
