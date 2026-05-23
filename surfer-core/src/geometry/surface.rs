@@ -475,49 +475,12 @@ impl<'a> ZRingContext<'a> {
         final_pos
     }
 
-    pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
+        pub fn get_surface_normal_base_at_uvz(&self, u: f32, side: f32) -> Vec3 {
         let bounds = &self.bounds;
 
         if (self.z_inches - bounds.nose_z).abs() < 1e-4 && self.profile.apex_x < 0.1 {
             let (n_top, n_bot) = get_pole_normals(self.model, bounds.nose_z, true);
-            let mut n = pub fn slerp_normals(n1: Vec3, n2: Vec3, t: f32, fallback_mid: Vec3) -> Vec3 {
-    let t = t.clamp(0.0, 1.0);
-    let dot = n1.dot(n2).clamp(-1.0, 1.0);
-
-    if dot > 0.9999 {
-        return n1.lerp(n2, t).normalize();
-    }
-
-    if dot < -0.9999 {
-        // Safe intermediate vector when they are nearly opposite
-        let mut ortho = if n1.x.abs() < 0.9 {
-            Vec3::new(1.0, 0.0, 0.0)
-        } else {
-            Vec3::new(0.0, 1.0, 0.0)
-        };
-        // Orthogonalize against n1
-        ortho = (ortho - n1 * ortho.dot(n1)).normalize();
-
-        let mid = if n1.dot(fallback_mid).abs() < 0.99 && n2.dot(fallback_mid).abs() < 0.99 {
-            fallback_mid.normalize()
-        } else {
-            ortho
-        };
-
-        if t < 0.5 {
-            slerp_normals(n1, mid, t * 2.0, mid)
-        } else {
-            slerp_normals(mid, n2, (t - 0.5) * 2.0, mid)
-        }
-    } else {
-        let theta = dot.acos();
-        let sin_theta = theta.sin();
-        let w1 = ((1.0 - t) * theta).sin() / sin_theta;
-        let w2 = (t * theta).sin() / sin_theta;
-
-        (n1 * w1 + n2 * w2).normalize()
-    }
-}
+            let mut n = slerp_normals(n_bot, n_top, u, Vec3::new(0.0, 0.0, -1.0));
             if side < 0.0 {
                 n.x = -n.x;
             }
