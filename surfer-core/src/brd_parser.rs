@@ -1296,6 +1296,7 @@ mod tests {
     }
 
     #[test]
+        #[test]
     fn test_longboard_tail_block_integrity() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1347,7 +1348,7 @@ mod tests {
 
             if v1 == v2 || v2 == v3 || v3 == v1 {
                 continue;
-            }
+            } 
 
             let mut add_edge = |a: (i32, i32, i32), b: (i32, i32, i32)| {
                 let key = if a < b { (a, b) } else { (b, a) };
@@ -1368,7 +1369,7 @@ mod tests {
                 if (z1 - tail_z).abs() < 1.0 && (z2 - tail_z).abs() < 1.0 {
                     tail_holes += 1;
                 }
-            }
+            } 
         }
 
         // We expect the tail block to be perfectly watertight
@@ -1382,8 +1383,8 @@ mod tests {
         // On a blunt squash tail, the side forms a vertical rail wall where multiple vertices
         // share the same maximum X coordinate. We resolve this tie by selecting the vertex closest
         // to the mid-rail height, which corresponds to the true rail apex (u = t_apex).
-                let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
-        let mid_y = profile.apex_y;
+        let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
+        let mid_y = (profile.tuck_y + profile.apex_y) / 2.0;
         let mid_y_scaled = mid_y * scale;
 
         let mut best_x = 0.0_f32;
