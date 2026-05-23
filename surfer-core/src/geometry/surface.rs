@@ -1237,6 +1237,54 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_z_ring_channel_cache_coverage() {
+        let mut model = BoardModel::default();
+        model.outline = Some(BezierCurveData {
+            control_points: vec![Vec3::new(10.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, -1.0, 100.0)],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.0, 0.0),
+            ],
+            ..Default::default()
+        }];
+
+        let ctx_no_channels = ZRingContext::new(&model, 50.0);
+        assert!(ctx_no_channels.cached_channel_us.is_empty());
+
+        model.bottom_channels = Some(vec![crate::model::ChannelLayer {
+            name: "Test Channel".to_string(),
+            is_symmetric: true,
+            left_outline: BezierCurveData::default(),
+            left_depth: BezierCurveData::default(),
+            right_outline: BezierCurveData {
+                control_points: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 100.0)],
+                ..Default::default()
+            },
+            right_depth: BezierCurveData {
+                control_points: vec![Vec3::new(0.0, 1.0, 0.0), Vec3::new(0.0, 1.0, 100.0)],
+                ..Default::default()
+            },
+        }]);
+
+        let ctx_with_channels = ZRingContext::new(&model, 50.0);
+        assert!(!ctx_with_channels.cached_channel_us.is_empty());
+        assert_eq!(ctx_with_channels.cached_channel_us.len(), 1); 
+        assert_relative_eq!(ctx_with_channels.cached_channel_us[0].0, 5.0, epsilon = 1e-4);
+    }
+
     #[test]
     fn test_wing_tuck_offset_prevents_intersection() {
         use crate::model::OutlineLayer;
