@@ -2898,7 +2898,6 @@ mod tests {
     }
 
     #[test]
-        #[test]
     fn test_blunt_tail_normal_stability() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -3006,76 +3005,6 @@ mod tests {
             let zi = mesh.vertices[i * 3 + 2];
 
             if (zi - tail_z).abs() < 2e-3 && xi.abs() > 1.5 * scale {
-                let mut found_cap_match = false;
-
-                for j in hull_vertex_count..(mesh.vertices.len() / 3) {
-                    let xj = mesh.vertices[j * 3];
-                    let yj = mesh.vertices[j * 3 + 1];
-                    let zj = mesh.vertices[j * 3 + 2];
-
-                    if (zj - tail_z).abs() < 2e-3 {
-                        let dist_sq = (xi - xj) * (xi - xj) + (yi - yj) * (yi - yj);
-                        if dist_sq < 1e-8 {
-                            found_cap_match = true;
-                            checked_vertices += 1;
-
-                            let n_hull_z = mesh.normals[i * 3 + 2];
-                            let n_cap_z = mesh.normals[j * 3 + 2];
-
-                            assert!(
-                                n_hull_z.abs() < 0.3,
-                                "Hull vertex {} at X={} on trailing edge has collapsed normal: Nz = {}. Expected Nz < 0.3",
-                                i, xi / scale, n_hull_z
-                            );
-
-                            assert!(
-                                n_cap_z > 0.95,
-                                "Cap vertex {} at X={} on trailing edge has skewed normal: Nz = {}. Expected Nz > 0.95",
-                                j, xj / scale, n_cap_z
-                            );
-                            break;
-                        }
-                    }
-                }
-
-                assert!(
-                    found_cap_match,
-                    "No coincident cap vertex found for hull vertex {} at [X={}, Y={}]",
-                    i, xi / scale, yi / scale
-                );
-            }
-        }
-
-        assert!(checked_vertices > 0, "No boundary vertices found to validate!");
-        println!("Successfully validated {} boundary vertex pairs for crease preservation.", checked_vertices);
-    }
-
-        #[test]
-    fn test_blunt_tail_crease_preservation() {
-        let _ = env_logger::builder().is_test(true).try_init();
-        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
-
-        let bytes = std::fs::read(&path).expect("Failed to read BRD fixture");
-        let model = crate::brd_parser::parse_brd(&bytes).expect("Failed to parse BRD");
-
-        let mut dirty = crate::model::DirtyState::default();
-        let mut cache = MeshCache::default();
-        let mesh = generate_mesh(&model, &mut dirty, &mut cache);
-
-        let scale = 1.0 / 12.0;
-        let bounds = crate::geometry::get_board_bounds(&model);
-        let tail_z = bounds.tip_z * scale;
-        let hull_vertex_count = cache.vertices.len() / 3;
-
-        let mut checked_vertices = 0;
-
-        for i in 0..hull_vertex_count {
-            let xi = mesh.vertices[i * 3];
-            let yi = mesh.vertices[i * 3 + 1];
-            let zi = mesh.vertices[i * 3 + 2];
-
-                        if (zi - tail_z).abs() < 2e-3 && xi.abs() > 1.5 * scale {
                 let mut found_cap_match = false;
 
                 for j in hull_vertex_count..(mesh.vertices.len() / 3) {
