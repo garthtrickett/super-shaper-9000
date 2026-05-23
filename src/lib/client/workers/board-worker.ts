@@ -6,57 +6,104 @@ let engine: WasmEngine | null = null;
 let isRendererReady = false;
 const messageQueue: MessageEvent<any>[] = [];
 
+console.info("[BoardWorker] Script loaded. Starting WASM initialization...");
+
 // Initialize the WASM module
-init().then(async () => {
+init().then(async (wasmInstance) => {
+    console.info("[BoardWorker] WASM module init() promise resolved. wasmInstance details:", wasmInstance);
+    
+    const concurrency = navigator.hardwareConcurrency || 4;
+    console.info(`[BoardWorker] Initializing Rayon thread pool with concurrency: ${concurrency}`);
     try {
-        await initThreadPool(navigator.hardwareConcurrency);
+        await initThreadPool(concurrency); 
+        console.info("[BoardWorker] initThreadPool completed successfully.");
     } catch (err) {
-        console.error("[BoardWorker] Thread pool init failed:", err);
+        console.error("[BoardWorker] Thread pool init failed! Check if COOP/COEP headers are enabled and SharedArrayBuffer is available.", err);
         (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
         return;
     }
 
-    engine = new WasmEngine();
-    console.info("[BoardWorker] Rust WASM Engine initialized.");
+    console.info("[BoardWorker] Creating WasmEngine instance...");
+    try {
+        engine = new WasmEngine();
+        console.info("[BoardWorker] Rust WasmEngine instance created successfully.");
+    } catch (err) {
+        console.error("[BoardWorker] Failed to instantiate WasmEngine!", err);
+        (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
+        return;
+    }
 
-    // Load the default initial state into the Rust engine
-    engine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
+    console.info("[BoardWorker] Loading default initial state into WasmEngine...");
+    try {
+        engine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
+        console.info("[BoardWorker] Default initial state loaded successfully.");
+    } catch (err) {
+        console.error("[BoardWorker] WasmEngine failed to load default INITIAL_STATE!", err);
+        (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
+        return;
+    }
     
-        // Post initial state back
+    console.info("[BoardWorker] Retrieving initial state details from WasmEngine...");
+    try {
         const initialState = engine.get_state() as BoardModel;
-    const stats = engine.get_stats();
-    const foilData = engine.get_foil_stats() as Float32Array;
-    
-                    (self as unknown as Worker).postMessage({
-        type: "STATE_UPDATED",
-        state: initialState,
-        stats,
-        foilData: foilData
-    },[foilData.buffer]);
+        console.info("[BoardWorker] Initial state retrieved:", initialState); 
+        const stats = engine.get_stats();
+        console.info("[BoardWorker] Initial mesh stats retrieved:", stats); 
+        const foilData = engine.get_foil_stats() as Float32Array;
+        console.info("[BoardWorker] Initial foil stats retrieved. Array size:", foilData.length); 
+        
+        console.info("[BoardWorker] Posting initial state back to the main thread...");
+        (self as unknown as Worker).postMessage({
+            type: "STATE_UPDATED",
+            state: initialState,
+            stats,
+            foilData: foilData
+        }, [foilData.buffer]);
+        console.info("[BoardWorker] Initial state posted successfully.");
+    } catch (err) {
+        console.error("[BoardWorker] Failed during post-init state sync!", err);
+        (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
+        return;
+    }
 
-                // Process queued messages sequentially to prevent &mut self borrow panics
+    console.info(`[BoardWorker] Processing ${messageQueue.length} queued messages...`);
     for (const queuedMsg of messageQueue) {
         if (self.onmessage) {
+            console.info("[BoardWorker] Dispatching queued message type:", queuedMsg.data?.type);
             await (self.onmessage as unknown as (e: MessageEvent) => Promise<void>)(queuedMsg);
         }
     }
     messageQueue.length = 0;
+    console.info("[BoardWorker] Queue processing finished. Worker is ready.");
 }).catch((err: unknown) => {
-    console.error("[BoardWorker] Failed to initialize WASM Engine:", err);
+    console.error("[BoardWorker] Failed to initialize WASM Engine entirely:", err);
     (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
 });
 
 let renderLoopActive = false;
 
 const startRenderLoop = () => {
-    if (renderLoopActive || !engine || !isRendererReady) return;
+    if (renderLoopActive) {
+        console.info("[BoardWorker] Render loop is already active.");
+        return;
+    }
+    if (!engine) {
+        console.warn("[BoardWorker] Cannot start render loop: engine is null.");
+        return;
+    }
+    if (!isRendererReady) {
+        console.warn("[BoardWorker] Cannot start render loop: renderer is not ready.");
+        return;
+    }
+    
+    console.info("[BoardWorker] Starting WGPU render loop...");
     renderLoopActive = true;
     
     const loop = () => {
         try {
             engine!.render();
         } catch(e) {
-            console.error("Render loop error", e);
+            console.error("[BoardWorker] WGPU render loop crash:", e); 
         }
         requestAnimationFrame(loop);
     };
@@ -64,166 +111,169 @@ const startRenderLoop = () => {
 };
 
 self.onmessage = async (e: MessageEvent<any>) => {
+    const msg = e.data;
+    const msgType = msg?.type;
+
     if (!engine) {
-        console.warn("[BoardWorker] Engine not ready, queuing message.");
+        console.warn(`[BoardWorker] Engine not ready yet. Queuing message of type: ${msgType}`);
         messageQueue.push(e);
         return;
     }
 
-    const msg = e.data;
+    console.debug(`[BoardWorker] Received message of type: ${msgType}`);
 
-                if (msg.type === "INIT_RENDERER") {
+    if (msgType === "INIT_RENDERER") {
+        console.info("[BoardWorker] Initializing WGPU renderer with OffscreenCanvas...", {
+            width: msg.width,
+            height: msg.height
+        });
         try {
             const renderer = await create_wgpu_renderer(msg.canvas, msg.width, msg.height);
+            console.info("[BoardWorker] WGPU renderer created successfully. Binding to engine...");
             engine.set_renderer(renderer);
+            console.info("[BoardWorker] Resizing renderer configuration...");
             engine.resize_renderer(msg.width, msg.height);
             isRendererReady = true;
+            console.info("[BoardWorker] Renderer setup complete. Initiating render loop...");
             startRenderLoop();
             (self as unknown as Worker).postMessage({ type: "RENDERER_READY" });
         } catch (err) {
-            console.error("[BoardWorker] Failed to init WGPU", err);
+            console.error("[BoardWorker] Failed to initialize WGPU renderer!", err); 
             (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
         }
         return;
     }
 
-        if (msg.type === "RESIZE_RENDERER") {
+    if (msgType === "RESIZE_RENDERER") {
         if (isRendererReady) {
+            console.info(`[BoardWorker] Resizing WGPU renderer to: ${msg.width}x${msg.height}`);
             engine.resize_renderer(msg.width, msg.height);
+        } else {
+            console.warn("[BoardWorker] Ignored RESIZE_RENDERER: renderer is not initialized.");
         }
         return;
     }
 
-        if (msg.type === "POINTER_EVENT") {
+    if (msgType === "POINTER_EVENT") {
         if (isRendererReady) {
             engine.handle_pointer(msg.eventType, msg.x, msg.y, msg.quad);
         }
         return;
     }
-                        if (msg.type === "WHEEL_EVENT") {
+
+    if (msgType === "WHEEL_EVENT") {
         if (isRendererReady) {
             engine.handle_wheel(msg.dy, msg.quad);
         }
         return;
     }
 
-        if (msg.type === "SET_VIEW_MODE") {
-        if (engine) {
-            engine.set_view_mode(msg.mode);
+    if (msgType === "SET_VIEW_MODE") {
+        console.info(`[BoardWorker] Setting view mode to: ${msg.mode}`);
+        engine.set_view_mode(msg.mode); 
+        return;
+    }
+
+    if (msgType === "SET_ORTHO") { 
+        console.info(`[BoardWorker] Setting camera projection to ortho: ${msg.isOrtho}`);
+        engine.set_ortho(msg.isOrtho);
+        return;
+    }
+
+    if (msgType === "SET_SHOW_TANGENTS") {
+        engine.set_show_tangents(msg.quad, msg.show);
+        return;
+    }
+
+    if (msgType === "SET_MASKS") {
+        type EngineExt = WasmEngine & { set_masks(quad: string, lineMask: number, gizmoMask: number): void };
+        (engine as unknown as EngineExt).set_masks(msg.quad, msg.lineMask, msg.gizmoMask);
+        return;
+    }
+
+    if (msgType === "SET_SHOW_SOLID_MESH") {
+        type EngineExt = WasmEngine & { set_show_solid_mesh(show: boolean): void };
+        (engine as unknown as EngineExt).set_show_solid_mesh(msg.show);
+        return;
+    }
+
+    if (msgType === "SET_GIZMO_SCALE") {
+        engine.set_gizmo_scale(msg.quad, msg.scale);
+        return;
+    }
+
+    if (msgType === "SET_ACTIVE_PROFILE_SLICE") {
+        console.info(`[BoardWorker] Setting active profile slice to index: ${msg.slice}`);
+        engine.set_active_profile_slice(msg.slice);
+        return;
+    }
+
+    if (msgType === "SET_HOVER_Z") {
+        type EngineExt = WasmEngine & { set_hover_z(z?: number): void };
+        (engine as unknown as EngineExt).set_hover_z(msg.z); 
+        return;
+    }
+
+    if (msgType === "FLIP_CAMERA") {
+        console.info("[BoardWorker] Flipping perspective camera layout...");
+        type EngineExt = WasmEngine & { flip_camera(): void };
+        if ((engine as unknown as EngineExt).flip_camera) {
+            (engine as unknown as EngineExt).flip_camera();
         }
         return;
     }
 
-                if (msg.type === "SET_ORTHO") {
-        if (engine) {
-            engine.set_ortho(msg.isOrtho);
-        }
+    if (msgType === "DRAG_GIZMO") {
+        console.debug(`[BoardWorker] Processing drag gizmo on curve "${msg.curve}" index ${msg.index}`);
+        engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z, msg.continuity || "G0");
+        (self as unknown as Worker).postMessage({ type: "GIZMO_DRAG_COMPLETE" });
         return;
     }
 
-                if (msg.type === "SET_SHOW_TANGENTS") {
-        if (engine) {
-            engine.set_show_tangents(msg.quad, msg.show);
-        }
-        return;
-    }
-
-        if (msg.type === "SET_MASKS") {
-                if (engine) {
-            type EngineExt = WasmEngine & { set_masks(quad: string, lineMask: number, gizmoMask: number): void };
-            (engine as unknown as EngineExt).set_masks(msg.quad, msg.lineMask, msg.gizmoMask);
-        }
-        return;
-    }
-
-        if (msg.type === "SET_SHOW_SOLID_MESH") {
-        if (engine) {
-            type EngineExt = WasmEngine & { set_show_solid_mesh(show: boolean): void };
-            (engine as unknown as EngineExt).set_show_solid_mesh(msg.show);
-        }
-        return;
-    }
-
-    if (msg.type === "SET_GIZMO_SCALE") {
-        if (engine) {
-            engine.set_gizmo_scale(msg.quad, msg.scale);
-        }
-        return;
-    }
-
-        if (msg.type === "SET_ACTIVE_PROFILE_SLICE") {
-        if (engine) {
-            engine.set_active_profile_slice(msg.slice);
-        }
-        return;
-    }
-
-        if (msg.type === "SET_HOVER_Z") {
-        if (engine) {
-            type EngineExt = WasmEngine & { set_hover_z(z?: number): void };
-            (engine as unknown as EngineExt).set_hover_z(msg.z);
-        }
-        return;
-    }
-
-    if (msg.type === "FLIP_CAMERA") {
-        if (engine) {
-            type EngineExt = WasmEngine & { flip_camera(): void };
-            if ((engine as unknown as EngineExt).flip_camera) {
-                (engine as unknown as EngineExt).flip_camera();
-            }
-        }
-        return;
-    }
-
-        if (msg.type === "DRAG_GIZMO") {
-                if (engine) {
-            engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z, msg.continuity || "G0");
-            (self as unknown as Worker).postMessage({ type: "GIZMO_DRAG_COMPLETE" });
-        }
-        return;
-    }
-
-                if (msg.type === "GET_SLICE_PROFILE") {
+    if (msgType === "GET_SLICE_PROFILE") {
+        console.info(`[BoardWorker] Computing 2D slice profile at Z position: ${msg.z}`);
         const profile = engine.get_slice_profile(msg.z) as Float32Array;
-                (self as unknown as Worker).postMessage({
+        (self as unknown as Worker).postMessage({ 
             type: "SLICE_PROFILE_RESULT",
             id: msg.id,
             seq: msg.seq,
             profile
-        },[profile.buffer]);
+        }, [profile.buffer]);
         return;
     }
 
-                if (msg.type === "EXPORT_S3DX") {
+    if (msgType === "EXPORT_S3DX") { 
+        console.info("[BoardWorker] Generating .s3dx file XML payload...");
         const xml = engine.export_s3dx();
         (self as unknown as Worker).postMessage({ type: "EXPORT_S3DX_RESULT", id: msg.id, seq: msg.seq, xml });
         return;
     }
 
-        if (msg.type === "EXPORT_OBJ") {
+    if (msgType === "EXPORT_OBJ") {
+        console.info("[BoardWorker] Computing mesh and generating .obj file payload...");
         const obj = engine.export_obj();
         (self as unknown as Worker).postMessage({ type: "EXPORT_OBJ_RESULT", id: msg.id, seq: msg.seq, obj });
         return;
     }
 
-    if (msg.type === "EXPORT_BRD") {
-        try {
+    if (msgType === "EXPORT_BRD") {
+        console.info("[BoardWorker] Generating .brd encrypted binary file payload...");
+        try { 
             const brdBytes = engine.export_brd();
             (self as unknown as Worker).postMessage(
                 { type: "EXPORT_BRD_RESULT", id: msg.id, seq: msg.seq, brdBytes },
                 [brdBytes.buffer]
             );
-        } catch (err) {
-            console.error("[BoardWorker] Failed to export BRD", err);
+        } catch (err) { 
+            console.error("[BoardWorker] Failed to generate encrypted BRD file!", err);
             (self as unknown as Worker).postMessage({ type: "ERROR", seq: msg.seq, error: String(err) });
         }
         return;
     }
 
-                if (msg.type === "PROPOSE" && msg.action) {
+    if (msgType === "PROPOSE" && msg.action) {
         if (msg.action.type !== "LOAD_DESIGN") {
-            console.info("[BoardWorker] Action received:", msg.action.type);
+            console.info(`[BoardWorker] Processing action proposal: ${msg.action.type}`);
         }
         try {
             // 1. Propose action to Rust
@@ -237,14 +287,14 @@ self.onmessage = async (e: MessageEvent<any>) => {
                     if (effect.type === "LOG_INFO") {
                         console.info(`[Rust Effect] ${effect.message || ""}`);
                     }
-                }
+                } 
             }
 
                                                                         // 3. Extract Mesh Buffer (Zero-Copy)
             const stats = engine.get_stats();
             const foilData = engine.get_foil_stats() as Float32Array;
 
-            console.info(`[BoardWorker] Posting STATE_UPDATED for seq ${msg.seq}`);
+            console.debug(`[BoardWorker] Propose completed. Posting STATE_UPDATED back for sequence ID: ${msg.seq}`);
             (self as unknown as Worker).postMessage({
                 type: "STATE_UPDATED",
                 seq: msg.seq,
@@ -253,8 +303,8 @@ self.onmessage = async (e: MessageEvent<any>) => {
                 foilData
             }, [foilData.buffer]); // Transfer ownership of the buffers
 
-                } catch (err) {
-            console.error("[BoardWorker] Error during proposal:", err);
+        } catch (err) { 
+            console.error("[BoardWorker] Error encountered during action proposal!", err);
             (self as unknown as Worker).postMessage({ type: "ERROR", seq: msg.seq, error: String(err) });
         }
     }
