@@ -2707,6 +2707,99 @@ mod tests {
         );
     }
 
+        #[test]
+    fn test_mesh_boundary_watertightness() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let test_brd_content = r#"p01 : 193.04
+p04 : 53.34
+p03 : 6.850019291211277
+p32 : (
+[0.0,0.0,0.0,0.0,0.0,5.066987042772903]
+[1.4346706881165954,7.368670805609377,0.38151838405082855,5.445083732005094,3.1167546436348648,10.44100416239044]
+[36.13888372093023,21.656316418653393,18.612620506327346,17.79807645812052,51.91165312523076,25.128541413724705]
+[90.75872868217054,26.66999739017446,68.77225147447403,26.672316955650064,138.7123387214432,26.664938301479754]
+[193.04,0.5358555302884083,185.48300775193795,14.426245330061567,193.04,0.5358555302884083]
+[193.04,0.0,193.04,0.0,193.04,0.0]
+)
+p33 : (
+[0.0,4.90344623747367,0.0,4.90344623747367,9.406092373152427,3.671352459815278]
+[86.31627131312825,1.5188628418375264e-5,43.54958075427854,-0.00862492125224904,144.25406116572034,0.011720299873361933]
+[193.04,12.833628449617951,180.9586193211488,5.210919340675981,213.68156014492698,25.857355846515972]
+)
+p34 : (
+[0.0,4.90344623747367,1.1389360000000002,4.6764712842008,0.0,4.90344623747367]
+[0.0,6.552667142656403,0.0,6.552667142656403,31.01184995308827,5.721547606003651]
+[86.29343881884778,6.718117033430598,67.17959860921007,6.41560754911759,163.58927626890133,7.941456962513385]
+[193.04,13.971333199617781,181.81243070496095,9.485451092959536,193.04,13.971333199617781]
+[193.04,12.833628449617951,193.04,12.833628449617951,193.04,12.833628449617951]
+)"#;
+        let mut model = crate::brd_parser::parse_brd(test_brd_content.as_bytes()).expect("Failed to parse test board");
+
+        // Inject standard cross sections so we don't have empty profiles during lofting
+        let basic_cs = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(6.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.0, 0.0),
+                Vec3::new(6.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(4.0, -1.25, 0.0),
+                Vec3::new(9.375, -0.5, 0.0),
+                Vec3::new(8.0, 1.25, 0.0),
+                Vec3::new(2.0, 1.25, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(2.0, -1.25, 0.0),
+                Vec3::new(8.0, -1.25, 0.0),
+                Vec3::new(9.375, 0.5, 0.0),
+                Vec3::new(4.0, 1.25, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            weights: Some(vec![1.0, 1.0, 1.0, 1.0, 1.0]),
+            ..Default::default()
+        };
+        model.cross_sections = vec![basic_cs];
+
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = MeshCache::default();
+        let mesh = generate_mesh(&model, &mut dirty, &mut cache);
+
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        let mut tail_vertices = Vec::new();
+        for chunk in mesh.vertices.chunks_exact(3) {
+            let x = chunk[0];
+            let z = chunk[2];
+            if z > (bounds.tip_z - 1.0) * scale {
+                tail_vertices.push((x, z));
+            } 
+        }
+
+        let mut max_x_near_tip = 0.0_f32;
+        let mut max_x_further_up = 0.0_f32;
+
+        for &(x, z) in &tail_vertices {
+            if (z - tail_z).abs() < 1e-4 {
+                max_x_near_tip = max_x_near_tip.max(x.abs());
+            } else if (z - (bounds.tip_z - 0.5) * scale).abs() < 5e-3 {
+                max_x_further_up = max_x_further_up.max(x.abs());
+            }
+        }
+
+        // The outline width should taper smoothly down to the center stringer at the absolute tail.
+        // If they remain identical, it indicates outline evaluation is clamping to a wide flat-tail value.
+        assert!(
+            max_x_near_tip < max_x_further_up - 1e-4,
+            "Flat tail clamping detected! Tip width {} matches further-up width {}",
+            max_x_near_tip, max_x_further_up
+        );
+    }
+
     #[test]
     fn test_mini_simmons_tail_cap_no_intersections() {
         let _ = env_logger::builder().is_test(true).try_init();
