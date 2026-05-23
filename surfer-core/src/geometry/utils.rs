@@ -163,6 +163,8 @@ where
         return if fa.abs() < fb.abs() { a } else { b };
     }
 
+    let mut last_side = 0;
+
     for _ in 0..max_iterations {
         if (b - a).abs() < tolerance {
             break;
@@ -175,10 +177,8 @@ where
             0.5 * (a + b)
         };
 
-        let margin = 0.1 * (b - a).abs();
-        let min_bound = a.min(b) + margin;
-        let max_bound = a.max(b) - margin;
-        if next < min_bound || next > max_bound {
+        let margin = 0.01 * (b - a).abs();
+        if next < a.min(b) + margin || next > a.max(b) - margin {
             next = 0.5 * (a + b);
         }
 
@@ -190,17 +190,21 @@ where
         if fnext * fa < 0.0 {
             b = next;
             fb = fnext;
+            if last_side == 1 {
+                fa /= 2.0;
+            }
+            last_side = 1;
         } else {
             a = next;
             fa = fnext;
+            if last_side == 2 {
+                fb /= 2.0;
+            }
+            last_side = 2;
         }
     }
 
-    if fa.abs() < fb.abs() {
-        a
-    } else {
-        b
-    }
+    if fa.abs() < fb.abs() { a } else { b }
 }
 
 pub fn find_closest_t_to_ray(curve: &BezierCurveData, ro: Vec3, rd: Vec3) -> f32 {
