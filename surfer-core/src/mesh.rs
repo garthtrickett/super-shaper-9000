@@ -2894,6 +2894,80 @@ mod tests {
             }
         }
 
-        assert_eq!(tail_cap_inverted_triangles, 0, "Found inverted triangles on the tail cap! This is caused by Y-coordinate crossovers during cap generation.");
+                assert_eq!(tail_cap_inverted_triangles, 0, "Found inverted triangles on the tail cap! This is caused by Y-coordinate crossovers during cap generation.");
+    }
+
+    #[test]
+    fn test_blunt_tail_normal_stability() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/TomoLike.s3dx");
+
+        if !path.exists() {
+            println!("TomoLike.s3dx not found, skipping test.");
+            return;
+        }
+
+        let bytes = std::fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = crate::s3dx_parser::parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        let mut dirty = crate::model::DirtyState::default();
+        let mut cache = crate::mesh::MeshCache::default();
+        let mesh = generate_mesh(&model, &mut dirty, &mut cache);
+
+        // Find the rail apex normal at the blunt tail boundary (Z max)
+        let scale = 1.0 / 12.0;
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let tail_z = bounds.tip_z * scale;
+
+        let profile = crate::geometry::get_board_profile_at_z(&model, bounds.tip_z, bounds.tip_t);
+        let mid_y = (profile.bot_y + profile.top_y) / 2.0;
+        let mid_y_scaled = mid_y * scale;
+
+        let mut best_x = 0.0_f32;
+        let mut best_y_diff = f32::INFINITY;
+        let mut apex_idx = None;
+        let hull_vertex_count = cache.vertices.len() / 3;
+
+        for i in 0..hull_vertex_count {
+            let x = mesh.vertices[i * 3];
+            let y = mesh.vertices[i * 3 + 1];
+            let z = mesh.vertices[i * 3 + 2];
+            if (z - tail_z).abs() < 2e-3 {
+                let x_diff = x - best_x;
+                if x_diff > 1e-4 {
+                    best_x = x;
+                    best_y_diff = (y - mid_y_scaled).abs();
+                    apex_idx = Some(i);
+                } else if x_diff.abs() <= 1e-4 {
+                    let y_diff = (y - mid_y_scaled).abs();
+                    if y_diff < best_y_diff {
+                        best_x = x;
+                        best_y_diff = y_diff;
+                        apex_idx = Some(i);
+                    }
+                }
+            }
+        }
+
+        let idx = apex_idx.expect("No vertices found at the absolute tail Z ring for TomoLike!");
+        let normal = glam::Vec3::new(
+            mesh.normals[idx * 3],
+            mesh.normals[idx * 3 + 1],
+            mesh.normals[idx * 3 + 2],
+        );
+
+        println!("=== DIAGNOSTIC TOMOLIKE TAIL APEX NORMAL ===");
+        println!("Apex Coordinates: [X={:.5}, Y={:.5}, Z={:.5}]", mesh.vertices[idx * 3] / scale, mesh.vertices[idx * 3 + 1] / scale, mesh.vertices[idx * 3 + 2] / scale);
+        println!("Apex Normal Vector: [{:.5}, {:.5}, {:.5}]", normal.x, normal.y, normal.z);
+        println!("===========================================");
+
+        // Outward orientation check: Blunt tail normal must point outward along the X-axis
+        assert!(
+            normal.x > 0.5,
+            "Blunt tail rail normal is collapsed/twisted! Expected X component > 0.5, got: {:?}",
+            normal
+        );
     }
 }
