@@ -17,7 +17,25 @@ import "../ui/import-modal";
 export class BoardBuilderPage extends LitElement {
   private wasmCtrl = new WasmSamController(this);
   private keyboardCtrl = new KeyboardController(this, {
-    onUndo: () => this.  private _isGeometryAltering(action: BoardAction): boolean {
+    onUndo: () => this._proposeAction({ type: "UNDO" }),
+    onRedo: () => this._proposeAction({ type: "REDO" }),
+  });
+
+  @state() private mathEngine?: WasmEngine;
+
+  @state() private showExportModal = false;
+  @state() private showImportModal = false;
+  @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
+  @state() private showContourEditor = false;
+  @state() private contourZPosition = 20.0;
+  @state() private contourSliceData?: Float32Array;
+  @state() private isProcessing = false;
+  @state() private isRendererReady = false;
+
+  private _workerBusyWithDrag = false;
+  private _pendingDragDetail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] } | null = null;
+
+  private _isGeometryAltering(action: BoardAction): boolean {
     if (action.type === "SELECT_NODE" || action.type === "SAVE_HISTORY_SNAPSHOT" || action.type === "UPDATE_BOOLEAN") {
       return false;
     }
@@ -32,7 +50,29 @@ export class BoardBuilderPage extends LitElement {
       this.isProcessing = true;
     }
     this.wasmCtrl.propose(action);
-  }).worker;
+  }
+
+  private _previewAction(action: BoardAction) {
+    if (!this.mathEngine) return;
+    try {
+      type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
+      let state: BoardModel;
+      if ((this.mathEngine as unknown as MathEngineExt).propose_state_only) {
+          (this.mathEngine as unknown as MathEngineExt).propose_state_only(action);
+          state = this.mathEngine.get_state() as unknown as BoardModel;
+      } else {
+          const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
+          state = result.state;
+      }
+      
+      const viewport = this.shadowRoot?.querySelector('board-viewport') as unknown as { boardState: BoardModel };
+      if (viewport && state) {
+        viewport.boardState = state;
+      }
+
+      // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly
+      if (action.type === "UPDATE_NUMBER" && action.param === "mriSlicePosition") {
+          const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
           if (worker) {
               worker.postMessage({ type: "PROPOSE", action, seq: this.wasmCtrl.currentSequence });
           }
@@ -52,14 +92,14 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-        private _handleWorkerMessage = (e: MessageEvent) => {
+  private _handleWorkerMessage = (e: MessageEvent) => {
     const data = e.data as { type: string, id?: string, profile?: Float32Array, seq?: number };
     if (data.type === "RENDERER_READY") {
         console.info("[BoardBuilder] WGPU Renderer Ready");
         this.isRendererReady = true;
         this.dispatchEvent(new CustomEvent("wgpu-ready", { bubbles: true, composed: true }));
     }
-        if (data.type === "GIZMO_DRAG_COMPLETE") {
+    if (data.type === "GIZMO_DRAG_COMPLETE") {
       this._workerBusyWithDrag = false;
       if (this._pendingDragDetail) {
         const detail = this._pendingDragDetail;
@@ -217,7 +257,7 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-    private _lastSyncedModel?: BoardModel;
+  private _lastSyncedModel?: BoardModel;
   private _hasLoadedSavedState = false;
   private _autoSaveTimeout?: number;
 
@@ -268,7 +308,7 @@ export class BoardBuilderPage extends LitElement {
     console.info("[BoardBuilderPage] Exiting willUpdate.");
   }
 
-          private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }) {
+  private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }) {
     this._workerBusyWithDrag = true;
     const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
     if (worker) {
@@ -285,10 +325,10 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-      private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
+  private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
     const { userData, position } = e.detail;
     
-        // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
+    // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
     type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
     if (this.mathEngine && (this.mathEngine as unknown as MathEngineExt).propose_state_only) {
         (this.mathEngine as unknown as MathEngineExt).propose_state_only({
@@ -317,7 +357,7 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    override render() {
+  override render() {
     console.info("[BoardBuilderPage] Entering render...");
     const state = this.wasmCtrl.model || INITIAL_STATE;
     const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
@@ -364,7 +404,7 @@ export class BoardBuilderPage extends LitElement {
           </div>
         </div>
       ` : ''}
-            <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
+      <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
         <div class="w-80 shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl">
           ${state.selectedNode ? html`
             <node-inspector
@@ -381,47 +421,47 @@ export class BoardBuilderPage extends LitElement {
           <board-controls
             class="flex-1 min-h-0 w-full flex flex-col"
             .length=${state.length}
-          .width=${state.width}
-          .thickness=${state.thickness}
-          .meshData=${mesh}
-          .tailType=${state.tailType ?? 'squash'}
-          .swallowDepth=${state.swallowDepth ?? 4.0}
-          .finSetup=${state.finSetup}
-          .frontFinZ=${state.frontFinZ}
-          .frontFinX=${state.frontFinX}
-          .rearFinZ=${state.rearFinZ}
-          .rearFinX=${state.rearFinX}
-          .toeAngle=${state.toeAngle}
-          .cantAngle=${state.cantAngle}
-          .coreMaterial=${state.coreMaterial}
-                              .glassingSchedule=${state.glassingSchedule}
-          @preview-number=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
-            this._previewAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
-          }}
-          @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
-            this._proposeAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
-          }}
-          @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
-            this._proposeAction({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
-          }}
-                              .outlineLayers=${state.outlineLayers ||[]}
-          .bottomChannels=${state.bottomChannels ||[]}
-          .foilData=${foilData}
-          @export-design=${() => this.showExportModal = true}
-          @export-s3dx=${() => void this._handleExportS3dx()}
-          @export-brd=${() => void this._handleExportBrd()}
-          @export-obj=${() => void this._handleExportObj()}
-          @import-design=${() => this.showImportModal = true}
-          @new-design=${() => this._handleNewDesign()}
-          @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
-          @add-outline-layer=${() => this._proposeAction({ type: 'ADD_OUTLINE_LAYER' })}
-          @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
-          @toggle-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_OUTLINE_LAYER', index: e.detail.index })}
-          @add-bottom-channel=${() => this._proposeAction({ type: 'ADD_BOTTOM_CHANNEL' })}
-          @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
-                    @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
-          @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
-        ></board-controls>
+            .width=${state.width}
+            .thickness=${state.thickness}
+            .meshData=${mesh}
+            .tailType=${state.tailType ?? 'squash'}
+            .swallowDepth=${state.swallowDepth ?? 4.0}
+            .finSetup=${state.finSetup}
+            .frontFinZ=${state.frontFinZ}
+            .frontFinX=${state.frontFinX}
+            .rearFinZ=${state.rearFinZ}
+            .rearFinX=${state.rearFinX}
+            .toeAngle=${state.toeAngle}
+            .cantAngle=${state.cantAngle}
+            .coreMaterial=${state.coreMaterial}
+            .glassingSchedule=${state.glassingSchedule}
+            @preview-number=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+              this._previewAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+            }}
+            @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
+              this._proposeAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
+            }}
+            @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
+              this._proposeAction({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
+            }}
+            .outlineLayers=${state.outlineLayers ||[]}
+            .bottomChannels=${state.bottomChannels ||[]}
+            .foilData=${foilData}
+            @export-design=${() => this.showExportModal = true}
+            @export-s3dx=${() => void this._handleExportS3dx()}
+            @export-brd=${() => void this._handleExportBrd()}
+            @export-obj=${() => void this._handleExportObj()}
+            @import-design=${() => this.showImportModal = true}
+            @new-design=${() => this._handleNewDesign()}
+            @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
+            @add-outline-layer=${() => this._proposeAction({ type: 'ADD_OUTLINE_LAYER' })}
+            @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
+            @toggle-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_OUTLINE_LAYER', index: e.detail.index })}
+            @add-bottom-channel=${() => this._proposeAction({ type: 'ADD_BOTTOM_CHANNEL' })}
+            @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
+            @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
+            @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
+          ></board-controls>
         </div>
 
         <div class="absolute top-4 right-4 z-10 flex gap-2">
@@ -443,7 +483,7 @@ export class BoardBuilderPage extends LitElement {
           </button>
         </div>
 
-                                                <board-viewport 
+        <board-viewport 
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${mesh}
@@ -457,13 +497,13 @@ export class BoardBuilderPage extends LitElement {
                   worker.postMessage({ type: "INIT_RENDERER", canvas: e.detail.canvas, width: e.detail.width, height: e.detail.height }, [e.detail.canvas]);
               }
           }}
-                    @resize-renderer=${(e: CustomEvent<{width: number, height: number}>) => {
+          @resize-renderer=${(e: CustomEvent<{width: number, height: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "RESIZE_RENDERER", width: e.detail.width, height: e.detail.height });
               }
           }}
-                                        @viewport-pointer=${(e: CustomEvent<{type: string, x: number, y: number, quad: string}>) => {
+          @viewport-pointer=${(e: CustomEvent<{type: string, x: number, y: number, quad: string}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "POINTER_EVENT", eventType: e.detail.type, x: e.detail.x, y: e.detail.y, quad: e.detail.quad });
@@ -472,7 +512,7 @@ export class BoardBuilderPage extends LitElement {
                   this.mathEngine.handle_pointer(e.detail.type, e.detail.x, e.detail.y, e.detail.quad);
               }
           }}
-                                        @viewport-wheel=${(e: CustomEvent<{dy: number, quad: string}>) => {
+          @viewport-wheel=${(e: CustomEvent<{dy: number, quad: string}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "WHEEL_EVENT", dy: e.detail.dy, quad: e.detail.quad });
@@ -481,7 +521,7 @@ export class BoardBuilderPage extends LitElement {
                   this.mathEngine.handle_wheel(e.detail.dy, e.detail.quad);
               }
           }}
-                    @set-view-mode=${(e: CustomEvent<{mode: string}>) => {
+          @set-view-mode=${(e: CustomEvent<{mode: string}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_VIEW_MODE", mode: e.detail.mode });
@@ -490,7 +530,7 @@ export class BoardBuilderPage extends LitElement {
                   this.mathEngine.set_view_mode(e.detail.mode);
               }
           }}
-                              @set-ortho=${(e: CustomEvent<{isOrtho: boolean}>) => {
+          @set-ortho=${(e: CustomEvent<{isOrtho: boolean}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_ORTHO", isOrtho: e.detail.isOrtho });
@@ -508,32 +548,32 @@ export class BoardBuilderPage extends LitElement {
           @number-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: number }>) => {
             this._proposeAction({ type: "UPDATE_NUMBER", param: e.detail.param, value: e.detail.value });
           }}
-                              @set-gizmo-scale=${(e: CustomEvent<{quad: string, scale: number}>) => {
+          @set-gizmo-scale=${(e: CustomEvent<{quad: string, scale: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_GIZMO_SCALE", quad: e.detail.quad, scale: e.detail.scale });
               }
-                            if (this.mathEngine) {
+              if (this.mathEngine) {
                   type EngineExt = WasmEngine & { set_gizmo_scale(quad: string, scale: number): void };
                   (this.mathEngine as unknown as EngineExt).set_gizmo_scale(e.detail.quad, e.detail.scale);
               }
           }}
-                    @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
+          @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_TANGENTS", quad: e.detail.quad, show: e.detail.show });
               }
-                            if (this.mathEngine) {
+              if (this.mathEngine) {
                   type EngineExt = WasmEngine & { set_show_tangents(quad: string, show: boolean): void };
                   (this.mathEngine as unknown as EngineExt).set_show_tangents(e.detail.quad, e.detail.show);
               }
           }}
-                    @set-masks=${(e: CustomEvent<{quad: string, lineMask: number, gizmoMask: number}>) => {
+          @set-masks=${(e: CustomEvent<{quad: string, lineMask: number, gizmoMask: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_MASKS", quad: e.detail.quad, lineMask: e.detail.lineMask, gizmoMask: e.detail.gizmoMask });
               }
-                            if (this.mathEngine) {
+              if (this.mathEngine) {
                   type EngineExt = WasmEngine & { set_masks(quad: string, lineMask: number, gizmoMask: number): void };
                   (this.mathEngine as unknown as EngineExt).set_masks(e.detail.quad, e.detail.lineMask, e.detail.gizmoMask);
               }
@@ -543,12 +583,12 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_SOLID_MESH", show: e.detail.show });
               }
-                            if (this.mathEngine) {
+              if (this.mathEngine) {
                   type EngineExt = WasmEngine & { set_show_solid_mesh(show: boolean): void };
                   (this.mathEngine as unknown as EngineExt).set_show_solid_mesh(e.detail.show);
               }
           }}
-                    @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
+          @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_ACTIVE_PROFILE_SLICE", slice: e.detail.slice });
@@ -557,7 +597,7 @@ export class BoardBuilderPage extends LitElement {
                   this.mathEngine.set_active_profile_slice(e.detail.slice);
               }
           }}
-                    @set-hover-z=${(e: CustomEvent<{z?: number}>) => {
+          @set-hover-z=${(e: CustomEvent<{z?: number}>) => {
               const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
               if (worker) {
                   worker.postMessage({ type: "SET_HOVER_Z", z: e.detail.z });
@@ -585,7 +625,7 @@ export class BoardBuilderPage extends LitElement {
           }}
           @insert-node=${(e: CustomEvent<{curve: string, t: number}>) => this._proposeAction({ type: "INSERT_NODE", curve: e.detail.curve, t: e.detail.t })}
           @add-cross-section=${(e: CustomEvent<{z: number}>) => this._proposeAction({ type: "ADD_CROSS_SECTION", z: e.detail.z })}
-                              @gizmo-drag-ended=${(e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] | null }>) => {
+          @gizmo-drag-ended=${(e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] | null }>) => {
               this._pendingDragDetail = null; // Clear pending throttled frames so it doesn't fire after the final PROPOSE action
               if (e.detail.position) {
                   this._proposeAction({
@@ -607,12 +647,11 @@ export class BoardBuilderPage extends LitElement {
               }
               this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" });
           }}
-                    @gizmo-dragged=${this._handleGizmoDrag}
-                ></board-viewport>
+          @gizmo-dragged=${this._handleGizmoDrag}
+        ></board-viewport>
       </div>
     `;
     console.info("[BoardBuilderPage] Exiting render.");
     return res;
   }
 }
-

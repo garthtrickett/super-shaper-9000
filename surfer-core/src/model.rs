@@ -557,7 +557,7 @@ mod serde_vec3_as_array {
         arrays.serialize(serializer)
     }
 
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec3>, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec3>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -567,7 +567,7 @@ mod serde_vec3_as_array {
 }
 
 impl BoardAction {
-    pub fn is_geometry_altering(&self) -> bool { 
+    pub fn is_geometry_altering(&self) -> bool {
         match self {
             BoardAction::SelectNode { .. } => false,
             BoardAction::SaveHistorySnapshot => false,

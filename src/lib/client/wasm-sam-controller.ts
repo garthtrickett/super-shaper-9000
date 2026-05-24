@@ -32,13 +32,7 @@ export class WasmSamController implements ReactiveController {
       runClientUnscoped(clientLog("info", "[WasmSamController] Synchronous WASM initialized. Instantiating main-thread WasmEngine..."));
       console.info("[WasmSamController] Synchronous WASM initialized. Instantiating main-thread WasmEngine...");
       this.mathEngine = new WasmEngine();
-      this.mathEngine.  propose(action: BoardAction) {
-    this.currentSequence++;
-    runClientUnscoped(clientLog("info", `[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`));
-    console.info(`[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`, action);
-
-    this.worker.postMessage({ type: "PROPOSE", action, seq: this.currentSequence });
-  }
+      this.mathEngine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
       runClientUnscoped(clientLog("info", "[WasmSamController] Main-thread WasmEngine instantiated and synchronized."));
       console.info("[WasmSamController] Main-thread WasmEngine instantiated and synchronized.");
       this.host.requestUpdate();
@@ -56,7 +50,7 @@ export class WasmSamController implements ReactiveController {
       console.info("[WasmSamController] Main thread received message from Worker of type:", msg?.type, msg);
       
       try {
-                    if (msg.type === "STATE_UPDATED") {
+          if (msg.type === "STATE_UPDATED") {
             if (msg.seq !== undefined && msg.seq < this.currentSequence) {
               runClientUnscoped(clientLog("debug", `[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`));
               console.warn(`[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`);
@@ -96,25 +90,31 @@ export class WasmSamController implements ReactiveController {
     console.info("[WasmSamController] Web Worker instantiated. Handlers registered.");
   }
 
+  private _isGeometryAltering(action: BoardAction): boolean {
+    if (action.type === "SELECT_NODE" || action.type === "SAVE_HISTORY_SNAPSHOT" || action.type === "UPDATE_BOOLEAN") {
+      return false;
+    }
+    if (action.type === "UPDATE_NUMBER" && action.param === "mriSlicePosition") {
+      return false;
+    }
+    return true;
+  }
+
   propose(action: BoardAction) {
     this.currentSequence++;
     runClientUnscoped(clientLog("info", `[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`));
     console.info(`[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`, action);
     
-    // Keep local math engine perfectly in sync with the worker's reality
-    if (this.mathEngine) { 
+    // Optimistically apply non-geometry-altering actions on the main thread for instantaneous UI response
+    if (!this._isGeometryAltering(action) && this.mathEngine) {
       try {
         if ((this.mathEngine as any).propose_state_only) {
-            (this.mathEngine as any).propose_state_only(action);
-            // Optimistically update the UI model to prevent input bouncing
-            this.model = (this.mathEngine as any).get_state();
-            this.host.requestUpdate();
-        } else {
-            this.mathEngine.propose(action);
+          (this.mathEngine as any).propose_state_only(action);
+          this.model = (this.mathEngine as any).get_state();
+          this.host.requestUpdate();
         }
-      } catch (e) { 
-        runClientUnscoped(clientLog("error", "[WasmSamController] Local mathEngine failed to process proposed action!", e));
-        console.error("[WasmSamController] Local mathEngine failed to process proposed action!", e);
+      } catch (err) {
+        console.error("[WasmSamController] Failed to optimistically apply action on main thread:", err);
       }
     }
 

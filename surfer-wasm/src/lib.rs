@@ -931,15 +931,15 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn propose_state_only(&mut self, action_js: JsValue) -> Result<(), JsValue> {
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
+
         if action.is_geometry_altering() {
             self.invalidate_bbox_cache();
         }
-        
+
         self.engine.update(action);
         Ok(())
     }
@@ -1145,7 +1145,7 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -1156,7 +1156,7 @@ impl WasmEngine {
         }
 
         let (new_state, effects) = self.engine.update(action);
-        
+
         if is_geo {
             self.update_render_mesh();
         } else {
@@ -1586,18 +1586,19 @@ mod tests {
         engine_mut.camera_ctrl.pan_top = (10.0, 5.0);
         let (vp_new, _) = engine_mut.get_camera_params("top", 1.33);
 
-                // Should recalculate due to cache invalidation/mismatch
+        // Should recalculate due to cache invalidation/mismatch
         assert_ne!(vp_init, vp_new);
     }
 
-    #[test]
+        #[test]
+    #[cfg(target_arch = "wasm32")]
     fn test_propose_select_node_preserves_caches() {
         let mut engine = WasmEngine::new();
         
         // Populate caches
         let _ = engine.get_view_bounding_box("top");
         let _ = engine.get_camera_params("top", 1.33);
-        
+
         // Assert caches are populated
         {
             let cache = engine.bbox_cache.lock().unwrap();
@@ -1616,11 +1617,17 @@ mod tests {
         // Caches must remain populated
         {
             let cache = engine.bbox_cache.lock().unwrap();
-            assert!(cache[0].is_some(), "Bounding box cache was cleared on non-geometric action!");
+            assert!(
+                cache[0].is_some(),
+                "Bounding box cache was cleared on non-geometric action!"
+            );
         }
         {
             let cam_cache = engine.cached_cam_params.lock().unwrap();
-            assert!(cam_cache[0].is_some(), "Camera params cache was cleared on non-geometric action!");
+            assert!(
+                cam_cache[0].is_some(),
+                "Camera params cache was cleared on non-geometric action!"
+            );
         }
     }
 }
