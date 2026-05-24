@@ -555,12 +555,13 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     // Wait for the viewport to process the new geometry and render the gizmo
     await page.waitForTimeout(1000);
 
-    // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
+        // 2. Locate the INTERIOR gizmo for the new wing (otlInt, Node 0)
     const hitPosition = await page.evaluate(() => {
                               type BoardViewportElement = HTMLElement & { 
                 requestUpdate?: () => void;
+        updateGizmoScale?: (quad: string, scale: number) => void;
         mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
-                boardState?: {
+                boardState?: { 
           gizmoScaleTop?: number;
           outlineLayers?: { active?: boolean, otlInt: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } }[]
         }
@@ -568,9 +569,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
       const vp = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!vp || !vp.boardState || !vp.boardState.outlineLayers?.length) return null;
       
-      if (vp.boardState) {
-        vp.boardState.gizmoScaleTop = 3.0;
-        vp.requestUpdate?.();
+      if (vp.updateGizmoScale) {
+        vp.updateGizmoScale('top', 3.0);
       }
       // Target the Interior curve which is typically further IN than the exterior
       const otlInt = vp.boardState.outlineLayers[0]!.otlInt;
@@ -818,12 +818,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: { gizmoScaleTop?: number, outline?: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } };
       };
-      const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+            const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
       if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
       
-      if (viewport.boardState) {
-        viewport.boardState.gizmoScaleTop = 3.0;
-        viewport.requestUpdate?.();
+      if (viewport.updateGizmoScale) {
+        viewport.updateGizmoScale('top', 3.0);
       }
       const outline = viewport.boardState.outline;
       const cpList = outline.controlPoints || outline.control_points;
