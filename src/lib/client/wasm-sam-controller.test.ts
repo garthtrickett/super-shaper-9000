@@ -242,9 +242,65 @@ describe("WasmSamController (FFI Integration)", () => {
             const duration = performance.now() - startTime;
             console.log(`[Performance Benchmark] 1000 cached matrix unprojects took: ${duration.toFixed(3)}ms`);
             
-            // Cached unprojects must be sub-microsecond in average execution time, comfortably under 20ms for 1000 runs
+                        // Cached unprojects must be sub-microsecond in average execution time, comfortably under 20ms for 1000 runs
             expect(duration).to.be.lessThan(20);
             
+            controller.hostDisconnected();
+          });
+
+          it("verifies that Draft-Mode Dragging does not recalculate the 3D solid mesh during drags but lofts it successfully on the final propose commit", async () => {
+            const host = new MockHost();
+            const controller = new WasmSamController(host);
+            
+            for (let i = 0; i < 200; i++) {
+              if (controller.model) break;
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            expect(controller.mathEngine).to.exist;
+            expect(controller.mesh).to.exist;
+            
+            const initialVertexCount = controller.mesh!.vertexCount;
+            expect(initialVertexCount).to.be.greaterThan(0);
+
+            const worker = (controller as any).worker as Worker;
+
+            // Simulate continuous DRAG_GIZMO events from viewport
+            worker.postMessage({
+              type: "DRAG_GIZMO",
+              curve: "outline",
+              index: 1,
+              nodeType: "anchor",
+              x: 15.0,
+              y: 0.0,
+              z: 10.0,
+              continuity: "G1"
+            });
+
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            
+            // During active drag, the solid mesh vertex count must remain unchanged (draft mode)
+            expect(controller.mesh!.vertexCount).to.equal(initialVertexCount);
+
+            // Now simulate the final mouse-up commit (PROPOSE UPDATE_NODE_POSITION)
+            controller.propose({
+              type: "UPDATE_NODE_POSITION",
+              curve: "outline",
+              index: 1,
+              nodeType: "anchor",
+              position: [15.0, 0.0, 10.0]
+            });
+
+            // Wait for worker to finish full 3D loft and post back state
+            for (let i = 0; i < 200; i++) {
+              if (controller.model!.outline!.controlPoints[1]![0] === 15.0) break;
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            // Verify the mesh was successfully rebuilt and stats updated on release
+            expect(controller.model!.outline!.controlPoints[1]![0]).to.equal(15.0);
+            expect(controller.mesh!.vertexCount).to.not.equal(initialVertexCount);
+
             controller.hostDisconnected();
           });
         });

@@ -916,18 +916,18 @@ impl WasmEngine {
         };
         self.engine.update(action);
 
-        if continuity != "G0" && (node_type == "tangent1" || node_type == "tangent2") {
-            let cont_action = surfer_core::model::BoardAction::ApplyContinuity {
-                curve: curve_name.to_string(),
-                index,
-                level: continuity.to_string(),
-                master: Some(node_type.to_string()),
-            };
-            self.engine.update(cont_action);
-        }
+                    if continuity != "G0" && (node_type == "tangent1" || node_type == "tangent2") {
+                let cont_action = surfer_core::model::BoardAction::ApplyContinuity {
+                    curve: curve_name.to_string(),
+                    index,
+                    level: continuity.to_string(),
+                    master: Some(node_type.to_string()),
+                };
+                self.engine.update(cont_action);
+            }
 
-        self.update_render_mesh();
-    }
+            self.update_render_mesh_draft();
+        }
 
         #[wasm_bindgen]
     pub fn propose_state_only(&mut self, action_js: JsValue) -> Result<(), JsValue> {
@@ -1155,7 +1155,7 @@ impl WasmEngine {
         Ok(serde_wasm_bindgen::to_value(&res)?)
     }
 
-        fn update_render_mesh(&mut self) {
+            fn update_render_mesh(&mut self) {
         self.invalidate_bbox_cache();
         let mesh = self.engine.compute_mesh();
         self.stats.vertex_count = mesh.vertices.len() / 3;
@@ -1164,6 +1164,13 @@ impl WasmEngine {
 
         if let Some(renderer) = &mut self.renderer {
             renderer.update_mesh_buffers(&mesh);
+            self.update_all_views_lines();
+        }
+    }
+
+    fn update_render_mesh_draft(&mut self) {
+        self.invalidate_bbox_cache();
+        if self.renderer.is_some() {
             self.update_all_views_lines();
         }
     }
