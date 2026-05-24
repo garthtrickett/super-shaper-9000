@@ -302,8 +302,8 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }>) => {
-    const { userData, position, quad } = e.detail;
+      private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }>) => {
+    const { userData, position } = e.detail;
     
     // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
     type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };

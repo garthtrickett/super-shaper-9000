@@ -137,7 +137,7 @@ export class BoardViewport extends LitElement {
 
   private _lastDispatchedSlice = -1;
 
-        override updated(changedProperties: Map<string | number | symbol, unknown>) {
+    override updated(_changedProperties: Map<string | number | symbol, unknown>) {
     const prevSlice = this.activeProfileSlice;
     if (this.boardState?.selectedNode?.curve.startsWith('crossSection_')) {
         const idx = parseInt(this.boardState.selectedNode.curve.split('_')[1] || "0", 10);
