@@ -610,8 +610,7 @@ pub fn get_cross_section_blend_at_z<'a>(
     let valid_sections: Vec<&'a BezierCurveData> = cross_sections
         .iter()
         .filter(|cs| {
-            cs.control_points.len() > 1
-                && !cs.control_points.iter().all(|p| p.x.abs() < 1e-4)
+            cs.control_points.len() > 1 && !cs.control_points.iter().all(|p| p.x.abs() < 1e-4)
         })
         .collect();
 

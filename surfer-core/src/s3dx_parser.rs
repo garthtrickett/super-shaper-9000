@@ -877,8 +877,6 @@ mod tests {
         );
     }
 
-    
-
     #[test]
     fn test_rounded_pin_import_shading_defects() {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -888,7 +886,7 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read rounded pin fixture file");
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
-        
+
         let mut dirty = crate::model::DirtyState::default();
         let mut cache = crate::mesh::MeshCache::default();
         let mesh = crate::mesh::generate_mesh(&model, &mut dirty, &mut cache);
@@ -901,7 +899,11 @@ mod tests {
                 nan_normals += 1;
             }
         }
-        assert_eq!(nan_normals, 0, "Found {} NaN normal vectors. These cause black shading artifacts.", nan_normals);
+        assert_eq!(
+            nan_normals, 0,
+            "Found {} NaN normal vectors. These cause black shading artifacts.",
+            nan_normals
+        );
 
         // 2. Check for degenerate (zero-area) triangles near the nose/tail tip
         let mut degenerate_count = 0;
@@ -910,16 +912,32 @@ mod tests {
             let i2 = mesh.indices[i + 1] as usize;
             let i3 = mesh.indices[i + 2] as usize;
 
-            let v1 = glam::Vec3::new(mesh.vertices[i1 * 3], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2]);
-            let v2 = glam::Vec3::new(mesh.vertices[i2 * 3], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2]);
-            let v3 = glam::Vec3::new(mesh.vertices[i3 * 3], mesh.vertices[i3 * 3 + 1], mesh.vertices[i3 * 3 + 2]);
+            let v1 = glam::Vec3::new(
+                mesh.vertices[i1 * 3],
+                mesh.vertices[i1 * 3 + 1],
+                mesh.vertices[i1 * 3 + 2],
+            );
+            let v2 = glam::Vec3::new(
+                mesh.vertices[i2 * 3],
+                mesh.vertices[i2 * 3 + 1],
+                mesh.vertices[i2 * 3 + 2],
+            );
+            let v3 = glam::Vec3::new(
+                mesh.vertices[i3 * 3],
+                mesh.vertices[i3 * 3 + 1],
+                mesh.vertices[i3 * 3 + 2],
+            );
 
             let area = (v2 - v1).cross(v3 - v1).length();
             if area < 1e-10 {
                 degenerate_count += 1;
             }
         }
-        assert_eq!(degenerate_count, 0, "Found {} degenerate triangles! These cause visual dark spots.", degenerate_count);
+        assert_eq!(
+            degenerate_count, 0,
+            "Found {} degenerate triangles! These cause visual dark spots.",
+            degenerate_count
+        );
 
         // 3. Assert smooth normal vector transitions across the 0.5-inch boundary
         // We step from 0.1" to 1.0" from the nose tip. On the current codebase,
@@ -930,13 +948,13 @@ mod tests {
         let steps = 100;
         let start_z = bounds.nose_z + 0.1;
         let end_z = bounds.nose_z + 1.0;
-        
+
         for i in 0..=steps {
             let f = i as f32 / steps as f32;
             let z = start_z + (end_z - start_z) * f;
             let ctx_z = crate::geometry::ZRingContext::new(&model, z);
             let n = ctx_z.get_surface_normal_at_uvz(0.0, 1.0);
-            
+
             if let Some(prev_n) = prev_normal {
                 let dot = prev_n.dot(n).clamp(-1.0, 1.0);
                 let angle_deg = dot.acos().to_degrees();

@@ -249,8 +249,6 @@ pub fn generate_swallow_notch_wall(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub fn generate_cap(
     ring_index: usize,
     fallback_mid: Vec3,
@@ -379,7 +377,7 @@ pub fn generate_cap(
             for j in 0..num_cols - 1 {
                 if j == right_half_cols - 1 {
                     continue; // Do not bridge the right and left halves on the caps!
-                } 
+                }
 
                 let a = ring_a_start + j as u32;
                 let b = a + 1;

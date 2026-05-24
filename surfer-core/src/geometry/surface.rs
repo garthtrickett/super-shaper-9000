@@ -516,16 +516,16 @@ impl<'a> ZRingContext<'a> {
         let ctx_minus = ZRingContext::new(self.model, z_minus);
         let mut pt_minus_v = ctx_minus.get_point_at_uv_base(u, side);
         pt_minus_v.x *= side;
-        
+
         let mut diff_v = pt_plus_v - pt_minus_v;
-        
+
         // Stabilize normal vectors near blunt trailing/leading edges (prevent collapse)
         let dist_to_tail = bounds.tip_z - self.z_inches;
         if dist_to_tail < 2.0 && self.profile.apex_x > 0.5 {
             let blend = (dist_to_tail / 2.0).clamp(0.0, 1.0);
             diff_v.x *= blend;
         }
-        
+
         let dist_to_nose = self.z_inches - bounds.nose_z;
         if dist_to_nose < 2.0 && self.profile.apex_x > 0.5 {
             let blend = (dist_to_nose / 2.0).clamp(0.0, 1.0);
@@ -594,7 +594,7 @@ impl<'a> ZRingContext<'a> {
             t_u = Vec3::new(side, 0.0, 0.0);
         }
 
-                let dz = 1e-3;
+        let dz = 1e-3;
         let z_plus = (self.z_inches + dz).min(bounds.tip_z);
         let z_minus = (self.z_inches - dz).max(bounds.nose_z);
         let ctx_plus = ZRingContext::new(self.model, z_plus);
@@ -603,16 +603,16 @@ impl<'a> ZRingContext<'a> {
         let ctx_minus = ZRingContext::new(self.model, z_minus);
         let mut pt_minus_v = ctx_minus.get_point_at_uv(u, side);
         pt_minus_v.x *= side;
-        
+
         let mut diff_v = pt_plus_v - pt_minus_v;
-        
+
         // Stabilize normal vectors near blunt trailing/leading edges (prevent collapse)
         let dist_to_tail = bounds.tip_z - self.z_inches;
         if dist_to_tail < 2.0 && self.profile.apex_x > 0.5 {
             let blend = (dist_to_tail / 2.0).clamp(0.0, 1.0);
             diff_v.x *= blend;
         }
-        
+
         let dist_to_nose = self.z_inches - bounds.nose_z;
         if dist_to_nose < 2.0 && self.profile.apex_x > 0.5 {
             let blend = (dist_to_nose / 2.0).clamp(0.0, 1.0);

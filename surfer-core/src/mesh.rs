@@ -1399,7 +1399,6 @@ mod tests {
         println!("✅ test_split_normals_at_poles passed.");
     }
 
-
     #[test]
     fn test_rounded_pin_thickness_does_not_pinch_to_zero() {
         let _ = env_logger::builder().is_test(true).try_init();
