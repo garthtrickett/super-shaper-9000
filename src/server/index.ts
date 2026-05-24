@@ -3,7 +3,7 @@ import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
 import { computeBoardMesh } from "./services/rhino-compute";
 
-export const app = new Elysia()
+export const app = new Elysia({ aot: false })
   .onRequest(({ set }) => {
     set.headers["Cross-Origin-Opener-Policy"] = "same-origin";
     set.headers["Cross-Origin-Embedder-Policy"] = "require-corp";
@@ -47,7 +47,7 @@ export const app = new Elysia()
     return file;
   });
 
-const PORT = process.env.PORT || 42069;
+const PORT = parseInt(process.env.PORT || "42069", 10);
 app.listen(PORT);
 
 // --- RENDER KEEP-ALIVE HACK ---
