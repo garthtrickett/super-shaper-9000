@@ -32,7 +32,13 @@ export class WasmSamController implements ReactiveController {
       runClientUnscoped(clientLog("info", "[WasmSamController] Synchronous WASM initialized. Instantiating main-thread WasmEngine..."));
       console.info("[WasmSamController] Synchronous WASM initialized. Instantiating main-thread WasmEngine...");
       this.mathEngine = new WasmEngine();
-      this.mathEngine.propose({ type: "LOAD_DESIGN", state: INITIAL_STATE });
+      this.mathEngine.  propose(action: BoardAction) {
+    this.currentSequence++;
+    runClientUnscoped(clientLog("info", `[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`));
+    console.info(`[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`, action);
+
+    this.worker.postMessage({ type: "PROPOSE", action, seq: this.currentSequence });
+  }
       runClientUnscoped(clientLog("info", "[WasmSamController] Main-thread WasmEngine instantiated and synchronized."));
       console.info("[WasmSamController] Main-thread WasmEngine instantiated and synchronized.");
       this.host.requestUpdate();
@@ -50,7 +56,7 @@ export class WasmSamController implements ReactiveController {
       console.info("[WasmSamController] Main thread received message from Worker of type:", msg?.type, msg);
       
       try {
-          if (msg.type === "STATE_UPDATED") {
+                    if (msg.type === "STATE_UPDATED") {
             if (msg.seq !== undefined && msg.seq < this.currentSequence) {
               runClientUnscoped(clientLog("debug", `[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`));
               console.warn(`[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`);
@@ -58,6 +64,15 @@ export class WasmSamController implements ReactiveController {
             }
             runClientUnscoped(clientLog("debug", `[WasmSamController] Applying state update for sequence: ${msg.seq}`));
             console.info(`[WasmSamController] Applying state update to host for sequence: ${msg.seq}`);
+
+            if (this.mathEngine) {
+              try {
+                this.mathEngine.propose_state_only({ type: "LOAD_DESIGN", state: msg.state });
+              } catch (e) {
+                console.error("[WasmSamController] Failed to sync main-thread mathEngine with worker state:", e);
+              }
+            }
+
             this.model = msg.state;
             this.mesh = msg.stats;
             this.foilData = msg.foilData;

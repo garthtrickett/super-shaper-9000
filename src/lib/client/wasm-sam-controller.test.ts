@@ -304,7 +304,7 @@ describe("WasmSamController (FFI Integration)", () => {
             controller.hostDisconnected();
           });
 
-          it("processes rapid node selection switches in under 1ms on average", async () => {
+                    it("processes rapid node selection switches in under 1ms on average", async () => {
             const host = new MockHost();
             const controller = new WasmSamController(host);
             
@@ -331,6 +331,36 @@ describe("WasmSamController (FFI Integration)", () => {
             console.log(`[Performance Benchmark] Average selection switch duration: ${avgDuration.toFixed(3)}ms`);
             
             expect(avgDuration).to.be.lessThan(1.0);
+            controller.hostDisconnected();
+          });
+
+          it("strictly delegates proposals to the worker and enforces unidirectional updates", async () => {
+            const host = new MockHost();
+            const controller = new WasmSamController(host);
+            
+            for (let i = 0; i < 200; i++) {
+              if (controller.model) break;
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            const initialLength = controller.model!.length;
+
+            controller.propose({
+              type: "UPDATE_NUMBER",
+              param: "length",
+              value: 75.0
+            });
+
+            // Since mutations are delegated to the worker, the main thread model must not be mutated synchronously
+            expect(controller.model!.length).to.equal(initialLength);
+
+            // Wait for the asynchronous worker round trip to complete
+            for (let i = 0; i < 200; i++) {
+              if (controller.model!.length === 75.0) break;
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            expect(controller.model!.length).to.equal(75.0);
             controller.hostDisconnected();
           });
         });
