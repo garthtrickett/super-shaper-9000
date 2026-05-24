@@ -257,8 +257,7 @@ export class BoardBuilderPage extends LitElement {
     super.disconnectedCallback();
   }
 
-  private _lastSyncedModel?: BoardModel;
-  private _hasLoadedSavedState = false;
+    private _hasLoadedSavedState = false;
   private _autoSaveTimeout?: number;
 
   protected override willUpdate(changedProperties: PropertyValues) {
@@ -294,17 +293,7 @@ export class BoardBuilderPage extends LitElement {
       }, 1000);
     }
 
-    if (this.mathEngine && modelToSync !== this._lastSyncedModel) {
-        console.info("[BoardBuilderPage] Synchronizing main-thread mathEngine with modelToSync...");
-        try {
-            this._lastSyncedModel = modelToSync;
-            const cleanState = JSON.parse(JSON.stringify(modelToSync)) as BoardModel;
-            this.mathEngine.propose({ type: "LOAD_DESIGN", state: cleanState });
-            console.info("[BoardBuilderPage] main-thread mathEngine synchronization complete.");
-        } catch (err) {
-            console.error("Failed to sync main thread mathEngine:", err);
-        }
-    }
+    
     console.info("[BoardBuilderPage] Exiting willUpdate.");
   }
 
