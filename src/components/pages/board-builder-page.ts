@@ -3,7 +3,7 @@ import { LitElement, html, type PropertyValues } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import { KeyboardController } from "../../lib/client/keyboard-controller";
-import initWasm, { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
+import type { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
 import { INITIAL_STATE, type BoardModel, type BoardAction } from "./board-builder-page.logic";
 import "../3d/board-viewport";
 import "../ui/board-controls";
@@ -21,9 +21,7 @@ export class BoardBuilderPage extends LitElement {
     onRedo: () => this._proposeAction({ type: "REDO" }),
   });
 
-  @state() private mathEngine?: WasmEngine;
-
-  @state() private showExportModal = false;
+    @state() private showExportModal = false;
   @state() private showImportModal = false;
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
   @state() private showContourEditor = false;
@@ -52,16 +50,17 @@ export class BoardBuilderPage extends LitElement {
     this.wasmCtrl.propose(action);
   }
 
-  private _previewAction(action: BoardAction) {
-    if (!this.mathEngine) return;
+    private _previewAction(action: BoardAction) {
+    const mathEngine = this.wasmCtrl.mathEngine;
+    if (!mathEngine) return;
     try {
       type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
       let state: BoardModel;
-      if ((this.mathEngine as unknown as MathEngineExt).propose_state_only) {
-          (this.mathEngine as unknown as MathEngineExt).propose_state_only(action);
-          state = this.mathEngine.get_state() as unknown as BoardModel;
+      if ((mathEngine as unknown as MathEngineExt).propose_state_only) {
+          (mathEngine as unknown as MathEngineExt).propose_state_only(action);
+          state = mathEngine.get_state() as unknown as BoardModel;
       } else {
-          const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
+          const result = mathEngine.propose(action) as unknown as { state: BoardModel };
           state = result.state;
       }
       
@@ -233,13 +232,8 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  override connectedCallback() {
+    override connectedCallback() {
     super.connectedCallback();
-
-    void initWasm().then(() => {
-      this.mathEngine = new WasmEngine();
-      this.requestUpdate();
-    });
 
     setTimeout(() => {
       const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
@@ -264,7 +258,7 @@ export class BoardBuilderPage extends LitElement {
     console.info("[BoardBuilderPage] Entering willUpdate...");
     super.willUpdate(changedProperties);
     
-    const modelToSync = this.wasmCtrl.model || INITIAL_STATE;
+    // const modelToSync = this.wasmCtrl.model || INITIAL_STATE;
 
     if (!this._hasLoadedSavedState && this.wasmCtrl.model) {
       console.info("[BoardBuilderPage] Checking localStorage for saved design...");
@@ -476,7 +470,7 @@ export class BoardBuilderPage extends LitElement {
           class="flex-1 w-full h-full relative z-0 overflow-hidden"
           .boardState=${state}
           .meshData=${mesh}
-          .mathEngine=${this.mathEngine}
+                    .mathEngine=${this.wasmCtrl.mathEngine}
           .selectedNodeContinuity=${this._selectedNodeContinuity}
           .isProcessing=${this.isProcessing}
           .isRendererReady=${this.isRendererReady}
@@ -497,8 +491,8 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "POINTER_EVENT", eventType: e.detail.type, x: e.detail.x, y: e.detail.y, quad: e.detail.quad });
               }
-              if (this.mathEngine) {
-                  this.mathEngine.handle_pointer(e.detail.type, e.detail.x, e.detail.y, e.detail.quad);
+                            if (this.wasmCtrl.mathEngine) {
+                  this.wasmCtrl.mathEngine.handle_pointer(e.detail.type, e.detail.x, e.detail.y, e.detail.quad);
               }
           }}
           @viewport-wheel=${(e: CustomEvent<{dy: number, quad: string}>) => {
@@ -506,8 +500,8 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "WHEEL_EVENT", dy: e.detail.dy, quad: e.detail.quad });
               }
-              if (this.mathEngine) {
-                  this.mathEngine.handle_wheel(e.detail.dy, e.detail.quad);
+                            if (this.wasmCtrl.mathEngine) {
+                  this.wasmCtrl.mathEngine.handle_wheel(e.detail.dy, e.detail.quad);
               }
           }}
           @set-view-mode=${(e: CustomEvent<{mode: string}>) => {
@@ -515,8 +509,8 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_VIEW_MODE", mode: e.detail.mode });
               }
-              if (this.mathEngine) {
-                  this.mathEngine.set_view_mode(e.detail.mode);
+                            if (this.wasmCtrl.mathEngine) {
+                  this.wasmCtrl.mathEngine.set_view_mode(e.detail.mode);
               }
           }}
           @set-ortho=${(e: CustomEvent<{isOrtho: boolean}>) => {
@@ -524,8 +518,8 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_ORTHO", isOrtho: e.detail.isOrtho });
               }
-              if (this.mathEngine) {
-                  this.mathEngine.set_ortho(e.detail.isOrtho);
+                            if (this.wasmCtrl.mathEngine) {
+                  this.wasmCtrl.mathEngine.set_ortho(e.detail.isOrtho);
               }
           }}
           @boolean-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: boolean }>) => {
@@ -542,9 +536,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_GIZMO_SCALE", quad: e.detail.quad, scale: e.detail.scale });
               }
-              if (this.mathEngine) {
+                            if (this.wasmCtrl.mathEngine) {
                   type EngineExt = WasmEngine & { set_gizmo_scale(quad: string, scale: number): void };
-                  (this.mathEngine as unknown as EngineExt).set_gizmo_scale(e.detail.quad, e.detail.scale);
+                  (this.wasmCtrl.mathEngine as unknown as EngineExt).set_gizmo_scale(e.detail.quad, e.detail.scale);
               }
           }}
           @set-show-tangents=${(e: CustomEvent<{quad: string, show: boolean}>) => {
@@ -552,9 +546,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_TANGENTS", quad: e.detail.quad, show: e.detail.show });
               }
-              if (this.mathEngine) {
+                            if (this.wasmCtrl.mathEngine) {
                   type EngineExt = WasmEngine & { set_show_tangents(quad: string, show: boolean): void };
-                  (this.mathEngine as unknown as EngineExt).set_show_tangents(e.detail.quad, e.detail.show);
+                  (this.wasmCtrl.mathEngine as unknown as EngineExt).set_show_tangents(e.detail.quad, e.detail.show); 
               }
           }}
           @set-masks=${(e: CustomEvent<{quad: string, lineMask: number, gizmoMask: number}>) => {
@@ -562,9 +556,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_MASKS", quad: e.detail.quad, lineMask: e.detail.lineMask, gizmoMask: e.detail.gizmoMask });
               }
-              if (this.mathEngine) {
+                            if (this.wasmCtrl.mathEngine) {
                   type EngineExt = WasmEngine & { set_masks(quad: string, lineMask: number, gizmoMask: number): void };
-                  (this.mathEngine as unknown as EngineExt).set_masks(e.detail.quad, e.detail.lineMask, e.detail.gizmoMask);
+                  (this.wasmCtrl.mathEngine as unknown as EngineExt).set_masks(e.detail.quad, e.detail.lineMask, e.detail.gizmoMask);
               }
           }}
           @set-show-solid-mesh=${(e: CustomEvent<{show: boolean}>) => {
@@ -572,9 +566,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_SHOW_SOLID_MESH", show: e.detail.show });
               }
-              if (this.mathEngine) {
+                            if (this.wasmCtrl.mathEngine) {
                   type EngineExt = WasmEngine & { set_show_solid_mesh(show: boolean): void };
-                  (this.mathEngine as unknown as EngineExt).set_show_solid_mesh(e.detail.show);
+                  (this.wasmCtrl.mathEngine as unknown as EngineExt).set_show_solid_mesh(e.detail.show);
               }
           }}
           @set-active-profile-slice=${(e: CustomEvent<{slice: number}>) => {
@@ -582,8 +576,8 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_ACTIVE_PROFILE_SLICE", slice: e.detail.slice });
               }
-              if (this.mathEngine) {
-                  this.mathEngine.set_active_profile_slice(e.detail.slice);
+                            if (this.wasmCtrl.mathEngine) {
+                  this.wasmCtrl.mathEngine.set_active_profile_slice(e.detail.slice);
               }
           }}
           @set-hover-z=${(e: CustomEvent<{z?: number}>) => {
@@ -591,9 +585,9 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "SET_HOVER_Z", z: e.detail.z });
               }
-              if (this.mathEngine) {
+                            if (this.wasmCtrl.mathEngine) {
                   type EngineExt = WasmEngine & { set_hover_z(z?: number): void };
-                  (this.mathEngine as unknown as EngineExt).set_hover_z(e.detail.z);
+                  (this.wasmCtrl.mathEngine as unknown as EngineExt).set_hover_z(e.detail.z);
               }
           }}
           @flip-camera=${() => {
@@ -601,10 +595,10 @@ export class BoardBuilderPage extends LitElement {
               if (worker) {
                   worker.postMessage({ type: "FLIP_CAMERA" });
               }
-              if (this.mathEngine) {
+                            if (this.wasmCtrl.mathEngine) {
                   type EngineExt = WasmEngine & { flip_camera(): void };
-                  if ((this.mathEngine as unknown as EngineExt).flip_camera) {
-                      (this.mathEngine as unknown as EngineExt).flip_camera();
+                  if ((this.wasmCtrl.mathEngine as unknown as EngineExt).flip_camera) {
+                      (this.wasmCtrl.mathEngine as unknown as EngineExt).flip_camera();
                   }
               }
           }}

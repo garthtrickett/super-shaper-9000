@@ -1590,11 +1590,11 @@ mod tests {
         assert_ne!(vp_init, vp_new);
     }
 
-        #[test]
+    #[test]
     #[cfg(target_arch = "wasm32")]
     fn test_propose_select_node_preserves_caches() {
         let mut engine = WasmEngine::new();
-        
+
         // Populate caches
         let _ = engine.get_view_bounding_box("top");
         let _ = engine.get_camera_params("top", 1.33);
