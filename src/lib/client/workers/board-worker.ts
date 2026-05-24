@@ -250,9 +250,9 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msgType === "DRAG_GIZMO") {
+        if (msgType === "DRAG_GIZMO") {
         console.debug(`[BoardWorker] Processing drag gizmo on curve "${msg.curve}" index ${msg.index}`);
-        engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z, msg.continuity || "G0");
+        engine.handle_gizmo_drag(msg.curve, msg.index, msg.nodeType, msg.x, msg.y, msg.z, msg.continuity || "G0", msg.quad || "");
         (self as unknown as Worker).postMessage({ type: "GIZMO_DRAG_COMPLETE" });
         return;
     }

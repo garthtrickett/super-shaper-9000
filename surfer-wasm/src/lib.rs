@@ -390,7 +390,7 @@ impl WasmEngine {
         }
     }
 
-    fn invalidate_bbox_cache(&self) {
+        fn invalidate_bbox_cache(&self) {
         if let Ok(mut cache) = self.bbox_cache.lock() {
             *cache = [None; 4];
         }
@@ -402,6 +402,23 @@ impl WasmEngine {
         }
         if let Ok(mut cache) = self.cached_inv_view_projs.lock() {
             *cache = [None; 4];
+        }
+    }
+
+    fn invalidate_bbox_cache_for_quad(&self, quad: &str) {
+        if let Some(idx) = viewport_index(quad) {
+            if let Ok(mut cache) = self.bbox_cache.lock() {
+                cache[idx] = None;
+            }
+            if let Ok(mut cache) = self.cached_cam_params.lock() {
+                cache[idx] = None;
+            }
+            if let Ok(mut cache) = self.cached_view_projs.lock() {
+                cache[idx] = None;
+            }
+            if let Ok(mut cache) = self.cached_inv_view_projs.lock() {
+                cache[idx] = None;
+            }
         }
     }
 
@@ -896,7 +913,7 @@ impl WasmEngine {
         self.update_view_lines(quad);
     }
 
-    #[allow(clippy::too_many_arguments)]
+        #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn handle_gizmo_drag(
         &mut self,
@@ -907,8 +924,8 @@ impl WasmEngine {
         y: f32,
         z: f32,
         continuity: &str,
+        active_quad: &str,
     ) {
-        self.invalidate_bbox_cache();
         let action = surfer_core::model::BoardAction::UpdateNodePosition {
             curve: curve_name.to_string(),
             index,
@@ -927,7 +944,7 @@ impl WasmEngine {
             self.engine.update(cont_action);
         }
 
-        self.update_render_mesh_draft();
+        self.update_render_mesh_draft_for_quad(active_quad);
     }
 
     #[wasm_bindgen]
@@ -1184,10 +1201,24 @@ impl WasmEngine {
         }
     }
 
-    fn update_render_mesh_draft(&mut self) {
+        fn update_render_mesh_draft(&mut self) {
         self.invalidate_bbox_cache();
         if self.renderer.is_some() {
             self.update_all_views_lines();
+        }
+    }
+
+    fn update_render_mesh_draft_for_quad(&mut self, quad: &str) {
+        if viewport_index(quad).is_some() {
+            self.invalidate_bbox_cache_for_quad(quad);
+            if self.renderer.is_some() {
+                self.update_view_lines(quad);
+            }
+        } else {
+            self.invalidate_bbox_cache();
+            if self.renderer.is_some() {
+                self.update_all_views_lines();
+            }
         }
     }
 

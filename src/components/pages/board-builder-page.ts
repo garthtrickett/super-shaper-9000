@@ -30,8 +30,8 @@ export class BoardBuilderPage extends LitElement {
   @state() private isProcessing = false;
   @state() private isRendererReady = false;
 
-  private _workerBusyWithDrag = false;
-  private _pendingDragDetail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] } | null = null;
+    private _workerBusyWithDrag = false;
+  private _pendingDragDetail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string } | null = null;
 
   private _isGeometryAltering(action: BoardAction): boolean {
     if (action.type === "SELECT_NODE" || action.type === "SAVE_HISTORY_SNAPSHOT" || action.type === "UPDATE_BOOLEAN") {
@@ -284,9 +284,9 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }) {
+    private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }) { 
     this._workerBusyWithDrag = true;
-    const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+    const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker; 
     if (worker) {
       worker.postMessage({
         type: "DRAG_GIZMO",
@@ -296,13 +296,14 @@ export class BoardBuilderPage extends LitElement {
         x: detail.position[0],
         y: detail.position[1],
         z: detail.position[2],
-        continuity: this._selectedNodeContinuity
+        continuity: this._selectedNodeContinuity,
+        quad: detail.quad
       });
     }
   }
 
-  private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }>) => {
-    const { userData, position } = e.detail;
+    private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }>) => {
+    const { userData, position, quad } = e.detail;
     
     // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
     type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
