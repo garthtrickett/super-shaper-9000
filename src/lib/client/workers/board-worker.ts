@@ -6,7 +6,22 @@ let engine: WasmEngine | null = null;
 let isRendererReady = false;
 const messageQueue: MessageEvent<any>[] = [];
 
+let cachedStats: any = null;
+let cachedFoilData: Float32Array | null = null;
+
 console.info("[BoardWorker] Script loaded. Starting WASM initialization...");
+
+const isGeometryAltering = (action: any): boolean => {
+    if (!action) return true;
+    const type = action.type;
+    if (type === "SELECT_NODE" || type === "SAVE_HISTORY_SNAPSHOT" || type === "UPDATE_BOOLEAN") {
+        return false;
+    }
+    if (type === "UPDATE_NUMBER" && action.param === "mriSlicePosition") {
+        return false;
+    }
+    return true;
+};
 
 // Initialize the WASM module
 init().then(async (wasmInstance) => {
@@ -43,27 +58,30 @@ init().then(async (wasmInstance) => {
         return;
     }
     
-        console.info("[BoardWorker] Retrieving initial state details from WasmEngine...");
-    try {
-        const initialState = engine.get_state() as BoardModel;
-        console.info("[BoardWorker] Initial state retrieved:", initialState);
-        const stats = engine.get_stats();
-        console.info("[BoardWorker] Initial mesh stats retrieved:", stats);
-        const foilData = engine.get_foil_stats() as Float32Array;
-        console.info("[BoardWorker] Initial foil stats retrieved. Array size:", foilData.length);
-        
-        const transferList = [];
-        if (foilData && foilData.buffer && typeof SharedArrayBuffer !== "undefined" && !(foilData.buffer instanceof SharedArrayBuffer)) {
-            transferList.push(foilData.buffer);
-        }
+                console.info("[BoardWorker] Retrieving initial state details from WasmEngine...");
+        try {
+            const initialState = engine.get_state() as BoardModel;
+            console.info("[BoardWorker] Initial state retrieved:", initialState);
+            const stats = engine.get_stats();
+            console.info("[BoardWorker] Initial mesh stats retrieved:", stats);
+            const foilData = engine.get_foil_stats() as Float32Array;
+            console.info("[BoardWorker] Initial foil stats retrieved. Array size:", foilData.length);
+            
+            cachedStats = stats;
+            cachedFoilData = foilData.slice(); // Keep a safe copy in cache
 
-        console.info("[BoardWorker] Posting initial state back to the main thread...");
-        (self as unknown as Worker).postMessage({
-            type: "STATE_UPDATED",
-            state: initialState,
-            stats,
-            foilData: foilData
-        }, transferList);
+            const transferList = [];
+            if (foilData && foilData.buffer && typeof SharedArrayBuffer !== "undefined" && !(foilData.buffer instanceof SharedArrayBuffer)) {
+                transferList.push(foilData.buffer);
+            }
+
+            console.info("[BoardWorker] Posting initial state back to the main thread...");
+            (self as unknown as Worker).postMessage({
+                type: "STATE_UPDATED",
+                state: initialState,
+                stats,
+                foilData: foilData
+            }, transferList);
         console.info("[BoardWorker] Initial state posted successfully.");
     } catch (err) {
         console.error("[BoardWorker] Failed during post-init state sync!", err);
@@ -290,7 +308,7 @@ self.onmessage = async (e: MessageEvent<any>) => {
         return;
     }
 
-    if (msgType === "PROPOSE" && msg.action) {
+        if (msgType === "PROPOSE" && msg.action) {
         if (msg.action.type !== "LOAD_DESIGN") {
             console.info(`[BoardWorker] Processing action proposal: ${msg.action.type}`);
         }
@@ -309,12 +327,22 @@ self.onmessage = async (e: MessageEvent<any>) => {
                 } 
             }
 
-                                                                        // 3. Extract Mesh Buffer (Zero-Copy)
-            const stats = engine.get_stats();
-            const foilData = engine.get_foil_stats() as Float32Array;
+            // 3. Extract Mesh Buffer (Zero-Copy) if geometry altered, or retrieve cached buffers
+            let stats = cachedStats;
+            let foilData: Float32Array;
+
+            if (isGeometryAltering(msg.action)) {
+                stats = engine.get_stats();
+                const rawFoilData = engine.get_foil_stats() as Float32Array;
+                cachedStats = stats;
+                cachedFoilData = rawFoilData.slice(); // Cache a copy to prevent neutering
+                foilData = rawFoilData;
+            } else {
+                foilData = cachedFoilData ? cachedFoilData.slice() : new Float32Array();
+            }
 
             console.debug(`[BoardWorker] Propose completed. Posting STATE_UPDATED back for sequence ID: ${msg.seq}`);
-                        const transferList = [];
+            const transferList = [];
             if (foilData && foilData.buffer && typeof SharedArrayBuffer !== "undefined" && !(foilData.buffer instanceof SharedArrayBuffer)) {
                 transferList.push(foilData.buffer);
             }
