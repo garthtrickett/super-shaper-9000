@@ -302,13 +302,14 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-      private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }>) => {
+        private _handleGizmoDrag = (e: CustomEvent<{ userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }>) => {
     const { userData, position } = e.detail;
     
     // Sync main thread mathEngine immediately for lightning fast local evaluation (e.g. snapping)
     type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
-    if (this.mathEngine && (this.mathEngine as unknown as MathEngineExt).propose_state_only) {
-        (this.mathEngine as unknown as MathEngineExt).propose_state_only({
+    const mathEngine = this.wasmCtrl.mathEngine;
+    if (mathEngine && (mathEngine as unknown as MathEngineExt).propose_state_only) {
+        (mathEngine as unknown as MathEngineExt).propose_state_only({
             type: "UPDATE_NODE_POSITION",
             curve: userData.curve,
             nodeType: userData.type,
@@ -316,7 +317,7 @@ export class BoardBuilderPage extends LitElement {
             position: position
         });
         if (this._selectedNodeContinuity !== 'G0' && (userData.type === 'tangent1' || userData.type === 'tangent2')) {
-            (this.mathEngine as unknown as MathEngineExt).propose_state_only({
+            (mathEngine as unknown as MathEngineExt).propose_state_only({
                 type: 'APPLY_CONTINUITY',
                 curve: userData.curve,
                 index: userData.index,

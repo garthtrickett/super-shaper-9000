@@ -390,7 +390,7 @@ impl WasmEngine {
         }
     }
 
-        fn invalidate_bbox_cache(&self) {
+    fn invalidate_bbox_cache(&self) {
         if let Ok(mut cache) = self.bbox_cache.lock() {
             *cache = [None; 4];
         }
@@ -913,7 +913,7 @@ impl WasmEngine {
         self.update_view_lines(quad);
     }
 
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn handle_gizmo_drag(
         &mut self,
@@ -1201,7 +1201,7 @@ impl WasmEngine {
         }
     }
 
-        fn update_render_mesh_draft(&mut self) {
+    fn update_render_mesh_draft(&mut self) {
         self.invalidate_bbox_cache();
         if self.renderer.is_some() {
             self.update_all_views_lines();
