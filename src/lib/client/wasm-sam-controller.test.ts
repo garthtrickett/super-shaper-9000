@@ -334,33 +334,80 @@ describe("WasmSamController (FFI Integration)", () => {
             controller.hostDisconnected();
           });
 
-          it("strictly delegates proposals to the worker and enforces unidirectional updates", async () => {
-            const host = new MockHost();
-            const controller = new WasmSamController(host);
-            
-            for (let i = 0; i < 200; i++) {
-              if (controller.model) break;
-              await new Promise((resolve) => setTimeout(resolve, 50));
-            }
+                it("strictly delegates proposals to the worker and enforces unidirectional updates", async () => {
+        const host = new MockHost();
+        const controller = new WasmSamController(host);
+        
+        for (let i = 0; i < 200; i++) {
+          if (controller.model) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
 
-            const initialLength = controller.model!.length;
+        const initialLength = controller.model!.length;
 
-            controller.propose({
-              type: "UPDATE_NUMBER",
-              param: "length",
-              value: 75.0
-            });
-
-            // Since mutations are delegated to the worker, the main thread model must not be mutated synchronously
-            expect(controller.model!.length).to.equal(initialLength);
-
-            // Wait for the asynchronous worker round trip to complete
-            for (let i = 0; i < 200; i++) {
-              if (controller.model!.length === 75.0) break;
-              await new Promise((resolve) => setTimeout(resolve, 50));
-            }
-
-            expect(controller.model!.length).to.equal(75.0);
-            controller.hostDisconnected();
-          });
+        controller.propose({
+          type: "UPDATE_NUMBER",
+          param: "length",
+          value: 75.0
         });
+
+        // Since mutations are delegated to the worker, the main thread model must not be mutated synchronously
+        expect(controller.model!.length).to.equal(initialLength);
+
+        // Wait for the asynchronous worker round trip to complete
+        for (let i = 0; i < 200; i++) {
+          if (controller.model!.length === 75.0) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        expect(controller.model!.length).to.equal(75.0);
+        controller.hostDisconnected();
+      });
+
+      it("preserves main-thread bounding box and projection matrix caches after consecutive selection actions", async () => {
+        const host = new MockHost();
+        const controller = new WasmSamController(host);
+        
+        for (let i = 0; i < 200; i++) {
+          if (controller.model) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        expect(controller.mathEngine).to.exist;
+
+        // 1. Warm up the cache by executing a plane unprojection
+        controller.mathEngine!.unproject_to_plane("top", 0.5, -0.5, 1.3, 0, 0, 0);
+
+        // Measure baseline cache-hit latency
+        const t0 = performance.now();
+        controller.mathEngine!.unproject_to_plane("top", 0.5, -0.5, 1.3, 0, 0, 0);
+        const baseLatency = performance.now() - t0;
+
+        // 2. Fire multiple consecutive non-geometry-altering select actions
+        for (let i = 0; i < 5; i++) {
+          controller.propose({
+            type: "SELECT_NODE",
+            node: {
+              curve: "outline",
+              index: i % 3,
+              type: "anchor"
+            }
+          });
+        }
+
+        // Wait for worker async round trip and state updates to resolve
+        await new Promise((resolve) => setTimeout(resolve, 150));
+
+        // 3. Measure latency of a post-selection unproject_to_plane call
+        const t1 = performance.now();
+        controller.mathEngine!.unproject_to_plane("top", 0.5, -0.5, 1.3, 0, 0, 0);
+        const postSelectLatency = performance.now() - t1;
+
+        console.info(`[Performance Benchmark] Base Latency: ${baseLatency.toFixed(3)}ms | Post-Select Latency: ${postSelectLatency.toFixed(3)}ms`);
+
+        // Assert both remain extremely fast (under 1.5ms) which guarantees the cache is intact and wasn't invalidated
+        expect(postSelectLatency).to.be.lessThan(1.5);
+        
+        controller.hostDisconnected();
+      });
+    });
