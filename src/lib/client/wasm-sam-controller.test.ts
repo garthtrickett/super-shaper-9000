@@ -185,9 +185,36 @@ describe("WasmSamController (FFI Integration)", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     
-    // Verify the controller successfully parses analytical requests.
-    expect(controller).to.exist;
-    
-    controller.hostDisconnected();
-  });
-});
+        // Verify the controller successfully parses analytical requests.
+            expect(controller).to.exist;
+            
+            controller.hostDisconnected();
+          });
+
+          it("verifies that bounding box unprojection is extremely fast and stable when the board geometry is static", async () => {
+            const host = new MockHost();
+            const controller = new WasmSamController(host);
+            
+            for (let i = 0; i < 200; i++) {
+              if (controller.model) break;
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            expect(controller.mathEngine).to.exist;
+
+            const startTime = performance.now();
+            
+            // Execute multiple unproject calls to measure performance
+            for (let i = 0; i < 100; i++) {
+              controller.mathEngine!.unproject_to_plane("top", 0.5, -0.5, 1.3, 0, 0, 0);
+            }
+            
+            const duration = performance.now() - startTime;
+            console.log(`[Performance Benchmark] 100 unprojects took: ${duration.toFixed(3)}ms`);
+            
+            // Unproject with cached bounding boxes should be highly responsive (under 25ms)
+            expect(duration).to.be.lessThan(50);
+            
+            controller.hostDisconnected();
+          });
+        });

@@ -324,6 +324,7 @@ pub struct WasmEngine {
     gizmo_masks: [u32; 4],
     show_solid_mesh: bool,
     hover_z: Option<f32>,
+    bbox_cache: std::sync::Mutex<[Option<[glam::Vec3; 2]>; 4]>,
 }
 
 impl Default for WasmEngine {
@@ -332,12 +333,25 @@ impl Default for WasmEngine {
     }
 }
 
+fn viewport_index(quad: &str) -> Option<usize> {
+    match quad {
+        "top" => Some(0),
+        "perspective" => Some(1),
+        "side" => Some(2),
+        "profile" => Some(3),
+        _ => None,
+    }
+}
+
 #[wasm_bindgen]
 impl WasmEngine {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        console_error_panic_hook::set_once();
-        let _ = console_log::init_with_level(log::Level::Info);
+        #[cfg(target_arch = "wasm32")]
+        {
+            console_error_panic_hook::set_once();
+            let _ = console_log::init_with_level(log::Level::Info);
+        }
         Self {
             engine: SurferEngine::new(),
             renderer: None,
@@ -352,10 +366,25 @@ impl WasmEngine {
             gizmo_masks: [0x1FF, 0x1FF, 0x1FF, 0x1FF],
             show_solid_mesh: true,
             hover_z: None,
+            bbox_cache: std::sync::Mutex::new([None; 4]),
+        }
+    }
+
+    fn invalidate_bbox_cache(&self) {
+        if let Ok(mut cache) = self.bbox_cache.lock() {
+            *cache = [None; 4];
         }
     }
 
     fn get_view_bounding_box(&self, quad: &str) -> (glam::Vec3, glam::Vec3) {
+        if let Some(idx) = viewport_index(quad) {
+            if let Ok(cache) = self.bbox_cache.lock() {
+                if let Some([min_pt, max_pt]) = cache[idx] {
+                    return (min_pt, max_pt);
+                }
+            }
+        }
+
         let model = self.engine.get_model();
 
         let mut min_pt = glam::Vec3::splat(f32::INFINITY);
@@ -435,13 +464,19 @@ impl WasmEngine {
             min_pt.y = -2.0;
             max_pt.y = 2.0;
         }
-        if min_pt.z.is_infinite() {
-            min_pt.z = 0.0;
-            max_pt.z = 70.0;
-        }
+                    if min_pt.z.is_infinite() {
+                min_pt.z = 0.0;
+                max_pt.z = 70.0;
+            }
 
-        (min_pt, max_pt)
-    }
+            if let Some(idx) = viewport_index(quad) {
+                if let Ok(mut cache) = self.bbox_cache.lock() {
+                    cache[idx] = Some([min_pt, max_pt]);
+                }
+            }
+
+            (min_pt, max_pt)
+        }
 
     fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
         let (min_pt, max_pt) = self.get_view_bounding_box(quad);
@@ -746,7 +781,7 @@ impl WasmEngine {
         self.update_view_lines(quad);
     }
 
-    #[allow(clippy::too_many_arguments)]
+        #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn handle_gizmo_drag(
         &mut self,
@@ -758,6 +793,7 @@ impl WasmEngine {
         z: f32,
         continuity: &str,
     ) {
+        self.invalidate_bbox_cache();
         let action = surfer_core::model::BoardAction::UpdateNodePosition {
             curve: curve_name.to_string(),
             index,
@@ -779,8 +815,9 @@ impl WasmEngine {
         self.update_render_mesh();
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn propose_state_only(&mut self, action_js: JsValue) -> Result<(), JsValue> {
+        self.invalidate_bbox_cache();
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
         self.engine.update(action);
@@ -987,8 +1024,9 @@ impl WasmEngine {
         Ok(())
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
+        self.invalidate_bbox_cache();
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
@@ -1003,7 +1041,8 @@ impl WasmEngine {
         Ok(serde_wasm_bindgen::to_value(&res)?)
     }
 
-    fn update_render_mesh(&mut self) {
+        fn update_render_mesh(&mut self) {
+        self.invalidate_bbox_cache();
         let mesh = self.engine.compute_mesh();
         self.stats.vertex_count = mesh.vertices.len() / 3;
         self.stats.triangle_count = mesh.indices.len() / 3;
@@ -1324,10 +1363,40 @@ impl WasmEngine {
         ))
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn export_brd(&self) -> Result<Vec<u8>, JsValue> {
         surfer_core::brd_exporter::export_aku_brd(self.engine.get_model())
             .map_err(|e| JsValue::from_str(&e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bounding_box_cache_hits() {
+        let engine = WasmEngine::new();
+        
+        // First call: populates cache
+        let (min1, max1) = engine.get_view_bounding_box("top");
+        
+        // Second call: should hit the cache
+        let (min2, max2) = engine.get_view_bounding_box("top");
+        
+        assert_eq!(min1, min2);
+        assert_eq!(max1, max2);
+        
+        // Verify cache contains the value
+        if let Ok(cache) = engine.bbox_cache.lock() {
+            assert!(cache[0].is_some());
+        }
+        
+        // Invalidate the cache
+        engine.invalidate_bbox_cache();
+        if let Ok(cache) = engine.bbox_cache.lock() {
+            assert!(cache[0].is_none());
+        }
     }
 }
 
