@@ -1399,8 +1399,6 @@ mod tests {
         println!("✅ test_split_normals_at_poles passed.");
     }
 
-    #[test]
-    fn deleted_test_golden_s3dx_rounded_pin_geometry() {}
 
     #[test]
     fn test_rounded_pin_thickness_does_not_pinch_to_zero() {
