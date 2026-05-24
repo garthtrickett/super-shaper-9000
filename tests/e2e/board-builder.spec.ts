@@ -1026,9 +1026,75 @@ test.describe("Board Builder E2E: The Golden Path", () => {
     
     await page.waitForTimeout(1000);
 
-    await expect(async () => {
-      await expect(inspector).toBeVisible();
-      await expect(inspector).toContainText("Slice");
-    }).toPass({ timeout: 15000 });
-  });
-});
+            await expect(async () => {
+          await expect(inspector).toBeVisible();
+          await expect(inspector).toContainText("Slice");
+        }).toPass({ timeout: 15000 });
+      });
+
+      test("Visual Confirmation of Draft-Mode Dragging and Core Responsiveness", async ({ page }) => {
+        await page.goto('/');
+        const viewport = page.locator("board-viewport");
+        await expect(viewport).toBeVisible();
+        await expect(viewport.locator("canvas")).toBeVisible();
+        await page.waitForTimeout(1000);
+
+        const boardControls = page.locator("board-controls");
+        const initialVolumeText = await boardControls.locator('div.text-2xl.font-black.text-blue-500').textContent();
+
+        // Find and click the middle anchor point
+        const hitPosition = await page.evaluate(() => {
+          type BoardViewportElement = HTMLElement & {
+            requestUpdate?: () => void;
+            updateGizmoScale?: (quad: string, scale: number) => void;
+            mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+            boardState?: { gizmoScaleTop?: number, outline?: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } };
+          };
+          const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+          if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
+          if (viewport.updateGizmoScale) viewport.updateGizmoScale('top', 3.0);
+          const outline = viewport.boardState.outline;
+          const cpList = outline.controlPoints || outline.control_points;
+          const cp = cpList ? cpList[1] : undefined;
+          if (!cp) return null;
+          const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
+          if (!canvas) return null;
+          const rect = canvas.getBoundingClientRect();
+          const aspect = rect.width / rect.height;
+          const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+          const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
+          let ndcX = 0, ndcY = 0;
+          if (viewport.mathEngine && viewport.mathEngine.project_to_screen) {
+              const proj = viewport.mathEngine.project_to_screen('top', x, 0, z, aspect);
+              ndcX = proj[0]!;
+              ndcY = proj[1]!;
+          } else {
+              return null;
+          }
+          const w = rect.width / 2;
+          const h = rect.height / 2;
+          return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
+        });
+
+        expect(hitPosition).toBeTruthy();
+
+        await page.mouse.move(hitPosition!.x, hitPosition!.y);
+        await page.mouse.down();
+
+        // Drag mouse continuously (simulating 10 intermediate frames)
+        for (let i = 1; i <= 10; i++) {
+          await page.mouse.move(hitPosition!.x, hitPosition!.y + (i * 3), { steps: 2 });
+          await page.waitForTimeout(20);
+        }
+
+        // Verify that DURING dragging, the HUD volume has NOT changed (validating draft mode)
+        const currentVolumeText = await boardControls.locator('div.text-2xl.font-black.text-blue-500').textContent();
+        expect(currentVolumeText?.trim()).toEqual(initialVolumeText?.trim());
+
+        // Release mouse to trigger final high-fidelity lofting
+        await page.mouse.up();
+
+        // After mouse release, the 3D solid must be computed and the volume updated
+        await expect(boardControls.locator('div.text-2xl.font-black.text-blue-500')).not.toHaveText(initialVolumeText!);
+      });
+    });

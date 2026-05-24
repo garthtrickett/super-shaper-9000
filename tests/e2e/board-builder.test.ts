@@ -48,6 +48,69 @@ test('Board Builder UI updates correctly on slider changes', async ({ page }) =>
   const duration = Date.now() - startTime;
   console.log(`[Performance] WASM Mesh Rebuild and HUD Update completed in ${duration}ms`);
 
-  const newVertices = await vertexDisplay.textContent();
+    const newVertices = await vertexDisplay.textContent();
   console.log(`[Test] New Vertices: ${newVertices}`);
+});
+
+test('Draft-Mode Dragging performance benchmark maintains fluid main thread', async ({ page }) => {
+  await page.goto('/');
+  const viewport = page.locator("board-viewport");
+  await expect(viewport).toBeVisible();
+  await expect(viewport.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(1000);
+
+  // Get node coordinates
+  const hitPosition = await page.evaluate(() => {
+    type BoardViewportElement = HTMLElement & {
+      requestUpdate?: () => void;
+      updateGizmoScale?: (quad: string, scale: number) => void;
+      mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; };
+      boardState?: { gizmoScaleTop?: number, outline?: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } };
+    };
+    const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
+    if (!viewport || !viewport.boardState || !viewport.boardState.outline) return null;
+    if (viewport.updateGizmoScale) viewport.updateGizmoScale('top', 3.0);
+    const outline = viewport.boardState.outline;
+    const cpList = outline.controlPoints || outline.control_points;
+    const cp = cpList ? cpList[1] : undefined;
+    if (!cp) return null;
+    const canvas = viewport.shadowRoot?.querySelector('canvas') || viewport.querySelector('canvas');
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const aspect = rect.width / rect.height;
+    const x = Array.isArray(cp) ? cp[0] : (cp as {x: number}).x;
+    const z = Array.isArray(cp) ? cp[2] : (cp as {z: number}).z;
+    let ndcX = 0, ndcY = 0;
+    if (viewport.mathEngine && viewport.mathEngine.project_to_screen) {
+        const proj = viewport.mathEngine.project_to_screen('top', x, 0, z, aspect);
+        ndcX = proj[0]!;
+        ndcY = proj[1]!;
+    } else {
+        return null;
+    }
+    const w = rect.width / 2;
+    const h = rect.height / 2;
+    return { x: rect.left + ((ndcX + 1) / 2 * w), y: rect.top + ((1 - ndcY) / 2 * h) };
+  });
+
+  expect(hitPosition).toBeTruthy();
+
+  const startTime = Date.now();
+
+  await page.mouse.move(hitPosition!.x, hitPosition!.y);
+  await page.mouse.down();
+
+  // Move rapidly to simulate high-frequency dragging (30 intermediate steps)
+  for (let i = 1; i <= 30; i++) {
+    await page.mouse.move(hitPosition!.x, hitPosition!.y + i, { steps: 1 });
+  }
+
+  await page.mouse.up();
+  await page.waitForTimeout(500); // Allow final commit to resolve
+
+  const duration = Date.now() - startTime;
+  console.log(`[Performance Benchmark] 30 rapid dragging frames resolved in ${duration}ms`);
+
+  // With draft-mode and unprojection caching, 30 rapid moves must execute in well under 1000ms
+  expect(duration).toBeLessThan(1000);
 });
