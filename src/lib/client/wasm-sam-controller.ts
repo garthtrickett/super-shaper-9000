@@ -45,19 +45,14 @@ export class WasmSamController implements ReactiveController {
     console.info("[WasmSamController] Instantiating Web Worker thread...");
     this.worker = new Worker(new URL("./workers/board-worker.ts", import.meta.url), { type: "module" });
     
-    this.worker.addEventListener("message", (e: MessageEvent) => {
+        this.worker.addEventListener("message", (e: MessageEvent) => {
       const msg = e.data;
-      console.info("[WasmSamController] Main thread received message from Worker of type:", msg?.type, msg);
       
       try {
           if (msg.type === "STATE_UPDATED") {
             if (msg.seq !== undefined && msg.seq < this.currentSequence) {
-              runClientUnscoped(clientLog("debug", `[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`));
-              console.warn(`[WasmSamController] Discarded stale worker update (seq ${msg.seq} < current ${this.currentSequence})`);
               return;
             }
-            runClientUnscoped(clientLog("debug", `[WasmSamController] Applying state update for sequence: ${msg.seq}`));
-            console.info(`[WasmSamController] Applying state update to host for sequence: ${msg.seq}`);
 
             if (this.mathEngine) {
               try {
@@ -71,13 +66,6 @@ export class WasmSamController implements ReactiveController {
             this.mesh = msg.stats;
             this.foilData = msg.foilData;
             this.host.requestUpdate();
-            console.info(`[WasmSamController] host.requestUpdate() dispatched successfully for sequence: ${msg.seq}`);
-          } else if (msg.type === "RENDERER_READY") {
-            runClientUnscoped(clientLog("info", "[WasmSamController] Received RENDERER_READY event from Web Worker."));
-            console.info("[WasmSamController] Received RENDERER_READY event from Web Worker.");
-          } else if (msg.type === "GIZMO_DRAG_COMPLETE") {
-            runClientUnscoped(clientLog("debug", "[WasmSamController] Received GIZMO_DRAG_COMPLETE confirmation from Web Worker."));
-            console.debug("[WasmSamController] Received GIZMO_DRAG_COMPLETE confirmation from Web Worker.");
           } else if (msg.type === "ERROR") {
             runClientUnscoped(clientLog("error", `[WasmSamController] Error received from Web Worker thread: ${msg.error}`));
             console.error(`[WasmSamController] Error received from Web Worker thread: ${msg.error}`);
@@ -100,10 +88,8 @@ export class WasmSamController implements ReactiveController {
     return true;
   }
 
-  propose(action: BoardAction) {
+    propose(action: BoardAction) {
     this.currentSequence++;
-    runClientUnscoped(clientLog("info", `[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`));
-    console.info(`[WasmSamController] Proposing action ${this.currentSequence}: ${action.type}`, action);
     
     // Optimistically apply non-geometry-altering actions on the main thread for instantaneous UI response
     if (!this._isGeometryAltering(action) && this.mathEngine) {

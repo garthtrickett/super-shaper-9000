@@ -254,23 +254,20 @@ export class BoardBuilderPage extends LitElement {
     private _hasLoadedSavedState = false;
   private _autoSaveTimeout?: number;
 
-  protected override willUpdate(changedProperties: PropertyValues) {
-    console.info("[BoardBuilderPage] Entering willUpdate...");
+    protected override willUpdate(changedProperties: PropertyValues) {
     super.willUpdate(changedProperties);
     
     // const modelToSync = this.wasmCtrl.model || INITIAL_STATE;
 
     if (!this._hasLoadedSavedState && this.wasmCtrl.model) {
-      console.info("[BoardBuilderPage] Checking localStorage for saved design...");
       this._hasLoadedSavedState = true;
       try {
         const saved = localStorage.getItem("super_shaper_saved_board");
-        if (saved) {
+        if (saved) { 
           const parsed = JSON.parse(saved) as Partial<BoardModel>;
           if (parsed && parsed.length !== undefined && parsed.outline) {
             setTimeout(() => {
               this._proposeAction({ type: "LOAD_DESIGN", state: parsed as BoardModel });
-              console.info("[BoardBuilder] Auto-loaded saved design from localStorage");
             }, 0);
           }
         }
@@ -280,15 +277,11 @@ export class BoardBuilderPage extends LitElement {
     }
 
     if (this._hasLoadedSavedState && this.wasmCtrl.model) {
-      console.info("[BoardBuilderPage] Scheduling auto-save timer...");
       clearTimeout(this._autoSaveTimeout);
       this._autoSaveTimeout = window.setTimeout(() => {
         localStorage.setItem("super_shaper_saved_board", JSON.stringify(this.wasmCtrl.model));
       }, 1000);
     }
-
-    
-    console.info("[BoardBuilderPage] Exiting willUpdate.");
   }
 
   private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] }) {
@@ -340,8 +333,7 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  override render() {
-    console.info("[BoardBuilderPage] Entering render...");
+    override render() {
     const state = this.wasmCtrl.model || INITIAL_STATE;
     const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
     const foilData = (this.wasmCtrl as unknown as { foilData?: Float32Array }).foilData;
@@ -631,10 +623,9 @@ export class BoardBuilderPage extends LitElement {
               this._proposeAction({ type: "SAVE_HISTORY_SNAPSHOT" });
           }}
           @gizmo-dragged=${this._handleGizmoDrag}
-        ></board-viewport>
+        >        </board-viewport>
       </div>
     `;
-    console.info("[BoardBuilderPage] Exiting render.");
     return res;
   }
 }

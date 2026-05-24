@@ -143,13 +143,11 @@ self.onmessage = async (e: MessageEvent<any>) => {
     const msg = e.data;
     const msgType = msg?.type;
 
-    if (!engine) {
+        if (!engine) {
         console.warn(`[BoardWorker] Engine not ready yet. Queuing message of type: ${msgType}`);
         messageQueue.push(e);
         return;
     }
-
-    console.debug(`[BoardWorker] Received message of type: ${msgType}`);
 
     if (msgType === "INIT_RENDERER") {
         console.info("[BoardWorker] Initializing WGPU renderer with OffscreenCanvas...", {
