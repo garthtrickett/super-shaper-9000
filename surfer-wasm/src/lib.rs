@@ -309,6 +309,20 @@ struct MeshStats {
     triangle_count: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ViewportCameraParams {
+    yaw: f32,
+    pitch: f32,
+    distance: f32,
+    target: glam::Vec3,
+    pan: (f32, f32),
+    is_flipped: bool,
+    is_ortho: bool,
+    aspect: f32,
+    bbox_min: glam::Vec3,
+    bbox_max: glam::Vec3,
+}
+
 #[wasm_bindgen]
 pub struct WasmEngine {
     engine: SurferEngine,
@@ -325,6 +339,9 @@ pub struct WasmEngine {
     show_solid_mesh: bool,
     hover_z: Option<f32>,
     bbox_cache: std::sync::Mutex<[Option<[glam::Vec3; 2]>; 4]>,
+    cached_cam_params: std::sync::Mutex<[Option<ViewportCameraParams>; 4]>,
+    cached_view_projs: std::sync::Mutex<[Option<(glam::Mat4, glam::Vec3)>; 4]>,
+    cached_inv_view_projs: std::sync::Mutex<[Option<glam::Mat4>; 4]>,
 }
 
 impl Default for WasmEngine {
@@ -352,7 +369,7 @@ impl WasmEngine {
             console_error_panic_hook::set_once();
             let _ = console_log::init_with_level(log::Level::Info);
         }
-        Self {
+                Self {
             engine: SurferEngine::new(),
             renderer: None,
             camera_ctrl: CameraController::default(),
@@ -367,12 +384,79 @@ impl WasmEngine {
             show_solid_mesh: true,
             hover_z: None,
             bbox_cache: std::sync::Mutex::new([None; 4]),
+            cached_cam_params: std::sync::Mutex::new([None; 4]),
+            cached_view_projs: std::sync::Mutex::new([None; 4]),
+            cached_inv_view_projs: std::sync::Mutex::new([None; 4]),
         }
     }
 
-    fn invalidate_bbox_cache(&self) {
+        fn invalidate_bbox_cache(&self) {
         if let Ok(mut cache) = self.bbox_cache.lock() {
             *cache = [None; 4];
+        }
+        if let Ok(mut cache) = self.cached_cam_params.lock() {
+            *cache = [None; 4];
+        }
+        if let Ok(mut cache) = self.cached_view_projs.lock() {
+            *cache = [None; 4];
+        }
+        if let Ok(mut cache) = self.cached_inv_view_projs.lock() {
+            *cache = [None; 4];
+        }
+    }
+
+    fn get_current_viewport_camera_params(&self, quad: &str, aspect: f32) -> ViewportCameraParams {
+        let (min_pt, max_pt) = self.get_view_bounding_box(quad);
+        let ctrl = &self.camera_ctrl;
+        match quad {
+            "top" => ViewportCameraParams {
+                yaw: 0.0,
+                pitch: 0.0,
+                distance: ctrl.distance_top,
+                target: ctrl.target,
+                pan: ctrl.pan_top,
+                is_flipped: ctrl.is_flipped,
+                is_ortho: true,
+                aspect,
+                bbox_min: min_pt,
+                bbox_max: max_pt,
+            },
+            "side" => ViewportCameraParams {
+                yaw: 0.0,
+                pitch: 0.0,
+                distance: ctrl.distance_side,
+                target: ctrl.target,
+                pan: ctrl.pan_side,
+                is_flipped: ctrl.is_flipped,
+                is_ortho: true,
+                aspect,
+                bbox_min: min_pt,
+                bbox_max: max_pt,
+            },
+            "profile" => ViewportCameraParams {
+                yaw: 0.0,
+                pitch: 0.0,
+                distance: ctrl.distance_profile,
+                target: ctrl.target,
+                pan: ctrl.pan_profile,
+                is_flipped: ctrl.is_flipped,
+                is_ortho: true,
+                aspect,
+                bbox_min: min_pt,
+                bbox_max: max_pt,
+            },
+            _ => ViewportCameraParams {
+                yaw: ctrl.yaw,
+                pitch: ctrl.pitch,
+                distance: ctrl.distance_persp,
+                target: ctrl.target,
+                pan: (0.0, 0.0),
+                is_flipped: ctrl.is_flipped,
+                is_ortho: self.is_ortho,
+                aspect,
+                bbox_min: min_pt,
+                bbox_max: max_pt,
+            },
         }
     }
 
@@ -479,6 +563,37 @@ impl WasmEngine {
         }
 
     fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
+        let current_params = self.get_current_viewport_camera_params(quad, aspect);
+        if let Some(idx) = viewport_index(quad) {
+            if let Ok(cache_params) = self.cached_cam_params.lock() {
+                if cache_params[idx] == Some(current_params) {
+                    if let Ok(cache_vp) = self.cached_view_projs.lock() {
+                        if let Some(vp) = cache_vp[idx] {
+                            return vp;
+                        }
+                    }
+                }
+            }
+        }
+
+        let (view_proj, cam_pos) = self.compute_camera_params(quad, aspect);
+
+        if let Some(idx) = viewport_index(quad) {
+            if let Ok(mut cache_params) = self.cached_cam_params.lock() {
+                if let Ok(mut cache_vp) = self.cached_view_projs.lock() {
+                    if let Ok(mut cache_inv) = self.cached_inv_view_projs.lock() {
+                        cache_params[idx] = Some(current_params);
+                        cache_vp[idx] = Some((view_proj, cam_pos));
+                        cache_inv[idx] = Some(view_proj.inverse());
+                    }
+                }
+            }
+        }
+
+        (view_proj, cam_pos)
+    }
+
+    fn compute_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
         let (min_pt, max_pt) = self.get_view_bounding_box(quad);
         let model = self.engine.get_model();
 
@@ -542,8 +657,7 @@ impl WasmEngine {
                 let base_frustum = (size_x * 1.1 / (2.0 * aspect)).max(size_y * 1.2 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_profile;
 
-                let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice)
-                {
+                let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice) {
                     cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * scale
                 } else {
                     center_z
@@ -1146,7 +1260,7 @@ impl WasmEngine {
         self.camera_ctrl.distance_persp
     }
 
-    #[allow(clippy::too_many_arguments)]
+        #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn unproject_to_plane(
         &self,
@@ -1158,8 +1272,34 @@ impl WasmEngine {
         orig_y: f32,
         orig_z: f32,
     ) -> js_sys::Float32Array {
-        let (view_proj, cam_pos) = self.get_camera_params(quad, aspect);
-        let inv_vp = view_proj.inverse();
+        let current_params = self.get_current_viewport_camera_params(quad, aspect);
+        let mut inv_vp = glam::Mat4::IDENTITY;
+        let mut cam_pos = glam::Vec3::ZERO;
+        let mut found_cache = false;
+
+        if let Some(idx) = viewport_index(quad) {
+            if let Ok(cache_params) = self.cached_cam_params.lock() {
+                if cache_params[idx] == Some(current_params) {
+                    if let Ok(cache_inv) = self.cached_inv_view_projs.lock() {
+                        if let Some(inv) = cache_inv[idx] {
+                            inv_vp = inv;
+                            found_cache = true;
+                        }
+                    }
+                    if let Ok(cache_vp) = self.cached_view_projs.lock() {
+                        if let Some((_, pos)) = cache_vp[idx] {
+                            cam_pos = pos;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !found_cache {
+            let (view_proj, pos) = self.get_camera_params(quad, aspect);
+            inv_vp = view_proj.inverse();
+            cam_pos = pos;
+        }
 
         let ndc_near = glam::Vec4::new(ndc_x, ndc_y, 0.1, 1.0);
         let ndc_far = glam::Vec4::new(ndc_x, ndc_y, 0.9, 1.0);
@@ -1374,7 +1514,7 @@ impl WasmEngine {
 mod tests {
     use super::*;
 
-    #[test]
+        #[test]
     fn test_bounding_box_cache_hits() {
         let engine = WasmEngine::new();
         
@@ -1397,6 +1537,34 @@ mod tests {
         if let Ok(cache) = engine.bbox_cache.lock() {
             assert!(cache[0].is_none());
         }
+    }
+
+    #[test]
+    fn test_matrix_cache_hits_and_invalidation() {
+        let engine = WasmEngine::new();
+        
+        // Initial call: computes and caches
+        let (vp1, pos1) = engine.get_camera_params("top", 1.33);
+        
+        // Second call with identical params: hits cache
+        let (vp2, pos2) = engine.get_camera_params("top", 1.33);
+        
+        assert_eq!(vp1, vp2);
+        assert_eq!(pos1, pos2);
+        
+        // Verify cache contains the inverse matrix
+        if let Ok(cache) = engine.cached_inv_view_projs.lock() {
+            assert!(cache[0].is_some());
+        }
+        
+        // Modify camera parameter on controller (e.g. pan)
+        let mut engine_mut = WasmEngine::new();
+        let (vp_init, _) = engine_mut.get_camera_params("top", 1.33);
+        engine_mut.camera_ctrl.pan_top = (10.0, 5.0);
+        let (vp_new, _) = engine_mut.get_camera_params("top", 1.33);
+        
+        // Should recalculate due to cache invalidation/mismatch
+        assert_ne!(vp_init, vp_new);
     }
 }
 

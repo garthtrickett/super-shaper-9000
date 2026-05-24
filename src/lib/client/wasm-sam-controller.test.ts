@@ -212,8 +212,38 @@ describe("WasmSamController (FFI Integration)", () => {
             const duration = performance.now() - startTime;
             console.log(`[Performance Benchmark] 100 unprojects took: ${duration.toFixed(3)}ms`);
             
-            // Unproject with cached bounding boxes should be highly responsive (under 25ms)
+                        // Unproject with cached bounding boxes should be highly responsive (under 25ms)
             expect(duration).to.be.lessThan(50);
+            
+            controller.hostDisconnected();
+          });
+
+          it("verifies that inverse view-projection matrix unprojection is extremely fast and stable when the board geometry and camera are static", async () => {
+            const host = new MockHost();
+            const controller = new WasmSamController(host);
+            
+            for (let i = 0; i < 200; i++) {
+              if (controller.model) break;
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            expect(controller.mathEngine).to.exist;
+
+            // Warm up cache
+            controller.mathEngine!.unproject_to_plane("top", 0.5, -0.5, 1.3, 0, 0, 0);
+
+            const startTime = performance.now();
+            
+            // Execute 1000 consecutive unproject calls to measure cache hit speed
+            for (let i = 0; i < 1000; i++) {
+              controller.mathEngine!.unproject_to_plane("top", 0.5, -0.5, 1.3, 0, 0, 0);
+            }
+            
+            const duration = performance.now() - startTime;
+            console.log(`[Performance Benchmark] 1000 cached matrix unprojects took: ${duration.toFixed(3)}ms`);
+            
+            // Cached unprojects must be sub-microsecond in average execution time, comfortably under 20ms for 1000 runs
+            expect(duration).to.be.lessThan(20);
             
             controller.hostDisconnected();
           });
