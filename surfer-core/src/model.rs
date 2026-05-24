@@ -557,11 +557,63 @@ mod serde_vec3_as_array {
         arrays.serialize(serializer)
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec3>, D::Error>
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec3>, D::Error>
     where
         D: Deserializer<'de>,
     {
         let arrays: Vec<[f32; 3]> = Vec::deserialize(deserializer)?;
         Ok(arrays.iter().map(|a| Vec3::new(a[0], a[1], a[2])).collect())
+    }
+}
+
+impl BoardAction {
+    pub fn is_geometry_altering(&self) -> bool { 
+        match self {
+            BoardAction::SelectNode { .. } => false,
+            BoardAction::SaveHistorySnapshot => false,
+            BoardAction::UpdateBoolean { .. } => false,
+            BoardAction::UpdateNumber { param, .. } if param == "mriSlicePosition" => false,
+            _ => true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests_board_action {
+    use super::*;
+
+    #[test]
+    fn test_is_geometry_altering() {
+        let act_select = BoardAction::SelectNode { node: None };
+        assert!(!act_select.is_geometry_altering());
+
+        let act_snapshot = BoardAction::SaveHistorySnapshot;
+        assert!(!act_snapshot.is_geometry_altering());
+
+        let act_bool = BoardAction::UpdateBoolean {
+            param: "showHeatmap".to_string(),
+            value: true,
+        };
+        assert!(!act_bool.is_geometry_altering());
+
+        let act_mri = BoardAction::UpdateNumber {
+            param: "mriSlicePosition".to_string(),
+            value: 45.0,
+        };
+        assert!(!act_mri.is_geometry_altering());
+
+        let act_len = BoardAction::UpdateNumber {
+            param: "length".to_string(),
+            value: 72.0,
+        };
+        assert!(act_len.is_geometry_altering());
+
+        let act_node = BoardAction::UpdateNodePosition {
+            curve: "outline".to_string(),
+            index: 0,
+            node_type: "anchor".to_string(),
+            position: [1.0, 2.0, 3.0],
+        };
+        assert!(act_node.is_geometry_altering());
     }
 }

@@ -369,7 +369,7 @@ impl WasmEngine {
             console_error_panic_hook::set_once();
             let _ = console_log::init_with_level(log::Level::Info);
         }
-                Self {
+        Self {
             engine: SurferEngine::new(),
             renderer: None,
             camera_ctrl: CameraController::default(),
@@ -390,7 +390,7 @@ impl WasmEngine {
         }
     }
 
-        fn invalidate_bbox_cache(&self) {
+    fn invalidate_bbox_cache(&self) {
         if let Ok(mut cache) = self.bbox_cache.lock() {
             *cache = [None; 4];
         }
@@ -548,19 +548,19 @@ impl WasmEngine {
             min_pt.y = -2.0;
             max_pt.y = 2.0;
         }
-                    if min_pt.z.is_infinite() {
-                min_pt.z = 0.0;
-                max_pt.z = 70.0;
-            }
-
-            if let Some(idx) = viewport_index(quad) {
-                if let Ok(mut cache) = self.bbox_cache.lock() {
-                    cache[idx] = Some([min_pt, max_pt]);
-                }
-            }
-
-            (min_pt, max_pt)
+        if min_pt.z.is_infinite() {
+            min_pt.z = 0.0;
+            max_pt.z = 70.0;
         }
+
+        if let Some(idx) = viewport_index(quad) {
+            if let Ok(mut cache) = self.bbox_cache.lock() {
+                cache[idx] = Some([min_pt, max_pt]);
+            }
+        }
+
+        (min_pt, max_pt)
+    }
 
     fn get_camera_params(&self, quad: &str, aspect: f32) -> (glam::Mat4, glam::Vec3) {
         let current_params = self.get_current_viewport_camera_params(quad, aspect);
@@ -657,7 +657,8 @@ impl WasmEngine {
                 let base_frustum = (size_x * 1.1 / (2.0 * aspect)).max(size_y * 1.2 / 2.0);
                 let frustum = base_frustum * self.camera_ctrl.distance_profile;
 
-                let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice) {
+                let target_z = if let Some(cs) = model.cross_sections.get(self.active_profile_slice)
+                {
                     cs.control_points.first().map(|p| p.z).unwrap_or(0.0) * scale
                 } else {
                     center_z
@@ -895,7 +896,7 @@ impl WasmEngine {
         self.update_view_lines(quad);
     }
 
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn handle_gizmo_drag(
         &mut self,
@@ -916,24 +917,29 @@ impl WasmEngine {
         };
         self.engine.update(action);
 
-                    if continuity != "G0" && (node_type == "tangent1" || node_type == "tangent2") {
-                let cont_action = surfer_core::model::BoardAction::ApplyContinuity {
-                    curve: curve_name.to_string(),
-                    index,
-                    level: continuity.to_string(),
-                    master: Some(node_type.to_string()),
-                };
-                self.engine.update(cont_action);
-            }
-
-            self.update_render_mesh_draft();
+        if continuity != "G0" && (node_type == "tangent1" || node_type == "tangent2") {
+            let cont_action = surfer_core::model::BoardAction::ApplyContinuity {
+                curve: curve_name.to_string(),
+                index,
+                level: continuity.to_string(),
+                master: Some(node_type.to_string()),
+            };
+            self.engine.update(cont_action);
         }
 
+        self.update_render_mesh_draft();
+    }
+
+    #[wasm_bindgen]
         #[wasm_bindgen]
     pub fn propose_state_only(&mut self, action_js: JsValue) -> Result<(), JsValue> {
-        self.invalidate_bbox_cache();
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        
+        if action.is_geometry_altering() {
+            self.invalidate_bbox_cache();
+        }
+        
         self.engine.update(action);
         Ok(())
     }
@@ -1138,14 +1144,24 @@ impl WasmEngine {
         Ok(())
     }
 
+    #[wasm_bindgen]
         #[wasm_bindgen]
     pub fn propose(&mut self, action_js: JsValue) -> Result<JsValue, JsValue> {
-        self.invalidate_bbox_cache();
         let action: BoardAction = serde_wasm_bindgen::from_value(action_js)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
+        let is_geo = action.is_geometry_altering();
+        if is_geo {
+            self.invalidate_bbox_cache();
+        }
+
         let (new_state, effects) = self.engine.update(action);
-        self.update_render_mesh();
+        
+        if is_geo {
+            self.update_render_mesh();
+        } else {
+            self.update_render_mesh_draft();
+        }
 
         let res = WasmUpdateResult {
             state: &new_state,
@@ -1155,7 +1171,7 @@ impl WasmEngine {
         Ok(serde_wasm_bindgen::to_value(&res)?)
     }
 
-            fn update_render_mesh(&mut self) {
+    fn update_render_mesh(&mut self) {
         self.invalidate_bbox_cache();
         let mesh = self.engine.compute_mesh();
         self.stats.vertex_count = mesh.vertices.len() / 3;
@@ -1267,7 +1283,7 @@ impl WasmEngine {
         self.camera_ctrl.distance_persp
     }
 
-        #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen]
     pub fn unproject_to_plane(
         &self,
@@ -1510,7 +1526,7 @@ impl WasmEngine {
         ))
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn export_brd(&self) -> Result<Vec<u8>, JsValue> {
         surfer_core::brd_exporter::export_aku_brd(self.engine.get_model())
             .map_err(|e| JsValue::from_str(&e))
@@ -1521,57 +1537,91 @@ impl WasmEngine {
 mod tests {
     use super::*;
 
-        #[test]
+    #[test]
     fn test_bounding_box_cache_hits() {
         let engine = WasmEngine::new();
-        
+
         // First call: populates cache
         let (min1, max1) = engine.get_view_bounding_box("top");
-        
+
         // Second call: should hit the cache
         let (min2, max2) = engine.get_view_bounding_box("top");
-        
+
         assert_eq!(min1, min2);
         assert_eq!(max1, max2);
-        
+
         // Verify cache contains the value
         if let Ok(cache) = engine.bbox_cache.lock() {
             assert!(cache[0].is_some());
         }
-        
+
         // Invalidate the cache
         engine.invalidate_bbox_cache();
         if let Ok(cache) = engine.bbox_cache.lock() {
             assert!(cache[0].is_none());
-        }
+        };
     }
 
     #[test]
     fn test_matrix_cache_hits_and_invalidation() {
         let engine = WasmEngine::new();
-        
+
         // Initial call: computes and caches
         let (vp1, pos1) = engine.get_camera_params("top", 1.33);
-        
+
         // Second call with identical params: hits cache
         let (vp2, pos2) = engine.get_camera_params("top", 1.33);
-        
+
         assert_eq!(vp1, vp2);
         assert_eq!(pos1, pos2);
-        
+
         // Verify cache contains the inverse matrix
         if let Ok(cache) = engine.cached_inv_view_projs.lock() {
             assert!(cache[0].is_some());
         }
-        
+
         // Modify camera parameter on controller (e.g. pan)
         let mut engine_mut = WasmEngine::new();
         let (vp_init, _) = engine_mut.get_camera_params("top", 1.33);
         engine_mut.camera_ctrl.pan_top = (10.0, 5.0);
         let (vp_new, _) = engine_mut.get_camera_params("top", 1.33);
-        
-        // Should recalculate due to cache invalidation/mismatch
+
+                // Should recalculate due to cache invalidation/mismatch
         assert_ne!(vp_init, vp_new);
+    }
+
+    #[test]
+    fn test_propose_select_node_preserves_caches() {
+        let mut engine = WasmEngine::new();
+        
+        // Populate caches
+        let _ = engine.get_view_bounding_box("top");
+        let _ = engine.get_camera_params("top", 1.33);
+        
+        // Assert caches are populated
+        {
+            let cache = engine.bbox_cache.lock().unwrap();
+            assert!(cache[0].is_some());
+        }
+        {
+            let cam_cache = engine.cached_cam_params.lock().unwrap();
+            assert!(cam_cache[0].is_some());
+        }
+
+        // Propose a non-geometry-altering action (SelectNode)
+        let action = surfer_core::model::BoardAction::SelectNode { node: None };
+        let action_js = serde_wasm_bindgen::to_value(&action).unwrap();
+        let _ = engine.propose(action_js).unwrap();
+
+        // Caches must remain populated
+        {
+            let cache = engine.bbox_cache.lock().unwrap();
+            assert!(cache[0].is_some(), "Bounding box cache was cleared on non-geometric action!");
+        }
+        {
+            let cam_cache = engine.cached_cam_params.lock().unwrap();
+            assert!(cam_cache[0].is_some(), "Camera params cache was cleared on non-geometric action!");
+        }
     }
 }
 

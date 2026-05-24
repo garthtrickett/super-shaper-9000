@@ -297,10 +297,40 @@ describe("WasmSamController (FFI Integration)", () => {
               await new Promise((resolve) => setTimeout(resolve, 50));
             }
 
-            // Verify the mesh was successfully rebuilt and stats updated on release
+                        // Verify the mesh was successfully rebuilt and stats updated on release
             expect(controller.model!.outline!.controlPoints[1]![0]).to.equal(15.0);
             expect(controller.mesh!.vertexCount).to.not.equal(initialVertexCount);
 
+            controller.hostDisconnected();
+          });
+
+          it("processes rapid node selection switches in under 1ms on average", async () => {
+            const host = new MockHost();
+            const controller = new WasmSamController(host);
+            
+            for (let i = 0; i < 200; i++) {
+              if (controller.model) break;
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            const startTime = performance.now();
+            const count = 10;
+            for (let i = 0; i < count; i++) {
+              controller.propose({
+                type: "SELECT_NODE",
+                node: {
+                  curve: "outline",
+                  index: i % 3,
+                  type: "anchor"
+                }
+              });
+            }
+
+            const duration = performance.now() - startTime;
+            const avgDuration = duration / count;
+            console.log(`[Performance Benchmark] Average selection switch duration: ${avgDuration.toFixed(3)}ms`);
+            
+            expect(avgDuration).to.be.lessThan(1.0);
             controller.hostDisconnected();
           });
         });

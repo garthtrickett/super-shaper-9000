@@ -17,52 +17,22 @@ import "../ui/import-modal";
 export class BoardBuilderPage extends LitElement {
   private wasmCtrl = new WasmSamController(this);
   private keyboardCtrl = new KeyboardController(this, {
-    onUndo: () => this._proposeAction({ type: "UNDO" }),
-    onRedo: () => this._proposeAction({ type: "REDO" }),
-  });
+    onUndo: () => this.  private _isGeometryAltering(action: BoardAction): boolean {
+    if (action.type === "SELECT_NODE" || action.type === "SAVE_HISTORY_SNAPSHOT" || action.type === "UPDATE_BOOLEAN") {
+      return false;
+    }
+    if (action.type === "UPDATE_NUMBER" && action.param === "mriSlicePosition") {
+      return false;
+    }
+    return true;
+  }
 
-  @state() private mathEngine?: WasmEngine;
-
-  @state() private showExportModal = false;
-  @state() private showImportModal = false;
-  @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
-      @state() private showContourEditor = false;
-  @state() private contourZPosition = 20.0;
-  @state() private contourSliceData?: Float32Array;
-  @state() private isProcessing = false;
-  @state() private isRendererReady = false;
-
-    private _workerBusyWithDrag = false;
-  private _pendingDragDetail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number] } | null = null;
-
-      private _proposeAction(action: BoardAction) {
-    if (action.type !== "SELECT_NODE" && action.type !== "SAVE_HISTORY_SNAPSHOT" && action.type !== "UPDATE_BOOLEAN" && action.type !== "UPDATE_STRING") {
+  private _proposeAction(action: BoardAction) {
+    if (this._isGeometryAltering(action)) {
       this.isProcessing = true;
     }
     this.wasmCtrl.propose(action);
-  }
-
-        private _previewAction(action: BoardAction) {
-    if (!this.mathEngine) return;
-    try {
-            type MathEngineExt = WasmEngine & { propose_state_only(action: unknown): void };
-      let state: BoardModel;
-      if ((this.mathEngine as unknown as MathEngineExt).propose_state_only) {
-          (this.mathEngine as unknown as MathEngineExt).propose_state_only(action);
-          state = this.mathEngine.get_state() as unknown as BoardModel;
-      } else {
-          const result = this.mathEngine.propose(action) as unknown as { state: BoardModel };
-          state = result.state;
-      }
-      
-      const viewport = this.shadowRoot?.querySelector('board-viewport') as unknown as { boardState: BoardModel };
-      if (viewport && state) {
-        viewport.boardState = state;
-      }
-
-            // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly
-      if (action.type === "UPDATE_NUMBER" && action.param === "mriSlicePosition") {
-          const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+  }).worker;
           if (worker) {
               worker.postMessage({ type: "PROPOSE", action, seq: this.wasmCtrl.currentSequence });
           }
