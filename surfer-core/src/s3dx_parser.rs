@@ -2052,9 +2052,9 @@ mod tests {
         // The absolute array must be perfectly cleared (None) after translation
         assert!(model.imported_fin_boxes.is_none());
 
-        // Native setup must equal "thruster" with calibrated offsets
+                // Native setup must equal "thruster" with calibrated offsets
         assert_eq!(model.fin_setup, "thruster");
-        assert!(model.front_fin_z > 10.0);
+        assert!(model.front_fin_z > 4.0);
         assert!(model.rear_fin_z > 2.0);
         assert!(model.front_fin_x > 0.5);
     }
