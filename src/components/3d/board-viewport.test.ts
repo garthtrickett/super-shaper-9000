@@ -94,25 +94,29 @@ describe("BoardViewport (3D Component)", () => {
       });
     });
 
-    it("renders Fins & Plugs option in Top display settings and toggles it", async () => {
-      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
-      (el as any).maximizedView = null;
-      await el.updateComplete;
+      it("renders Fins & Plugs option in Top display settings and toggles it", async () => {
+    const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
+    (el as any).maximizedView = null;
+    await el.updateComplete;
 
-      const perspectiveCog = el.querySelector('button[title="Display Settings"]') as HTMLButtonElement;
-      expect(perspectiveCog).to.exist;
-      perspectiveCog.click();
-      await el.updateComplete;
+    const perspectiveCog = el.querySelector('button[title="Display Settings"]') as HTMLButtonElement;
+    expect(perspectiveCog).to.exist;
+    perspectiveCog.click();
+    await el.updateComplete;
 
-      const labels = Array.from(el.querySelectorAll('label'));
-      const finLabel = labels.find(l => l.textContent?.includes("Fins & Plugs"));
-      expect(finLabel).to.exist;
+    const spans = Array.from(el.querySelectorAll('span'));
+    const finSpan = spans.find(s => s.textContent?.includes("Fins & Plugs"));
+    expect(finSpan).to.exist;
 
-      const checkbox = finLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement;
-      expect(checkbox.checked).to.be.true;
+    const finRow = finSpan!.parentElement;
+    expect(finRow).to.exist;
 
-      checkbox.click();
-      await el.updateComplete;
-      expect(checkbox.checked).to.be.false;
-    });
+    const checkboxes = finRow!.querySelectorAll('input[type="checkbox"]');
+    const checkbox = checkboxes[0] as HTMLInputElement;
+    expect(checkbox.checked).to.be.true;
+
+    checkbox.click();
+    await el.updateComplete;
+    expect(checkbox.checked).to.be.false;
+  });
 });
