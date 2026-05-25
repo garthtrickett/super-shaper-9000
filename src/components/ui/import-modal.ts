@@ -6,14 +6,10 @@ import { clientLog } from "../../lib/client/clientLog";
 import { runClientUnscoped } from "../../lib/client/runtime";
 
 // Asset URL imports via Vite
-import fishS3dx from "../../assets/fixtures/s3dx/FISH.s3dx?url";
-import tomoLikeS3dx from "../../assets/fixtures/s3dx/TomoLike.s3dx?url";
 import roundedPinS3dx from "../../assets/fixtures/s3dx/rounded-pin-6-1.s3dx?url";
 import dumpsterDiverS3dx from "../../assets/fixtures/s3dx/CI-Dumpster-Diver.s3dx?url";
 import wildcatS3dx from "../../assets/fixtures/s3dx/wildcat-fixed-winged-pin.s3dx?url";
 import gh60S3dx from "../../assets/fixtures/s3dx/gh-60-winged-swallow.s3dx?url";
-import midBevelS3dx from "../../assets/fixtures/s3dx/Mid Bevel.s3dx?url";
-import singleChannelsS3dx from "../../assets/fixtures/s3dx/Single Channels.s3dx?url";
 
 import miniSimmonsBrd from "../../assets/fixtures/brd/5'4-Mini-Simmons.brd?url";
 import bumpSquashBrd from "../../assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd?url";
@@ -21,7 +17,6 @@ import eggBrd from "../../assets/fixtures/brd/7'0-Egg.brd?url";
 import thumbTailBrd from "../../assets/fixtures/brd/6'0-Thumb-Tail-Hybrid.brd?url";
 import miniLongboardBrd from "../../assets/fixtures/brd/6'10-Mini-Longboard.brd?url";
 import doubleWingBrd from "../../assets/fixtures/brd/6'5-Double-Wing-Groveler.brd?url";
-import channelPintailBrd from "../../assets/fixtures/brd/7'7-Channel-Pintail.brd?url";
 
 @customElement("import-modal")
 export class ImportModal extends LitElement {
@@ -167,15 +162,11 @@ export class ImportModal extends LitElement {
                 
                 ${this.s3dxFolderOpen ? html`
                   <div class="p-2 space-y-1 divide-y divide-zinc-800/30">
-                    ${[
-                      { name: "Fish (Classic Outline)", url: fishS3dx, desc: "Classic retro fish outline with swallow tail" },
-                      { name: "Tomo-Like (Modern Planing)", url: tomoLikeS3dx, desc: "Parallel rail, stubby nose high performance design" },
+                                        ${[
                       { name: "Rounded Pin 6'1\"", url: roundedPinS3dx, desc: "Sleek step-up rounded pin model" },
                       { name: "CI Dumpster Diver", url: dumpsterDiverS3dx, desc: "Short, wide, high performance groveler" },
-                                            { name: "Wildcat (Winged Pin)", url: wildcatS3dx, desc: "Modern channel bottom winged pintail hybrid" },
-                      { name: "GH-60 (Winged Swallow)", url: gh60S3dx, desc: "Classic performance hybrid winged swallow tail" },
-                      { name: "Mid Bevel", url: midBevelS3dx, desc: "Performance midlength with chined/beveled rail panels" },
-                      { name: "Single Channels", url: singleChannelsS3dx, desc: "Classic channel bottom design with customized tail exits" }
+                      { name: "Wildcat (Winged Pin)", url: wildcatS3dx, desc: "Modern channel bottom winged pintail hybrid" },
+                      { name: "GH-60 (Winged Swallow)", url: gh60S3dx, desc: "Classic performance hybrid winged swallow tail" }
                     ].map(board => html`
                       <div class="flex items-center justify-between p-2 hover:bg-zinc-800/20 transition-all rounded">
                         <div class="flex flex-col">
@@ -207,14 +198,13 @@ export class ImportModal extends LitElement {
                 
                 ${this.brdFolderOpen ? html`
                   <div class="p-2 space-y-1 divide-y divide-zinc-800/30">
-                                        ${[
+                                                            ${[
                       { name: "5'4\" Mini Simmons", url: miniSimmonsBrd, desc: "Ultra-wide, super fast planning hull" },
                       { name: "6'0\" Thumb Tail Hybrid", url: thumbTailBrd, desc: "Versatile, flowing shortboard with a thumb tail" },
                       { name: "6'4\" Bump Squash (Full Nose)", url: bumpSquashBrd, desc: "Aggressive shortboard with forward volume" },
                       { name: "6'5\" Double Wing Groveler", url: doubleWingBrd, desc: "High performance wide-tail design with double wing steps" },
                       { name: "7'0\" Egg", url: eggBrd, desc: "Classic midlength egg for smooth, flowing lines" },
-                      { name: "6'10\" Mini Longboard", url: miniLongboardBrd, desc: "Fun-sized longboard for easy paddling and clean glides" },
-                      { name: "7'7\" Channel Pintail", url: channelPintailBrd, desc: "Performance step-up design with channel bottom" }
+                      { name: "6'10\" Mini Longboard", url: miniLongboardBrd, desc: "Fun-sized longboard for easy paddling and clean glides" }
                     ].map(board => html`
                       <div class="flex items-center justify-between p-2 hover:bg-zinc-800/20 transition-all rounded">
                         <div class="flex flex-col">
