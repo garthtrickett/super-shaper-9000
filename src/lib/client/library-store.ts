@@ -24,7 +24,7 @@ export function getLibraryIndex(): LibraryEntry[] {
       runClientUnscoped(clientLog("debug", "[LibraryStore] No index found, returning empty list"));
       return [];
     }
-    const parsed = JSON.parse(raw);
+        const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) {
       runClientUnscoped(clientLog("debug", `[LibraryStore] Successfully parsed index with ${parsed.length} entries`));
       return parsed as LibraryEntry[];

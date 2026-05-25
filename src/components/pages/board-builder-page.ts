@@ -235,7 +235,7 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _handleSaveToLibrary() {
+    private _handleSaveToLibrary = () => {
     const name = prompt('Enter a name for your saved design:');
     if (name && name.trim()) {
       const state = this.wasmCtrl.model;
