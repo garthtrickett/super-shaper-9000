@@ -217,18 +217,28 @@ mod tests {
     use glam::Vec3;
 
     fn create_test_model() -> BoardModel {
-        let mut model = BoardModel::default();
-        model.length = 72.0;
-        model.width = 20.0;
-        model.thickness = 2.5;
-        model.outline = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, -36.0),
-                Vec3::new(10.0, 0.0, 0.0),
-                Vec3::new(0.0, 0.0, 36.0),
-            ],
-            ..Default::default()
-        });
+    let mut model = BoardModel::default();
+    model.length = 72.0;
+    model.width = 20.0;
+    model.thickness = 2.5;
+    model.outline = Some(BezierCurveData {
+        control_points: vec![
+            Vec3::new(0.0, 0.0, -36.0),
+            Vec3::new(10.0, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 36.0),
+        ],
+        tangents1: vec![
+            Vec3::new(0.0, 0.0, -36.0),
+            Vec3::new(10.0, 0.0, -12.0),
+            Vec3::new(15.19, 0.0, 24.0),
+        ],
+        tangents2: vec![
+            Vec3::new(15.19, 0.0, -24.0),
+            Vec3::new(10.0, 0.0, 12.0),
+            Vec3::new(0.0, 0.0, 36.0),
+        ],
+        ..Default::default()
+    });
         model.rocker_bottom = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, -1.25, -36.0), Vec3::new(0.0, -1.25, 36.0)],
             ..Default::default()

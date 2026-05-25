@@ -110,12 +110,134 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
     if BYPASS_CALIBRATION {
         return;
     }
-    let rocker = match &model.rocker_bottom {
-        Some(r) => r,
-        None => return,
-    };
-    if rocker.control_points.is_empty() {
-        return;
+    let has_rocker = model.rocker_bottom.as_ref()
+        .map(|r| !r.control_points.is_empty())
+        .unwrap_or(false);
+
+    if has_rocker {
+        let rocker = model.rocker_bottom.as_ref().unwrap();
+        let bounds = get_board_bounds(model);
+        let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
+
+        let active_length = bounds.tip_z - bounds.nose_z;
+        let scale_factor = if active_length > 0.0 {
+            table.total_length / active_length
+        } else {
+            1.0
+        };
+
+        let warp_curve = |curve_opt: &mut Option<BezierCurveData>| {
+            if let Some(curve) = curve_opt {
+                for i in 0..curve.control_points.len() {
+                    let z_imported = curve.control_points[i].z;
+                    let s_from_tail = (bounds.tip_z - z_imported) * scale_factor;
+                    let z_calibrated = table.map_s_to_z(s_from_tail);
+                    let dz = z_calibrated - z_imported;
+
+                    curve.control_points[i].z += dz;
+                    if i < curve.tangents1.len() {
+                        curve.tangents1[i].z += dz;
+                    }
+                    if i < curve.tangents2.len() {
+                        curve.tangents2[i].z += dz;
+                    }
+                }
+            }
+        };
+
+        warp_curve(&mut model.outline);
+        warp_curve(&mut model.rail_outline);
+        warp_curve(&mut model.apex_outline);
+        warp_curve(&mut model.deck_shoulder);
+        warp_curve(&mut model.rocker_top);
+        warp_curve(&mut model.rocker_bottom);
+        warp_curve(&mut model.apex_rocker);
+
+        if let Some(layers) = &mut model.outline_layers {
+            for l in layers {
+                let mut ext = Some(l.otl_ext.clone());
+                warp_curve(&mut ext);
+                if let Some(ext) = ext {
+                    l.otl_ext = ext;
+                }
+
+                let mut int = Some(l.otl_int.clone());
+                warp_curve(&mut int);
+                if let Some(int) = int {
+                    l.otl_int = int;
+                }
+            } 
+        }
+
+        if let Some(channels) = &mut model.bottom_channels {
+            for c in channels {
+                let mut lo = Some(c.left_outline.clone());
+                warp_curve(&mut lo);
+                if let Some(lo) = lo {
+                    c.left_outline = lo;
+                }
+                let mut ro = Some(c.right_outline.clone());
+                warp_curve(&mut ro);
+                if let Some(ro) = ro {
+                    c.right_outline = ro;
+                }
+                let mut ld = Some(c.left_depth.clone());
+                warp_curve(&mut ld);
+                if let Some(ld) = ld {
+                    c.left_depth = ld;
+                }
+                let mut rd = Some(c.right_depth.clone());
+                warp_curve(&mut rd);
+                if let Some(rd) = rd {
+                    c.right_depth = rd;
+                }
+            } 
+        }
+
+        for cs in &mut model.cross_sections {
+            if cs.control_points.is_empty() {
+                continue;
+            }
+            let z_imported = cs.control_points[0].z;
+            let s_from_tail = (bounds.tip_z - z_imported) * scale_factor;
+            let z_calibrated = table.map_s_to_z(s_from_tail);
+            let dz = z_calibrated - z_imported;
+
+            for p in &mut cs.control_points {
+                p.z += dz;
+            }
+            for p in &mut cs.tangents1 {
+                p.z += dz;
+            }
+            for p in &mut cs.tangents2 {
+                p.z += dz;
+            }
+        }
+
+        if let Some(mut fin_boxes) = model.imported_fin_boxes.take() {
+            for fb in &mut fin_boxes {
+                let s_from_tail = (bounds.tip_z - fb.z) * scale_factor;
+                let z_calibrated = table.map_s_to_z(s_from_tail);
+                fb.z = z_calibrated;
+
+                if !fb.central {
+                    let hint_t = (fb.z - bounds.nose_z) / model.length;
+                    let outline_pt = 
+                        crate::geometry::evaluate_composite_outline_at_z(model, fb.z, hint_t);
+                    let half_width = outline_pt.x.abs();
+
+                    let max_allowed_x = (half_width - (fb.width / 2.0) - 0.1).max(0.0);
+                    if fb.x > max_allowed_x {
+                        fb.x = max_allowed_x;
+                    }
+                }
+            }
+            crate::geometry::translate_absolute_to_parametric_fins(model, &fin_boxes);
+        }
+    } else {
+        if let Some(fin_boxes) = model.imported_fin_boxes.take() {
+            crate::geometry::translate_absolute_to_parametric_fins(model, &fin_boxes);
+        }
     }
     let bounds = get_board_bounds(model);
     let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
