@@ -34,6 +34,25 @@ pub struct ChannelLayer {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct ImportedFinBox {
+    pub name: String,
+    pub style: i32,
+    pub length: f32,
+    pub width: f32,
+    pub height: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub angle_oz: f32,
+    pub even: bool,
+    pub central: bool,
+    pub tilt: Option<f32>,
+    pub cant: Option<f32>,
+    pub pt_convergence: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct SelectedNode {
     pub curve: String,
     pub index: usize,
