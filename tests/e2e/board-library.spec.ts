@@ -14,7 +14,7 @@ test.describe("Board Library E2E Flow", () => {
     await expect(boardControls).toBeVisible();
 
     // 2. Adjust board dimensions (e.g. Change length to 85 inches)
-    const lengthContainer = boardControls.locator(".mb-4").filter({ hasText: /^Length$/i }).first();
+    const lengthContainer = boardControls.locator(".mb-4").filter({ hasText: "Length" }).first();
     const lengthSlider = lengthContainer.locator('input[type="range"]');
     const lengthInput = lengthContainer.locator('input[type="text"]');
 

@@ -27,7 +27,7 @@ test('Board Builder UI updates correctly on slider changes', async ({ page }) =>
   console.log(`[Test] Initial Vertices: ${initialVertices}`);
 
     // 2. Drag the Length slider to change the board size
-  const lengthContainer = boardControls.locator('.mb-4').filter({ hasText: /^Length$/i }).first();
+  const lengthContainer = boardControls.locator('.mb-4').filter({ hasText: "Length" }).first();
   const lengthSlider = lengthContainer.locator('input[type="range"]');
 
   const startTime = Date.now();
