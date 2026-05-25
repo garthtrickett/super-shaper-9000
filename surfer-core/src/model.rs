@@ -54,6 +54,7 @@ pub struct ManualSnapshot {
     pub apex_rocker: Option<BezierCurveData>,
     pub deck_shoulder: Option<BezierCurveData>,
     pub cross_sections: Vec<BezierCurveData>,
+    pub imported_fin_boxes: Option<Vec<ImportedFinBox>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -118,9 +119,10 @@ pub struct BoardModel {
     pub rocker_top: Option<BezierCurveData>,
     pub rocker_bottom: Option<BezierCurveData>,
     pub apex_rocker: Option<BezierCurveData>,
-    pub deck_shoulder: Option<BezierCurveData>,
+        pub deck_shoulder: Option<BezierCurveData>,
     #[serde(default)]
     pub cross_sections: Vec<BezierCurveData>,
+    pub imported_fin_boxes: Option<Vec<ImportedFinBox>>,
 }
 
 impl approx::AbsDiffEq for BezierCurveData {
@@ -240,6 +242,49 @@ impl approx::RelativeEq for ChannelLayer {
     }
 }
 
+impl approx::AbsDiffEq for ImportedFinBox {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.name == other.name
+            && self.style == other.style
+            && f32::abs_diff_eq(&self.length, &other.length, epsilon)
+            && f32::abs_diff_eq(&self.width, &other.width, epsilon)
+            && f32::abs_diff_eq(&self.height, &other.height, epsilon)
+            && f32::abs_diff_eq(&self.x, &other.x, epsilon)
+            && f32::abs_diff_eq(&self.y, &other.y, epsilon)
+            && f32::abs_diff_eq(&self.z, &other.z, epsilon)
+            && f32::abs_diff_eq(&self.angle_oz, &other.angle_oz, epsilon)
+            && self.even == other.even
+            && self.central == other.central
+            && (match (self.tilt, other.tilt) {
+                (Some(a), Some(b)) => f32::abs_diff_eq(&a, &b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (self.cant, other.cant) {
+                (Some(a), Some(b)) => f32::abs_diff_eq(&a, &b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (self.pt_convergence, other.pt_convergence) {
+                (Some(a), Some(b)) => f32::abs_diff_eq(&a, &b, epsilon),
+                (None, None) => true,
+                _ => false,
+            })
+    }
+}
+impl approx::RelativeEq for ImportedFinBox {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
+        self.abs_diff_eq(other, epsilon)
+    }
+}
+
 impl approx::AbsDiffEq for BoardModel {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
@@ -329,12 +374,23 @@ impl approx::AbsDiffEq for BoardModel {
                 (None, None) => true,
                 _ => false,
             })
-            && (match (&self.bottom_channels, &other.bottom_channels) {
+                        && (match (&self.bottom_channels, &other.bottom_channels) {
                 (Some(ca), Some(cb)) => {
                     ca.len() == cb.len()
                         && ca
                             .iter()
                             .zip(cb.iter())
+                            .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+                }
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.imported_fin_boxes, &other.imported_fin_boxes) {
+                (Some(fa), Some(fb)) => {
+                    fa.len() == fb.len()
+                        && fa
+                            .iter()
+                            .zip(fb.iter())
                             .all(|(a, b)| a.abs_diff_eq(b, epsilon))
                 }
                 (None, None) => true,
@@ -397,8 +453,9 @@ impl Default for BoardModel {
             rocker_top: None,
             rocker_bottom: None,
             apex_rocker: None,
-            deck_shoulder: None,
+                        deck_shoulder: None,
             cross_sections: Vec::new(),
+            imported_fin_boxes: None,
         }
     }
 }
@@ -581,6 +638,34 @@ impl BoardAction {
 #[cfg(test)]
 mod tests_board_action {
     use super::*;
+
+    #[test]
+    fn test_imported_fin_box_abs_diff_eq() {
+        let f1 = ImportedFinBox {
+            name: "Fin 1".to_string(),
+            style: 5,
+            length: 10.0,
+            width: 0.5,
+            height: 4.5,
+            x: 12.0,
+            y: 1.25,
+            z: 2.0,
+            angle_oz: 3.0,
+            even: true,
+            central: false,
+            tilt: Some(6.0),
+            cant: Some(4.0),
+            pt_convergence: Some(250.0),
+        };
+        let mut f2 = f1.clone();
+        assert!(f1.abs_diff_eq(&f2, f32::EPSILON));
+
+        f2.x += 0.00001;
+        assert!(f1.abs_diff_eq(&f2, 0.001));
+
+        f2.x += 1.0;
+        assert!(!f1.abs_diff_eq(&f2, 0.001));
+    }
 
     #[test]
     fn test_is_geometry_altering() {

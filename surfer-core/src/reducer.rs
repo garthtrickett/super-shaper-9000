@@ -91,7 +91,7 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
 }
 
 pub fn push_history(model: &mut BoardModel) {
-    let snap = ManualSnapshot {
+        let snap = ManualSnapshot {
         outline: model.outline.clone(),
         outline_layers: model.outline_layers.clone(),
         bottom_channels: model.bottom_channels.clone(),
@@ -102,6 +102,7 @@ pub fn push_history(model: &mut BoardModel) {
         apex_rocker: model.apex_rocker.clone(),
         deck_shoulder: model.deck_shoulder.clone(),
         cross_sections: model.cross_sections.clone(),
+        imported_fin_boxes: model.imported_fin_boxes.clone(),
     };
 
     if model.history.is_none() {
@@ -336,7 +337,7 @@ fn handle_history(
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
-        BoardAction::Undo => {
+                BoardAction::Undo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx > 0 {
                     idx -= 1;
@@ -352,10 +353,11 @@ fn handle_history(
                     model.apex_rocker = snap.apex_rocker.clone();
                     model.deck_shoulder = snap.deck_shoulder.clone();
                     model.cross_sections = snap.cross_sections.clone();
+                    model.imported_fin_boxes = snap.imported_fin_boxes.clone();
                 }
             }
         }
-        BoardAction::Redo => {
+                BoardAction::Redo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx + 1 < history.len() {
                     idx += 1;
@@ -371,6 +373,7 @@ fn handle_history(
                     model.apex_rocker = snap.apex_rocker.clone();
                     model.deck_shoulder = snap.deck_shoulder.clone();
                     model.cross_sections = snap.cross_sections.clone();
+                    model.imported_fin_boxes = snap.imported_fin_boxes.clone();
                 }
             }
         }

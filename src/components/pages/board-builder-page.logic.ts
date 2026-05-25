@@ -33,6 +33,23 @@ export const SelectedNodeSchema = S.Struct({
   type: S.Literal("anchor", "tangent1", "tangent2")
 });
 
+export const ImportedFinBoxSchema = S.Struct({
+  name: S.String,
+  style: S.Number,
+  length: S.Number,
+  width: S.Number,
+  height: S.Number,
+  x: S.Number,
+  y: S.Number,
+  z: S.Number,
+  angleOz: S.Number,
+  even: S.Boolean,
+  central: S.Boolean,
+  tilt: S.optional(S.Number),
+  cant: S.optional(S.Number),
+  ptConvergence: S.optional(S.Number),
+});
+
 export const BoardModelSchema = S.Struct({
   showHeatmap: S.optional(S.Boolean),
   showTopography: S.optional(S.Boolean),
@@ -49,8 +66,9 @@ export const BoardModelSchema = S.Struct({
   mriSlicePosition: S.optional(S.Number),
   selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
   history: S.optional(S.Array(S.Unknown)),
-  historyIndex: S.optional(S.Number),
+    historyIndex: S.optional(S.Number),
   outline: BezierCurveSchema,
+  importedFinBoxes: S.optional(S.Array(ImportedFinBoxSchema)),
     outlineLayers: S.optional(S.Array(S.Struct({
     name: S.String,
     active: S.optional(S.Boolean),
@@ -105,6 +123,23 @@ export interface ChannelLayer {
   rightDepth: BezierCurveData;
 }
 
+export interface ImportedFinBox {
+  name: string;
+  style: number;
+  length: number;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  z: number;
+  angleOz: number;
+  even: boolean;
+  central: boolean;
+  tilt?: number;
+  cant?: number;
+  ptConvergence?: number;
+}
+
 export type SelectedNode = {
   curve: string;
   index: number;
@@ -120,8 +155,9 @@ export interface ManualSnapshot {
   rockerTop: BezierCurveData;
   rockerBottom: BezierCurveData;
     apexRocker?: BezierCurveData;
-  deckShoulder?: BezierCurveData;
+    deckShoulder?: BezierCurveData;
   crossSections: BezierCurveData[];
+  importedFinBoxes?: ImportedFinBox[];
 }
 
 export interface BoardModel {
@@ -149,8 +185,9 @@ export interface BoardModel {
   rockerTop: BezierCurveData;
   rockerBottom: BezierCurveData;
     apexRocker?: BezierCurveData;
-  deckShoulder?: BezierCurveData;
+    deckShoulder?: BezierCurveData;
   crossSections: BezierCurveData[];
+  importedFinBoxes?: ImportedFinBox[];
     length: number;
   width: number;
   thickness: number;
@@ -236,8 +273,9 @@ export const INITIAL_STATE: BoardModel = {
   railCoefficientTail: 1.0,
     railCoefficientNose: 1.0,
   thicknessZStretch: 1.0,
-  coreMaterial: "pu",  
+    coreMaterial: "pu",  
   glassingSchedule: "heavy", 
+  importedFinBoxes: undefined,
 };
 
 export type BoardAction =

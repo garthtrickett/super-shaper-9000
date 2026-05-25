@@ -815,7 +815,8 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         const hitPosition = await page.evaluate(() => {
                         type BoardViewportElement = HTMLElement & {
                 requestUpdate?: () => void;
-        mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
+        updateGizmoScale?: (quad: string, scale: number) => void;
+                mathEngine?: { project_to_screen(quad: string, x: number, y: number, z: number, aspect: number): Float32Array; camera_distance_top(): number; camera_distance_side(): number; camera_distance_profile(): number; camera_distance_persp(): number; camera_distance(): number; };
                 boardState?: { gizmoScaleTop?: number, outline?: { controlPoints?: [number, number, number][], control_points?: {x: number, y: number, z: number}[] } };
       };
             const viewport = document.querySelector('board-viewport') as unknown as BoardViewportElement | null;
@@ -1097,3 +1098,4 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         await expect(boardControls.locator('div.text-2xl.font-black.text-blue-500')).not.toHaveText(initialVolumeText!);
       });
     });
+
