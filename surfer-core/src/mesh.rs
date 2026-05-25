@@ -1081,7 +1081,7 @@ pub fn generate_lines_for_view(
                         arrow_left,
                         arrow_color,
                     );
-                    push_line(
+                                        push_line(
                         &mut line_vertices,
                         &mut line_colors,
                         scale,
@@ -1092,7 +1092,6 @@ pub fn generate_lines_for_view(
                 }
             }
         }
-    }
 
     (
         line_vertices,
