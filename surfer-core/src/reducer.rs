@@ -93,10 +93,14 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::AddDecal
         | BoardAction::UpdateDecal { .. }
         | BoardAction::RemoveDecal { .. }) => handle_aesthetic_mutations(model, dirty, act),
-        BoardAction::ApplyComponent {
+                BoardAction::ApplyComponent {
             component_type,
             payload,
-        } => fn handle_apply_component(
+        } => handle_apply_component(model, dirty, component_type, payload),
+    }
+}
+
+fn handle_apply_component(
     model: &mut BoardModel,
     dirty: &mut DirtyState,
     _component_type: ComponentType,
