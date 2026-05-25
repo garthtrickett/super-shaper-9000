@@ -725,6 +725,7 @@ pub fn get_cross_section_blend_at_z<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bezier::*;
     use crate::model::BezierCurveData;
     use approx::assert_relative_eq;
     use glam::Vec3;
@@ -1193,7 +1194,10 @@ mod tests {
         model.fin_setup = "thruster".to_string();
         let fins_thruster = crate::geometry::synthesize_parametric_fins(&model);
         assert_eq!(fins_thruster.len(), 2);
-        let physical_thruster_count: usize = fins_thruster.iter().map(|f| if f.even { 2 } else { 1 }).sum();
+        let physical_thruster_count: usize = fins_thruster
+            .iter()
+            .map(|f| if f.even { 2 } else { 1 })
+            .sum();
         assert_eq!(physical_thruster_count, 3);
 
         // Quad setup -> 4 physical fins (1 pair of front side fins + 1 pair of rear side fins)

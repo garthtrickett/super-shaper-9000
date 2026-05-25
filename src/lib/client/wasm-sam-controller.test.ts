@@ -1,5 +1,6 @@
 import { expect } from "@open-wc/testing";
 import { WasmSamController as OriginalWasmSamController } from "./wasm-sam-controller";
+import { BoardModel } from "../../components/pages/board-builder-page.logic";
 
 const activeControllers: OriginalWasmSamController[] = [];
 class WasmSamController extends OriginalWasmSamController {

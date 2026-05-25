@@ -1,5 +1,5 @@
-use crate::model::{BoardModel, ImportedFinBox};
 use crate::geometry::{get_board_bounds, ZRingContext};
+use crate::model::{BoardModel, ImportedFinBox};
 
 /// Dynamically synthesizes a virtual list of fin boxes from the board's parametric parameters.
 pub fn synthesize_parametric_fins(model: &BoardModel) -> Vec<ImportedFinBox> {
@@ -7,7 +7,8 @@ pub fn synthesize_parametric_fins(model: &BoardModel) -> Vec<ImportedFinBox> {
     let bounds = get_board_bounds(model);
 
     // Front/Side fins: twin, thruster, and quad setups all feature front side fins.
-    let has_front_fins = model.fin_setup == "twin" || model.fin_setup == "thruster" || model.fin_setup == "quad";
+    let has_front_fins =
+        model.fin_setup == "twin" || model.fin_setup == "thruster" || model.fin_setup == "quad";
     if has_front_fins {
         let z_pos = bounds.tip_z - model.front_fin_z;
         let ctx = ZRingContext::new(model, z_pos);
