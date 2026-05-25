@@ -7,7 +7,7 @@ import { runClientUnscoped } from '../../lib/client/runtime';
 
 @customElement('component-library-modal')
 export class ComponentLibraryModal extends LitElement {
-  @state() private activeTab: ComponentType = 'outline';
+    @state() activeTab: ComponentType = 'outline';
   @state() private components: ComponentEntry[] = [];
 
   protected override createRenderRoot() {

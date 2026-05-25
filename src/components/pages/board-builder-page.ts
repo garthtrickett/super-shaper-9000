@@ -13,7 +13,7 @@ import "../ui/foil-graph";
 import "../ui/export-modal";
 import "../ui/import-modal";
 import "../ui/library-modal";
-import "../ui/component-library-modal";
+import { ComponentLibraryModal } from "../ui/component-library-modal";
 import { saveBoardToLibrary } from "../../lib/client/library-store";
 import { saveComponentToLibrary } from "../../lib/client/component-library-store";
 
@@ -109,11 +109,11 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _handleOpenComponentLibrary(type: import("./board-builder-page.logic").ComponentType) {
+    private _handleOpenComponentLibrary(type: import("./board-builder-page.logic").ComponentType) {
     this.showComponentLibraryModal = true;
     setTimeout(() => {
       const modal = this.shadowRoot?.querySelector("component-library-modal");
-      if (modal) {
+      if (modal && modal instanceof ComponentLibraryModal) {
         modal.activeTab = type;
       }
     }, 0);
