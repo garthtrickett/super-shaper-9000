@@ -615,6 +615,58 @@ impl Default for BoardModel {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum ComponentType {
+    Outline,
+    Rocker,
+    Slices,
+    Channels,
+    Fins,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum ComponentPayload {
+    Outline {
+        outline: BezierCurveData,
+        #[serde(rename = "outlineLayers")]
+        outline_layers: Option<Vec<OutlineLayer>>,
+    },
+    Rocker {
+        #[serde(rename = "rockerTop")]
+        rocker_top: BezierCurveData,
+        #[serde(rename = "rockerBottom")]
+        rocker_bottom: BezierCurveData,
+        #[serde(rename = "apexRocker")]
+        apex_rocker: Option<BezierCurveData>,
+    },
+    Slices {
+        #[serde(rename = "crossSections")]
+        cross_sections: Vec<BezierCurveData>,
+    },
+    Channels {
+        #[serde(rename = "bottomChannels")]
+        bottom_channels: Vec<ChannelLayer>,
+    },
+    Fins {
+        #[serde(rename = "finSetup")]
+        fin_setup: String,
+        #[serde(rename = "frontFinZ")]
+        front_fin_z: f32,
+        #[serde(rename = "frontFinX")]
+        front_fin_x: f32,
+        #[serde(rename = "rearFinZ")]
+        rear_fin_z: f32,
+        #[serde(rename = "rearFinX")]
+        rear_fin_x: f32,
+        #[serde(rename = "toeAngle")]
+        toe_angle: f32,
+        #[serde(rename = "cantAngle")]
+        cant_angle: f32,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[allow(clippy::large_enum_variant)]
@@ -731,6 +783,12 @@ pub enum BoardAction {
     },
     #[serde(rename = "REMOVE_DECAL")]
     RemoveDecal { index: usize },
+    #[serde(rename = "APPLY_COMPONENT")]
+    ApplyComponent {
+        #[serde(rename = "componentType")]
+        component_type: ComponentType,
+        payload: ComponentPayload,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
