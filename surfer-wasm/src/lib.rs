@@ -868,8 +868,10 @@ impl WasmEngine {
     }
 
     #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn set_active_profile_slice(&mut self, slice: usize) {
         self.active_profile_slice = slice;
+        self.invalidate_bbox_cache_for_quad("profile");
         self.update_view_lines("profile");
         self.update_view_lines("perspective");
     }
@@ -1656,8 +1658,36 @@ mod tests {
         engine_mut.camera_ctrl.pan_top = (10.0, 5.0);
         let (vp_new, _) = engine_mut.get_camera_params("top", 1.33);
 
-        // Should recalculate due to cache invalidation/mismatch
+                // Should recalculate due to cache invalidation/mismatch
         assert_ne!(vp_init, vp_new);
+    }
+
+    #[test]
+    fn test_active_profile_slice_invalidates_cache() {
+        let mut engine = WasmEngine::new();
+
+        // Warm up the caches for "profile"
+        let _ = engine.get_view_bounding_box("profile");
+        let _ = engine.get_camera_params("profile", 1.33);
+
+        // Verify cache is populated
+        if let Ok(cache) = engine.bbox_cache.lock() {
+            assert!(cache[3].is_some());
+        }
+        if let Ok(cache) = engine.cached_view_projs.lock() {
+            assert!(cache[3].is_some());
+        }
+
+        // Change active profile slice
+        engine.set_active_profile_slice(1);
+
+        // Verify that the "profile" cache (index 3) is now None (invalidated)
+        if let Ok(cache) = engine.bbox_cache.lock() {
+            assert!(cache[3].is_none());
+        }
+        if let Ok(cache) = engine.cached_view_projs.lock() {
+            assert!(cache[3].is_none());
+        }
     }
 
     #[test]
