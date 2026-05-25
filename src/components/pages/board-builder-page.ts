@@ -421,10 +421,18 @@ export class BoardBuilderPage extends LitElement {
             @string-changed=${(e: CustomEvent<{ param: keyof BoardModel; value: string }>) => {
               this._proposeAction({ type: "UPDATE_STRING", param: e.detail.param, value: e.detail.value });
             }}
-            .outlineLayers=${state.outlineLayers ||[]}
-            .bottomChannels=${state.bottomChannels ||[]}
-            .foilData=${foilData}
-            @export-design=${() => this.showExportModal = true}
+                          .outlineLayers=${state.outlineLayers ||[]}
+              .bottomChannels=${state.bottomChannels ||[]}
+              .stringers=${state.stringers ||[]}
+              .decals=${state.decals ||[]}
+              .foilData=${foilData}
+              @add-stringer=${() => this._proposeAction({ type: "ADD_STRINGER" })}
+              @update-stringer=${(e: CustomEvent<{ index: number, width: number, shift: number, tilt: number }>) => this._proposeAction({ type: "UPDATE_STRINGER", ...e.detail })}
+              @remove-stringer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: "REMOVE_STRINGER", index: e.detail.index })}
+              @add-decal=${() => this._proposeAction({ type: "ADD_DECAL" })}
+              @update-decal=${(e: CustomEvent<{ index: number, centreX: number, centreY: number, length: number, width: number, deck: boolean }>) => this._proposeAction({ type: "UPDATE_DECAL", ...e.detail })}
+              @remove-decal=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: "REMOVE_DECAL", index: e.detail.index })}
+              @export-design=${() => this.showExportModal = true}
             @export-s3dx=${() => void this._handleExportS3dx()}
             @export-brd=${() => void this._handleExportBrd()}
             @export-obj=${() => void this._handleExportObj()}

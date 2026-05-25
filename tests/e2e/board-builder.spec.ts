@@ -1157,7 +1157,60 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         // Verify that the text input has successfully updated
         await expect(frontFinZInput).toHaveValue('13.00"');
 
-        // 5. Verify the viewport canvas remains active and renders without WebGL or mathematical errors
+                // 5. Verify the viewport canvas remains active and renders without WebGL or mathematical errors
+        await expect(page.locator("board-viewport canvas")).toBeVisible();
+        const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
+        expect(criticalErrors).toHaveLength(0);
+      });
+
+      test("Aesthetics Config: Add and Mutate Custom Offset Stringers", async ({ page }) => {
+        const errors: string[] = [];
+        page.on('console', msg => {
+          if (msg.type() === 'error') errors.push(msg.text());
+        });
+        page.on('pageerror', err => errors.push(err.message));
+
+        await page.goto("/");
+        await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+        const boardControls = page.locator("board-controls");
+
+        // 1. Expand the Aesthetics & Decals accordion
+        const aestheticsAccordion = boardControls.locator('details').filter({
+          has: page.locator('summary', { hasText: "Aesthetics & Decals" })
+        });
+        await expect(aestheticsAccordion).toBeVisible();
+
+        const isOpen = await aestheticsAccordion.getAttribute('open');
+        if (isOpen === null) {
+          await aestheticsAccordion.locator('summary').click();
+        }
+
+        // 2. Click ADD under Stringers section
+        const addStringerBtn = aestheticsAccordion.locator('button[title="Add Stringer"]');
+        await expect(addStringerBtn).toBeVisible();
+        await addStringerBtn.click();
+
+        // 3. Verify 'Stringer 0' or similar list element appears
+        const stringerItem = aestheticsAccordion.locator('span', { hasText: /Stringer/i }).first();
+        await expect(stringerItem).toBeVisible();
+
+        // 4. Locate and adjust the Offset Shift slider
+        const offsetShiftContainer = aestheticsAccordion.locator('div.mb-4').filter({ hasText: /Offset Shift/i }).first();
+        const offsetShiftSlider = offsetShiftContainer.locator('input[type="range"]');
+        const offsetShiftInput = offsetShiftContainer.locator('input[type="text"]');
+
+        await offsetShiftSlider.fill('3.5');
+        await offsetShiftSlider.dispatchEvent('input');
+        await offsetShiftSlider.dispatchEvent('pointerup');
+
+        // Allow worker transaction to complete
+        await page.waitForTimeout(600);
+
+        // Verify value has updated in text input
+        await expect(offsetShiftInput).toHaveValue('3.50"');
+
+        // 5. Verify canvas is stable and no visual exceptions occurred
         await expect(page.locator("board-viewport canvas")).toBeVisible();
         const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
         expect(criticalErrors).toHaveLength(0);

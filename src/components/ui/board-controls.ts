@@ -2,6 +2,8 @@ import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { live } from "lit/directives/live.js";
 
+import type { StringerConfig, DecalConfig } from "../pages/board-builder-page.logic";
+
 @customElement("board-controls")
 export class BoardControls extends LitElement {
   @property({ type: Number }) length = 70;
@@ -18,10 +20,12 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) toeAngle = 3.0;
   @property({ type: Number }) cantAngle = 6.0;
   @property({ type: String }) coreMaterial = "pu";
-        @property({ type: String }) glassingSchedule = "heavy";
-      @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];
-    @property({ type: Array }) bottomChannels: { name: string, isSymmetric?: boolean }[] =[];
-  @property({ type: Object }) foilData?: Float32Array;
+            @property({ type: String }) glassingSchedule = "heavy";
+          @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];
+        @property({ type: Array }) bottomChannels: { name: string, isSymmetric?: boolean }[] =[];
+      @property({ type: Array }) stringers: StringerConfig[] = [];
+      @property({ type: Array }) decals: DecalConfig[] = [];
+      @property({ type: Object }) foilData?: Float32Array;
 
     // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -42,11 +46,46 @@ export class BoardControls extends LitElement {
   private _activeDragKeys = new Set<string>();
     private _lastDispatched: Record<string, number> = {};
 
-  private _dispatchNumber(param: string, value: number) {
+    private _dispatchNumber(param: string, value: number) {
     if (this._lastDispatched[param] === value) return;
     this._lastDispatched[param] = value;
     
-    this.dispatchEvent(new CustomEvent("number-changed", { 
+    if (param.startsWith("stringer_")) {
+      const parts = param.split("_");
+      const index = parseInt(parts[1]!, 10);
+      const field = parts[2]!;
+      const s = this.stringers[index];
+      if (s) {
+        const width = field === "width" ? value : s.width;
+        const shift = field === "shift" ? value : s.shift;
+        const tilt = field === "tilt" ? value : s.tilt;
+        this.dispatchEvent(new CustomEvent("update-stringer", {
+          detail: { index, width, shift, tilt },
+          bubbles: true, composed: true
+        }));
+      }
+      return;
+    }
+
+    if (param.startsWith("decal_")) {
+      const parts = param.split("_");
+      const index = parseInt(parts[1]!, 10);
+      const field = parts[2]!;
+      const d = this.decals[index];
+      if (d) {
+        const centreX = field === "centreX" ? value : d.centreX;
+        const centreY = field === "centreY" ? value : d.centreY;
+        const length = field === "length" ? value : d.length;
+        const width = field === "width" ? value : d.width;
+        this.dispatchEvent(new CustomEvent("update-decal", {
+          detail: { index, centreX, centreY, length, width, deck: d.deck },
+          bubbles: true, composed: true
+        }));
+      }
+      return;
+    }
+
+    this.dispatchEvent(new CustomEvent("number-changed", {
       detail: { param, value },
       bubbles: true,
       composed: true
