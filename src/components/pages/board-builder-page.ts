@@ -4,7 +4,7 @@ import { customElement, state } from "lit/decorators.js";
 import { WasmSamController } from "../../lib/client/wasm-sam-controller";
 import { KeyboardController } from "../../lib/client/keyboard-controller";
 import type { WasmEngine } from "../../lib/client/wasm/surfer_wasm"; 
-import { INITIAL_STATE, type BoardModel, type BoardAction } from "./board-builder-page.logic";
+import { INITIAL_STATE, type BoardModel, type BoardAction, type ComponentType, type ComponentPayload } from "./board-builder-page.logic";
 import "../3d/board-viewport";
 import "../ui/board-controls";
 import "../ui/node-inspector";
@@ -66,7 +66,7 @@ export class BoardBuilderPage extends LitElement {
     const name = prompt(`Enter a name for your saved ${type} component:`);
     if (!name || !name.trim()) return;
 
-    let payload: any;
+        let payload: ComponentPayload | undefined;
     if (type === "outline") {
       payload = {
         outline: state.outline,
@@ -112,7 +112,7 @@ export class BoardBuilderPage extends LitElement {
   private _handleOpenComponentLibrary(type: import("./board-builder-page.logic").ComponentType) {
     this.showComponentLibraryModal = true;
     setTimeout(() => {
-      const modal = this.shadowRoot?.querySelector("component-library-modal") as any;
+      const modal = this.shadowRoot?.querySelector("component-library-modal");
       if (modal) {
         modal.activeTab = type;
       }
@@ -448,10 +448,10 @@ export class BoardBuilderPage extends LitElement {
           @import-json=${(e: CustomEvent<{state: BoardModel}>) => this._proposeAction({ type: "LOAD_DESIGN", state: e.detail.state })}
         ></library-modal>
       ` : ''}
-      ${this.showComponentLibraryModal ? html`
+            ${this.showComponentLibraryModal ? html`
         <component-library-modal
           @close=${() => this.showComponentLibraryModal = false}
-          @import-component=${(e: CustomEvent<{ type: any, payload: any }>) => this._proposeAction({ type: "APPLY_COMPONENT", componentType: e.detail.type, payload: e.detail.payload })}
+          @import-component=${(e: CustomEvent<{ type: ComponentType, payload: ComponentPayload }>) => this._proposeAction({ type: "APPLY_COMPONENT", componentType: e.detail.type, payload: e.detail.payload })}
         ></component-library-modal>
       ` : ''}
       ${this.showContourEditor ? html`
@@ -547,8 +547,8 @@ export class BoardBuilderPage extends LitElement {
             @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
             @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
             @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
-            @save-component=${(e: CustomEvent<{ type: any }>) => this._handleSaveComponent(e.detail.type)}
-            @open-component-library=${(e: CustomEvent<{ type: any }>) => this._handleOpenComponentLibrary(e.detail.type)}
+                        @save-component=${(e: CustomEvent<{ type: ComponentType }>) => this._handleSaveComponent(e.detail.type)}
+            @open-component-library=${(e: CustomEvent<{ type: ComponentType }>) => this._handleOpenComponentLibrary(e.detail.type)}
           ></board-controls>
         </div>
 
