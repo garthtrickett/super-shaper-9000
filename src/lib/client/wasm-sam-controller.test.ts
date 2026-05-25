@@ -85,34 +85,75 @@ describe("WasmSamController (FFI Integration)", () => {
         controller.hostDisconnected();
       });
 
-      it("synchronizes and renders parametric fin updates when importedFinBoxes is empty", async () => {
-        const host = new MockHost();
-        const controller = new WasmSamController(host);
-        
-        for (let i = 0; i < 200; i++) {
-          if (controller.model) break;
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
+              it("synchronizes and renders parametric fin updates when importedFinBoxes is empty", async () => {
+          const host = new MockHost();
+          const controller = new WasmSamController(host);
+          
+          for (let i = 0; i < 200; i++) {
+            if (controller.model) break;
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
 
-        controller.propose({
-          type: "UPDATE_NUMBER",
-          param: "frontFinZ",
-          value: 12.0
+          controller.propose({
+            type: "UPDATE_NUMBER",
+            param: "frontFinZ",
+            value: 12.0
+          });
+
+          for (let i = 0; i < 200; i++) {
+            if (controller.model!.frontFinZ === 12.0) break;
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+
+          expect(controller.model!.frontFinZ).to.equal(12.0);
+          expect(controller.model!.importedFinBoxes).to.be.undefined;
+
+          const mainState = controller.mathEngine!.get_state() as unknown as BoardModel;
+          expect(mainState.frontFinZ).to.equal(12.0);
+
+          controller.hostDisconnected();
         });
 
-        for (let i = 0; i < 200; i++) {
-          if (controller.model!.frontFinZ === 12.0) break;
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
+        it("handles APPLY_COMPONENT action through unidirectional worker loop and triggers main-thread synchronization", async () => {
+          const host = new MockHost();
+          const controller = new WasmSamController(host);
+          
+          for (let i = 0; i < 200; i++) {
+            if (controller.model) break;
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
 
-        expect(controller.model!.frontFinZ).to.equal(12.0);
-        expect(controller.model!.importedFinBoxes).to.be.undefined;
+          const initialRockerBottom = controller.model!.rockerBottom;
+          const customOutline = {
+            controlPoints: [[0, 0, -35], [14.5, 0, 0], [0, 0, 35]] as [number, number, number][],
+            tangents1: [[0, 0, -45], [14.5, 0, -10], [0, 0, 25]] as [number, number, number][],
+            tangents2: [[0, 0, -25], [14.5, 0, 10], [0, 0, 45]] as [number, number, number][],
+          };
 
-        const mainState = controller.mathEngine!.get_state() as unknown as BoardModel;
-        expect(mainState.frontFinZ).to.equal(12.0);
+          controller.propose({
+            type: "APPLY_COMPONENT",
+            componentType: "outline",
+            payload: {
+              outline: customOutline
+            } as any
+          } as any);
 
-        controller.hostDisconnected();
-      });
+          for (let i = 0; i < 200; i++) {
+            if (controller.model!.outline.controlPoints[1]![0] === 14.5) break;
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+
+          // Verify that outline has been updated
+          expect(controller.model!.outline.controlPoints[1]![0]).to.equal(14.5);
+          // Verify that rockers were fully preserved
+          expect(controller.model!.rockerBottom.controlPoints[1]![1]).to.equal(initialRockerBottom.controlPoints[1]![1]);
+
+          // Verify that main-thread mathEngine has been synchronized as well
+          const mainState = controller.mathEngine!.get_state() as unknown as BoardModel;
+          expect(mainState.outline.controlPoints[1]![0]).to.equal(14.5);
+
+          controller.hostDisconnected();
+        });
 
         it("drops stale messages via Sequence ID Fencing", async () => {
     const host = new MockHost();

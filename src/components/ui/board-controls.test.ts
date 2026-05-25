@@ -119,7 +119,7 @@ describe("BoardControls (UI Component)", () => {
       expect(spy.calledOnce).to.be.true;
     });
 
-        it("should emit export-s3dx event when Export .s3dx button is clicked", async () => {
+            it("should emit export-s3dx event when Export .s3dx button is clicked", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
       el.addEventListener("export-s3dx", spy);
@@ -130,6 +130,30 @@ describe("BoardControls (UI Component)", () => {
 
             btn!.click();
       expect(spy.calledOnce).to.be.true;
+    });
+
+    it("should emit save-component and open-component-library events from individual accordions", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const saveSpy = sinon.spy();
+      const openSpy = sinon.spy();
+
+      el.addEventListener("save-component", saveSpy);
+      el.addEventListener("open-component-library", openSpy);
+
+      const buttons = Array.from(el.querySelectorAll("button"));
+      const outlineSaveBtn = buttons.find(b => b.title === "Save Outline Component");
+      const outlineLoadBtn = buttons.find(b => b.title === "Load Outline Component");
+
+      expect(outlineSaveBtn).to.exist;
+      expect(outlineLoadBtn).to.exist;
+
+      outlineSaveBtn!.click();
+      expect(saveSpy.calledOnce).to.be.true;
+      expect(saveSpy.firstCall.args[0].detail).to.deep.equal({ type: "outline" });
+
+      outlineLoadBtn!.click();
+      expect(openSpy.calledOnce).to.be.true;
+      expect(openSpy.firstCall.args[0].detail).to.deep.equal({ type: "outline" });
     });
   });
 
