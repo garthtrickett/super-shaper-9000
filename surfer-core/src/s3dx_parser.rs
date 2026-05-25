@@ -419,9 +419,23 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
         }
     }
 
+        let has_ref_point = sanitized.contains("<Ref. point>") || sanitized.contains("<RefPoint>") || sanitized.contains("<refPoint>");
+
     sanitized = sanitized
         .replace("<Ref. point>", "<Ref_point>")
-        .replace("</Ref. point>", "</Ref_point>");
+        .replace("</Ref. point>", "</Ref_point>")
+        .replace("<RefPoint>", "<Ref_point>")
+        .replace("</RefPoint>", "</Ref_point>")
+        .replace("<refPoint>", "<Ref_point>")
+        .replace("</refPoint>", "</Ref_point>");
+
+    if !has_ref_point {
+        sanitized = sanitized
+            .replace("<PointRef>", "<Ref_point>")
+            .replace("</PointRef>", "</Ref_point>")
+            .replace("<pointRef>", "<Ref_point>")
+            .replace("</pointRef>", "</Ref_point>");
+    }
 
     // Dynamically replace all <Couples_X> with <Couple> so Serde can parse them into a Vec.
     // We scan a reasonably high number of potential slices (e.g. 100) which far exceeds realistic CAD limits.
@@ -2012,10 +2026,59 @@ mod tests {
             "Found {} non-monotonic nose width violations (pinched nose)",
             monotonic_violations
         );
-        assert_eq!(
+                assert_eq!(
             sudden_jump_violations, 0,
             "Found {} sudden geometry jumps near the nose",
             sudden_jump_violations
         );
+    }
+
+    #[test]
+    fn test_wild_winged_pin_fin_boxes_parsing() {
+        let xml = r#"<?xml version="1.0" encoding="iso-8859-1"?>
+<Shape3d_design>
+	<Board>
+		<Length>177.800</Length>
+		<Width>49.784</Width>
+		<Thickness>6.359</Thickness>
+		<Nb_Boxes>2</Nb_Boxes>
+		<Box_0>
+		<Box>
+			<Name>Fin 2</Name>
+			<Even>1</Even>
+			<Central>0</Central>
+			<RefPoint>
+			<Point3d>
+				<x>20.127189</x>
+				<y>13.286702</y>
+				<z>3.326193</z>
+			</Point3d></RefPoint>
+		</Box>
+		</Box_0>
+		<Box_1>
+		<Box>
+			<Name>Leash 3</Name>
+			<Even>0</Even>
+			<Central>0</Central>
+			<RefPoint>
+			<Point3d>
+				<x>7.781056</x>
+				<y>0.270108</y>
+				<z>7.033419</z>
+			</Point3d></RefPoint>
+		</Box>
+		</Box_1>
+	</Board>
+</Shape3d_design>"#;
+        let model = parse_s3dx(xml).expect("Failed to parse Wild Winged Pin S3DX");
+        assert!(model.imported_fin_boxes.is_some());
+        let boxes = model.imported_fin_boxes.unwrap();
+        assert_eq!(boxes.len(), 2);
+        
+        let fin = boxes.iter().find(|b| b.name == "Fin 2").expect("Missing Fin 2");
+        let leash = boxes.iter().find(|b| b.name == "Leash 3").expect("Missing Leash 3");
+        
+        assert_ne!(fin.z, leash.z);
+        assert_ne!(fin.x, leash.x);
     }
 }

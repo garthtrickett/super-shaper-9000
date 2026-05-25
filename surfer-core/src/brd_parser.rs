@@ -648,12 +648,25 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
         // 2. Otherwise, fall back to BoardCAD ZLIB/XML format
         let xml = decompress_brd(bytes)?;
         let start_idx = xml.find('<').unwrap_or(0);
-        let xml_slice = &xml[start_idx..];
-        let sanitized = xml_slice
-            .replace("<Ref. point>", "<Ref_point>")
-            .replace("</Ref. point>", "</Ref_point>");
+                    let xml_slice = &xml[start_idx..];
+            let has_ref_point = xml_slice.contains("<Ref. point>") || xml_slice.contains("<RefPoint>") || xml_slice.contains("<refPoint>");
+            let mut sanitized = xml_slice
+                .replace("<Ref. point>", "<Ref_point>")
+                .replace("</Ref. point>", "</Ref_point>")
+                .replace("<RefPoint>", "<Ref_point>")
+                .replace("</RefPoint>", "</Ref_point>")
+                .replace("<refPoint>", "<Ref_point>")
+                .replace("</refPoint>", "</ref_point>");
 
-        let brd: BrdBoard =
+            if !has_ref_point {
+                sanitized = sanitized
+                    .replace("<PointRef>", "<Ref_point>")
+                    .replace("</PointRef>", "</Ref_point>")
+                    .replace("<pointRef>", "<Ref_point>")
+                    .replace("</pointRef>", "</Ref_point>");
+            }
+
+            let brd: BrdBoard =
             quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
 
         let mut m = BoardModel::default();
