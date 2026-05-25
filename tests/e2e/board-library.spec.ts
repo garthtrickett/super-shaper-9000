@@ -64,8 +64,9 @@ test.describe("Board Library E2E Flow", () => {
     await expect(libraryBtn).toBeVisible();
     await libraryBtn.click();
 
-    const libraryModal = page.locator("library-modal");
-    await expect(libraryModal).toBeVisible();
+        const libraryModal = page.locator("library-modal");
+    const modalContainer = libraryModal.locator(".bg-zinc-900");
+    await expect(modalContainer).toBeVisible();
     await expect(libraryModal.getByText("My Custom Fish")).toBeVisible();
 
     // 6. Click "Load" on our custom design
@@ -74,15 +75,15 @@ test.describe("Board Library E2E Flow", () => {
     await loadBtn.click();
 
     // Verify modal automatically closed on load
-    await expect(libraryModal).toBeHidden();
+    await expect(modalContainer).toBeHidden();
     await page.waitForTimeout(600);
 
     // 7. Verify the 3D viewport and HUD updated to reflect the 85-inch length
     await expect(lengthInput).toHaveValue('7\'1"');
 
-    // 8. Open library again to clean up/delete the design
+        // 8. Open library again to clean up/delete the design
     await libraryBtn.click();
-    await expect(libraryModal).toBeVisible();
+    await expect(modalContainer).toBeVisible();
 
     const deleteBtn = libraryModal.getByRole("button", { name: /^Delete$/i });
     await expect(deleteBtn).toBeVisible();
@@ -99,9 +100,9 @@ test.describe("Board Library E2E Flow", () => {
     await expect(libraryModal.getByText("My Custom Fish")).toBeHidden();
     await expect(libraryModal.getByText("Library is empty")).toBeVisible();
 
-    // Close modal
+        // Close modal
     const closeBtn = libraryModal.getByRole("button", { name: /Close/i });
     await closeBtn.click();
-    await expect(libraryModal).toBeHidden();
+    await expect(modalContainer).toBeHidden();
   });
 });
