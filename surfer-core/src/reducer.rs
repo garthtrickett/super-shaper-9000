@@ -103,6 +103,8 @@ pub fn push_history(model: &mut BoardModel) {
         deck_shoulder: model.deck_shoulder.clone(),
         cross_sections: model.cross_sections.clone(),
         imported_fin_boxes: model.imported_fin_boxes.clone(),
+        stringers: model.stringers.clone(),
+        decals: model.decals.clone(),
     };
 
     if model.history.is_none() {
@@ -337,7 +339,7 @@ fn handle_history(
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
-        BoardAction::Undo => {
+                BoardAction::Undo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx > 0 {
                     idx -= 1;
@@ -354,8 +356,10 @@ fn handle_history(
                     model.deck_shoulder = snap.deck_shoulder.clone();
                     model.cross_sections = snap.cross_sections.clone();
                     model.imported_fin_boxes = snap.imported_fin_boxes.clone();
+                    model.stringers = snap.stringers.clone();
+                    model.decals = snap.decals.clone();
                 }
-            }
+            } 
         }
         BoardAction::Redo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
@@ -374,6 +378,8 @@ fn handle_history(
                     model.deck_shoulder = snap.deck_shoulder.clone();
                     model.cross_sections = snap.cross_sections.clone();
                     model.imported_fin_boxes = snap.imported_fin_boxes.clone();
+                    model.stringers = snap.stringers.clone();
+                    model.decals = snap.decals.clone();
                 }
             }
         }

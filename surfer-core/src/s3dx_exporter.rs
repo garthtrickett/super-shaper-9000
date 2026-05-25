@@ -3,7 +3,7 @@ use glam::Vec3;
 
 pub fn export_s3dx(model: &BoardModel) -> String {
     let rocker = model.rocker_bottom.as_ref();
-    let bounds = crate::geometry::get_board_bounds(model);
+    let bounds = crate::geometry::get_board_bounds(model); 
     let default_rocker = BezierCurveData::default();
     let table = crate::geometry::RockerArcLengthTable::new(
         rocker.unwrap_or(&default_rocker),
@@ -14,9 +14,10 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     let active_length = bounds.tip_z - bounds.nose_z;
     let scale_factor = if active_length > 0.0 {
         table.total_length / active_length
-    } else {
+    } else { 
         1.0
     };
+    let scale = if model.length > 51.18 { 1.0 / 2.54 } else { 1.0 };
 
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
@@ -379,9 +380,30 @@ mod tests {
         let model_b =
             crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
 
-        // 4. Assert Losslessness of primary physical dimensions
+                // 4. Assert Losslessness of primary physical dimensions
         approx::assert_relative_eq!(model_a.length, model_b.length, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.width, model_b.width, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.thickness, model_b.thickness, epsilon = 0.1);
+
+        if let (Some(sa), Some(sb)) = (&model_a.stringers, &model_b.stringers) {
+            assert_eq!(sa.len(), sb.len());
+            for (a, b) in sa.iter().zip(sb.iter()) {
+                assert_eq!(a.name, b.name);
+                approx::assert_relative_eq!(a.width, b.width, epsilon = 0.01);
+                approx::assert_relative_eq!(a.shift, b.shift, epsilon = 0.01);
+                approx::assert_relative_eq!(a.tilt, b.tilt, epsilon = 0.01);
+            }
+        }
+        if let (Some(da), Some(db)) = (&model_a.decals, &model_b.decals) {
+            assert_eq!(da.len(), db.len());
+            for (a, b) in da.iter().zip(db.iter()) {
+                assert_eq!(a.name, b.name);
+                approx::assert_relative_eq!(a.length, b.length, epsilon = 0.01);
+                approx::assert_relative_eq!(a.width, b.width, epsilon = 0.01);
+                approx::assert_relative_eq!(a.tilt, b.tilt, epsilon = 0.01);
+                approx::assert_relative_eq!(a.centre_x, b.centre_x, epsilon = 0.01);
+                approx::assert_relative_eq!(a.centre_y, b.centre_y, epsilon = 0.01);
+            }
+        }
     }
 }

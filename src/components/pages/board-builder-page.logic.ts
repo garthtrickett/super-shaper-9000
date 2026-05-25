@@ -27,6 +27,44 @@ export const ChannelLayerSchema = S.Struct({
   rightDepth: BezierCurveSchema,
 });
 
+export const StringerConfigSchema = S.Struct({
+  name: S.String,
+  width: S.Number,
+  shift: S.Number,
+  tilt: S.Number,
+  colorD3d: S.Number,
+  mappingD3d: S.Number,
+  imageMappedD3d: S.String,
+  displayD3d: S.Boolean,
+  superpositionOrder: S.Number,
+});
+
+export const DecalConfigSchema = S.Struct({
+  file: S.String,
+  fileRel: S.String,
+  name: S.String,
+  length: S.Number,
+  width: S.Number,
+  reverseLeftRight: S.Boolean,
+  keepProp: S.Boolean,
+  tilt: S.Number,
+  centreX: S.Number,
+  centreY: S.Number,
+  centreColor: S.Number,
+  displayD3d: S.Boolean,
+  deck: S.Boolean,
+  bottom: S.Boolean,
+  projectedMapping: S.Boolean,
+  limitRail: S.Boolean,
+  limitApex: S.Boolean,
+  limitOppositeRail: S.Boolean,
+  superpositionOrder: S.Number,
+  reflexionCoef: S.Number,
+  opacity: S.Number,
+  resizeWithBoard: S.Boolean,
+  replaceWithBoard: S.Boolean,
+});
+
 export const SelectedNodeSchema = S.Struct({
   curve: S.String,
   index: S.Number,
@@ -67,9 +105,11 @@ export const BoardModelSchema = S.Struct({
   selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
   history: S.optional(S.Array(S.Unknown)),
     historyIndex: S.optional(S.Number),
-  outline: BezierCurveSchema,
+    outline: BezierCurveSchema,
   importedFinBoxes: S.optional(S.Array(ImportedFinBoxSchema)),
-    outlineLayers: S.optional(S.Array(S.Struct({
+  stringers: S.optional(S.Array(StringerConfigSchema)),
+  decals: S.optional(S.Array(DecalConfigSchema)),
+  outlineLayers: S.optional(S.Array(S.Struct({
     name: S.String,
     active: S.optional(S.Boolean),
     otlExt: BezierCurveSchema,
@@ -140,6 +180,44 @@ export interface ImportedFinBox {
   ptConvergence?: number;
 }
 
+export interface StringerConfig {
+  name: string;
+  width: number;
+  shift: number;
+  tilt: number;
+  colorD3d: number;
+  mappingD3d: number;
+  imageMappedD3d: string;
+  displayD3d: boolean;
+  superpositionOrder: number;
+}
+
+export interface DecalConfig {
+  file: string;
+  fileRel: string;
+  name: string;
+  length: number;
+  width: number;
+  reverseLeftRight: boolean;
+  keepProp: boolean;
+  tilt: number;
+  centreX: number;
+  centreY: number;
+  centreColor: number;
+  displayD3d: boolean;
+  deck: boolean;
+  bottom: boolean;
+  projectedMapping: boolean;
+  limitRail: boolean;
+  limitApex: boolean;
+  limitOppositeRail: boolean;
+  superpositionOrder: number;
+  reflexionCoef: number;
+  opacity: number;
+  resizeWithBoard: boolean;
+  replaceWithBoard: boolean;
+}
+
 export type SelectedNode = {
   curve: string;
   index: number;
@@ -154,29 +232,31 @@ export interface ManualSnapshot {
   apexOutline?: BezierCurveData;
   rockerTop: BezierCurveData;
   rockerBottom: BezierCurveData;
-    apexRocker?: BezierCurveData;
-    deckShoulder?: BezierCurveData;
+  apexRocker?: BezierCurveData;
+  deckShoulder?: BezierCurveData;
   crossSections: BezierCurveData[];
   importedFinBoxes?: ImportedFinBox[];
+  stringers?: StringerConfig[];
+  decals?: DecalConfig[];
 }
 
 export interface BoardModel {
   showHeatmap?: boolean;
   showTopography?: boolean;
-    showZebra?: boolean;
+  showZebra?: boolean;
   showOutline?: boolean;
   showRockerTop?: boolean;
   showRockerBottom?: boolean;
   showApexOutline?: boolean;
   showRailOutline?: boolean;
-    showApexRocker?: boolean;
+  showApexRocker?: boolean;
   showDeckShoulder?: boolean;
-        showCrossSections?: boolean;
+  showCrossSections?: boolean;
   showMriView?: boolean;
   mriSlicePosition?: number;
   selectedNode?: SelectedNode | null;
   history?: ManualSnapshot[];
-    historyIndex?: number;
+  historyIndex?: number;
   outline: BezierCurveData;
   outlineLayers?: { name: string; active?: boolean; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
   bottomChannels?: ChannelLayer[];
@@ -184,11 +264,13 @@ export interface BoardModel {
   apexOutline?: BezierCurveData;
   rockerTop: BezierCurveData;
   rockerBottom: BezierCurveData;
-    apexRocker?: BezierCurveData;
-    deckShoulder?: BezierCurveData;
+  apexRocker?: BezierCurveData;
+  deckShoulder?: BezierCurveData;
   crossSections: BezierCurveData[];
   importedFinBoxes?: ImportedFinBox[];
-    length: number;
+  stringers?: StringerConfig[];
+  decals?: DecalConfig[];
+  length: number;
   width: number;
   thickness: number;
   finSetup: FinSetup;
@@ -273,9 +355,11 @@ export const INITIAL_STATE: BoardModel = {
   railCoefficientTail: 1.0,
     railCoefficientNose: 1.0,
   thicknessZStretch: 1.0,
-    coreMaterial: "pu",  
+      coreMaterial: "pu",  
   glassingSchedule: "heavy", 
   importedFinBoxes: undefined,
+  stringers: undefined,
+  decals: undefined,
 };
 
 export type BoardAction =

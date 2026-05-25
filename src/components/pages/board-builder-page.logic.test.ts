@@ -33,4 +33,63 @@ describe("board-builder-page.logic (Effect-TS Schema)", () => {
     expect(decoded.importedFinBoxes![0]!.name).to.equal("Fin Center");
     expect(decoded.importedFinBoxes![0]!.central).to.be.true;
   });
+
+  it("successfully decodes and encodes BoardModel with stringers and decals", () => {
+    const modelWithAesthetics: BoardModel = {
+      ...INITIAL_STATE,
+      stringers: [
+        {
+          name: "Center Stringer",
+          width: 0.25,
+          shift: 0.0,
+          tilt: 0.0,
+          colorD3d: 10320,
+          mappingD3d: 0,
+          imageMappedD3d: "Cedar",
+          displayD3d: true,
+          superpositionOrder: 1,
+        },
+      ],
+      decals: [
+        {
+          file: "logo.png",
+          fileRel: "logo.png",
+          name: "JSB Logo",
+          length: 5.0,
+          width: 5.0,
+          reverseLeftRight: false,
+          keepProp: true,
+          tilt: 0.0,
+          centreX: 0.0,
+          centreY: 0.0,
+          centreColor: 0,
+          displayD3d: true,
+          deck: true,
+          bottom: false,
+          projectedMapping: true,
+          limitRail: false,
+          limitApex: false,
+          limitOppositeRail: true,
+          superpositionOrder: 1,
+          reflexionCoef: -1.0,
+          opacity: 1.0,
+          resizeWithBoard: false,
+          replaceWithBoard: true,
+        },
+      ],
+    };
+
+    const decode = S.decodeUnknownSync(BoardModelSchema);
+    const encoded = S.encodeSync(BoardModelSchema)(modelWithAesthetics);
+
+    const decoded = decode(encoded); 
+    expect(decoded.stringers).to.exist;
+    expect(decoded.stringers!.length).to.equal(1);
+    expect(decoded.stringers![0]!.name).to.equal("Center Stringer");
+
+    expect(decoded.decals).to.exist;
+    expect(decoded.decals!.length).to.equal(1);
+    expect(decoded.decals![0]!.name).to.equal("JSB Logo");
+    expect(decoded.decals![0]!.deck).to.be.true;
+  });
 });

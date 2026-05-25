@@ -53,6 +53,48 @@ pub struct ImportedFinBox {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct StringerConfig {
+    pub name: String,
+    pub width: f32,
+    pub shift: f32,
+    pub tilt: f32,
+    pub color_d3d: u32,
+    pub mapping_d3d: u32,
+    pub image_mapped_d3d: String,
+    pub display_d3d: bool,
+    pub superposition_order: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DecalConfig {
+    pub file: String,
+    pub file_rel: String,
+    pub name: String,
+    pub length: f32,
+    pub width: f32,
+    pub reverse_left_right: bool,
+    pub keep_prop: bool,
+    pub tilt: f32,
+    pub centre_x: f32,
+    pub centre_y: f32,
+    pub centre_color: u32,
+    pub display_d3d: bool,
+    pub deck: bool,
+    pub bottom: bool,
+    pub projected_mapping: bool,
+    pub limit_rail: bool,
+    pub limit_apex: bool,
+    pub limit_opposite_rail: bool,
+    pub superposition_order: u32,
+    pub reflexion_coef: f32,
+    pub opacity: f32,
+    pub resize_with_board: bool,
+    pub replace_with_board: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct SelectedNode {
     pub curve: String,
     pub index: usize,
@@ -74,6 +116,8 @@ pub struct ManualSnapshot {
     pub deck_shoulder: Option<BezierCurveData>,
     pub cross_sections: Vec<BezierCurveData>,
     pub imported_fin_boxes: Option<Vec<ImportedFinBox>>,
+    pub stringers: Option<Vec<StringerConfig>>,
+    pub decals: Option<Vec<DecalConfig>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -130,7 +174,7 @@ pub struct BoardModel {
     pub history: Option<Vec<ManualSnapshot>>,
     pub history_index: Option<usize>,
 
-    pub outline: Option<BezierCurveData>,
+        pub outline: Option<BezierCurveData>,
     pub outline_layers: Option<Vec<OutlineLayer>>,
     pub bottom_channels: Option<Vec<ChannelLayer>>,
     pub rail_outline: Option<BezierCurveData>,
@@ -142,6 +186,8 @@ pub struct BoardModel {
     #[serde(default)]
     pub cross_sections: Vec<BezierCurveData>,
     pub imported_fin_boxes: Option<Vec<ImportedFinBox>>,
+    pub stringers: Option<Vec<StringerConfig>>,
+    pub decals: Option<Vec<DecalConfig>>,
 }
 
 impl approx::AbsDiffEq for BezierCurveData {
@@ -304,6 +350,72 @@ impl approx::RelativeEq for ImportedFinBox {
     }
 }
 
+impl approx::AbsDiffEq for StringerConfig {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 { 
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.name == other.name
+            && f32::abs_diff_eq(&self.width, &other.width, epsilon)
+            && f32::abs_diff_eq(&self.shift, &other.shift, epsilon)
+            && f32::abs_diff_eq(&self.tilt, &other.tilt, epsilon)
+            && self.color_d3d == other.color_d3d
+            && self.mapping_d3d == other.mapping_d3d
+            && self.image_mapped_d3d == other.image_mapped_d3d
+            && self.display_d3d == other.display_d3d
+            && self.superposition_order == other.superposition_order
+    }
+}
+impl approx::RelativeEq for StringerConfig {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
+        self.abs_diff_eq(other, epsilon)
+    }
+}
+
+impl approx::AbsDiffEq for DecalConfig {
+    type Epsilon = f32;
+    fn default_epsilon() -> f32 {
+        f32::EPSILON
+    }
+    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        self.file == other.file
+            && self.file_rel == other.file_rel
+            && self.name == other.name
+            && f32::abs_diff_eq(&self.length, &other.length, epsilon)
+            && f32::abs_diff_eq(&self.width, &other.width, epsilon)
+            && self.reverse_left_right == other.reverse_left_right
+            && self.keep_prop == other.keep_prop
+            && f32::abs_diff_eq(&self.tilt, &other.tilt, epsilon)
+            && f32::abs_diff_eq(&self.centre_x, &other.centre_x, epsilon)
+            && f32::abs_diff_eq(&self.centre_y, &other.centre_y, epsilon)
+            && self.centre_color == other.centre_color
+            && self.display_d3d == other.display_d3d
+            && self.deck == other.deck
+            && self.bottom == other.bottom
+            && self.projected_mapping == other.projected_mapping
+            && self.limit_rail == other.limit_rail
+            && self.limit_apex == other.limit_apex
+            && self.limit_opposite_rail == other.limit_opposite_rail
+            && self.superposition_order == other.superposition_order
+            && f32::abs_diff_eq(&self.reflexion_coef, &other.reflexion_coef, epsilon)
+            && f32::abs_diff_eq(&self.opacity, &other.opacity, epsilon)
+            && self.resize_with_board == other.resize_with_board
+            && self.replace_with_board == other.replace_with_board
+    } 
+}
+impl approx::RelativeEq for DecalConfig {
+    fn default_max_relative() -> f32 {
+        f32::EPSILON
+    }
+    fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
+        self.abs_diff_eq(other, epsilon)
+    } 
+}
+
 impl approx::AbsDiffEq for BoardModel {
     type Epsilon = f32;
     fn default_epsilon() -> f32 {
@@ -404,12 +516,34 @@ impl approx::AbsDiffEq for BoardModel {
                 (None, None) => true,
                 _ => false,
             })
-            && (match (&self.imported_fin_boxes, &other.imported_fin_boxes) {
+                        && (match (&self.imported_fin_boxes, &other.imported_fin_boxes) {
                 (Some(fa), Some(fb)) => {
                     fa.len() == fb.len()
                         && fa
-                            .iter()
+                            .iter() 
                             .zip(fb.iter())
+                            .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+                }
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.stringers, &other.stringers) {
+                (Some(sa), Some(sb)) => {
+                    sa.len() == sb.len()
+                        && sa
+                            .iter()
+                            .zip(sb.iter())
+                            .all(|(a, b)| a.abs_diff_eq(b, epsilon))
+                }
+                (None, None) => true,
+                _ => false,
+            })
+            && (match (&self.decals, &other.decals) { 
+                (Some(da), Some(db)) => {
+                    da.len() == db.len() 
+                        && da
+                            .iter()
+                            .zip(db.iter())
                             .all(|(a, b)| a.abs_diff_eq(b, epsilon))
                 }
                 (None, None) => true,
@@ -473,8 +607,10 @@ impl Default for BoardModel {
             rocker_bottom: None,
             apex_rocker: None,
             deck_shoulder: None,
-            cross_sections: Vec::new(),
+                        cross_sections: Vec::new(),
             imported_fin_boxes: None,
+            stringers: None,
+            decals: None,
         }
     }
 }
