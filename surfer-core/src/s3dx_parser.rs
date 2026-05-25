@@ -743,7 +743,7 @@ impl From<S3dxBoard> for BoardModel {
                     let z_world = (bl / 2.0 - x_cad) * scale;
                     let x_world = y_cad * scale;
 
-                                        let is_deck = r_box.face.unwrap_or(1) == 0;
+                    let is_deck = r_box.face.unwrap_or(1) == 0;
                     let box_height = r_box.height.unwrap_or(0.0) * scale;
 
                     let y_surf = if is_deck {
@@ -809,7 +809,7 @@ impl From<S3dxBoard> for BoardModel {
                     let z_world = (bl / 2.0 - x_cad) * scale;
                     let x_world = y_cad * scale;
 
-                                        let is_deck = fin.face.unwrap_or(1) == 0;
+                    let is_deck = fin.face.unwrap_or(1) == 0;
                     let box_height = fin.height.unwrap_or(0.0) * scale;
 
                     let y_surf = if is_deck {
@@ -820,7 +820,7 @@ impl From<S3dxBoard> for BoardModel {
                                 (z_world - bounds_nose_z) / model.length,
                             )
                             .y
-                        } else { 
+                        } else {
                             z_cad * scale
                         }
                     } else if let Some(rb) = &model.rocker_bottom {
@@ -1862,8 +1862,8 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        assert!(model.imported_fin_boxes.is_some());
-        let boxes = model.imported_fin_boxes.unwrap();
+                assert!(model.imported_fin_boxes.is_some());
+        let boxes = model.imported_fin_boxes.as_ref().unwrap();
 
         // 3 Fin Systems (Fin center + Symmetrical Fin sides) + 1 legacy box (Leash 1) = exactly 3 parsed structures
         assert_eq!(boxes.len(), 3);
