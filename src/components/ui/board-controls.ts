@@ -108,9 +108,25 @@ export class BoardControls extends LitElement {
     }));
   }
 
-  private _dispatchBoolean(param: string, value: boolean) {
-    this.dispatchEvent(new CustomEvent("boolean-changed", { 
+    private _dispatchBoolean(param: string, value: boolean) {
+    this.dispatchEvent(new CustomEvent("boolean-changed", {
       detail: { param, value },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private _dispatchSaveComponent(type: string) {
+    this.dispatchEvent(new CustomEvent('save-component', {
+      detail: { type },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private _dispatchOpenComponentLibrary(type: string) {
+    this.dispatchEvent(new CustomEvent('open-component-library', {
+      detail: { type },
       bubbles: true,
       composed: true
     }));
@@ -316,13 +332,17 @@ export class BoardControls extends LitElement {
 
                                                                                                                                 ${this._renderAccordion("Structure & Layers", html`
           <div>
-            <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Outline Layers</label>
-                            <button type="button"
-                @click=${() => this.dispatchEvent(new CustomEvent('add-outline-layer', { bubbles: true, composed: true }))} 
-                class="px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-                title="Add Wing/Flyer"
-              >ADD</button>
+                        <div class='flex items-center justify-between mb-2'>
+              <label class='text-xs font-semibold text-zinc-300 uppercase tracking-wider'>Outline Layers</label>
+              <div class='flex items-center gap-1.5'>
+                <button type='button' @click=${() => this._dispatchSaveComponent('outline')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Save Outline Component'>SAVE</button>
+                <button type='button' @click=${() => this._dispatchOpenComponentLibrary('outline')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Load Outline Component'>LOAD</button>
+                <button type='button'
+                  @click=${() => this.dispatchEvent(new CustomEvent('add-outline-layer', { bubbles: true, composed: true }))}
+                  class='px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors'
+                  title='Add Wing/Flyer'
+                >ADD</button>
+              </div>
             </div>
                         ${(this.outlineLayers ||[]).length === 0 
               ? html`<p class="text-xs text-zinc-500 text-center py-2">No wings defined.</p>`
@@ -346,23 +366,36 @@ export class BoardControls extends LitElement {
           </div>
           <div class="h-px bg-zinc-800 my-3"></div>
           <div>
-                        <div class="flex items-center justify-between mb-2">
-              <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Bottom Channels</label>
-              <div class="flex items-center gap-2">
-                ${(this.bottomChannels ||[]).length > 0 ? html`
-                                <button type="button"
-                  @click=${() => this.dispatchEvent(new CustomEvent('open-contour-editor', { bubbles: true, composed: true }))} 
-                  class="px-2 py-0.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors"
-                  title="Open 2D Contour Editor"
-                >EDIT 2D</button>
+                                    <div class='flex items-center justify-between mb-2'>
+              <label class='text-xs font-semibold text-zinc-300 uppercase tracking-wider'>Bottom Channels</label>
+              <div class='flex items-center gap-1.5'>
+                <button type='button' @click=${() => this._dispatchSaveComponent('channels')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Save Channels Component'>SAVE</button>
+                <button type='button' @click=${() => this._dispatchOpenComponentLibrary('channels')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Load Channels Component'>LOAD</button>
+                ${(this.bottomChannels || []).length > 0 ? html`
+                  <button type='button'
+                    @click=${() => this.dispatchEvent(new CustomEvent('open-contour-editor', { bubbles: true, composed: true }))}
+                    class='px-2 py-0.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors'
+                    title='Open 2D Contour Editor'
+                  >EDIT 2D</button>
                 ` : ''}
-                <button type="button"
-                  @click=${() => this.dispatchEvent(new CustomEvent('add-bottom-channel', { bubbles: true, composed: true }))} 
-                  class="px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
-                  title="Add Bottom Channel"
+                <button type='button'
+                  @click=${() => this.dispatchEvent(new CustomEvent('add-bottom-channel', { bubbles: true, composed: true }))}
+                  class='px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors'
+                  title='Add Bottom Channel'
                 >ADD</button>
               </div>
             </div>
+          </div>
+          <div class='h-px bg-zinc-800 my-3'></div>
+          <div>
+            <div class='flex items-center justify-between mb-2'>
+              <label class='text-xs font-semibold text-zinc-300 uppercase tracking-wider'>Cross Sections</label>
+              <div class='flex items-center gap-1.5'>
+                <button type='button' @click=${() => this._dispatchSaveComponent('slices')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Save Slices Component'>SAVE</button>
+                <button type='button' @click=${() => this._dispatchOpenComponentLibrary('slices')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Load Slices Component'>LOAD</button>
+              </div>
+            </div>
+            <p class='text-[10px] text-zinc-500 font-sans'>Manage 2D cross-sectional lofts via the Component Library.</p>
             ${(this.bottomChannels ||[]).length === 0 
               ? html`<p class="text-xs text-zinc-500 text-center py-2">No channels defined.</p>`
               : (this.bottomChannels ||[]).map((channel, index) => html`
@@ -385,7 +418,17 @@ export class BoardControls extends LitElement {
           </div>
         `, true)}
 
-        ${this._renderAccordion("Global Transforms", html`
+                ${this._renderAccordion("Global Transforms", html`
+          <div class='mb-4'>
+            <div class='flex items-center justify-between mb-2'>
+              <label class='text-xs font-semibold text-zinc-300 uppercase tracking-wider'>Rocker Profile</label>
+              <div class='flex items-center gap-1.5'>
+                <button type='button' @click=${() => this._dispatchSaveComponent('rocker')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Save Rocker Component'>SAVE</button>
+                <button type='button' @click=${() => this._dispatchOpenComponentLibrary('rocker')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Load Rocker Component'>LOAD</button>
+              </div>
+            </div>
+          </div>
+          <div class='h-px bg-zinc-800 my-3'></div>
           ${this._renderSlider("Length", "length", 48, 120, 0.5, this.length)}
           ${this._renderSlider("Width", "width", 16, 24, 0.125, this.width)}
           ${this._renderSlider("Thickness", "thickness", 1.5, 4, 0.0625, this.thickness)}
@@ -486,7 +529,14 @@ export class BoardControls extends LitElement {
               </div>
             `, false)}
 
-        ${this._renderAccordion("Fins & Placement", html`
+                ${this._renderAccordion("Fins & Placement", html`
+          <div class='flex items-center justify-between mb-4 pb-2 border-b border-zinc-800/40'>
+            <span class='text-xs font-bold text-zinc-300 uppercase tracking-wider'>Fins Config</span>
+            <div class='flex items-center gap-1.5'>
+              <button type='button' @click=${() => this._dispatchSaveComponent('fins')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Save Fins Component'>SAVE</button>
+              <button type='button' @click=${() => this._dispatchOpenComponentLibrary('fins')} class='px-2 py-0.5 text-[10px] font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors' title='Load Fins Component'>LOAD</button>
+            </div>
+          </div>
           <div class="mb-4">
             <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Setup</label>
             <select class="text-sm w-full appearance-none bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md py-2 pl-3 pr-8 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer" .value=${this.finSetup} @change=${(e: Event) => this._dispatchString('finSetup', (e.target as HTMLSelectElement).value)}>
