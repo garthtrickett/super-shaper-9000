@@ -379,7 +379,7 @@ mod tests {
         let model_b =
             crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
 
-                // 4. Assert Losslessness of primary physical dimensions
+        // 4. Assert Losslessness of primary physical dimensions
         approx::assert_relative_eq!(model_a.length, model_b.length, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.width, model_b.width, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.thickness, model_b.thickness, epsilon = 0.1);

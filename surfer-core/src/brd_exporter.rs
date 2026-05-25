@@ -221,7 +221,7 @@ mod tests {
             }
         }
 
-                // 4. Assert Equivalence of primary dimensions with high robustness
+        // 4. Assert Equivalence of primary dimensions with high robustness
         approx::assert_relative_eq!(model_a.length, model_b.length, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.width, model_b.width, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.thickness, model_b.thickness, epsilon = 0.1);

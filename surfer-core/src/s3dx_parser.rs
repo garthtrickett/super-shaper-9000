@@ -1779,7 +1779,7 @@ mod tests {
         assert_relative_eq!(fin_center.width, 4.0 * scale, epsilon = 1e-4);
         assert_relative_eq!(fin_center.height, 2.36 * scale, epsilon = 1e-4);
 
-                assert_relative_eq!(
+        assert_relative_eq!(
             fin_center.z,
             (213.36 / 2.0 - 7.525309) * scale,
             epsilon = 0.05
@@ -1862,7 +1862,7 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-                assert!(model.imported_fin_boxes.is_some());
+        assert!(model.imported_fin_boxes.is_some());
         let boxes = model.imported_fin_boxes.as_ref().unwrap();
 
         // 3 Fin Systems (Fin center + Symmetrical Fin sides) + 1 legacy box (Leash 1) = exactly 3 parsed structures
