@@ -453,6 +453,11 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
     let mut unscaled_length = 0.0;
     let mut scale = 1.0;
 
+    let mut side_fin_z_raw = 0.0;
+    let mut side_fin_x_raw = 0.0;
+    let mut side_fin_toe_raw = 0.0;
+    let mut center_fin_z_raw = 0.0;
+
     while let Some(line) = lines.next() {
         let line = line.trim();
         if line.is_empty() {
@@ -488,13 +493,35 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
                 "p34" => {
                     model.rocker_top = parse_aku_curve(&mut lines, unscaled_length, scale, true);
                 }
-                "p35" => {
+                                "p35" => {
                     model.cross_sections = parse_aku_slices(&mut lines, unscaled_length, scale);
+                }
+                "p11" => {
+                    side_fin_z_raw = value.parse::<f32>().unwrap_or(0.0);
+                }
+                "p12" => {
+                    side_fin_x_raw = value.parse::<f32>().unwrap_or(0.0);
+                }
+                "p13" => {
+                    side_fin_toe_raw = value.parse::<f32>().unwrap_or(0.0);
+                }
+                "p14" => {
+                    center_fin_z_raw = value.parse::<f32>().unwrap_or(0.0);
                 }
                 _ => {}
             }
         }
     }
+
+    let side_fin_z = side_fin_z_raw * scale;
+    let side_fin_x = side_fin_x_raw * scale;
+    let center_fin_z = center_fin_z_raw * scale;
+    let side_fin_toe = side_fin_toe_raw;
+
+    log::info!(
+        "[BRD Parser] Extracted raw fin parameters: side_z={}, side_x={}, toe={}, center_z={}",
+        side_fin_z, side_fin_x, side_fin_toe, center_fin_z
+    );
 
     let bounds_tip_z = model.length / 2.0;
     let bounds_nose_z = -model.length / 2.0;
