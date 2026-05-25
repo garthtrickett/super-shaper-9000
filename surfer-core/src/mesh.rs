@@ -491,9 +491,9 @@ pub fn generate_lines_for_view(
     let gizmo_rail_out = (gizmo_mask & (1 << 4)) != 0;
     let gizmo_apex_roc = (gizmo_mask & (1 << 5)) != 0;
     let gizmo_deck = (gizmo_mask & (1 << 6)) != 0;
-    let gizmo_cs = (gizmo_mask & (1 << 7)) != 0;
+        let gizmo_cs = (gizmo_mask & (1 << 7)) != 0;
     let gizmo_extras = (gizmo_mask & (1 << 8)) != 0;
-    let gizmo_fins = (gizmo_mask & (1 << 9)) != 0;
+    let _gizmo_fins = (gizmo_mask & (1 << 9)) != 0;
 
     let add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
                            color: Vec3,

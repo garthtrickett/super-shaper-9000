@@ -539,11 +539,11 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
             0.0
         };
 
-        // Evaluate board outline half-width at z_pos to correctly place the fin off the rail
+                // Evaluate board outline half-width at z_pos to correctly place the fin off the rail
         let half_width_at_z = if let Some(out) = &model.outline {
             crate::geometry::evaluate_bezier_at_z(out, z_pos, hint_t).x
         } else {
-            model.width / 2.0;
+            model.width / 2.0
         };
 
         let x_pos = (half_width_at_z - side_fin_x_off_rail).max(0.0);
