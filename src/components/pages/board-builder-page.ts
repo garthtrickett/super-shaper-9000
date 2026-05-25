@@ -15,6 +15,7 @@ import "../ui/import-modal";
 import "../ui/library-modal";
 import "../ui/component-library-modal";
 import { saveBoardToLibrary } from "../../lib/client/library-store";
+import { saveComponentToLibrary } from "../../lib/client/component-library-store";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
@@ -48,11 +49,74 @@ export class BoardBuilderPage extends LitElement {
     return true;
   }
 
-  private _proposeAction(action: BoardAction) {
+    private _proposeAction(action: BoardAction) {
     if (this._isGeometryAltering(action)) {
       this.isProcessing = true;
     }
     this.wasmCtrl.propose(action);
+  }
+
+  private _handleSaveComponent(type: import("./board-builder-page.logic").ComponentType) {
+    const state = this.wasmCtrl.model;
+    if (!state) {
+      alert("No active board state to save component from!");
+      return;
+    }
+
+    const name = prompt(`Enter a name for your saved ${type} component:`);
+    if (!name || !name.trim()) return;
+
+    let payload: any;
+    if (type === "outline") {
+      payload = {
+        outline: state.outline,
+        outlineLayers: state.outlineLayers
+      };
+    } else if (type === "rocker") {
+      payload = {
+        rockerTop: state.rockerTop,
+        rockerBottom: state.rockerBottom,
+        apexRocker: state.apexRocker
+      };
+    } else if (type === "slices") {
+      payload = {
+        crossSections: state.crossSections
+      };
+    } else if (type === "channels") {
+      payload = {
+        bottomChannels: state.bottomChannels || []
+      };
+    } else if (type === "fins") {
+      payload = {
+        finSetup: state.finSetup,
+        frontFinZ: state.frontFinZ,
+        frontFinX: state.frontFinX,
+        rearFinZ: state.rearFinZ,
+        rearFinX: state.rearFinX,
+        toeAngle: state.toeAngle,
+        cantAngle: state.cantAngle
+      };
+    }
+
+    if (payload) {
+      try {
+        saveComponentToLibrary(name.trim(), type, payload);
+        alert(`"${name}" successfully saved to your component library!`);
+      } catch (err) {
+        console.error("Failed to save component to library:", err);
+        alert("Failed to save component to library.");
+      }
+    }
+  }
+
+  private _handleOpenComponentLibrary(type: import("./board-builder-page.logic").ComponentType) {
+    this.showComponentLibraryModal = true;
+    setTimeout(() => {
+      const modal = this.shadowRoot?.querySelector("component-library-modal") as any;
+      if (modal) {
+        modal.activeTab = type;
+      }
+    }, 0);
   }
 
     private _previewAction(action: BoardAction) {
@@ -475,7 +539,7 @@ export class BoardBuilderPage extends LitElement {
             @save-to-library=${this._handleSaveToLibrary}
             @open-library=${() => this.showLibraryModal = true}
             @new-design=${() => this._handleNewDesign()}
-            @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
+                        @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
             @add-outline-layer=${() => this._proposeAction({ type: 'ADD_OUTLINE_LAYER' })}
             @remove-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_OUTLINE_LAYER', index: e.detail.index })}
             @toggle-outline-layer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_OUTLINE_LAYER', index: e.detail.index })}
@@ -483,6 +547,8 @@ export class BoardBuilderPage extends LitElement {
             @remove-bottom-channel=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'REMOVE_BOTTOM_CHANNEL', index: e.detail.index })}
             @toggle-channel-symmetry=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: 'TOGGLE_CHANNEL_SYMMETRY', index: e.detail.index })}
             @open-contour-editor=${() => { this.showContourEditor = true; this.requestSliceProfile(); }}
+            @save-component=${(e: CustomEvent<{ type: any }>) => this._handleSaveComponent(e.detail.type)}
+            @open-component-library=${(e: CustomEvent<{ type: any }>) => this._handleOpenComponentLibrary(e.detail.type)}
           ></board-controls>
         </div>
 
