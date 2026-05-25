@@ -513,15 +513,34 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
         }
     }
 
-            let side_fin_z = side_fin_z_raw; // Fin positions are always in inches in BRD format
-    // p12 represents distance off the rail. Senders sometimes write it in inches (e.g. 1.25)
-    // and sometimes in tenths of an inch (e.g. 13.0). We use a heuristic threshold to support both.
-    let side_fin_x_off_rail = if side_fin_x_raw < 3.0 {
-        side_fin_x_raw
+                let is_metric = (scale - 1.0).abs() > 1e-4;
+
+    // If the board is metric and the fin tail distance p14 is in cm (> 20.0), scale it to inches.
+    let side_fin_z = if is_metric && side_fin_z_raw > 20.0 {
+        side_fin_z_raw * scale
     } else {
-        side_fin_x_raw * 0.1
+        side_fin_z_raw
     };
-    let center_fin_z = center_fin_z_raw; // Always in inches
+
+    // If the board is metric and the center fin distance p11 is in cm (> 10.0), scale it to inches.
+    let center_fin_z = if is_metric && center_fin_z_raw > 10.0 {
+        center_fin_z_raw * scale
+    } else {
+        center_fin_z_raw
+    };
+
+    // p12 represents distance off the rail. We use a multi-tiered heuristic to handle all formats:
+    // 1. If p12 >= 5.0 (e.g., 13.0), it represents tenths of an inch -> 1.3 inches.
+    // 2. If p12 < 5.0, is_metric, and p12 > 2.0 (e.g., 3.3 cm), it represents centimeters -> scale to inches.
+    // 3. Otherwise, it represents direct inches (e.g., 1.25).
+    let side_fin_x_off_rail = if side_fin_x_raw >= 5.0 {
+        side_fin_x_raw * 0.1
+    } else if is_metric && side_fin_x_raw > 2.0 {
+        side_fin_x_raw * scale
+    } else {
+        side_fin_x_raw
+    };
+
     let side_fin_toe = side_fin_toe_raw;
 
     log::info!(
@@ -1583,11 +1602,11 @@ mod tests {
         assert_eq!(center_fin.even, false);
         assert_eq!(center_fin.central, true);
 
-                // Center fin (p11 = 15.0) is behind, closer to tail: z_pos = length / 2.0 - 15.0
-        assert_relative_eq!(center_fin.z, 76.0 / 2.0 - 15.0, epsilon = 1e-3);
+                        // Center fin (p11 = 15.0 cm = 5.9055 inches) is behind, closer to tail
+        assert_relative_eq!(center_fin.z, 76.0 / 2.0 - (15.0 / 2.54), epsilon = 1e-3);
         
-        // Side fins (p14 = 28.2) are in front: z_pos = length / 2.0 - 28.2
-        assert_relative_eq!(side_fins.z, 76.0 / 2.0 - 28.2, epsilon = 1e-3);
+        // Side fins (p14 = 28.2 cm = 11.1023 inches) are in front
+        assert_relative_eq!(side_fins.z, 76.0 / 2.0 - (28.2 / 2.54), epsilon = 1e-3);
 
                 // Verify side fins are safely placed inside the outline (x < half_width_at_z)
         let hint_t = (side_fins.z - (-76.0 / 2.0)) / 76.0;
