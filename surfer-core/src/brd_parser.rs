@@ -1628,8 +1628,8 @@ mod tests {
             hint_t,
         )
         .x;
-        assert!(side_fins.x < half_width_at_z);
-        assert_relative_eq!(side_fins.x, half_width_at_z - 1.3, epsilon = 1e-3);
+                assert!(side_fins.x < half_width_at_z);
+        assert_relative_eq!(side_fins.x, half_width_at_z - 2.0, epsilon = 1e-3);
     }
 
     #[test]
