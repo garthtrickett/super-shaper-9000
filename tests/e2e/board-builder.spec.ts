@@ -1094,8 +1094,56 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         // Release mouse to trigger final high-fidelity lofting
         await page.mouse.up();
 
-        // After mouse release, the 3D solid must be computed and the volume updated
+                // After mouse release, the 3D solid must be computed and the volume updated
         await expect(boardControls.locator('div.text-2xl.font-black.text-blue-500')).not.toHaveText(initialVolumeText!);
+      });
+
+      test("Parametric Fin Configuration and Viewport Rendering", async ({ page }) => {
+        const errors: string[] = [];
+        page.on('console', msg => {
+          if (msg.type() === 'error') errors.push(msg.text());
+        });
+        page.on('pageerror', err => errors.push(err.message));
+
+        await page.goto("/");
+        await expect(page.locator("board-viewport canvas")).toBeVisible();
+
+        const boardControls = page.locator("board-controls");
+
+        // 1. Locate and expand the Fins & Placement accordion
+        const finsAccordion = boardControls.locator('details').filter({
+          has: page.locator('summary', { hasText: "Fins & Placement" })
+        });
+        await expect(finsAccordion).toBeVisible();
+
+        const isOpen = await finsAccordion.getAttribute('open');
+        if (isOpen === null) {
+          await finsAccordion.locator('summary').click();
+        }
+
+        // 2. Locate Fin Setup dropdown and verify it is visible
+        const setupSelect = finsAccordion.locator('select').first();
+        await expect(setupSelect).toBeVisible();
+
+        // 3. Swap Twin to Thruster to trigger a geometry and line rendering update
+        await setupSelect.selectOption('thruster');
+        await page.waitForTimeout(500);
+
+        // 4. Adjust the "off rail" slider (frontFinX) to visually reposition the front side fins
+        const offRailContainer = finsAccordion.locator('.mb-4').filter({ hasText: /Front Fin off Rail/i }).first();
+        await expect(offRailContainer).toBeVisible();
+        
+        const offRailSlider = offRailContainer.locator('input[type="range"]');
+        await offRailSlider.fill('1.75');
+        await offRailSlider.dispatchEvent('input');
+        await offRailSlider.dispatchEvent('pointerup');
+
+        await page.waitForTimeout(500); // Allow render update to complete on Web Worker
+
+        // 5. Verify the viewport canvas remains active and renders without WebGL or mathematical errors
+        await expect(page.locator("board-viewport canvas")).toBeVisible();
+        const criticalErrors = errors.filter(e => (e.includes('WebGL') || e.includes('NaN')) && !e.includes('unsupported'));
+        expect(criticalErrors).toHaveLength(0);
       });
     });
 
