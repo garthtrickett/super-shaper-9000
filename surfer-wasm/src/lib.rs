@@ -1562,7 +1562,7 @@ impl WasmEngine {
         pt.y
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn get_surface_y_at(&self, z: f32, _x: f32, is_deck: bool) -> f32 {
         let model = self.engine.get_model();
         let bounds = surfer_core::geometry::get_board_bounds(model);

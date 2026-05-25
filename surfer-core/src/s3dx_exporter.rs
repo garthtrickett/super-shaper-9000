@@ -17,16 +17,17 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     } else {
         1.0
     };
-    let scale = if model.length > 51.18 {
+        let scale = if model.length > 51.18 {
         1.0 / 2.54
     } else {
         1.0
     };
+    let unscale = 1.0 / scale;
 
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
     xml.push_str("<Version>9</Version>\n<VersionNumber>9.1.0.4</VersionNumber>\n");
-    xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.6}</Length>\n<Width>{:.6}</Width>\n<Thickness>{:.6}</Thickness>\n", model.length, model.width, model.thickness));
+    xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.6}</Length>\n<Width>{:.6}</Width>\n<Thickness>{:.6}</Thickness>\n", model.length * unscale, model.width * unscale, model.thickness * unscale));
     let mut dirty = crate::model::DirtyState::default();
     let mut cache = crate::mesh::MeshCache::default();
     let mesh = crate::mesh::generate_mesh(model, &mut dirty, &mut cache);
