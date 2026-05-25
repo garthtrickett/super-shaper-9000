@@ -144,6 +144,65 @@ export const BoardModelSchema = S.Struct({
   glassingSchedule: S.Literal("light", "standard", "heavy"),
 });
 
+export const ComponentTypeSchema = S.Literal("outline", "rocker", "slices", "channels", "fins");
+export type ComponentType = S.Schema.Type<typeof ComponentTypeSchema>;
+
+export const ComponentEntrySchema = S.Struct({
+  id: S.String,
+  name: S.String,
+  type: ComponentTypeSchema,
+  updatedAt: S.String,
+});
+export type ComponentEntry = S.Schema.Type<typeof ComponentEntrySchema>;
+
+export const OutlineComponentSchema = S.Struct({
+  outline: BezierCurveSchema,
+  outlineLayers: S.optional(S.Array(S.Struct({
+    name: S.String,
+    active: S.optional(S.Boolean),
+    otlExt: BezierCurveSchema,
+    otlInt: BezierCurveSchema
+  }))),
+});
+export type OutlineComponent = S.Schema.Type<typeof OutlineComponentSchema>;
+
+export const RockerComponentSchema = S.Struct({
+  rockerTop: BezierCurveSchema,
+  rockerBottom: BezierCurveSchema,
+  apexRocker: S.optional(BezierCurveSchema),
+});
+export type RockerComponent = S.Schema.Type<typeof RockerComponentSchema>;
+
+export const SlicesComponentSchema = S.Struct({
+  crossSections: S.Array(BezierCurveSchema),
+});
+export type SlicesComponent = S.Schema.Type<typeof SlicesComponentSchema>;
+
+export const ChannelsComponentSchema = S.Struct({
+  bottomChannels: S.Array(ChannelLayerSchema),
+});
+export type ChannelsComponent = S.Schema.Type<typeof ChannelsComponentSchema>;
+
+export const FinsComponentSchema = S.Struct({
+  finSetup: S.Literal("thruster", "quad", "twin"),
+  frontFinZ: S.Number,
+  frontFinX: S.Number,
+  rearFinZ: S.Number,
+  rearFinX: S.Number,
+  toeAngle: S.Number,
+  cantAngle: S.Number,
+});
+export type FinsComponent = S.Schema.Type<typeof FinsComponentSchema>;
+
+export const ComponentPayloadSchema = S.Union(
+  OutlineComponentSchema,
+  RockerComponentSchema,
+  SlicesComponentSchema,
+  ChannelsComponentSchema,
+  FinsComponentSchema
+);
+export type ComponentPayload = S.Schema.Type<typeof ComponentPayloadSchema>;
+
 export type Point3D = [number, number, number];
 export interface BezierCurveData {
   controlPoints: Point3D[];
