@@ -236,7 +236,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
             }
             crate::geometry::translate_absolute_to_parametric_fins(model, &fin_boxes);
         }
-        } else if let Some(fin_boxes) = model.imported_fin_boxes.take() {
+    } else if let Some(fin_boxes) = model.imported_fin_boxes.take() {
         crate::geometry::translate_absolute_to_parametric_fins(model, &fin_boxes);
     }
 }

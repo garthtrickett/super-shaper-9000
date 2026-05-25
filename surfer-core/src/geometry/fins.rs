@@ -101,11 +101,11 @@ pub fn synthesize_parametric_fins(model: &BoardModel) -> Vec<ImportedFinBox> {
 
 /// Translates absolute fin box coordinates into parametric fields on BoardModel.
 pub fn translate_absolute_to_parametric_fins(model: &mut BoardModel, boxes: &[ImportedFinBox]) {
-    let filtered_boxes: Vec<&ImportedFinBox> = boxes
+        let filtered_boxes: Vec<&ImportedFinBox> = boxes
         .iter()
         .filter(|b| {
             let name_lower = b.name.to_lowercase();
-            !(name_lower.contains("leash") || name_lower.contains("plug") && !b.even && !b.central)
+            (b.central || b.even || !name_lower.contains("plug")) && !name_lower.contains("leash")
         })
         .collect();
 
