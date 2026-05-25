@@ -91,7 +91,7 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
 }
 
 pub fn push_history(model: &mut BoardModel) {
-        let snap = ManualSnapshot {
+    let snap = ManualSnapshot {
         outline: model.outline.clone(),
         outline_layers: model.outline_layers.clone(),
         bottom_channels: model.bottom_channels.clone(),
@@ -337,7 +337,7 @@ fn handle_history(
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
-                BoardAction::Undo => {
+        BoardAction::Undo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx > 0 {
                     idx -= 1;
@@ -357,7 +357,7 @@ fn handle_history(
                 }
             }
         }
-                BoardAction::Redo => {
+        BoardAction::Redo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx + 1 < history.len() {
                     idx += 1;

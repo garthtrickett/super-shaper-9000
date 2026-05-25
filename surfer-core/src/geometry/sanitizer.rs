@@ -164,7 +164,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
 
             let mut int = Some(l.otl_int.clone());
             warp_curve(&mut int);
-            if let Some(int) = int { 
+            if let Some(int) = int {
                 l.otl_int = int;
             }
         }
@@ -215,15 +215,16 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
         }
     }
 
-    if let Some(fin_boxes) = &mut model.imported_fin_boxes {
-        for fb in fin_boxes {
+    if let Some(mut fin_boxes) = model.imported_fin_boxes.take() {
+        for fb in &mut fin_boxes {
             let s_from_tail = (bounds.tip_z - fb.z) * scale_factor;
             let z_calibrated = table.map_s_to_z(s_from_tail);
             fb.z = z_calibrated;
 
             if !fb.central {
                 let hint_t = (fb.z - bounds.nose_z) / model.length;
-                let outline_pt = crate::geometry::evaluate_composite_outline_at_z(model, fb.z, hint_t);
+                let outline_pt =
+                    crate::geometry::evaluate_composite_outline_at_z(model, fb.z, hint_t);
                 let half_width = outline_pt.x.max(0.0);
 
                 let max_allowed_x = (half_width - (fb.width / 2.0) - 0.1).max(0.0);
@@ -232,6 +233,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
                 }
             }
         }
+        model.imported_fin_boxes = Some(fin_boxes);
     }
 }
 

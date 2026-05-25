@@ -493,10 +493,10 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
                 "p34" => {
                     model.rocker_top = parse_aku_curve(&mut lines, unscaled_length, scale, true);
                 }
-                                "p35" => {
+                "p35" => {
                     model.cross_sections = parse_aku_slices(&mut lines, unscaled_length, scale);
                 }
-                                "p11" => {
+                "p11" => {
                     center_fin_z_raw = value.parse::<f32>().unwrap_or(0.0);
                 }
                 "p12" => {
@@ -513,9 +513,9 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
         }
     }
 
-                let is_metric = (scale - 1.0).abs() > 1e-4;
+    let is_metric = (scale - 1.0).abs() > 1e-4;
 
-        // If the board is metric, the fin tail distances (p11, p14) are in cm, so we scale them to inches.
+    // If the board is metric, the fin tail distances (p11, p14) are in cm, so we scale them to inches.
     let side_fin_z = if is_metric {
         side_fin_z_raw * scale
     } else {
@@ -549,12 +549,12 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
 
     let bounds_tip_z = model.length / 2.0;
     let bounds_nose_z = -model.length / 2.0;
-        model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
+    model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
     model.v_concave_nose = extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
 
     let mut imported_fin_boxes = Vec::new();
 
-        if side_fin_z_raw > 0.0 && side_fin_x_raw > 0.0 {
+    if side_fin_z_raw > 0.0 && side_fin_x_raw > 0.0 {
         let z_pos = model.length / 2.0 - side_fin_z;
         let hint_t = (z_pos - (-model.length / 2.0)) / model.length;
         let y_pos = if let Some(rb) = &model.rocker_bottom {
@@ -563,7 +563,7 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
             0.0
         };
 
-                // Evaluate board outline half-width at z_pos to correctly place the fin off the rail
+        // Evaluate board outline half-width at z_pos to correctly place the fin off the rail
         let half_width_at_z = if let Some(out) = &model.outline {
             crate::geometry::evaluate_bezier_at_z(out, z_pos, hint_t).x
         } else {
@@ -672,25 +672,27 @@ pub fn parse_brd(bytes: &[u8]) -> Result<BoardModel, String> {
         // 2. Otherwise, fall back to BoardCAD ZLIB/XML format
         let xml = decompress_brd(bytes)?;
         let start_idx = xml.find('<').unwrap_or(0);
-                    let xml_slice = &xml[start_idx..];
-            let has_ref_point = xml_slice.contains("<Ref. point>") || xml_slice.contains("<RefPoint>") || xml_slice.contains("<refPoint>");
-            let mut sanitized = xml_slice
-                .replace("<Ref. point>", "<Ref_point>")
-                .replace("</Ref. point>", "</Ref_point>")
-                .replace("<RefPoint>", "<Ref_point>")
-                .replace("</RefPoint>", "</Ref_point>")
-                .replace("<refPoint>", "<Ref_point>")
-                .replace("</refPoint>", "</ref_point>");
+        let xml_slice = &xml[start_idx..];
+        let has_ref_point = xml_slice.contains("<Ref. point>")
+            || xml_slice.contains("<RefPoint>")
+            || xml_slice.contains("<refPoint>");
+        let mut sanitized = xml_slice
+            .replace("<Ref. point>", "<Ref_point>")
+            .replace("</Ref. point>", "</Ref_point>")
+            .replace("<RefPoint>", "<Ref_point>")
+            .replace("</RefPoint>", "</Ref_point>")
+            .replace("<refPoint>", "<Ref_point>")
+            .replace("</refPoint>", "</ref_point>");
 
-            if !has_ref_point {
-                sanitized = sanitized
-                    .replace("<PointRef>", "<Ref_point>")
-                    .replace("</PointRef>", "</Ref_point>")
-                    .replace("<pointRef>", "<Ref_point>")
-                    .replace("</pointRef>", "</Ref_point>");
-            }
+        if !has_ref_point {
+            sanitized = sanitized
+                .replace("<PointRef>", "<Ref_point>")
+                .replace("</PointRef>", "</Ref_point>")
+                .replace("<pointRef>", "<Ref_point>")
+                .replace("</pointRef>", "</Ref_point>");
+        }
 
-            let brd: BrdBoard =
+        let brd: BrdBoard =
             quick_xml::de::from_str(&sanitized).map_err(|e| format!("XML parsing error: {}", e))?;
 
         let mut m = BoardModel::default();
@@ -1570,14 +1572,14 @@ mod tests {
 
         // Under correct projection, the normal at the rail apex MUST point outward (having a strong X component)
         // instead of collapsing/twisting straight down to [0, -1, 0] or straight back to [0, 0, 1].
-                assert!(
+        assert!(
             normal.x > 0.5,
             "Normal at tail block rail apex is collapsed/twisted! Expected X component > 0.5, got: {:?}",
             normal
         );
     }
 
-        #[test]
+    #[test]
     fn test_brd_fin_boxes_synthesis() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1591,30 +1593,41 @@ mod tests {
 
         assert_eq!(boxes.len(), 2);
 
-        let side_fins = boxes.iter().find(|b| b.name == "Fin_sides").expect("Missing Fin_sides");
+        let side_fins = boxes
+            .iter()
+            .find(|b| b.name == "Fin_sides")
+            .expect("Missing Fin_sides");
         assert_eq!(side_fins.style, 3);
         assert_eq!(side_fins.even, true);
         assert_eq!(side_fins.central, false);
 
-        let center_fin = boxes.iter().find(|b| b.name == "Fin_center").expect("Missing Fin_center");
+        let center_fin = boxes
+            .iter()
+            .find(|b| b.name == "Fin_center")
+            .expect("Missing Fin_center");
         assert_eq!(center_fin.style, 5);
         assert_eq!(center_fin.even, false);
         assert_eq!(center_fin.central, true);
 
-                        // Center fin (p11 = 15.0 cm = 5.9055 inches) is behind, closer to tail
+        // Center fin (p11 = 15.0 cm = 5.9055 inches) is behind, closer to tail
         assert_relative_eq!(center_fin.z, 76.0 / 2.0 - (15.0 / 2.54), epsilon = 1e-3);
-        
+
         // Side fins (p14 = 28.2 cm = 11.1023 inches) are in front
         assert_relative_eq!(side_fins.z, 76.0 / 2.0 - (28.2 / 2.54), epsilon = 1e-3);
 
-                // Verify side fins are safely placed inside the outline (x < half_width_at_z)
+        // Verify side fins are safely placed inside the outline (x < half_width_at_z)
         let hint_t = (side_fins.z - (-76.0 / 2.0)) / 76.0;
-        let half_width_at_z = crate::geometry::evaluate_bezier_at_z(model.outline.as_ref().unwrap(), side_fins.z, hint_t).x;
+        let half_width_at_z = crate::geometry::evaluate_bezier_at_z(
+            model.outline.as_ref().unwrap(),
+            side_fins.z,
+            hint_t,
+        )
+        .x;
         assert!(side_fins.x < half_width_at_z);
         assert_relative_eq!(side_fins.x, half_width_at_z - 1.3, epsilon = 1e-3);
     }
 
-        #[test]
+    #[test]
     fn test_mini_simmons_fin_boxes_synthesis() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1635,14 +1648,18 @@ mod tests {
         for b in &boxes {
             let dist_from_tail = model.length / 2.0 - b.z;
             println!("Fin {} distance from tail: {}", b.name, dist_from_tail);
-            assert!(dist_from_tail < 7.0, "Fins are placed too far up the board! Distance: {}", dist_from_tail);
+            assert!(
+                dist_from_tail < 7.0,
+                "Fins are placed too far up the board! Distance: {}",
+                dist_from_tail
+            );
         }
     }
 
     #[test]
     fn test_brd_fin_direct_inch_heuristic() {
         let _ = env_logger::builder().is_test(true).try_init();
-        
+
         let file_text = "\
 p01: 72.0\n\
 p03: 2.5\n\
@@ -1659,7 +1676,7 @@ p32:\n\
         let model = parse_aku_shaper(file_text).expect("Failed to parse simulated BRD");
         let boxes = model.imported_fin_boxes.unwrap();
         let side_fins = boxes.iter().find(|b| b.name == "Fin_sides").unwrap();
-        
+
         assert_relative_eq!(side_fins.x, 10.0 - 1.25, epsilon = 1e-3);
     }
 }

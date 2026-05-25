@@ -138,7 +138,7 @@ pub struct BoardModel {
     pub rocker_top: Option<BezierCurveData>,
     pub rocker_bottom: Option<BezierCurveData>,
     pub apex_rocker: Option<BezierCurveData>,
-        pub deck_shoulder: Option<BezierCurveData>,
+    pub deck_shoulder: Option<BezierCurveData>,
     #[serde(default)]
     pub cross_sections: Vec<BezierCurveData>,
     pub imported_fin_boxes: Option<Vec<ImportedFinBox>>,
@@ -393,7 +393,7 @@ impl approx::AbsDiffEq for BoardModel {
                 (None, None) => true,
                 _ => false,
             })
-                        && (match (&self.bottom_channels, &other.bottom_channels) {
+            && (match (&self.bottom_channels, &other.bottom_channels) {
                 (Some(ca), Some(cb)) => {
                     ca.len() == cb.len()
                         && ca
@@ -472,7 +472,7 @@ impl Default for BoardModel {
             rocker_top: None,
             rocker_bottom: None,
             apex_rocker: None,
-                        deck_shoulder: None,
+            deck_shoulder: None,
             cross_sections: Vec::new(),
             imported_fin_boxes: None,
         }

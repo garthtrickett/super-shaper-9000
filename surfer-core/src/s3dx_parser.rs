@@ -68,7 +68,7 @@ pub struct S3dxBoard {
     #[serde(rename = "Couple")]
     pub couples: Option<Vec<S3dxCouplesContainer>>,
 
-        #[serde(rename = "Calque")]
+    #[serde(rename = "Calque")]
     pub calques: Option<Vec<S3dxCalqueContainer>>,
     #[serde(rename = "BoxContainer")]
     pub box_containers: Option<Vec<S3dxBoxContainer>>,
@@ -419,7 +419,9 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
         }
     }
 
-        let has_ref_point = sanitized.contains("<Ref. point>") || sanitized.contains("<RefPoint>") || sanitized.contains("<refPoint>");
+    let has_ref_point = sanitized.contains("<Ref. point>")
+        || sanitized.contains("<RefPoint>")
+        || sanitized.contains("<refPoint>");
 
     sanitized = sanitized
         .replace("<Ref. point>", "<Ref_point>")
@@ -448,30 +450,30 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
                 .replace(&end_tag, "</Couple>");
         }
 
-                    let start_tag_calque = format!("<Calque_{}>", i);
-            let end_tag_calque = format!("</Calque_{}>", i);
-            if sanitized.contains(&start_tag_calque) {
-                sanitized = sanitized
-                    .replace(&start_tag_calque, "<Calque>")
-                    .replace(&end_tag_calque, "</Calque>");
-            }
-
-            let start_tag_box = format!("<Box_{}>", i);
-            let end_tag_box = format!("</Box_{}>", i);
-            if sanitized.contains(&start_tag_box) {
-                sanitized = sanitized
-                    .replace(&start_tag_box, "<BoxContainer>")
-                    .replace(&end_tag_box, "</BoxContainer>");
-            }
-
-            let start_tag_fin = format!("<Fin_System_{}>", i);
-            let end_tag_fin = format!("</Fin_System_{}>", i);
-            if sanitized.contains(&start_tag_fin) {
-                sanitized = sanitized
-                    .replace(&start_tag_fin, "<FinSystemContainer>")
-                    .replace(&end_tag_fin, "</FinSystemContainer>");
-            }
+        let start_tag_calque = format!("<Calque_{}>", i);
+        let end_tag_calque = format!("</Calque_{}>", i);
+        if sanitized.contains(&start_tag_calque) {
+            sanitized = sanitized
+                .replace(&start_tag_calque, "<Calque>")
+                .replace(&end_tag_calque, "</Calque>");
         }
+
+        let start_tag_box = format!("<Box_{}>", i);
+        let end_tag_box = format!("</Box_{}>", i);
+        if sanitized.contains(&start_tag_box) {
+            sanitized = sanitized
+                .replace(&start_tag_box, "<BoxContainer>")
+                .replace(&end_tag_box, "</BoxContainer>");
+        }
+
+        let start_tag_fin = format!("<Fin_System_{}>", i);
+        let end_tag_fin = format!("</Fin_System_{}>", i);
+        if sanitized.contains(&start_tag_fin) {
+            sanitized = sanitized
+                .replace(&start_tag_fin, "<FinSystemContainer>")
+                .replace(&end_tag_fin, "</FinSystemContainer>");
+        }
+    }
 
     // Preprocess the XML to safely isolate the thickness Bezier curve from the float scalar
     sanitized = preprocess_xml_thickness(&sanitized);
@@ -720,7 +722,7 @@ impl From<S3dxBoard> for BoardModel {
         if !outline_layers.is_empty() {
             model.outline_layers = Some(outline_layers);
         }
-                        if !bottom_channels.is_empty() {
+        if !bottom_channels.is_empty() {
             model.bottom_channels = Some(bottom_channels);
         }
 
@@ -732,31 +734,38 @@ impl From<S3dxBoard> for BoardModel {
         if let Some(containers) = &s3dx.box_containers {
             for container in containers {
                 if let Some(r_box) = &container.r_box {
-                    let ref_p = r_box.ref_point.as_ref()
-                        .and_then(|rp| rp.point3d.as_ref());
-                    
+                    let ref_p = r_box.ref_point.as_ref().and_then(|rp| rp.point3d.as_ref());
+
                     let x_cad = ref_p.map(|p| p.x).unwrap_or(0.0);
                     let y_cad = ref_p.map(|p| p.y).unwrap_or(0.0);
                     let z_cad = ref_p.map(|p| p.z).unwrap_or(0.0);
 
                     let z_world = (bl / 2.0 - x_cad) * scale;
                     let x_world = y_cad * scale;
-                    
-                    let is_deck = r_box.face.unwrap_or(1) == 0;
+
+                                        let is_deck = r_box.face.unwrap_or(1) == 0;
                     let box_height = r_box.height.unwrap_or(0.0) * scale;
 
                     let y_surf = if is_deck {
                         if let Some(rt) = &model.rocker_top {
-                            crate::geometry::evaluate_bezier_at_z(rt, z_world, (z_world - bounds_nose_z) / model.length).y
-                        } else { 
-                            z_cad * scale 
+                            crate::geometry::evaluate_bezier_at_z(
+                                rt,
+                                z_world,
+                                (z_world - bounds_nose_z) / model.length,
+                            )
+                            .y
+                        } else {
+                            z_cad * scale
                         }
+                    } else if let Some(rb) = &model.rocker_bottom {
+                        crate::geometry::evaluate_bezier_at_z(
+                            rb,
+                            z_world,
+                            (z_world - bounds_nose_z) / model.length,
+                        )
+                        .y
                     } else {
-                        if let Some(rb) = &model.rocker_bottom {
-                            crate::geometry::evaluate_bezier_at_z(rb, z_world, (z_world - bounds_nose_z) / model.length).y
-                        } else { 
-                            z_cad * scale 
-                        }
+                        z_cad * scale
                     };
 
                     let y_world = if is_deck { y_surf - box_height } else { y_surf };
@@ -791,31 +800,38 @@ impl From<S3dxBoard> for BoardModel {
         if let Some(containers) = &s3dx.fin_system_containers {
             for container in containers {
                 if let Some(fin) = &container.fin_system {
-                    let ref_p = fin.ref_point.as_ref()
-                        .and_then(|rp| rp.point3d.as_ref());
-                    
+                    let ref_p = fin.ref_point.as_ref().and_then(|rp| rp.point3d.as_ref());
+
                     let x_cad = ref_p.map(|p| p.x).unwrap_or(0.0);
                     let y_cad = ref_p.map(|p| p.y).unwrap_or(0.0);
                     let z_cad = ref_p.map(|p| p.z).unwrap_or(0.0);
 
                     let z_world = (bl / 2.0 - x_cad) * scale;
                     let x_world = y_cad * scale;
-                    
-                    let is_deck = fin.face.unwrap_or(1) == 0;
+
+                                        let is_deck = fin.face.unwrap_or(1) == 0;
                     let box_height = fin.height.unwrap_or(0.0) * scale;
 
                     let y_surf = if is_deck {
                         if let Some(rt) = &model.rocker_top {
-                            crate::geometry::evaluate_bezier_at_z(rt, z_world, (z_world - bounds_nose_z) / model.length).y
+                            crate::geometry::evaluate_bezier_at_z(
+                                rt,
+                                z_world,
+                                (z_world - bounds_nose_z) / model.length,
+                            )
+                            .y
                         } else { 
-                            z_cad * scale 
+                            z_cad * scale
                         }
+                    } else if let Some(rb) = &model.rocker_bottom {
+                        crate::geometry::evaluate_bezier_at_z(
+                            rb,
+                            z_world,
+                            (z_world - bounds_nose_z) / model.length,
+                        )
+                        .y
                     } else {
-                        if let Some(rb) = &model.rocker_bottom {
-                            crate::geometry::evaluate_bezier_at_z(rb, z_world, (z_world - bounds_nose_z) / model.length).y
-                        } else { 
-                            z_cad * scale 
-                        }
+                        z_cad * scale
                     };
 
                     let y_world = if is_deck { y_surf - box_height } else { y_surf };
@@ -1731,7 +1747,7 @@ mod tests {
         );
     }
 
-        #[test]
+    #[test]
     fn test_single_channels_fin_boxes_parsing() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/Single Channels.s3dx");
@@ -1747,30 +1763,40 @@ mod tests {
 
         assert!(model.imported_fin_boxes.is_some());
         let boxes = model.imported_fin_boxes.unwrap();
-        
+
         assert_eq!(boxes.len(), 2);
 
-        let fin_center = boxes.iter().find(|b| b.name == "Fin_center").expect("Missing Fin_center");
+        let fin_center = boxes
+            .iter()
+            .find(|b| b.name == "Fin_center")
+            .expect("Missing Fin_center");
         assert_eq!(fin_center.style, 5);
         assert_eq!(fin_center.even, false);
         assert_eq!(fin_center.central, true);
-        
+
         let scale = 1.0 / 2.54;
         assert_relative_eq!(fin_center.length, 30.5 * scale, epsilon = 1e-4);
         assert_relative_eq!(fin_center.width, 4.0 * scale, epsilon = 1e-4);
         assert_relative_eq!(fin_center.height, 2.36 * scale, epsilon = 1e-4);
-        
-        assert_relative_eq!(fin_center.z, (213.36 / 2.0 - 7.525309) * scale, epsilon = 1e-3);
+
+        assert_relative_eq!(
+            fin_center.z,
+            (213.36 / 2.0 - 7.525309) * scale,
+            epsilon = 1e-3
+        );
         assert_relative_eq!(fin_center.x, 0.0, epsilon = 1e-4);
         assert_relative_eq!(fin_center.y, 5.689465 * scale, epsilon = 1e-3);
 
-        let leash = boxes.iter().find(|b| b.name == "Leash").expect("Missing Leash");
+        let leash = boxes
+            .iter()
+            .find(|b| b.name == "Leash")
+            .expect("Missing Leash");
         assert_eq!(leash.style, 4);
         assert_eq!(leash.even, false);
         assert_eq!(leash.central, false);
     }
 
-        #[test]
+    #[test]
     fn test_mid_bevel_fin_boxes_parsing() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/Mid Bevel.s3dx");
@@ -1786,25 +1812,37 @@ mod tests {
 
         assert!(model.imported_fin_boxes.is_some());
         let boxes = model.imported_fin_boxes.unwrap();
-        
+
         assert_eq!(boxes.len(), 4);
 
-        let fin_center = boxes.iter().find(|b| b.name == "Fin_center").expect("Missing Fin_center");
+        let fin_center = boxes
+            .iter()
+            .find(|b| b.name == "Fin_center")
+            .expect("Missing Fin_center");
         assert_eq!(fin_center.style, 5);
         assert_eq!(fin_center.even, false);
         assert_eq!(fin_center.central, true);
 
-        let fin_twin = boxes.iter().find(|b| b.name == "Fin_twin").expect("Missing Fin_twin");
+        let fin_twin = boxes
+            .iter()
+            .find(|b| b.name == "Fin_twin")
+            .expect("Missing Fin_twin");
         assert_eq!(fin_twin.style, 3);
         assert_eq!(fin_twin.even, true);
         assert_eq!(fin_twin.central, false);
 
-        let fin_sides = boxes.iter().find(|b| b.name == "Fin_sides").expect("Missing Fin_sides");
+        let fin_sides = boxes
+            .iter()
+            .find(|b| b.name == "Fin_sides")
+            .expect("Missing Fin_sides");
         assert_eq!(fin_sides.style, 3);
         assert_eq!(fin_sides.even, true);
         assert_eq!(fin_sides.central, false);
 
-        let plug = boxes.iter().find(|b| b.name == "Plug 0").expect("Missing Plug 0");
+        let plug = boxes
+            .iter()
+            .find(|b| b.name == "Plug 0")
+            .expect("Missing Plug 0");
         assert_eq!(plug.style, 4);
         assert_eq!(plug.even, false);
         assert_eq!(plug.central, false);
@@ -1826,16 +1864,22 @@ mod tests {
 
         assert!(model.imported_fin_boxes.is_some());
         let boxes = model.imported_fin_boxes.unwrap();
-        
+
         // 3 Fin Systems (Fin center + Symmetrical Fin sides) + 1 legacy box (Leash 1) = exactly 3 parsed structures
         assert_eq!(boxes.len(), 3);
 
-        let fin_center = boxes.iter().find(|b| b.name == "Fin center").expect("Missing Fin center");
+        let fin_center = boxes
+            .iter()
+            .find(|b| b.name == "Fin center")
+            .expect("Missing Fin center");
         assert_eq!(fin_center.style, 6);
         assert_eq!(fin_center.even, false);
         assert_eq!(fin_center.central, true);
 
-                let fin_sides = boxes.iter().find(|b| b.name == "Fin sides").expect("Missing Fin sides");
+        let fin_sides = boxes
+            .iter()
+            .find(|b| b.name == "Fin sides")
+            .expect("Missing Fin sides");
         assert_eq!(fin_sides.style, 6);
         assert_eq!(fin_sides.even, true);
         assert_eq!(fin_sides.central, false);
@@ -1843,10 +1887,14 @@ mod tests {
 
         let bounds = crate::geometry::get_board_bounds(&model);
         let hint_t = (fin_sides.z - bounds.nose_z) / model.length;
-        let half_width_at_z = crate::geometry::evaluate_composite_outline_at_z(&model, fin_sides.z, hint_t).x;
+        let half_width_at_z =
+            crate::geometry::evaluate_composite_outline_at_z(&model, fin_sides.z, hint_t).x;
         assert!(fin_sides.x < half_width_at_z - 0.1);
 
-        let leash = boxes.iter().find(|b| b.name == "Leash 1").expect("Missing Leash 1");
+        let leash = boxes
+            .iter()
+            .find(|b| b.name == "Leash 1")
+            .expect("Missing Leash 1");
         assert_eq!(leash.style, 4);
         assert_eq!(leash.even, false);
         assert_eq!(leash.central, false);
@@ -2031,7 +2079,7 @@ mod tests {
             "Found {} non-monotonic nose width violations (pinched nose)",
             monotonic_violations
         );
-                assert_eq!(
+        assert_eq!(
             sudden_jump_violations, 0,
             "Found {} sudden geometry jumps near the nose",
             sudden_jump_violations
@@ -2079,10 +2127,16 @@ mod tests {
         assert!(model.imported_fin_boxes.is_some());
         let boxes = model.imported_fin_boxes.unwrap();
         assert_eq!(boxes.len(), 2);
-        
-        let fin = boxes.iter().find(|b| b.name == "Fin 2").expect("Missing Fin 2");
-        let leash = boxes.iter().find(|b| b.name == "Leash 3").expect("Missing Leash 3");
-        
+
+        let fin = boxes
+            .iter()
+            .find(|b| b.name == "Fin 2")
+            .expect("Missing Fin 2");
+        let leash = boxes
+            .iter()
+            .find(|b| b.name == "Leash 3")
+            .expect("Missing Leash 3");
+
         assert_ne!(fin.z, leash.z);
         assert_ne!(fin.x, leash.x);
     }
