@@ -1098,7 +1098,7 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         await expect(boardControls.locator('div.text-2xl.font-black.text-blue-500')).not.toHaveText(initialVolumeText!);
       });
 
-      test("Parametric Fin Configuration and Viewport Rendering", async ({ page }) => {
+            test("Parametric Fin Configuration and Viewport Rendering", async ({ page }) => {
         const errors: string[] = [];
         page.on('console', msg => {
           if (msg.type() === 'error') errors.push(msg.text());
@@ -1110,7 +1110,19 @@ test.describe("Board Builder E2E: The Golden Path", () => {
 
         const boardControls = page.locator("board-controls");
 
-        // 1. Locate and expand the Fins & Placement accordion
+        // 1. Open Import Modal and load the golden s3dx file to populate parametric fins
+        await boardControls.getByRole('button', { name: /Import Design/i }).click();
+        const modalHeading = page.getByRole('heading', { name: "Import Design" });
+        await expect(modalHeading).toBeVisible();
+
+        const fileChooserPromise = page.waitForEvent('filechooser');
+        await page.getByText('Select File').click();
+        const fileChooser = await fileChooserPromise;
+        await fileChooser.setFiles('./src/assets/fixtures/s3dx/gh-60-winged-swallow.s3dx');
+        await expect(modalHeading).toBeHidden();
+        await page.waitForTimeout(1000); // Wait for import to process
+
+        // 2. Locate and expand the Fins & Placement accordion
         const finsAccordion = boardControls.locator('details').filter({
           has: page.locator('summary', { hasText: "Fins & Placement" })
         });
@@ -1121,24 +1133,29 @@ test.describe("Board Builder E2E: The Golden Path", () => {
           await finsAccordion.locator('summary').click();
         }
 
-        // 2. Locate Fin Setup dropdown and verify it is visible
+        // 3. Verify the dropdown and inputs are correctly populated with parsed and translated values
         const setupSelect = finsAccordion.locator('select').first();
-        await expect(setupSelect).toBeVisible();
+        await expect(setupSelect).toHaveValue('thruster');
 
-        // 3. Swap Twin to Thruster to trigger a geometry and line rendering update
-        await setupSelect.selectOption('thruster');
-        await page.waitForTimeout(500);
+        const frontFinZContainer = finsAccordion.locator('.mb-4').filter({ hasText: /Front Fin from Tail/i }).first();
+        const frontFinZInput = frontFinZContainer.locator('input[type="text"]');
+        await expect(frontFinZInput).toHaveValue(/11\.\d+/);
 
-        // 4. Adjust the "off rail" slider (frontFinX) to visually reposition the front side fins
-        const offRailContainer = finsAccordion.locator('.mb-4').filter({ hasText: /Front Fin off Rail/i }).first();
-        await expect(offRailContainer).toBeVisible();
-        
-        const offRailSlider = offRailContainer.locator('input[type="range"]');
-        await offRailSlider.fill('1.75');
-        await offRailSlider.dispatchEvent('input');
-        await offRailSlider.dispatchEvent('pointerup');
+        const rearFinZContainer = finsAccordion.locator('.mb-4').filter({ hasText: /Rear Fin from Tail/i }).first();
+        const rearFinZInput = rearFinZContainer.locator('input[type="text"]');
+        await expect(rearFinZInput).toHaveValue(/3\.\d+/);
 
-        await page.waitForTimeout(500); // Allow render update to complete on Web Worker
+        // 4. Interactively adjust a slider (e.g. changing front fin Z from 11.x to 13.0)
+        const frontFinZSlider = frontFinZContainer.locator('input[type="range"]');
+        await frontFinZSlider.fill('13');
+        await frontFinZSlider.dispatchEvent('input');
+        await frontFinZSlider.dispatchEvent('pointerup');
+
+        // Let the asynchronous worker round trip complete
+        await page.waitForTimeout(600);
+
+        // Verify that the text input has successfully updated
+        await expect(frontFinZInput).toHaveValue('13.00"');
 
         // 5. Verify the viewport canvas remains active and renders without WebGL or mathematical errors
         await expect(page.locator("board-viewport canvas")).toBeVisible();
