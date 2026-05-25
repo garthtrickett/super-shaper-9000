@@ -399,14 +399,88 @@ export class BoardControls extends LitElement {
           </div>
         `, true)}
 
-                ${this._renderAccordion("Tail Shape", html`
-          ${this._renderSelect("Tail Type", "tailType",[
-            {value: "squash", label: "Squash / Square"},
-            {value: "pin", label: "Pin / Round"},
-            {value: "swallow", label: "Swallow / Fish"}
-          ], this.tailType)}
-          ${this.tailType === 'swallow' ? this._renderSlider("Notch Depth", "swallowDepth", 1.0, 10.0, 0.25, this.swallowDepth) : ''}
-        `, true)}
+                            ${this._renderAccordion("Tail Shape", html`
+              ${this._renderSelect("Tail Type", "tailType",[
+                {value: "squash", label: "Squash / Square"},
+                {value: "pin", label: "Pin / Round"},
+                {value: "swallow", label: "Swallow / Fish"}
+              ], this.tailType)}
+              ${this.tailType === 'swallow' ? this._renderSlider("Notch Depth", "swallowDepth", 1.0, 10.0, 0.25, this.swallowDepth) : ''}
+            `, true)}
+
+            ${this._renderAccordion('Aesthetics & Decals', html`
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Stringers</label>
+                  <button type="button"
+                    @click=${() => this.dispatchEvent(new CustomEvent('add-stringer', { bubbles: true, composed: true }))}
+                    class="px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+                    title="Add Stringer"
+                  >ADD</button>
+                </div>
+                ${(this.stringers || []).length === 0
+                  ? html`<p class="text-xs text-zinc-500 text-center py-2">No custom stringers defined.</p>`
+                  : this.stringers.map((s, index) => html`
+                  <div class="bg-zinc-800/40 p-2 rounded mb-2 border border-zinc-800/80">
+                    <div class="flex items-center justify-between mb-2 pb-1 border-b border-zinc-800/50">
+                      <span class="text-xs text-zinc-300 font-bold">${s.name}</span>
+                      <button type="button"
+                        @click=${() => this.dispatchEvent(new CustomEvent('remove-stringer', { detail: { index }, bubbles: true, composed: true }))}
+                        class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
+                        title="Remove Stringer ${index + 1}"
+                      >&times;</button>
+                    </div>
+                    ${this._renderSlider('Width', 'stringer_' + index + '_width', 0.05, 1.0, 0.05, s.width, '"', false)}
+                    ${this._renderSlider('Offset Shift', 'stringer_' + index + '_shift', -10.0, 10.0, 0.25, s.shift, '"', false)}
+                  </div>
+                `)}
+              </div>
+              <div class="h-px bg-zinc-800 my-4"></div>
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Decals & Logos</label>
+                  <button type="button"
+                    @click=${() => this.dispatchEvent(new CustomEvent('add-decal', { bubbles: true, composed: true }))}
+                    class="px-2 py-0.5 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded transition-colors"
+                    title="Add Decal"
+                  >ADD</button>
+                </div>
+                ${(this.decals || []).length === 0
+                  ? html`<p class="text-xs text-zinc-500 text-center py-2">No decals defined.</p>`
+                  : this.decals.map((d, index) => html`
+                  <div class="bg-zinc-800/40 p-2 rounded mb-2 border border-zinc-800/80">
+                    <div class="flex items-center justify-between mb-2 pb-1 border-b border-zinc-800/50">
+                      <span class="text-xs text-zinc-300 font-bold">${d.name}</span>
+                      <button type="button"
+                        @click=${() => this.dispatchEvent(new CustomEvent('remove-decal', { detail: { index }, bubbles: true, composed: true }))}
+                        class="w-5 h-5 flex items-center justify-center text-[10px] bg-red-600/50 hover:bg-red-600 text-white font-bold rounded-full transition-colors"
+                        title="Remove Decal ${index + 1}"
+                      >&times;</button>
+                    </div>
+                    ${this._renderSlider('Length', 'decal_' + index + '_length', 1.0, 20.0, 0.5, d.length, '"', false)}
+                    ${this._renderSlider('Width', 'decal_' + index + '_width', 1.0, 20.0, 0.5, d.width, '"', false)}
+                    ${this._renderSlider('Z Position (L)', 'decal_' + index + '_centreX', -50.0, 50.0, 0.5, d.centreX, '"', false)}
+                    ${this._renderSlider('X Position (W)', 'decal_' + index + '_centreY', -10.0, 10.0, 0.25, d.centreY, '"', false)}
+                    
+                    <div class="flex items-center justify-between mt-2 pt-1 border-t border-zinc-800/50">
+                      <span class="text-[10px] uppercase font-bold text-zinc-500">Placement Target</span>
+                      <button type="button"
+                        @click=${() => {
+                          this.dispatchEvent(new CustomEvent('update-decal', {
+                            detail: { index, centreX: d.centreX, centreY: d.centreY, length: d.length, width: d.width, deck: !d.deck },
+                            bubbles: true, composed: true
+                          }));
+                        }}
+                        class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors
+                          ${d.deck ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}"
+                      >
+                        ${d.deck ? 'Deck (Top)' : 'Bottom'}
+                      </button>
+                    </div>
+                  </div>
+                `)}
+              </div>
+            `, false)}
 
         ${this._renderAccordion("Fins & Placement", html`
           <div class="mb-4">
