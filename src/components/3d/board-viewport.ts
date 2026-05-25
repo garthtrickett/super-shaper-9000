@@ -48,10 +48,10 @@ export class BoardViewport extends LitElement {
   override firstUpdated() {
     const views: ViewportId[] = ['top', 'perspective', 'side', 'profile'];
     
-    const defaultLineMasks: Record<ViewportId, number> = {
-    perspective: 0x3FF,
-    top: (1<<0) | (1<<3) | (1<<4) | (1<<6) | (1<<7) | (1<<8) | (1<<9),
-    side: (1<<1) | (1<<2) | (1<<5) | (1<<8),
+        const defaultLineMasks: Record<ViewportId, number> = {
+    perspective: 0x7FF,
+    top: (1<<0) | (1<<3) | (1<<4) | (1<<6) | (1<<7) | (1<<8) | (1<<9) | (1<<10),
+    side: (1<<1) | (1<<2) | (1<<5) | (1<<8) | (1<<10),
     profile: (1<<7)
 };
 
@@ -838,7 +838,7 @@ export class BoardViewport extends LitElement {
     };
 
     const renderQuadrantOverlay = (id: ViewportId, label: string) => {
-            const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
+                        const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
           top: [
               { label: "Outline", mask: 1 << 0, key: "outline" },
               { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
@@ -846,13 +846,15 @@ export class BoardViewport extends LitElement {
               { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
               { label: "Cross Sections", mask: 1 << 7, key: "crossSections" },
               { label: "Layers & Channels", mask: 1 << 8, key: "extras" },
-              { label: "Fins & Plugs", mask: 1 << 9, key: "fins" }
+              { label: "Fins & Plugs", mask: 1 << 9, key: "fins" },
+              { label: "Stringers & Logos", mask: 1 << 10, key: "aesthetics" }
           ],
                     side: [
               { label: "Rocker Top", mask: 1 << 1, key: "rockerTop" },
               { label: "Rocker Bottom", mask: 1 << 2, key: "rockerBottom" },
               { label: "Apex Rocker", mask: 1 << 5, key: "apexRocker" },
-              { label: "Channels", mask: 1 << 8, key: "extras" }
+              { label: "Channels", mask: 1 << 8, key: "extras" },
+              { label: "Stringers & Logos", mask: 1 << 10, key: "aesthetics" }
           ],
           profile: [
               { label: "Cross Sections", mask: 1 << 7, key: "crossSections" }
@@ -867,7 +869,8 @@ export class BoardViewport extends LitElement {
               { label: "Deck Shoulder", mask: 1 << 6, key: "deckShoulder" },
               { label: "Cross Sections", mask: 1 << 7, key: "crossSections" },
               { label: "Layers & Channels", mask: 1 << 8, key: "extras" },
-              { label: "Fins & Plugs", mask: 1 << 9, key: "fins" }
+              { label: "Fins & Plugs", mask: 1 << 9, key: "fins" },
+              { label: "Stringers & Logos", mask: 1 << 10, key: "aesthetics" }
           ]
       };
       const curvesForThisView = CURVES_FOR_VIEW[id] || [];

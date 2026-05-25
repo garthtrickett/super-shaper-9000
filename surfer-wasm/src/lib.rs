@@ -369,7 +369,7 @@ impl WasmEngine {
             console_error_panic_hook::set_once();
             let _ = console_log::init_with_level(log::Level::Info);
         }
-        Self {
+                Self {
             engine: SurferEngine::new(),
             renderer: None,
             camera_ctrl: CameraController::default(),
@@ -379,8 +379,8 @@ impl WasmEngine {
             active_profile_slice: 0,
             show_tangents: [true, true, true, true],
             gizmo_scale: [1.0, 1.0, 0.5, 0.3],
-            line_masks: [0x1FF, 0x1FF, 0x1FF, 0x1FF],
-            gizmo_masks: [0x1FF, 0x1FF, 0x1FF, 0x1FF],
+            line_masks: [0x7FF, 0x7FF, 0x7FF, 0x7FF],
+            gizmo_masks: [0x7FF, 0x7FF, 0x7FF, 0x7FF],
             show_solid_mesh: true,
             hover_z: None,
             bbox_cache: std::sync::Mutex::new([None; 4]),
@@ -1007,7 +1007,7 @@ impl WasmEngine {
                     * (model.mri_slice_position.unwrap_or(50.0) / 100.0);
             let mri_z_world = mri_z * (1.0 / 12.0);
 
-            uniform_data[20] = if model.show_heatmap.unwrap_or(false) {
+                        uniform_data[20] = if model.show_heatmap.unwrap_or(false) {
                 1.0
             } else {
                 0.0
@@ -1028,6 +1028,24 @@ impl WasmEngine {
             } else {
                 0.0
             };
+
+            let scale_ft = 1.0 / 12.0;
+            let stringer_width = if let Some(stringers) = &model.stringers {
+                stringers.first().map(|s| s.width * scale_ft).unwrap_or(0.125 * scale_ft)
+            } else {
+                0.125 * scale_ft
+            };
+            let stringer_offset = if let Some(stringers) = &model.stringers {
+                if stringers.len() > 1 {
+                    stringers[1].shift * scale_ft
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+            uniform_data[25] = stringer_width;
+            uniform_data[26] = stringer_offset;
 
             uniforms.push(uniform_data);
         }
@@ -1523,7 +1541,7 @@ impl WasmEngine {
         Ok(obj.into())
     }
 
-    #[wasm_bindgen]
+        #[wasm_bindgen]
     pub fn get_bottom_y_at(&self, z: f32, x: f32) -> f32 {
         let model = self.engine.get_model();
         let ctx = surfer_core::geometry::ZRingContext::new(model, z);
@@ -1539,6 +1557,26 @@ impl WasmEngine {
 
         let pt = ctx.get_point_at_uv(u, side);
         pt.y
+    }
+
+    #[wasm_bindgen]
+    pub fn get_surface_y_at(&self, z: f32, x: f32, is_deck: bool) -> f32 {
+        let model = self.engine.get_model();
+        let bounds = surfer_core::geometry::get_board_bounds(model);
+        let hint_t = ((z - bounds.nose_z) / model.length).clamp(0.0, 1.0);
+        if is_deck { 
+            if let Some(rt) = &model.rocker_top {
+                surfer_core::geometry::evaluate_bezier_at_z(rt, z, hint_t).y
+            } else {
+                0.0
+            }
+        } else {
+            if let Some(rb) = &model.rocker_bottom {
+                surfer_core::geometry::evaluate_bezier_at_z(rb, z, hint_t).y
+            } else {
+                0.0
+            }
+        }
     }
 
     #[wasm_bindgen]
@@ -1747,19 +1785,21 @@ pub async fn create_wgpu_renderer(
                 return out;
             }
 
-            @fragment
+                        @fragment
             fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
                 let show_heatmap = camera.display_settings.x > 0.5;
                 let show_zebra = camera.display_settings.y > 0.5;
                 let show_mri = camera.display_settings.z > 0.5;
                 let mri_z = camera.display_settings.w;
                 let show_topography = camera.display_settings_2.x > 0.5;
+                let stringer_width = camera.display_settings_2.y;
+                let stringer_offset = camera.display_settings_2.z;
 
                 if (show_mri) {
                     let dist = abs(in.world_pos.z - mri_z);
                     if (dist > 0.05) {
                         discard;
-                    }
+                    } 
                 }
 
                 let normal = normalize(in.normal);
@@ -1787,6 +1827,19 @@ pub async fn create_wgpu_renderer(
                         let df = fwidth(contour_val);
                         let line = smoothstep(df, 0.0, f) + smoothstep(1.0 - df, 1.0, f);
                         base_color = mix(base_color, vec3<f32>(0.0, 0.0, 0.0), clamp(line, 0.0, 1.0) * 0.4);
+                    }
+
+                    if (!show_heatmap && !show_topography) {
+                        let abs_x = abs(in.world_pos.x);
+                        let in_center = abs_x < (stringer_width * 0.5);
+                        var in_offset = false;
+                        if (stringer_offset > 0.0) {
+                            let dist_to_offset = abs(abs_x - stringer_offset);
+                            in_offset = dist_to_offset < (stringer_width * 0.5);
+                        }
+                        if (in_center || in_offset) {
+                            base_color = vec3<f32>(0.65, 0.45, 0.25);
+                        }
                     }
 
                     // Three-Point Studio Lighting Setup

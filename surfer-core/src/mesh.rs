@@ -480,9 +480,10 @@ pub fn generate_lines_for_view(
     let show_rail_out = (line_mask & (1 << 4)) != 0;
     let show_apex_roc = (line_mask & (1 << 5)) != 0;
     let show_deck = (line_mask & (1 << 6)) != 0;
-    let show_cs = (line_mask & (1 << 7)) != 0;
+        let show_cs = (line_mask & (1 << 7)) != 0;
     let show_extras = (line_mask & (1 << 8)) != 0;
     let show_fins = (line_mask & (1 << 9)) != 0;
+    let show_aesthetics = (line_mask & (1 << 10)) != 0;
 
     let gizmo_outline = (gizmo_mask & (1 << 0)) != 0;
     let gizmo_rocker_top = (gizmo_mask & (1 << 1)) != 0;
@@ -1081,7 +1082,7 @@ pub fn generate_lines_for_view(
                     arrow_left,
                     arrow_color,
                 );
-                push_line(
+                                push_line(
                     &mut line_vertices,
                     &mut line_colors,
                     scale,
@@ -1089,6 +1090,108 @@ pub fn generate_lines_for_view(
                     arrow_right,
                     arrow_color,
                 );
+            }
+        }
+    }
+
+    if show_aesthetics {
+        if let Some(stringers) = &model.stringers {
+            for s in stringers { 
+                if s.shift.abs() > 1e-3 {
+                    let steps = 100;
+                    let bounds = crate::geometry::get_board_bounds(model);
+                    let step_z = (bounds.tip_z - bounds.nose_z) / steps as f32;
+                    let s_color_top = Vec3::new(0.65, 0.45, 0.25);
+                    let s_color_bot = Vec3::new(0.55, 0.35, 0.15);
+                    
+                    let mut prev_pt_top_left = Vec3::ZERO;
+                    let mut prev_pt_top_right = Vec3::ZERO;
+                    let mut prev_pt_bot_left = Vec3::ZERO;
+                    let mut prev_pt_bot_right = Vec3::ZERO;
+                    
+                    for i in 0..=steps {
+                        let z = bounds.nose_z + i as f32 * step_z;
+                        let hint_t = i as f32 / steps as f32;
+                        let r_top_y = if let Some(rt) = &model.rocker_top {
+                            crate::geometry::evaluate_bezier_at_z(rt, z, hint_t).y
+                        } else {
+                            0.0
+                        };
+                        let r_bot_y = if let Some(rb) = &model.rocker_bottom {
+                            crate::geometry::evaluate_bezier_at_z(rb, z, hint_t).y
+                        } else {
+                            0.0
+                        };
+                        let pt_top_left = Vec3::new(-s.shift, r_top_y, z);
+                        let pt_top_right = Vec3::new(s.shift, r_top_y, z);
+                        let pt_bot_left = Vec3::new(-s.shift, r_bot_y, z);
+                        let pt_bot_right = Vec3::new(s.shift, r_bot_y, z);
+                        
+                        if i > 0 {
+                            if view_id == "top" || view_id == "perspective" {
+                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_top_left, pt_top_left, s_color_top);
+                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_top_right, pt_top_right, s_color_top);
+                            }
+                            if view_id == "side" || view_id == "perspective" {
+                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_bot_left, pt_bot_left, s_color_bot);
+                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_bot_right, pt_bot_right, s_color_bot);
+                            }
+                        }
+                        prev_pt_top_left = pt_top_left;
+                        prev_pt_top_right = pt_top_right;
+                        prev_pt_bot_left = pt_bot_left;
+                        prev_pt_bot_right = pt_bot_right;
+                    }
+                }
+            }
+        }
+
+        if let Some(decals) = &model.decals {
+            for d in decals {
+                let d_color = Vec3::new(0.0, 0.8, 1.0);
+                let half_w = d.width / 2.0;
+                let half_l = d.length / 2.0;
+                let local_corners = [
+                    Vec3::new(-half_w, 0.0, -half_l),
+                    Vec3::new(half_w, 0.0, -half_l),
+                    Vec3::new(half_w, 0.0, half_l),
+                    Vec3::new(-half_w, 0.0, half_l),
+                ];
+                let mut world_corners = [Vec3::ZERO; 4];
+                let bounds = crate::geometry::get_board_bounds(model);
+                for (idx, lc) in local_corners.iter().enumerate() {
+                    let z_pt = d.centre_x + lc.z;
+                    let x_pt = d.centre_y + lc.x;
+                    let hint_t = ((z_pt - bounds.nose_z) / model.length).clamp(0.0, 1.0);
+                    let y_pt = if d.deck {
+                        if let Some(rt) = &model.rocker_top {
+                            crate::geometry::evaluate_bezier_at_z(rt, z_pt, hint_t).y
+                        } else {
+                            0.0
+                        }
+                    } else {
+                        if let Some(rb) = &model.rocker_bottom {
+                            crate::geometry::evaluate_bezier_at_z(rb, z_pt, hint_t).y
+                        } else {
+                            0.0
+                        }
+                    };
+                    world_corners[idx] = Vec3::new(x_pt, y_pt, z_pt);
+                }
+                for idx in 0..4 {
+                    let next_idx = (idx + 1) % 4;
+                    let p0 = world_corners[idx];
+                    let p1 = world_corners[next_idx];
+                    if view_id == "top" || view_id == "perspective" {
+                        push_line(&mut line_vertices, &mut line_colors, scale, p0, p1, d_color);
+                    } else if view_id == "side" {
+                        let mut side_p0 = p0;
+                        let mut side_p1 = p1;
+                        side_p0.x = 0.0;
+                        side_p1.x = 0.0;
+                        push_line(&mut line_vertices, &mut line_colors, scale, side_p0, side_p1, d_color);
+                    } 
+                }
             }
         }
     }
@@ -3186,7 +3289,7 @@ mod tests {
             }
         }
 
-        assert!(
+                assert!(
             checked_vertices > 0,
             "No boundary vertices found to validate!"
         );
@@ -3194,5 +3297,83 @@ mod tests {
             "Successfully validated {} boundary vertex pairs for crease preservation.",
             checked_vertices
         );
+    }
+
+    #[test]
+    fn test_offset_stringers_line_projection() {
+        use crate::model::StringerConfig;
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut model = BoardModel::default();
+        model.length = 70.0;
+        model.width = 20.0;
+        model.thickness = 2.5;
+        
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -35.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 35.0),
+            ],
+            ..Default::default() 
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 35.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.25, -35.0), Vec3::new(0.0, -1.25, 35.0)],
+            ..Default::default()
+        });
+
+        model.stringers = Some(vec![
+            StringerConfig {
+                name: "Offset Left".to_string(),
+                width: 0.25,
+                shift: -4.0,
+                tilt: 0.0,
+                color_d3d: 0,
+                mapping_d3d: 0,
+                image_mapped_d3d: "Basswood".to_string(),
+                display_d3d: true,
+                superposition_order: 1,
+            },
+            StringerConfig {
+                name: "Offset Right".to_string(),
+                width: 0.25,
+                shift: 4.0,
+                tilt: 0.0,
+                color_d3d: 0,
+                mapping_d3d: 0,
+                image_mapped_d3d: "Basswood".to_string(),
+                display_d3d: true,
+                superposition_order: 1,
+            },
+        ]);
+
+        let (lines, _, _, _, _) = generate_lines_for_view(
+            &model,
+            "perspective",
+            0,
+            true,
+            1 << 10,
+            1 << 10,
+            1.0,
+            None,
+        );
+
+        assert!(lines.len() > 0, "Should generate lines for offset stringers");
+        
+        let scale = 1.0 / 12.0;
+        let limit_y = -1.25 * scale;
+        
+        let mut verified = false;
+        for i in (0..lines.len()).step_by(3) {
+            let y = lines[i + 1];
+            if y < limit_y - 1e-4 {
+                panic!("Offset stringer line clips below rocker bottom! y = {}, limit_y = {}", y, limit_y);
+            }
+            verified = true;
+        }
+        assert!(verified);
     }
 }

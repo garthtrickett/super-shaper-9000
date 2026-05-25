@@ -435,9 +435,33 @@ describe("WasmSamController (FFI Integration)", () => {
 
         console.info(`[Performance Benchmark] Base Latency: ${baseLatency.toFixed(3)}ms | Post-Select Latency: ${postSelectLatency.toFixed(3)}ms`);
 
-        // Assert both remain extremely fast (under 1.5ms) which guarantees the cache is intact and wasn't invalidated
+                // Assert both remain extremely fast (under 1.5ms) which guarantees the cache is intact and wasn't invalidated
         expect(postSelectLatency).to.be.lessThan(1.5);
         
+        controller.hostDisconnected();
+      });
+
+      it("correctly calculates surface hit coordinates for decal placement", async () => {
+        const host = new MockHost();
+        const controller = new WasmSamController(host);
+        
+        for (let i = 0; i < 200; i++) {
+          if (controller.model) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        expect(controller.mathEngine).to.exist;
+
+        const zPos = 10.0;
+        const xPos = 2.0;
+
+        type EngineExt = WasmEngine & { get_surface_y_at(z: number, x: number, is_deck: boolean): number };
+        const yDeck = (controller.mathEngine as unknown as EngineExt).get_surface_y_at(zPos, xPos, true);
+        const yBottom = (controller.mathEngine as unknown as EngineExt).get_surface_y_at(zPos, xPos, false);
+
+        expect(yDeck).to.equal(1.25);
+        expect(yBottom).to.equal(-1.25);
+
         controller.hostDisconnected();
       });
     });
