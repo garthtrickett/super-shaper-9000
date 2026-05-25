@@ -1593,7 +1593,7 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-                assert!(model.imported_fin_boxes.is_none());
+        assert!(model.imported_fin_boxes.is_none());
         assert_eq!(model.fin_setup, "thruster");
         assert_relative_eq!(model.front_fin_z, 11.1023, epsilon = 0.5);
         assert_relative_eq!(model.rear_fin_z, 5.9055, epsilon = 0.5);
@@ -1614,7 +1614,7 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-                assert!(model.imported_fin_boxes.is_none());
+        assert!(model.imported_fin_boxes.is_none());
         let dist_from_tail = model.front_fin_z;
         println!("Parametric fin distance from tail: {}", dist_from_tail);
         assert!(

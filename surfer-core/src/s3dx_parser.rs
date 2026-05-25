@@ -1761,7 +1761,7 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-                assert!(model.imported_fin_boxes.is_none());
+        assert!(model.imported_fin_boxes.is_none());
         assert_eq!(model.fin_setup, "thruster");
         assert_relative_eq!(model.rear_fin_z, 2.9627, epsilon = 0.1);
     }
@@ -1780,7 +1780,7 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-                assert!(model.imported_fin_boxes.is_none());
+        assert!(model.imported_fin_boxes.is_none());
         assert_eq!(model.fin_setup, "quad");
         assert!(model.front_fin_z > 0.0);
         assert!(model.rear_fin_z > 0.0);
@@ -1800,7 +1800,7 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-                assert!(model.imported_fin_boxes.is_none());
+        assert!(model.imported_fin_boxes.is_none());
         assert_eq!(model.fin_setup, "thruster");
         assert!(model.front_fin_z > 0.0);
         assert!(model.rear_fin_z > 0.0);
@@ -2029,7 +2029,7 @@ mod tests {
 		</Box_1>
 	</Board>
 </Shape3d_design>"#;
-                let model = parse_s3dx(xml).expect("Failed to parse Wild Winged Pin S3DX");
+        let model = parse_s3dx(xml).expect("Failed to parse Wild Winged Pin S3DX");
         assert!(model.imported_fin_boxes.is_none());
         assert_eq!(model.fin_setup, "twin");
         assert!(model.front_fin_z > 0.0);
