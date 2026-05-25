@@ -973,7 +973,7 @@ pub fn generate_lines_for_view(
         }
     }
 
-    if show_fins {
+        if show_fins && view_id != "side" {
         if let Some(boxes) = &model.imported_fin_boxes {
             for b in boxes {
                 let sides = if b.even && b.x.abs() > 1e-4 {
