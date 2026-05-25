@@ -112,7 +112,7 @@ export class BoardBuilderPage extends LitElement {
   private _handleOpenComponentLibrary(type: import("./board-builder-page.logic").ComponentType) {
     this.showComponentLibraryModal = true;
     setTimeout(() => {
-      const modal = this.shadowRoot?.querySelector("component-library-modal") as any;
+      const modal = this.shadowRoot?.querySelector("component-library-modal");
       if (modal) {
         modal.activeTab = type;
       }
