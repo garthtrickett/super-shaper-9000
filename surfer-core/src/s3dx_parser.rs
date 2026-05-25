@@ -1835,11 +1835,16 @@ mod tests {
         assert_eq!(fin_center.even, false);
         assert_eq!(fin_center.central, true);
 
-        let fin_sides = boxes.iter().find(|b| b.name == "Fin sides").expect("Missing Fin sides");
+                let fin_sides = boxes.iter().find(|b| b.name == "Fin sides").expect("Missing Fin sides");
         assert_eq!(fin_sides.style, 6);
         assert_eq!(fin_sides.even, true);
         assert_eq!(fin_sides.central, false);
         assert!(fin_sides.cant.is_some());
+
+        let bounds = crate::geometry::get_board_bounds(&model);
+        let hint_t = (fin_sides.z - bounds.nose_z) / model.length;
+        let half_width_at_z = crate::geometry::evaluate_composite_outline_at_z(&model, fin_sides.z, hint_t).x;
+        assert!(fin_sides.x < half_width_at_z - 0.1);
 
         let leash = boxes.iter().find(|b| b.name == "Leash 1").expect("Missing Leash 1");
         assert_eq!(leash.style, 4);
