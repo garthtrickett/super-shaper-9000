@@ -13,6 +13,7 @@ import "../ui/foil-graph";
 import "../ui/export-modal";
 import "../ui/import-modal";
 import "../ui/library-modal";
+import "../ui/component-library-modal";
 import { saveBoardToLibrary } from "../../lib/client/library-store";
 
 @customElement("board-builder-page")
@@ -23,9 +24,10 @@ export class BoardBuilderPage extends LitElement {
     onRedo: () => this._proposeAction({ type: "REDO" }),
   });
 
-      @state() private showExportModal = false;
+        @state() private showExportModal = false;
   @state() private showImportModal = false;
   @state() private showLibraryModal = false;
+  @state() private showComponentLibraryModal = false;
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
   @state() private showContourEditor = false;
   @state() private contourZPosition = 20.0;
@@ -376,11 +378,17 @@ export class BoardBuilderPage extends LitElement {
           @import-brd=${(e: CustomEvent<{bytes: number[]}>) => this._proposeAction({ type: "IMPORT_BRD", bytes: e.detail.bytes })}
         ></import-modal>
       ` : ''}
-      ${this.showLibraryModal ? html`
+            ${this.showLibraryModal ? html`
         <library-modal
           @close=${() => this.showLibraryModal = false}
           @import-json=${(e: CustomEvent<{state: BoardModel}>) => this._proposeAction({ type: "LOAD_DESIGN", state: e.detail.state })}
         ></library-modal>
+      ` : ''}
+      ${this.showComponentLibraryModal ? html`
+        <component-library-modal
+          @close=${() => this.showComponentLibraryModal = false}
+          @import-component=${(e: CustomEvent<{ type: any, payload: any }>) => this._proposeAction({ type: "APPLY_COMPONENT", componentType: e.detail.type, payload: e.detail.payload })}
+        ></component-library-modal>
       ` : ''}
       ${this.showContourEditor ? html`
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
