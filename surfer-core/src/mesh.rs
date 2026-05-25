@@ -973,9 +973,16 @@ pub fn generate_lines_for_view(
         }
     }
 
-    if show_fins && view_id != "side" {
-        if let Some(boxes) = &model.imported_fin_boxes {
-            for b in boxes {
+        if show_fins && view_id != "side" {
+        let synthesized_holder;
+        let boxes = match &model.imported_fin_boxes {
+            Some(b_vec) if !b_vec.is_empty() => b_vec,
+            _ => {
+                synthesized_holder = crate::geometry::synthesize_parametric_fins(model);
+                &synthesized_holder
+            }
+        };
+        for b in boxes {
                 let sides = if b.even && b.x.abs() > 1e-4 {
                     vec![false, true]
                 } else {

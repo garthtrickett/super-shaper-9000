@@ -79,11 +79,40 @@ describe("WasmSamController (FFI Integration)", () => {
     expect((controller as any).foilData).to.be.instanceOf(Float32Array);
     expect((controller as any).foilData!.length).to.be.greaterThan(0);
 
-    // Terminate worker to prevent hanging tests
-    controller.hostDisconnected();
-  });
+            // Terminate worker to prevent hanging tests
+        controller.hostDisconnected();
+      });
 
-    it("drops stale messages via Sequence ID Fencing", async () => {
+      it("synchronizes and renders parametric fin updates when importedFinBoxes is empty", async () => {
+        const host = new MockHost();
+        const controller = new WasmSamController(host);
+        
+        for (let i = 0; i < 200; i++) {
+          if (controller.model) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        controller.propose({
+          type: "UPDATE_NUMBER",
+          param: "frontFinZ",
+          value: 12.0
+        });
+
+        for (let i = 0; i < 200; i++) {
+          if (controller.model!.frontFinZ === 12.0) break;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        expect(controller.model!.frontFinZ).to.equal(12.0);
+        expect(controller.model!.importedFinBoxes).to.be.undefined;
+
+        const mainState = controller.mathEngine!.get_state() as unknown as BoardModel;
+        expect(mainState.frontFinZ).to.equal(12.0);
+
+        controller.hostDisconnected();
+      });
+
+        it("drops stale messages via Sequence ID Fencing", async () => {
     const host = new MockHost();
     const controller = new WasmSamController(host);
 

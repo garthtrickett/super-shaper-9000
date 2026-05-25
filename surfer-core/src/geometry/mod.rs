@@ -12,3 +12,6 @@ pub use surface::*;
 
 pub mod utils;
 pub use utils::*;
+
+pub mod fins;
+pub use fins::*;

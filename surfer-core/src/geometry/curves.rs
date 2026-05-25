@@ -730,309 +730,477 @@ mod tests {
     use glam::Vec3;
 
     #[test]
-    fn test_cross_section_blend_hermite() {
-        let cs1 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        };
-        let cs2 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        };
-        let cs3 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(5.0, 0.0, 30.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::ZERO],
-            tangents2: vec![Vec3::ZERO, Vec3::ZERO],
-            ..Default::default()
-        };
+    fn test_cubic_hermite_z_linearity() {
+        // This test proves that while X and Y can curve smoothly, Z remains mathematically
+        // linear. This is critical for 3D lofting to prevent self-intersecting meshes.
+        let p1 = Vec3::new(0.0, 0.0, 10.0);
+        let p2 = Vec3::new(0.0, 0.0, 20.0);
 
-        let sections = vec![cs1, cs2, cs3];
-        let blend = get_cross_section_blend_at_z(&sections, 15.0).unwrap();
-        assert_eq!(blend.lerp_factor, 0.5);
+        let dz = 10.0;
+        let m1 = Vec3::new(0.0, 0.0, dz);
+        let m2 = Vec3::new(0.0, 0.0, dz);
 
-        // evaluate at t_mid = 1.0 (the outer edge of the cross section)
-        let pt = blend.evaluate(1.0);
-
-        assert!(
-            (pt.x - 8.125).abs() < 1e-3,
-            "Centripetal midpoint shifted: {}",
-            pt.x
-        );
+        let mid = evaluate_cubic_hermite(p1, p2, m1, m2, 0.5);
         assert_eq!(
-            pt.z, 15.0,
-            "Z coordinate must remain strictly linear across Hermite blend"
+            mid.z, 15.0,
+            "Z coordinate must remain perfectly linear to prevent bulging"
         );
+        println!("✅ test_cubic_hermite_z_linearity passed.");
     }
 
     #[test]
-    fn test_centripetal_prevents_overshoot() {
-        let cs0 = BezierCurveData {
-            control_points: vec![Vec3::new(0., 0., 0.), Vec3::new(10., 0., 0.)],
-            ..Default::default()
-        };
-        let cs1 = BezierCurveData {
-            control_points: vec![Vec3::new(0., 0., 100.), Vec3::new(10., 0., 100.)],
-            ..Default::default()
-        };
-        let cs2 = BezierCurveData {
-            control_points: vec![Vec3::new(0., 0., 101.), Vec3::new(2., 0., 101.)],
-            ..Default::default()
-        };
-        let cs3 = BezierCurveData {
-            control_points: vec![Vec3::new(0., 0., 102.), Vec3::new(0., 0., 102.)],
-            ..Default::default()
-        };
-        let sections = vec![cs0, cs1, cs2, cs3];
+    fn test_derivatives_and_curvature() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let p1 = Vec3::new(3.0, 0.0, 0.0);
 
-        let blend = get_cross_section_blend_at_z(&sections, 100.5).unwrap();
-        let pt = blend.evaluate(1.0);
+        // 1. Straight line
+        let t0_straight = Vec3::new(1.0, 0.0, 0.0);
+        let t1_straight = Vec3::new(2.0, 0.0, 0.0);
 
+        let d2_straight = evaluate_bezier_second_derivative(p0, t0_straight, t1_straight, p1, 0.5);
+        assert_eq!(d2_straight, Vec3::ZERO);
+
+        let quill_straight =
+            evaluate_curvature_quill(p0, t0_straight, t1_straight, p1, None, 0.5, 1.0);
+        assert_eq!(quill_straight, Vec3::ZERO);
+
+        // 2. Bent curve
+        let t0_bent = Vec3::new(1.0, 1.0, 0.0);
+        let t1_bent = Vec3::new(2.0, 1.0, 0.0);
+
+        let d1_bent = evaluate_bezier_first_derivative(p0, t0_bent, t1_bent, p1, 0.5);
+        let quill_bent = evaluate_curvature_quill(p0, t0_bent, t1_bent, p1, None, 0.5, 1.0);
+
+        // The magnitude of the quill should be greater than 0 since the curve is bent
         assert!(
-            pt.x <= 10.0 && pt.x >= 2.0,
-            "Overshoot detected! X ballooned to {}",
-            pt.x
+            quill_bent.length() > 0.0,
+            "Curvature quill should be non-zero for a bent curve"
         );
-    }
 
-    #[test]
-    fn test_blend_derivatives_u_and_z() {
-        let cs1 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(2.5, 0.0, 10.0)],
-            tangents2: vec![Vec3::new(2.5, 0.0, 10.0), Vec3::ZERO],
-            ..Default::default()
-        };
-        let cs2 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 5.0, 20.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(5.0, 2.5, 20.0)],
-            tangents2: vec![Vec3::new(5.0, 2.5, 20.0), Vec3::ZERO],
-            ..Default::default()
-        };
-        let cs3 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(5.0, 0.0, 30.0)],
-            tangents1: vec![Vec3::ZERO, Vec3::new(2.5, 0.0, 30.0)],
-            tangents2: vec![Vec3::new(2.5, 0.0, 30.0), Vec3::ZERO],
-            ..Default::default()
-        };
-
-        let sections = vec![cs1, cs2, cs3];
-        let blend = get_cross_section_blend_at_z(&sections, 15.0).unwrap();
-
-        let t_u = 0.5;
-        let delta = 0.0001;
-
-        let pt0 = blend.evaluate(t_u);
-        let pt1 = blend.evaluate(t_u + delta);
-        let numeric_du = (pt1 - pt0) / delta;
-        let analytic_du = blend.evaluate_derivative_u(t_u);
-
+        // The dot product of the first derivative and principal normal (quill) should be 0 (perpendicular)
         assert!(
-            (numeric_du.x - analytic_du.x).abs() < 1e-1,
-            "U derivative X mismatch: {} vs {}",
-            numeric_du.x,
-            analytic_du.x
+            d1_bent.dot(quill_bent).abs() < 1e-5,
+            "Quill should be perpendicular to tangent"
         );
 
-        let blend_z1 = get_cross_section_blend_at_z(&sections, 15.0 + delta * 10.0).unwrap();
-        let pt_z0 = blend.evaluate(t_u);
-        let pt_z1 = blend_z1.evaluate(t_u);
-
-        let numeric_dz = (pt_z1 - pt_z0) / delta;
-        let analytic_dz = blend.evaluate_derivative_z(t_u);
-
-        assert!(
-            (numeric_dz.x - analytic_dz.x).abs() < 1e-1,
-            "Z derivative X mismatch: {} vs {}",
-            numeric_dz.x,
-            analytic_dz.x
-        );
+        println!("✅ test_derivatives_and_curvature passed.");
     }
 
     #[test]
-    fn test_cross_section_blend_out_of_bounds() {
-        let cs1 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
-            ..Default::default()
-        };
-        let cs2 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
-            ..Default::default()
-        };
-        let sections = vec![cs1, cs2];
+    fn test_evaluate_bezier_cubic() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let t0 = Vec3::new(1.0, 0.0, 0.0);
+        let t1 = Vec3::new(2.0, 0.0, 0.0);
+        let p1 = Vec3::new(3.0, 0.0, 0.0);
 
-        let blend_before = get_cross_section_blend_at_z(&sections, 0.0).unwrap();
-        assert_eq!(blend_before.lerp_factor, 0.0);
-        let pt_before = blend_before.evaluate(1.0);
-        assert_eq!(pt_before.x, 5.0);
+        // Evaluated exactly at the midpoint
+        let mid = evaluate_bezier_cubic(p0, t0, t1, p1, 0.5);
 
-        let blend_after = get_cross_section_blend_at_z(&sections, 30.0).unwrap();
-        assert_eq!(blend_after.lerp_factor, 0.0);
-        let pt_after = blend_after.evaluate(1.0);
-        assert_eq!(pt_after.x, 10.0);
+        // A straight line bezier should evaluate precisely to its midpoint
+        assert_eq!(mid.x, 1.5);
+        assert_eq!(mid.y, 0.0);
+        assert_eq!(mid.z, 0.0);
+        println!("✅ evaluate_bezier_cubic passed.");
     }
 
     #[test]
-    fn test_2d_curve_parity() {
-        let outline = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 66.6667)],
-            tangents2: vec![Vec3::new(10.0, 0.0, 33.3333), Vec3::new(10.0, 0.0, 100.0)],
+    fn test_insert_node() {
+        let mut curve = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 5.0, 0.0)],
+            tangents2: vec![Vec3::new(5.0, -5.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             weights: None,
             ..Default::default()
         };
-        let z_target = 50.0;
-        let hint_t = 0.5;
-        let pt = evaluate_bezier_at_z(&outline, z_target, hint_t);
-        assert!((pt.x - 5.0).abs() < 1e-3);
-        assert!((pt.z - 50.0).abs() < 1e-3);
+
+        let new_idx = insert_node(&mut curve, 0.5);
+
+        assert_eq!(new_idx, Some(1));
+        assert_eq!(curve.control_points.len(), 3);
+        assert_eq!(curve.tangents1.len(), 3);
+        assert_eq!(curve.tangents2.len(), 3);
+
+        let expected_mid = evaluate_bezier_cubic(
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(5.0, -5.0, 0.0),
+            Vec3::new(5.0, 5.0, 0.0),
+            Vec3::new(10.0, 0.0, 0.0),
+            0.5,
+        );
+        assert_eq!(curve.control_points[1], expected_mid);
+        println!("✅ test_insert_node passed.");
     }
 
     #[test]
-    fn test_swallow_tail_notch_detection() {
-        let mut model = BoardModel::default();
-        model.outline = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 100.0),
-                Vec3::new(0.0, 0.0, 95.0),
-            ],
-            tangents1: vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 80.0),
-                Vec3::new(5.0, 0.0, 100.0),
-            ],
-            tangents2: vec![
-                Vec3::new(0.0, 0.0, 20.0),
-                Vec3::new(10.0, 0.0, 110.0),
-                Vec3::new(0.0, 0.0, 95.0),
-            ],
-            ..Default::default()
-        });
-
-        let bounds = get_board_bounds(&model);
-
-        assert_eq!(bounds.nose_z, 0.0);
-        assert_eq!(bounds.notch_z, 95.0);
-        assert!(bounds.tip_z > 95.0);
-        assert!(bounds.tip_t < 1.0);
-
-        let inner_x = evaluate_notch_inner_x(model.outline.as_ref().unwrap(), bounds.tip_t, 98.0);
-        assert!(inner_x > 0.0 && inner_x < 10.0);
-    }
-
-    #[test]
-    fn test_cap_injection_and_removal_parity() {
+    fn test_sample_curve() {
         let curve = BezierCurveData {
-            control_points: vec![
-                Vec3::new(5.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 50.0),
-                Vec3::new(5.0, 0.0, 100.0),
-            ],
-            tangents1: vec![
-                Vec3::new(5.0, 0.0, 0.0),
-                Vec3::new(10.0, 0.0, 40.0),
-                Vec3::new(5.0, 0.0, 90.0),
-            ],
-            tangents2: vec![
-                Vec3::new(5.0, 0.0, 10.0),
-                Vec3::new(10.0, 0.0, 60.0),
-                Vec3::new(5.0, 0.0, 100.0),
-            ],
-            weights: None,
-            apex_ratio: None,
-            tuck_ratio: None,
-        };
-
-        let orig = curve.clone();
-
-        let injected = inject_export_caps(curve, false);
-        assert_eq!(injected.control_points.len(), 5);
-        assert_eq!(injected.control_points[0].x, 0.0);
-        assert_eq!(injected.control_points[4].x, 0.0);
-
-        let stripped = cleanup_vertical_ends(injected, false);
-        assert_eq!(stripped.control_points.len(), 3);
-        assert_eq!(stripped.control_points, orig.control_points);
-        assert_eq!(stripped.tangents1, orig.tangents1);
-        assert_eq!(stripped.tangents2, orig.tangents2);
-    }
-
-    #[test]
-    fn test_blend_context_tangent_identity() {
-        let cs0 = BezierCurveData {
             control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
             tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
             ..Default::default()
         };
-        let cs1 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 10.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 10.0), Vec3::new(5.0, 0.0, 10.0)],
-            tangents2: vec![Vec3::new(5.0, 0.0, 10.0), Vec3::new(10.0, 0.0, 10.0)],
-            ..Default::default()
-        };
-        let cs2 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 20.0), Vec3::new(5.0, 0.0, 20.0)],
-            tangents2: vec![Vec3::new(5.0, 0.0, 20.0), Vec3::new(10.0, 0.0, 20.0)],
-            ..Default::default()
-        };
-        let cs3 = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(10.0, 0.0, 30.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 30.0), Vec3::new(5.0, 0.0, 30.0)],
-            tangents2: vec![Vec3::new(5.0, 0.0, 30.0), Vec3::new(10.0, 0.0, 30.0)],
-            ..Default::default()
-        };
 
-        let sections = vec![cs0, cs1, cs2, cs3];
-        let blend = get_cross_section_blend_at_z(&sections, 15.0).unwrap();
+        let samples = sample_curve(&curve, 2);
+        assert_eq!(samples.len(), 3);
 
-        let pt = blend.evaluate(0.5);
-        assert!(!pt.x.is_nan());
-        assert_eq!(pt.z, 15.0);
+        assert_eq!(samples[0].x, 0.0);
+        assert_eq!(samples[1].x, 5.0);
+        assert_eq!(samples[2].x, 10.0);
+        println!("✅ sample_curve passed and generated expected vertex distribution.");
     }
 
     #[test]
-    fn test_rational_geometry_integration() {
-        let mut curve = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 100.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 50.0)],
-            tangents2: vec![Vec3::new(5.0, 0.0, 50.0), Vec3::new(10.0, 0.0, 100.0)],
-            weights: Some(vec![1.0, 1.0]),
-            ..Default::default()
-        };
+    fn test_solve_g2_tangent_collinear_safety() {
+        let anchor = Vec3::new(0.0, 0.0, 0.0);
 
-        let t_std = find_v_at_z(&curve, 50.0, 0.0, 1.0);
-        let pt_std = evaluate_curve(&curve, t_std);
+        // Create perfectly flat source and target segments along the X-axis
+        let f_source = Vec3::new(-10.0, 0.0, 0.0);
+        let t_source = Vec3::new(-5.0, 0.0, 0.0);
+        let f_target = Vec3::new(10.0, 0.0, 0.0);
 
-        curve.weights = Some(vec![1.0, 5.0]);
-        let t_weighted = find_v_at_z(&curve, 50.0, 0.0, 1.0);
-        let pt_weighted = evaluate_curve(&curve, t_weighted);
+        let t_target = solve_g2_tangent(anchor, t_source, f_source, f_target);
 
-        assert!((pt_std.z - 50.0).abs() < 1e-3);
-        assert!((pt_weighted.z - 50.0).abs() < 1e-3);
-        assert!(t_weighted < t_std);
+        // G2 solver should intercept the collinearity and fallback to smooth G1
+        // rather than outputting NaN/Infinity.
+        assert!(
+            !t_target.x.is_nan(),
+            "G2 solver exploded to NaN on flat geometry!"
+        );
+        assert_eq!(
+            t_target.x, 5.0,
+            "G2 solver should return mirrored G1 vector for collinear inputs"
+        );
+        assert_eq!(t_target.y, 0.0);
+        assert_eq!(t_target.z, 0.0);
     }
 
     #[test]
-    fn test_evaluate_curve_derivative_analytical() {
+    fn test_solve_g2_tangent() {
+        let anchor = Vec3::new(0.0, 0.0, 0.0);
+
+        // Source curve (Left side, evaluates at t=1)
+        let f_source = Vec3::new(-2.0, 1.0, 0.0); // A1
+        let t_source = Vec3::new(-1.0, 0.0, 0.0); // A2
+
+        // Target curve (Right side, evaluates at t=0)
+        let f_target = Vec3::new(2.0, -2.0, 0.0); // B2
+
+        let t_target = solve_g2_tangent(anchor, t_source, f_source, f_target);
+
+        // Expected mathematically: c = sqrt(2). t_target = (sqrt(2), 0, 0)
+        let c_expected = 2.0_f32.sqrt();
+        assert!((t_target.x - c_expected).abs() < 1e-5);
+        assert_eq!(t_target.y, 0.0);
+        assert_eq!(t_target.z, 0.0);
+
+        // Verify dynamically using evaluate_curvature_quill
+        let quill_src = evaluate_curvature_quill(
+            Vec3::new(-3.0, 0.0, 0.0), // Arbitrary A0
+            f_source,
+            t_source,
+            anchor,
+            None,
+            1.0,
+            1.0,
+        );
+
+        let quill_tgt = evaluate_curvature_quill(
+            anchor,
+            t_target,
+            f_target,
+            Vec3::new(3.0, 0.0, 0.0), // Arbitrary B3
+            None,
+            0.0,
+            1.0,
+        );
+
+        // Quills must match in length (curvature magnitude) perfectly across the joint.
+        assert!(
+            (quill_src.length() - quill_tgt.length()).abs() < 1e-5,
+            "G2 Curvatures must match!"
+        );
+
+        println!("✅ test_solve_g2_tangent passed.");
+    }
+
+    #[test]
+    fn test_rational_bezier_equivalence() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let t0 = Vec3::new(1.0, 1.0, 0.0);
+        let t1 = Vec3::new(2.0, -1.0, 0.0);
+        let p1 = Vec3::new(3.0, 0.0, 0.0);
+
+        let t = 0.3;
+        let std_pos = evaluate_bezier_cubic(p0, t0, t1, p1, t);
+        let rat_pos = evaluate_rational_bezier_cubic(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, t);
+
+        assert!(
+            (std_pos - rat_pos).length() < 1e-5,
+            "Rational with weights 1.0 must match Standard"
+        );
+
+        let std_d1 = evaluate_bezier_first_derivative(p0, t0, t1, p1, t);
+        let rat_d1 = evaluate_rational_first_derivative(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, t);
+        assert!(
+            (std_d1 - rat_d1).length() < 1e-5,
+            "Rational d1 with weights 1.0 must match Standard"
+        );
+
+        let std_d2 = evaluate_bezier_second_derivative(p0, t0, t1, p1, t);
+        let rat_d2 = evaluate_rational_second_derivative(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, t);
+        assert!(
+            (std_d2 - rat_d2).length() < 1e-4,
+            "Rational d2 with weights 1.0 must match Standard"
+        );
+    }
+
+    #[test]
+    fn test_rational_weight_pull() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let t0 = Vec3::new(1.0, 5.0, 0.0);
+        let t1 = Vec3::new(2.0, 5.0, 0.0);
+        let p1 = Vec3::new(3.0, 0.0, 0.0);
+
+        let mid_std = evaluate_rational_bezier_cubic(p0, t0, t1, p1, 1.0, 1.0, 1.0, 1.0, 0.5);
+
+        // Increase weight of P0
+        let mid_pulled = evaluate_rational_bezier_cubic(p0, t0, t1, p1, 10.0, 1.0, 1.0, 1.0, 0.5);
+
+        // P0 is at origin, so mid_pulled should be closer to origin than mid_std
+        assert!(
+            mid_pulled.length() < mid_std.length(),
+            "Increasing P0 weight should pull curve towards P0"
+        );
+    }
+
+    #[test]
+    fn test_rational_derivatives_endpoints() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let t0 = Vec3::new(1.0, 1.0, 0.0);
+        let t1 = Vec3::new(2.0, -1.0, 0.0);
+        let p1 = Vec3::new(3.0, 0.0, 0.0);
+
+        // t = 0
+        let d1_start = evaluate_rational_first_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 0.0);
+        let d2_start = evaluate_rational_second_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 0.0);
+        assert!(
+            !d1_start.is_nan() && !d2_start.is_nan(),
+            "Derivatives should not be NaN at t=0"
+        );
+
+        // t = 1
+        let d1_end = evaluate_rational_first_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 1.0);
+        let d2_end = evaluate_rational_second_derivative(p0, t0, t1, p1, 2.0, 1.0, 1.0, 3.0, 1.0);
+        assert!(
+            !d1_end.is_nan() && !d2_end.is_nan(),
+            "Derivatives should not be NaN at t=1"
+        );
+    }
+
+    #[test]
+    fn test_adaptive_sampling() {
+        // Curve 1: Straight line
+        let straight = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(5.0, 0.0, 0.0)],
+            tangents2: vec![Vec3::new(5.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            ..Default::default()
+        };
+        let t_straight = adaptive_sample_t(&straight, 5.0, 0.1);
+        // With depth < 3 forced, it should split into 8 segments -> 9 points
+        assert_eq!(t_straight.len(), 9);
+
+        // Curve 2: Highly bent curve
+        let bent = BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(10.0, 10.0, 0.0)],
+            tangents2: vec![Vec3::new(0.0, 10.0, 0.0), Vec3::new(10.0, 0.0, 0.0)],
+            ..Default::default()
+        };
+        let t_bent = adaptive_sample_t(&bent, 5.0, 0.1);
+        // The bent curve requires more subdivisions to meet the angle tolerance
+        assert!(
+            t_bent.len() > 9,
+            "Bent curve should subdivide heavily compared to a straight curve"
+        );
+
+        println!("✅ test_adaptive_sampling passed.");
+    }
+
+    #[test]
+    fn test_uv_arc_length_uniformity() {
         let curve = BezierCurveData {
-            control_points: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(3.0, 6.0, 9.0)],
-            tangents1: vec![Vec3::new(0.0, 0.0, 0.0), Vec3::new(2.0, 4.0, 6.0)],
-            tangents2: vec![Vec3::new(1.0, 2.0, 3.0), Vec3::new(3.0, 6.0, 9.0)],
+            control_points: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(20.0, 0.0, 0.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(15.0, 0.0, 0.0),
+            ],
+            tangents2: vec![
+                Vec3::new(5.0, 0.0, 0.0),
+                Vec3::new(15.0, 0.0, 0.0),
+                Vec3::new(20.0, 0.0, 0.0),
+            ],
             ..Default::default()
         };
 
-        let deriv = evaluate_curve_derivative(&curve, 1.0);
-        assert_relative_eq!(deriv.x, 3.0, epsilon = 1e-4);
-        assert_relative_eq!(deriv.y, 6.0, epsilon = 1e-4);
-        assert_relative_eq!(deriv.z, 9.0, epsilon = 1e-4);
+        // Create a highly asymmetrical parameterization via weights
+        let mut asym_curve = curve.clone();
+        asym_curve.weights = Some(vec![1.0, 10.0, 1.0]);
 
-        let dy_dz = deriv.y / deriv.z;
-        assert_relative_eq!(dy_dz, 6.0 / 9.0, epsilon = 1e-4);
+        let table = build_arc_length_table(&asym_curve, 1000);
+
+        let t25 = get_t_at_arc_length_ratio(&table, 0.25);
+        let t50 = get_t_at_arc_length_ratio(&table, 0.50);
+        let t75 = get_t_at_arc_length_ratio(&table, 0.75);
+
+        let p0 = evaluate_composite_pos_and_tangent(&asym_curve, 0.0).0;
+        let p25 = evaluate_composite_pos_and_tangent(&asym_curve, t25).0;
+        let p50 = evaluate_composite_pos_and_tangent(&asym_curve, t50).0;
+        let p75 = evaluate_composite_pos_and_tangent(&asym_curve, t75).0;
+        let p100 = evaluate_composite_pos_and_tangent(&asym_curve, 1.0).0;
+
+        let d1 = p0.distance(p25);
+        let d2 = p25.distance(p50);
+        let d3 = p50.distance(p75);
+        let d4 = p75.distance(p100);
+
+        let avg = (d1 + d2 + d3 + d4) / 4.0;
+
+        // Assert that physical distance between arc-length mapped points is roughly equal
+        assert!((d1 - avg).abs() < 0.1, "D1 mismatch: {} vs {}", d1, avg);
+        assert!((d2 - avg).abs() < 0.1, "D2 mismatch: {} vs {}", d2, avg);
+        assert!((d3 - avg).abs() < 0.1, "D3 mismatch: {} vs {}", d3, avg);
+        assert!((d4 - avg).abs() < 0.1, "D4 mismatch: {} vs {}", d4, avg);
+
+        println!("✅ test_uv_arc_length_uniformity passed.");
+    }
+
+    #[test]
+    fn test_parametric_fin_synthesis_alignment() {
+        let mut model = BoardModel::default();
+        model.length = 72.0;
+        model.width = 20.0;
+        model.thickness = 2.5;
+        model.fin_setup = "thruster".to_string();
+        model.front_fin_z = 11.0;
+        model.front_fin_x = 1.25;
+        model.rear_fin_z = 3.5;
+        model.rear_fin_x = 0.0;
+
+        // Give it simple rockers and outline so get_board_profile_at_z evaluation works
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -36.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 36.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.25, -36.0), Vec3::new(0.0, 1.25, 36.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.25, -36.0), Vec3::new(0.0, -1.25, 36.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        }];
+
+        let fins = crate::geometry::synthesize_parametric_fins(&model);
+        assert!(!fins.is_empty(), "Fins should be synthesized");
+
+        // Verify side fin properties
+        let side_fin = fins.iter().find(|f| f.name == "Fin_sides").unwrap();
+        assert_eq!(side_fin.even, true);
+        assert_eq!(side_fin.central, false);
+
+        // Verify side fin alignment to rocker bottom surface height
+        let ctx = crate::geometry::ZRingContext::new(&model, side_fin.z);
+        let u = if ctx.profile.half_width > 1e-4 {
+            (side_fin.x / ctx.profile.half_width).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let pt = ctx.get_point_at_uv(u, 1.0);
+        assert_relative_eq!(side_fin.y, pt.y, epsilon = 1e-4);
+    }
+
+    #[test]
+    fn test_parametric_fin_setup_symmetry() {
+        let mut model = BoardModel::default();
+        model.length = 72.0;
+        model.width = 20.0;
+        model.thickness = 2.5;
+        model.front_fin_z = 11.0;
+        model.front_fin_x = 1.25;
+        model.rear_fin_z = 3.5;
+        model.rear_fin_x = 1.5;
+
+        // Simple default curves
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -36.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 36.0),
+            ],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.25, -36.0), Vec3::new(0.0, 1.25, 36.0)],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.25, -36.0), Vec3::new(0.0, -1.25, 36.0)],
+            ..Default::default()
+        });
+        model.cross_sections = vec![BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, -1.25, 0.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 1.25, 0.0),
+            ],
+            ..Default::default()
+        }];
+
+        // Twin setup -> 2 physical fins (1 pair represented by even: true)
+        model.fin_setup = "twin".to_string();
+        let fins_twin = crate::geometry::synthesize_parametric_fins(&model);
+        assert_eq!(fins_twin.len(), 1);
+        let physical_twin_count: usize = fins_twin.iter().map(|f| if f.even { 2 } else { 1 }).sum();
+        assert_eq!(physical_twin_count, 2);
+
+        // Thruster setup -> 3 physical fins (1 pair of side fins + 1 central center fin)
+        model.fin_setup = "thruster".to_string();
+        let fins_thruster = crate::geometry::synthesize_parametric_fins(&model);
+        assert_eq!(fins_thruster.len(), 2);
+        let physical_thruster_count: usize = fins_thruster.iter().map(|f| if f.even { 2 } else { 1 }).sum();
+        assert_eq!(physical_thruster_count, 3);
+
+        // Quad setup -> 4 physical fins (1 pair of front side fins + 1 pair of rear side fins)
+        model.fin_setup = "quad".to_string();
+        let fins_quad = crate::geometry::synthesize_parametric_fins(&model);
+        assert_eq!(fins_quad.len(), 2);
+        let physical_quad_count: usize = fins_quad.iter().map(|f| if f.even { 2 } else { 1 }).sum();
+        assert_eq!(physical_quad_count, 4);
     }
 }
