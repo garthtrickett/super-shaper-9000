@@ -1135,22 +1135,22 @@ mod tests {
         assert_eq!(side_fin.even, true);
         assert_eq!(side_fin.central, false);
 
-          // Verify side fin alignment to rocker bottom surface height
- let ctx = crate::geometry::ZRingContext::new(&model, side_fin.z);
- let t_apex = ctx.blend.as_ref().map(|b| b.t_apex).unwrap_or(0.5);
- let u = if ctx.profile.half_width > 1e-4 {
- crate::geometry::solve_u_for_target_x(
- |u_val| ctx.get_point_at_uv_base(u_val, 1.0).x - side_fin.x,
- 0.0,
- t_apex,
- 1e-4,
- 15,
- )
- } else {
- 0.0
- };
- let pt = ctx.get_point_at_uv(u, 1.0);
- assert_relative_eq!(side_fin.y, pt.y, epsilon = 1e-4);
+        // Verify side fin alignment to rocker bottom surface height
+        let ctx = crate::geometry::ZRingContext::new(&model, side_fin.z);
+        let t_apex = ctx.blend.as_ref().map(|b| b.t_apex).unwrap_or(0.5);
+        let u = if ctx.profile.half_width > 1e-4 {
+            crate::geometry::solve_u_for_target_x(
+                |u_val| ctx.get_point_at_uv_base(u_val, 1.0).x - side_fin.x,
+                0.0,
+                t_apex,
+                1e-4,
+                15,
+            )
+        } else {
+            0.0
+        };
+        let pt = ctx.get_point_at_uv(u, 1.0);
+        assert_relative_eq!(side_fin.y, pt.y, epsilon = 1e-4);
     }
 
     #[test]
