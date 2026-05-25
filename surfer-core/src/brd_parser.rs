@@ -513,14 +513,14 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
         }
     }
 
-    let side_fin_z = side_fin_z_raw * scale;
-    let side_fin_x = side_fin_x_raw * scale;
-    let center_fin_z = center_fin_z_raw * scale;
+        let side_fin_z = side_fin_z_raw; // Fin positions are always in inches in BRD format
+    let side_fin_x_off_rail = side_fin_x_raw * 0.1; // p12 represents tenths of an inch off the rail
+    let center_fin_z = center_fin_z_raw; // Always in inches
     let side_fin_toe = side_fin_toe_raw;
 
     log::info!(
-        "[BRD Parser] Extracted raw fin parameters: side_z={}, side_x={}, toe={}, center_z={}",
-        side_fin_z, side_fin_x, side_fin_toe, center_fin_z
+        "[BRD Parser] Extracted raw fin parameters: side_z={}, side_x_off_rail={}, toe={}, center_z={}",
+        side_fin_z, side_fin_x_off_rail, side_fin_toe, center_fin_z
     );
 
     let bounds_tip_z = model.length / 2.0;
@@ -530,7 +530,7 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
 
     let mut imported_fin_boxes = Vec::new();
 
-    if side_fin_z_raw > 0.0 && side_fin_x_raw > 0.0 {
+        if side_fin_z_raw > 0.0 && side_fin_x_raw > 0.0 {
         let z_pos = model.length / 2.0 - side_fin_z;
         let hint_t = (z_pos - (-model.length / 2.0)) / model.length;
         let y_pos = if let Some(rb) = &model.rocker_bottom {
@@ -539,13 +539,22 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
             0.0
         };
 
+        // Evaluate board outline half-width at z_pos to correctly place the fin off the rail
+        let half_width_at_z = if let Some(out) = &model.outline {
+            crate::geometry::evaluate_bezier_at_z(out, z_pos, hint_t).x
+        } else {
+            model.width / 2.0;
+        };
+
+        let x_pos = (half_width_at_z - side_fin_x_off_rail).max(0.0);
+
         imported_fin_boxes.push(crate::model::ImportedFinBox {
             name: "Fin_sides".to_string(),
             style: 3,
             length: 4.5,
             width: 0.75,
             height: 0.5,
-            x: side_fin_x,
+            x: x_pos,
             y: y_pos,
             z: z_pos,
             angle_oz: side_fin_toe,
@@ -1555,13 +1564,16 @@ mod tests {
         assert_eq!(center_fin.even, false);
         assert_eq!(center_fin.central, true);
 
-        // Assert exact, rocker-aligned scaled Z-positions (scale = 1/2.54)
-        let scale = 1.0 / 2.54;
+                // Center fin (p11 = 15.0) is behind, closer to tail: z_pos = length / 2.0 - 15.0
+        assert_relative_eq!(center_fin.z, 76.0 / 2.0 - 15.0, epsilon = 1e-3);
         
-        // Center fin (p11 = 15.0) is behind, closer to tail
-        assert_relative_eq!(center_fin.z, (193.04 / 2.0 - 15.0) * scale, epsilon = 1e-3);
-        
-        // Side fins (p14 = 28.2) are in front
-        assert_relative_eq!(side_fins.z, (193.04 / 2.0 - 28.2) * scale, epsilon = 1e-3);
+        // Side fins (p14 = 28.2) are in front: z_pos = length / 2.0 - 28.2
+        assert_relative_eq!(side_fins.z, 76.0 / 2.0 - 28.2, epsilon = 1e-3);
+
+        // Verify side fins are safely placed inside the outline (x < half_width_at_z)
+        let hint_t = (side_fins.z - (-76.0 / 2.0)) / 76.0;
+        let half_width_at_z = crate::geometry::evaluate_bezier_at_z(model.outline.as_ref().unwrap(), side_fins.z, hint_t).x;
+        assert!(side_fins.x < half_width_at_z);
+        assert_relative_eq!(side_fins.x, half_width_at_z - 1.3, epsilon = 1e-3);
     }
 }
