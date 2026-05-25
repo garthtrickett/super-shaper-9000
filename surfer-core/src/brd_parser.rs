@@ -525,8 +525,68 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
 
     let bounds_tip_z = model.length / 2.0;
     let bounds_nose_z = -model.length / 2.0;
-    model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
+        model.v_concave_tail = extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
     model.v_concave_nose = extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
+
+    let mut imported_fin_boxes = Vec::new();
+
+    if side_fin_z_raw > 0.0 && side_fin_x_raw > 0.0 {
+        let z_pos = model.length / 2.0 - side_fin_z;
+        let hint_t = (z_pos - (-model.length / 2.0)) / model.length;
+        let y_pos = if let Some(rb) = &model.rocker_bottom {
+            crate::geometry::evaluate_bezier_at_z(rb, z_pos, hint_t).y
+        } else {
+            0.0
+        };
+
+        imported_fin_boxes.push(crate::model::ImportedFinBox {
+            name: "Fin_sides".to_string(),
+            style: 3,
+            length: 4.5,
+            width: 0.75,
+            height: 0.5,
+            x: side_fin_x,
+            y: y_pos,
+            z: z_pos,
+            angle_oz: side_fin_toe,
+            even: true,
+            central: false,
+            tilt: None,
+            cant: None,
+            pt_convergence: None,
+        });
+    }
+
+    if center_fin_z_raw > 0.0 {
+        let z_pos = model.length / 2.0 - center_fin_z;
+        let hint_t = (z_pos - (-model.length / 2.0)) / model.length;
+        let y_pos = if let Some(rb) = &model.rocker_bottom {
+            crate::geometry::evaluate_bezier_at_z(rb, z_pos, hint_t).y
+        } else {
+            0.0
+        };
+
+        imported_fin_boxes.push(crate::model::ImportedFinBox {
+            name: "Fin_center".to_string(),
+            style: 5,
+            length: 10.0,
+            width: 1.0,
+            height: 1.0,
+            x: 0.0,
+            y: y_pos,
+            z: z_pos,
+            angle_oz: 0.0,
+            even: false,
+            central: true,
+            tilt: None,
+            cant: None,
+            pt_convergence: None,
+        });
+    }
+
+    if !imported_fin_boxes.is_empty() {
+        model.imported_fin_boxes = Some(imported_fin_boxes);
+    }
 
     Ok(model)
 }
@@ -1464,10 +1524,35 @@ mod tests {
 
         // Under correct projection, the normal at the rail apex MUST point outward (having a strong X component)
         // instead of collapsing/twisting straight down to [0, -1, 0] or straight back to [0, 0, 1].
-        assert!(
+                assert!(
             normal.x > 0.5,
             "Normal at tail block rail apex is collapsed/twisted! Expected X component > 0.5, got: {:?}",
             normal
         );
+    }
+
+    #[test]
+    fn test_brd_fin_boxes_synthesis() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/6'4-Bump-Squash-Full-Nose.brd");
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        assert!(model.imported_fin_boxes.is_some());
+        let boxes = model.imported_fin_boxes.unwrap();
+
+        assert_eq!(boxes.len(), 2);
+
+        let side_fins = boxes.iter().find(|b| b.name == "Fin_sides").expect("Missing Fin_sides");
+        assert_eq!(side_fins.style, 3);
+        assert_eq!(side_fins.even, true);
+        assert_eq!(side_fins.central, false);
+
+        let center_fin = boxes.iter().find(|b| b.name == "Fin_center").expect("Missing Fin_center");
+        assert_eq!(center_fin.style, 5);
+        assert_eq!(center_fin.even, false);
+        assert_eq!(center_fin.central, true);
     }
 }
