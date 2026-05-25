@@ -17,7 +17,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     } else {
         1.0
     };
-        let scale = if model.length > 51.18 {
+    let scale = if model.length > 51.18 {
         1.0 / 2.54
     } else {
         1.0

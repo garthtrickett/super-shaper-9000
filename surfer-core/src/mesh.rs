@@ -1191,7 +1191,7 @@ pub fn generate_lines_for_view(
                     let z_pt = d.centre_x + lc.z;
                     let x_pt = d.centre_y + lc.x;
                     let hint_t = ((z_pt - bounds.nose_z) / model.length).clamp(0.0, 1.0);
-                                        let y_pt = if d.deck {
+                    let y_pt = if d.deck {
                         if let Some(rt) = &model.rocker_top {
                             crate::geometry::evaluate_bezier_at_z(rt, z_pt, hint_t).y
                         } else {

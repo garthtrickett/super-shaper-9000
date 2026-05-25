@@ -1562,8 +1562,8 @@ impl WasmEngine {
         pt.y
     }
 
-    #[wasm_bindgen]
-    pub fn get_surface_y_at(&self, z: f32, x: f32, is_deck: bool) -> f32 {
+        #[wasm_bindgen]
+    pub fn get_surface_y_at(&self, z: f32, _x: f32, is_deck: bool) -> f32 {
         let model = self.engine.get_model();
         let bounds = surfer_core::geometry::get_board_bounds(model);
         let hint_t = ((z - bounds.nose_z) / model.length).clamp(0.0, 1.0);
@@ -1573,12 +1573,10 @@ impl WasmEngine {
             } else {
                 0.0
             }
+        } else if let Some(rb) = &model.rocker_bottom {
+            surfer_core::geometry::evaluate_bezier_at_z(rb, z, hint_t).y
         } else {
-            if let Some(rb) = &model.rocker_bottom {
-                surfer_core::geometry::evaluate_bezier_at_z(rb, z, hint_t).y
-            } else {
-                0.0
-            }
+            0.0
         }
     }
 
