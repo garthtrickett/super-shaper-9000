@@ -452,8 +452,9 @@ export type BoardAction =
   | { type: "UPDATE_STRINGER"; index: number; width: number; shift: number; tilt: number }
   | { type: "REMOVE_STRINGER"; index: number }
   | { type: "ADD_DECAL" }
-  | { type: "UPDATE_DECAL"; index: number; centreX: number; centreY: number; length: number; width: number; deck: boolean }
-  | { type: "REMOVE_DECAL"; index: number };
+    | { type: "UPDATE_DECAL"; index: number; centreX: number; centreY: number; length: number; width: number; deck: boolean }
+  | { type: "REMOVE_DECAL"; index: number }
+  | { type: "APPLY_COMPONENT"; componentType: ComponentType; payload: ComponentPayload };
 
 export const update = (state: BoardModel, _action: BoardAction): BoardModel => state;
 

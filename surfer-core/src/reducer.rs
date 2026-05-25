@@ -93,7 +93,7 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::AddDecal
         | BoardAction::UpdateDecal { .. }
         | BoardAction::RemoveDecal { .. }) => handle_aesthetic_mutations(model, dirty, act),
-                BoardAction::ApplyComponent {
+        BoardAction::ApplyComponent {
             component_type,
             payload,
         } => handle_apply_component(model, dirty, component_type, payload),
@@ -107,7 +107,7 @@ fn handle_apply_component(
     payload: ComponentPayload,
 ) -> Vec<Effect> {
     dirty.global_rebuild = true;
-    
+
     fn scale_curve_z_to_length(curve: &mut BezierCurveData, target_length: f32) {
         if curve.control_points.is_empty() {
             return;
@@ -115,7 +115,7 @@ fn handle_apply_component(
         let min_z = curve.control_points.first().unwrap().z;
         let max_z = curve.control_points.last().unwrap().z;
         let orig_span = max_z - min_z;
-        if orig_span.abs() > 1e-5 { 
+        if orig_span.abs() > 1e-5 {
             let target_min = -target_length / 2.0;
             let target_max = target_length / 2.0;
             for p in &mut curve.control_points {
@@ -159,34 +159,47 @@ fn handle_apply_component(
             if let Some(mut ar) = apex_rocker {
                 scale_curve_z_to_length(&mut ar, model.length);
                 model.apex_rocker = Some(ar);
-            } else { 
+            } else {
                 model.apex_rocker = None;
             }
         }
         ComponentPayload::Slices { mut cross_sections } => {
             if !cross_sections.is_empty() {
-                let min_z = cross_sections.first().and_then(|cs| cs.control_points.first()).map(|p| p.z).unwrap_or(-model.length / 2.0);
-                let max_z = cross_sections.last().and_then(|cs| cs.control_points.first()).map(|p| p.z).unwrap_or(model.length / 2.0);
+                let min_z = cross_sections
+                    .first()
+                    .and_then(|cs| cs.control_points.first())
+                    .map(|p| p.z)
+                    .unwrap_or(-model.length / 2.0);
+                let max_z = cross_sections
+                    .last()
+                    .and_then(|cs| cs.control_points.first())
+                    .map(|p| p.z)
+                    .unwrap_or(model.length / 2.0);
                 let orig_span = max_z - min_z;
                 if orig_span.abs() > 1e-5 {
                     let target_min = -model.length / 2.0;
                     let target_max = model.length / 2.0;
                     for cs in &mut cross_sections {
                         for p in &mut cs.control_points {
-                            p.z = target_min + (p.z - min_z) * (target_max - target_min) / orig_span;
-                        } 
+                            p.z =
+                                target_min + (p.z - min_z) * (target_max - target_min) / orig_span;
+                        }
                         for t in &mut cs.tangents1 {
-                            t.z = target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
+                            t.z =
+                                target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
                         }
                         for t in &mut cs.tangents2 {
-                            t.z = target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
+                            t.z =
+                                target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
                         }
                     }
                 }
             }
             model.cross_sections = cross_sections;
         }
-        ComponentPayload::Channels { mut bottom_channels } => {
+        ComponentPayload::Channels {
+            mut bottom_channels,
+        } => {
             for ch in &mut bottom_channels {
                 scale_curve_z_to_length(&mut ch.left_outline, model.length);
                 scale_curve_z_to_length(&mut ch.right_outline, model.length);
@@ -195,7 +208,7 @@ fn handle_apply_component(
             }
             model.bottom_channels = Some(bottom_channels);
         }
-        ComponentPayload::Fins { 
+        ComponentPayload::Fins {
             fin_setup,
             front_fin_z,
             front_fin_x,

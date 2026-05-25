@@ -26,9 +26,9 @@ export function getComponentIndex(): ComponentEntry[] {
     const parsed = JSON.parse(raw) as unknown;
     const decodeIndex = S.decodeUnknownEither(S.Array(ComponentEntrySchema));
     const decoded = decodeIndex(parsed);
-    if (decoded._tag === "Right") {
+        if (decoded._tag === "Right") {
       runClientUnscoped(clientLog("debug", `[ComponentLibraryStore] Successfully parsed index with ${decoded.right.length} components`));
-      return decoded.right;
+      return [...decoded.right];
     }
     runClientUnscoped(clientLog("warn", "[ComponentLibraryStore] Component index schema mismatch, resetting index"));
     return [];
