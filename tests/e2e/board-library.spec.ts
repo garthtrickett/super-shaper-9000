@@ -1,4 +1,5 @@
 import { test, expect } from "./utils/base-test";
+import type { Dialog } from "@playwright/test";
 
 test.describe("Board Library E2E Flow", () => {
   test.setTimeout(120000);
@@ -30,8 +31,8 @@ test.describe("Board Library E2E Flow", () => {
     const saveBtn = boardControls.getByRole("button", { name: /Save to Library/i });
     await expect(saveBtn).toBeVisible();
 
-        // Set up native dialog handler for the save flow
-    const handleSaveDialogs = async (dialog: any) => {
+            // Set up native dialog handler for the save flow
+    const handleSaveDialogs = async (dialog: Dialog) => {
       if (dialog.message().includes("Enter a name")) {
         await dialog.accept("My Custom Fish");
       } else if (dialog.message().includes("successfully saved")) {
