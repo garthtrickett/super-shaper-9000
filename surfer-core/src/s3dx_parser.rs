@@ -192,6 +192,8 @@ pub struct S3dxBox {
     pub even: Option<u32>,
     #[serde(rename = "Central")]
     pub central: Option<u32>,
+    #[serde(rename = "Face")]
+    pub face: Option<u32>,
     #[serde(rename = "Ref_point")]
     pub ref_point: Option<S3dxPoint3dContainer>,
     #[serde(rename = "AngleOz")]
@@ -202,7 +204,7 @@ pub struct S3dxBox {
 
 #[derive(Debug, Deserialize)]
 pub struct S3dxFinSystemContainer {
-    #[serde(rename = "Fin_System", alias = "FinSystem")]
+    #[serde(rename = "Box")]
     pub fin_system: Option<S3dxFinSystem>,
 }
 
@@ -224,10 +226,16 @@ pub struct S3dxFinSystem {
     pub even: Option<u32>,
     #[serde(rename = "Central")]
     pub central: Option<u32>,
+    #[serde(rename = "Face")]
+    pub face: Option<u32>,
     #[serde(rename = "Ref_point")]
     pub ref_point: Option<S3dxPoint3dContainer>,
     #[serde(rename = "AngleOz")]
     pub angle_oz: Option<f32>,
+    #[serde(rename = "AngleOx")]
+    pub angle_ox: Option<f32>,
+    #[serde(rename = "AngleOy")]
+    pub angle_oy: Option<f32>,
     #[serde(rename = "Tilt")]
     pub tilt: Option<f32>,
     #[serde(rename = "Cant")]
@@ -698,9 +706,12 @@ impl From<S3dxBoard> for BoardModel {
         if !outline_layers.is_empty() {
             model.outline_layers = Some(outline_layers);
         }
-                if !bottom_channels.is_empty() {
+                        if !bottom_channels.is_empty() {
             model.bottom_channels = Some(bottom_channels);
         }
+
+        let bounds_tip_z = bl / 2.0 * scale;
+        let bounds_nose_z = -bl / 2.0 * scale;
 
         let mut imported_fin_boxes = Vec::new();
 
@@ -716,18 +727,43 @@ impl From<S3dxBoard> for BoardModel {
 
                     let z_world = (bl / 2.0 - x_cad) * scale;
                     let x_world = y_cad * scale;
-                    let y_world = z_cad * scale;
+                    
+                    let is_deck = r_box.face.unwrap_or(1) == 0;
+                    let box_height = r_box.height.unwrap_or(0.0) * scale;
+
+                    let y_surf = if is_deck {
+                        if let Some(rt) = &model.rocker_top {
+                            crate::geometry::evaluate_bezier_at_z(rt, z_world, (z_world - bounds_nose_z) / model.length).y
+                        } else { 
+                            z_cad * scale 
+                        }
+                    } else {
+                        if let Some(rb) = &model.rocker_bottom {
+                            crate::geometry::evaluate_bezier_at_z(rb, z_world, (z_world - bounds_nose_z) / model.length).y
+                        } else { 
+                            z_cad * scale 
+                        }
+                    };
+
+                    let y_world = if is_deck { y_surf - box_height } else { y_surf };
+
+                    let raw_angle_oz = r_box.angle_oz.unwrap_or(0.0);
+                    let angle_oz_deg = if raw_angle_oz.abs() > 0.0 && raw_angle_oz.abs() < 1.0 {
+                        raw_angle_oz.to_degrees()
+                    } else {
+                        raw_angle_oz
+                    };
 
                     imported_fin_boxes.push(crate::model::ImportedFinBox {
                         name: r_box.name.clone().unwrap_or_else(|| "Box".to_string()),
                         style: r_box.style2.or(r_box.style).unwrap_or(0),
                         length: r_box.length.unwrap_or(0.0) * scale,
                         width: r_box.width.unwrap_or(0.0) * scale,
-                        height: r_box.height.unwrap_or(0.0) * scale,
+                        height: box_height,
                         x: x_world,
                         y: y_world,
                         z: z_world,
-                        angle_oz: r_box.angle_oz.unwrap_or(0.0),
+                        angle_oz: angle_oz_deg,
                         even: r_box.even.unwrap_or(0) != 0,
                         central: r_box.central.unwrap_or(0) != 0,
                         tilt: None,
@@ -750,22 +786,54 @@ impl From<S3dxBoard> for BoardModel {
 
                     let z_world = (bl / 2.0 - x_cad) * scale;
                     let x_world = y_cad * scale;
-                    let y_world = z_cad * scale;
+                    
+                    let is_deck = fin.face.unwrap_or(1) == 0;
+                    let box_height = fin.height.unwrap_or(0.0) * scale;
+
+                    let y_surf = if is_deck {
+                        if let Some(rt) = &model.rocker_top {
+                            crate::geometry::evaluate_bezier_at_z(rt, z_world, (z_world - bounds_nose_z) / model.length).y
+                        } else { 
+                            z_cad * scale 
+                        }
+                    } else {
+                        if let Some(rb) = &model.rocker_bottom {
+                            crate::geometry::evaluate_bezier_at_z(rb, z_world, (z_world - bounds_nose_z) / model.length).y
+                        } else { 
+                            z_cad * scale 
+                        }
+                    };
+
+                    let y_world = if is_deck { y_surf - box_height } else { y_surf };
+
+                    let raw_angle_oz = fin.angle_oz.unwrap_or(0.0);
+                    let angle_oz_deg = if raw_angle_oz.abs() > 0.0 && raw_angle_oz.abs() < 1.0 {
+                        raw_angle_oz.to_degrees()
+                    } else {
+                        raw_angle_oz
+                    };
+
+                    let cant_val = fin.cant.or(fin.angle_ox).or(fin.angle_oy).unwrap_or(0.0);
+                    let cant_deg = if cant_val.abs() > 0.0 && cant_val.abs() < 1.0 {
+                        cant_val.to_degrees()
+                    } else {
+                        cant_val
+                    };
 
                     imported_fin_boxes.push(crate::model::ImportedFinBox {
                         name: fin.name.clone().unwrap_or_else(|| "FinSystem".to_string()),
                         style: fin.style.or(fin.type_field).unwrap_or(0),
                         length: fin.length.unwrap_or(0.0) * scale,
                         width: fin.width.unwrap_or(0.0) * scale,
-                        height: fin.height.unwrap_or(0.0) * scale,
+                        height: box_height,
                         x: x_world,
                         y: y_world,
                         z: z_world,
-                        angle_oz: fin.angle_oz.unwrap_or(0.0),
+                        angle_oz: angle_oz_deg,
                         even: fin.even.unwrap_or(0) != 0,
                         central: fin.central.unwrap_or(0) != 0,
                         tilt: fin.tilt,
-                        cant: fin.cant,
+                        cant: Some(cant_deg),
                         pt_convergence: None,
                     });
                 }
@@ -775,8 +843,6 @@ impl From<S3dxBoard> for BoardModel {
         if !imported_fin_boxes.is_empty() {
             model.imported_fin_boxes = Some(imported_fin_boxes);
         }
-
-        let bounds_tip_z = bl / 2.0 * scale;
         let bounds_nose_z = -bl / 2.0 * scale;
 
         if model.v_concave_tail.abs() < 1e-4 {
@@ -1690,7 +1756,7 @@ mod tests {
         assert_eq!(leash.central, false);
     }
 
-    #[test]
+        #[test]
     fn test_mid_bevel_fin_boxes_parsing() {
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         path.push("../src/assets/fixtures/s3dx/Mid Bevel.s3dx");
@@ -1728,6 +1794,43 @@ mod tests {
         assert_eq!(plug.style, 4);
         assert_eq!(plug.even, false);
         assert_eq!(plug.central, false);
+    }
+
+    #[test]
+    fn test_rounded_pin_fin_boxes_parsing() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
+
+        if !path.exists() {
+            println!("rounded-pin-6-1.s3dx not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        assert!(model.imported_fin_boxes.is_some());
+        let boxes = model.imported_fin_boxes.unwrap();
+        
+        // 3 Fin Systems (Fin center + Symmetrical Fin sides) + 1 legacy box (Leash 1) = exactly 3 parsed structures
+        assert_eq!(boxes.len(), 3);
+
+        let fin_center = boxes.iter().find(|b| b.name == "Fin center").expect("Missing Fin center");
+        assert_eq!(fin_center.style, 6);
+        assert_eq!(fin_center.even, false);
+        assert_eq!(fin_center.central, true);
+
+        let fin_sides = boxes.iter().find(|b| b.name == "Fin sides").expect("Missing Fin sides");
+        assert_eq!(fin_sides.style, 6);
+        assert_eq!(fin_sides.even, true);
+        assert_eq!(fin_sides.central, false);
+        assert!(fin_sides.cant.is_some());
+
+        let leash = boxes.iter().find(|b| b.name == "Leash 1").expect("Missing Leash 1");
+        assert_eq!(leash.style, 4);
+        assert_eq!(leash.even, false);
+        assert_eq!(leash.central, false);
     }
 
     #[test]
