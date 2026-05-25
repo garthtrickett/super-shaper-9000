@@ -68,7 +68,7 @@ pub struct S3dxBoard {
     #[serde(rename = "Couple")]
     pub couples: Option<Vec<S3dxCouplesContainer>>,
 
-        #[serde(rename = "Calque")]
+    #[serde(rename = "Calque")]
     pub calques: Option<Vec<S3dxCalqueContainer>>,
     #[serde(rename = "BoxContainer")]
     pub box_containers: Option<Vec<S3dxBoxContainer>>,
@@ -563,7 +563,7 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
                 .replace(&end_tag_box, "</BoxContainer>");
         }
 
-                let start_tag_fin = format!("<Fin_System_{}>", i);
+        let start_tag_fin = format!("<Fin_System_{}>", i);
         let end_tag_fin = format!("</Fin_System_{}>", i);
         if sanitized.contains(&start_tag_fin) {
             sanitized = sanitized
@@ -983,7 +983,7 @@ impl From<S3dxBoard> for BoardModel {
             }
         }
 
-                if !imported_fin_boxes.is_empty() {
+        if !imported_fin_boxes.is_empty() {
             model.imported_fin_boxes = Some(imported_fin_boxes);
         }
         let bounds_nose_z = -bl / 2.0 * scale;
@@ -1015,7 +1015,11 @@ impl From<S3dxBoard> for BoardModel {
             for container in containers {
                 if let Some(d) = container.decoration {
                     let (cx, cy, c_color) = if let Some(centre) = d.centre.and_then(|c| c.point2d) {
-                        (centre.x * scale, centre.y * scale, centre.color.unwrap_or(0))
+                        (
+                            centre.x * scale,
+                            centre.y * scale,
+                            centre.color.unwrap_or(0),
+                        )
                     } else {
                         (0.0, 0.0, 0)
                     };
@@ -1051,11 +1055,11 @@ impl From<S3dxBoard> for BoardModel {
             model.decals = Some(decals);
         }
 
-        if model.v_concave_tail.abs() < 1e-4 { 
+        if model.v_concave_tail.abs() < 1e-4 {
             model.v_concave_tail =
                 extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
         }
-        if model.v_concave_nose.abs() < 1e-4 { 
+        if model.v_concave_nose.abs() < 1e-4 {
             model.v_concave_nose =
                 extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
         }

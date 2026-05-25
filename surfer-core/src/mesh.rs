@@ -480,7 +480,7 @@ pub fn generate_lines_for_view(
     let show_rail_out = (line_mask & (1 << 4)) != 0;
     let show_apex_roc = (line_mask & (1 << 5)) != 0;
     let show_deck = (line_mask & (1 << 6)) != 0;
-        let show_cs = (line_mask & (1 << 7)) != 0;
+    let show_cs = (line_mask & (1 << 7)) != 0;
     let show_extras = (line_mask & (1 << 8)) != 0;
     let show_fins = (line_mask & (1 << 9)) != 0;
     let show_aesthetics = (line_mask & (1 << 10)) != 0;
@@ -1082,7 +1082,7 @@ pub fn generate_lines_for_view(
                     arrow_left,
                     arrow_color,
                 );
-                                push_line(
+                push_line(
                     &mut line_vertices,
                     &mut line_colors,
                     scale,
@@ -1096,19 +1096,19 @@ pub fn generate_lines_for_view(
 
     if show_aesthetics {
         if let Some(stringers) = &model.stringers {
-            for s in stringers { 
+            for s in stringers {
                 if s.shift.abs() > 1e-3 {
                     let steps = 100;
                     let bounds = crate::geometry::get_board_bounds(model);
                     let step_z = (bounds.tip_z - bounds.nose_z) / steps as f32;
                     let s_color_top = Vec3::new(0.65, 0.45, 0.25);
                     let s_color_bot = Vec3::new(0.55, 0.35, 0.15);
-                    
+
                     let mut prev_pt_top_left = Vec3::ZERO;
                     let mut prev_pt_top_right = Vec3::ZERO;
                     let mut prev_pt_bot_left = Vec3::ZERO;
                     let mut prev_pt_bot_right = Vec3::ZERO;
-                    
+
                     for i in 0..=steps {
                         let z = bounds.nose_z + i as f32 * step_z;
                         let hint_t = i as f32 / steps as f32;
@@ -1126,15 +1126,43 @@ pub fn generate_lines_for_view(
                         let pt_top_right = Vec3::new(s.shift, r_top_y, z);
                         let pt_bot_left = Vec3::new(-s.shift, r_bot_y, z);
                         let pt_bot_right = Vec3::new(s.shift, r_bot_y, z);
-                        
+
                         if i > 0 {
                             if view_id == "top" || view_id == "perspective" {
-                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_top_left, pt_top_left, s_color_top);
-                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_top_right, pt_top_right, s_color_top);
+                                push_line(
+                                    &mut line_vertices,
+                                    &mut line_colors,
+                                    scale,
+                                    prev_pt_top_left,
+                                    pt_top_left,
+                                    s_color_top,
+                                );
+                                push_line(
+                                    &mut line_vertices,
+                                    &mut line_colors,
+                                    scale,
+                                    prev_pt_top_right,
+                                    pt_top_right,
+                                    s_color_top,
+                                );
                             }
                             if view_id == "side" || view_id == "perspective" {
-                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_bot_left, pt_bot_left, s_color_bot);
-                                push_line(&mut line_vertices, &mut line_colors, scale, prev_pt_bot_right, pt_bot_right, s_color_bot);
+                                push_line(
+                                    &mut line_vertices,
+                                    &mut line_colors,
+                                    scale,
+                                    prev_pt_bot_left,
+                                    pt_bot_left,
+                                    s_color_bot,
+                                );
+                                push_line(
+                                    &mut line_vertices,
+                                    &mut line_colors,
+                                    scale,
+                                    prev_pt_bot_right,
+                                    pt_bot_right,
+                                    s_color_bot,
+                                );
                             }
                         }
                         prev_pt_top_left = pt_top_left;
@@ -1163,18 +1191,16 @@ pub fn generate_lines_for_view(
                     let z_pt = d.centre_x + lc.z;
                     let x_pt = d.centre_y + lc.x;
                     let hint_t = ((z_pt - bounds.nose_z) / model.length).clamp(0.0, 1.0);
-                    let y_pt = if d.deck {
+                                        let y_pt = if d.deck {
                         if let Some(rt) = &model.rocker_top {
                             crate::geometry::evaluate_bezier_at_z(rt, z_pt, hint_t).y
                         } else {
                             0.0
                         }
+                    } else if let Some(rb) = &model.rocker_bottom {
+                        crate::geometry::evaluate_bezier_at_z(rb, z_pt, hint_t).y
                     } else {
-                        if let Some(rb) = &model.rocker_bottom {
-                            crate::geometry::evaluate_bezier_at_z(rb, z_pt, hint_t).y
-                        } else {
-                            0.0
-                        }
+                        0.0
                     };
                     world_corners[idx] = Vec3::new(x_pt, y_pt, z_pt);
                 }
@@ -1189,8 +1215,15 @@ pub fn generate_lines_for_view(
                         let mut side_p1 = p1;
                         side_p0.x = 0.0;
                         side_p1.x = 0.0;
-                        push_line(&mut line_vertices, &mut line_colors, scale, side_p0, side_p1, d_color);
-                    } 
+                        push_line(
+                            &mut line_vertices,
+                            &mut line_colors,
+                            scale,
+                            side_p0,
+                            side_p1,
+                            d_color,
+                        );
+                    }
                 }
             }
         }
@@ -3289,7 +3322,7 @@ mod tests {
             }
         }
 
-                assert!(
+        assert!(
             checked_vertices > 0,
             "No boundary vertices found to validate!"
         );
@@ -3307,14 +3340,14 @@ mod tests {
         model.length = 70.0;
         model.width = 20.0;
         model.thickness = 2.5;
-        
+
         model.outline = Some(BezierCurveData {
             control_points: vec![
                 Vec3::new(0.0, 0.0, -35.0),
                 Vec3::new(10.0, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 35.0),
             ],
-            ..Default::default() 
+            ..Default::default()
         });
         model.rocker_top = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, 1.25, -35.0), Vec3::new(0.0, 1.25, 35.0)],
@@ -3350,27 +3383,25 @@ mod tests {
             },
         ]);
 
-        let (lines, _, _, _, _) = generate_lines_for_view(
-            &model,
-            "perspective",
-            0,
-            true,
-            1 << 10,
-            1 << 10,
-            1.0,
-            None,
+        let (lines, _, _, _, _) =
+            generate_lines_for_view(&model, "perspective", 0, true, 1 << 10, 1 << 10, 1.0, None);
+
+        assert!(
+            lines.len() > 0,
+            "Should generate lines for offset stringers"
         );
 
-        assert!(lines.len() > 0, "Should generate lines for offset stringers");
-        
         let scale = 1.0 / 12.0;
         let limit_y = -1.25 * scale;
-        
+
         let mut verified = false;
         for i in (0..lines.len()).step_by(3) {
             let y = lines[i + 1];
             if y < limit_y - 1e-4 {
-                panic!("Offset stringer line clips below rocker bottom! y = {}, limit_y = {}", y, limit_y);
+                panic!(
+                    "Offset stringer line clips below rocker bottom! y = {}, limit_y = {}",
+                    y, limit_y
+                );
             }
             verified = true;
         }

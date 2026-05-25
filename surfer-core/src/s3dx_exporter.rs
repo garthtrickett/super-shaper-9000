@@ -3,7 +3,7 @@ use glam::Vec3;
 
 pub fn export_s3dx(model: &BoardModel) -> String {
     let rocker = model.rocker_bottom.as_ref();
-    let bounds = crate::geometry::get_board_bounds(model); 
+    let bounds = crate::geometry::get_board_bounds(model);
     let default_rocker = BezierCurveData::default();
     let table = crate::geometry::RockerArcLengthTable::new(
         rocker.unwrap_or(&default_rocker),
@@ -14,11 +14,14 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     let active_length = bounds.tip_z - bounds.nose_z;
     let scale_factor = if active_length > 0.0 {
         table.total_length / active_length
-    } else { 
+    } else {
         1.0
     };
-    let scale = if model.length > 51.18 { 1.0 / 2.54 } else { 1.0 };
-    let scale = if model.length > 51.18 { 1.0 / 2.54 } else { 1.0 };
+        let scale = if model.length > 51.18 {
+        1.0 / 2.54
+    } else {
+        1.0
+    };
 
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
@@ -313,7 +316,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         }
     }
 
-        if calque_count > 0 {
+    if calque_count > 0 {
         xml.push_str(&format!(
             "<Number_of_3DLayers>{}</Number_of_3DLayers>\n",
             calque_count
@@ -323,7 +326,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
 
     if let Some(stringers) = &model.stringers {
         xml.push_str(&format!("<NbStringers>{}</NbStringers>\n", stringers.len()));
-        for (i, s) in stringers.iter().enumerate() { 
+        for (i, s) in stringers.iter().enumerate() {
             let unscale = 1.0 / scale;
             xml.push_str(&format!("<Stringer_{}>\n<StringerD3D>\n", i));
             xml.push_str(&format!("<Name>{}</Name>\n", s.name));
@@ -332,9 +335,18 @@ pub fn export_s3dx(model: &BoardModel) -> String {
             xml.push_str(&format!("<Tilt>{:.6}</Tilt>\n", s.tilt));
             xml.push_str(&format!("<ColorD3D>{}</ColorD3D>\n", s.color_d3d));
             xml.push_str(&format!("<MappingD3D>{}</MappingD3D>\n", s.mapping_d3d));
-            xml.push_str(&format!("<ImageMappedD3D>{}</ImageMappedD3D>\n", s.image_mapped_d3d));
-            xml.push_str(&format!("<DisplayD3D>{}</DisplayD3D>\n", if s.display_d3d { 1 } else { 0 }));
-            xml.push_str(&format!("<SuperpositionOrder>{}</SuperpositionOrder>\n", s.superposition_order));
+            xml.push_str(&format!(
+                "<ImageMappedD3D>{}</ImageMappedD3D>\n",
+                s.image_mapped_d3d
+            ));
+            xml.push_str(&format!(
+                "<DisplayD3D>{}</DisplayD3D>\n",
+                if s.display_d3d { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<SuperpositionOrder>{}</SuperpositionOrder>\n",
+                s.superposition_order
+            ));
             xml.push_str(&format!("</StringerD3D>\n</Stringer_{}>\n", i));
         }
     }
@@ -350,25 +362,61 @@ pub fn export_s3dx(model: &BoardModel) -> String {
             xml.push_str(&format!("<Name>{}</Name>\n", d.name));
             xml.push_str(&format!("<Length>{:.6}</Length>\n", d.length * unscale));
             xml.push_str(&format!("<Width>{:.6}</Width>\n", d.width * unscale));
-            xml.push_str(&format!("<ReverseLeftRight>{}</ReverseLeftRight>\n", if d.reverse_left_right { 1 } else { 0 }));
-            xml.push_str(&format!("<KeepProp>{}</KeepProp>\n", if d.keep_prop { 1 } else { 0 }));
+            xml.push_str(&format!(
+                "<ReverseLeftRight>{}</ReverseLeftRight>\n",
+                if d.reverse_left_right { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<KeepProp>{}</KeepProp>\n",
+                if d.keep_prop { 1 } else { 0 }
+            ));
             xml.push_str(&format!("<Tilt>{:.6}</Tilt>\n", d.tilt));
             xml.push_str(&format!(
                 "<Centre>\n<Point2d>\n<x>{:.6}</x><y>{:.6}</y><color>{}</color>\n</Point2d>\n</Centre>\n",
                 d.centre_x * unscale, d.centre_y * unscale, d.centre_color
             ));
-            xml.push_str(&format!("<DisplayD3D>{}</DisplayD3D>\n", if d.display_d3d { 1 } else { 0 }));
+            xml.push_str(&format!(
+                "<DisplayD3D>{}</DisplayD3D>\n",
+                if d.display_d3d { 1 } else { 0 }
+            ));
             xml.push_str(&format!("<Deck>{}</Deck>\n", if d.deck { 1 } else { 0 }));
-            xml.push_str(&format!("<Bottom>{}</Bottom>\n", if d.bottom { 1 } else { 0 }));
-            xml.push_str(&format!("<ProjectedMapping>{}</ProjectedMapping>\n", if d.projected_mapping { 1 } else { 0 }));
-            xml.push_str(&format!("<LimitRail>{}</LimitRail>\n", if d.limit_rail { 1 } else { 0 }));
-            xml.push_str(&format!("<LimitApex>{}</LimitApex>\n", if d.limit_apex { 1 } else { 0 }));
-            xml.push_str(&format!("<LimitOppositeRail>{}</LimitOppositeRail>\n", if d.limit_opposite_rail { 1 } else { 0 }));
-            xml.push_str(&format!("<SuperpositionOrder>{}</SuperpositionOrder>\n", d.superposition_order));
-            xml.push_str(&format!("<Reflexion_coef>{:.6}</Reflexion_coef>\n", d.reflexion_coef));
+            xml.push_str(&format!(
+                "<Bottom>{}</Bottom>\n",
+                if d.bottom { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<ProjectedMapping>{}</ProjectedMapping>\n",
+                if d.projected_mapping { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<LimitRail>{}</LimitRail>\n",
+                if d.limit_rail { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<LimitApex>{}</LimitApex>\n",
+                if d.limit_apex { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<LimitOppositeRail>{}</LimitOppositeRail>\n",
+                if d.limit_opposite_rail { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<SuperpositionOrder>{}</SuperpositionOrder>\n",
+                d.superposition_order
+            ));
+            xml.push_str(&format!(
+                "<Reflexion_coef>{:.6}</Reflexion_coef>\n",
+                d.reflexion_coef
+            ));
             xml.push_str(&format!("<Opacity>{:.6}</Opacity>\n", d.opacity));
-            xml.push_str(&format!("<ResizeWithBoard>{}</ResizeWithBoard>\n", if d.resize_with_board { 1 } else { 0 }));
-            xml.push_str(&format!("<ReplaceWithBoard>{}</ReplaceWithBoard>\n", if d.replace_with_board { 1 } else { 0 }));
+            xml.push_str(&format!(
+                "<ResizeWithBoard>{}</ResizeWithBoard>\n",
+                if d.resize_with_board { 1 } else { 0 }
+            ));
+            xml.push_str(&format!(
+                "<ReplaceWithBoard>{}</ReplaceWithBoard>\n",
+                if d.replace_with_board { 1 } else { 0 }
+            ));
             xml.push_str(&format!("</Decoration>\n</Logo_{}>\n", i));
         }
     }
@@ -433,7 +481,7 @@ mod tests {
         let model_b =
             crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
 
-                        // 4. Assert Losslessness of primary physical dimensions
+        // 4. Assert Losslessness of primary physical dimensions
         approx::assert_relative_eq!(model_a.length, model_b.length, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.width, model_b.width, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.thickness, model_b.thickness, epsilon = 0.1);

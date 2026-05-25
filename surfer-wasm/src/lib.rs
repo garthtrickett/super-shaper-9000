@@ -369,7 +369,7 @@ impl WasmEngine {
             console_error_panic_hook::set_once();
             let _ = console_log::init_with_level(log::Level::Info);
         }
-                Self {
+        Self {
             engine: SurferEngine::new(),
             renderer: None,
             camera_ctrl: CameraController::default(),
@@ -1007,7 +1007,7 @@ impl WasmEngine {
                     * (model.mri_slice_position.unwrap_or(50.0) / 100.0);
             let mri_z_world = mri_z * (1.0 / 12.0);
 
-                        uniform_data[20] = if model.show_heatmap.unwrap_or(false) {
+            uniform_data[20] = if model.show_heatmap.unwrap_or(false) {
                 1.0
             } else {
                 0.0
@@ -1031,7 +1031,10 @@ impl WasmEngine {
 
             let scale_ft = 1.0 / 12.0;
             let stringer_width = if let Some(stringers) = &model.stringers {
-                stringers.first().map(|s| s.width * scale_ft).unwrap_or(0.125 * scale_ft)
+                stringers
+                    .first()
+                    .map(|s| s.width * scale_ft)
+                    .unwrap_or(0.125 * scale_ft)
             } else {
                 0.125 * scale_ft
             };
@@ -1541,7 +1544,7 @@ impl WasmEngine {
         Ok(obj.into())
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn get_bottom_y_at(&self, z: f32, x: f32) -> f32 {
         let model = self.engine.get_model();
         let ctx = surfer_core::geometry::ZRingContext::new(model, z);
@@ -1564,7 +1567,7 @@ impl WasmEngine {
         let model = self.engine.get_model();
         let bounds = surfer_core::geometry::get_board_bounds(model);
         let hint_t = ((z - bounds.nose_z) / model.length).clamp(0.0, 1.0);
-        if is_deck { 
+        if is_deck {
             if let Some(rt) = &model.rocker_top {
                 surfer_core::geometry::evaluate_bezier_at_z(rt, z, hint_t).y
             } else {

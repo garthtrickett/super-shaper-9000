@@ -80,7 +80,7 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
             handle_history(model, dirty, act)
         }
-                act @ (BoardAction::AddOutlineLayer
+        act @ (BoardAction::AddOutlineLayer
         | BoardAction::RemoveOutlineLayer { .. }
         | BoardAction::ToggleOutlineLayer { .. }
         | BoardAction::AddBottomChannel
@@ -119,7 +119,12 @@ fn handle_aesthetic_mutations(
             model.stringers = Some(stringers);
             push_history(model);
         }
-        BoardAction::UpdateStringer { index, width, shift, tilt } => {
+        BoardAction::UpdateStringer {
+            index,
+            width,
+            shift,
+            tilt,
+        } => {
             if let Some(stringers) = &mut model.stringers {
                 if let Some(s) = stringers.get_mut(index) {
                     s.width = width;
@@ -167,12 +172,21 @@ fn handle_aesthetic_mutations(
             model.decals = Some(decals);
             push_history(model);
         }
-        BoardAction::UpdateDecal { index, centre_x, centre_y, length, width, deck } => {
+        BoardAction::UpdateDecal {
+            index,
+            centre_x,
+            centre_y,
+            length,
+            width,
+            deck,
+        } => {
             if let Some(decals) = &mut model.decals {
                 if let Some(d) = decals.get_mut(index) {
                     let old_half_l = d.length / 2.0;
-                    dirty.dirty_z_ranges.push((d.centre_x - old_half_l - 1.0, d.centre_x + old_half_l + 1.0));
-                    
+                    dirty
+                        .dirty_z_ranges
+                        .push((d.centre_x - old_half_l - 1.0, d.centre_x + old_half_l + 1.0));
+
                     d.centre_x = centre_x;
                     d.centre_y = centre_y;
                     d.length = length;
@@ -180,7 +194,9 @@ fn handle_aesthetic_mutations(
                     d.deck = deck;
 
                     let new_half_l = length / 2.0;
-                    dirty.dirty_z_ranges.push((centre_x - new_half_l - 1.0, centre_x + new_half_l + 1.0));
+                    dirty
+                        .dirty_z_ranges
+                        .push((centre_x - new_half_l - 1.0, centre_x + new_half_l + 1.0));
                 }
             }
             push_history(model);
@@ -190,7 +206,9 @@ fn handle_aesthetic_mutations(
                 if index < decals.len() {
                     let d = &decals[index];
                     let half_l = d.length / 2.0;
-                    dirty.dirty_z_ranges.push((d.centre_x - half_l - 1.0, d.centre_x + half_l + 1.0));
+                    dirty
+                        .dirty_z_ranges
+                        .push((d.centre_x - half_l - 1.0, d.centre_x + half_l + 1.0));
                     decals.remove(index);
                 }
             }
@@ -198,7 +216,7 @@ fn handle_aesthetic_mutations(
         }
         _ => {}
     }
-    Vec::new() 
+    Vec::new()
 }
 
 #[cfg(test)]
@@ -494,7 +512,7 @@ fn handle_history(
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
-                BoardAction::Undo => {
+        BoardAction::Undo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx > 0 {
                     idx -= 1;
@@ -514,7 +532,7 @@ fn handle_history(
                     model.stringers = snap.stringers.clone();
                     model.decals = snap.decals.clone();
                 }
-            } 
+            }
         }
         BoardAction::Redo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {

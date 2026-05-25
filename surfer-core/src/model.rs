@@ -174,7 +174,7 @@ pub struct BoardModel {
     pub history: Option<Vec<ManualSnapshot>>,
     pub history_index: Option<usize>,
 
-        pub outline: Option<BezierCurveData>,
+    pub outline: Option<BezierCurveData>,
     pub outline_layers: Option<Vec<OutlineLayer>>,
     pub bottom_channels: Option<Vec<ChannelLayer>>,
     pub rail_outline: Option<BezierCurveData>,
@@ -352,7 +352,7 @@ impl approx::RelativeEq for ImportedFinBox {
 
 impl approx::AbsDiffEq for StringerConfig {
     type Epsilon = f32;
-    fn default_epsilon() -> f32 { 
+    fn default_epsilon() -> f32 {
         f32::EPSILON
     }
     fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
@@ -405,7 +405,7 @@ impl approx::AbsDiffEq for DecalConfig {
             && f32::abs_diff_eq(&self.opacity, &other.opacity, epsilon)
             && self.resize_with_board == other.resize_with_board
             && self.replace_with_board == other.replace_with_board
-    } 
+    }
 }
 impl approx::RelativeEq for DecalConfig {
     fn default_max_relative() -> f32 {
@@ -413,7 +413,7 @@ impl approx::RelativeEq for DecalConfig {
     }
     fn relative_eq(&self, other: &Self, epsilon: f32, _max_relative: f32) -> bool {
         self.abs_diff_eq(other, epsilon)
-    } 
+    }
 }
 
 impl approx::AbsDiffEq for BoardModel {
@@ -516,11 +516,11 @@ impl approx::AbsDiffEq for BoardModel {
                 (None, None) => true,
                 _ => false,
             })
-                        && (match (&self.imported_fin_boxes, &other.imported_fin_boxes) {
+            && (match (&self.imported_fin_boxes, &other.imported_fin_boxes) {
                 (Some(fa), Some(fb)) => {
                     fa.len() == fb.len()
                         && fa
-                            .iter() 
+                            .iter()
                             .zip(fb.iter())
                             .all(|(a, b)| a.abs_diff_eq(b, epsilon))
                 }
@@ -538,9 +538,9 @@ impl approx::AbsDiffEq for BoardModel {
                 (None, None) => true,
                 _ => false,
             })
-            && (match (&self.decals, &other.decals) { 
+            && (match (&self.decals, &other.decals) {
                 (Some(da), Some(db)) => {
-                    da.len() == db.len() 
+                    da.len() == db.len()
                         && da
                             .iter()
                             .zip(db.iter())
@@ -607,7 +607,7 @@ impl Default for BoardModel {
             rocker_bottom: None,
             apex_rocker: None,
             deck_shoulder: None,
-                        cross_sections: Vec::new(),
+            cross_sections: Vec::new(),
             imported_fin_boxes: None,
             stringers: None,
             decals: None,
@@ -692,7 +692,7 @@ pub enum BoardAction {
     ToggleOutlineLayer { index: usize },
     #[serde(rename = "ADD_BOTTOM_CHANNEL")]
     AddBottomChannel,
-        #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
+    #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
     RemoveBottomChannel { index: usize },
     #[serde(rename = "TOGGLE_CHANNEL_SYMMETRY")]
     ToggleChannelSymmetry { index: usize },
