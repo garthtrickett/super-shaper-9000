@@ -515,15 +515,14 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
 
                 let is_metric = (scale - 1.0).abs() > 1e-4;
 
-    // If the board is metric and the fin tail distance p14 is in cm (> 20.0), scale it to inches.
-    let side_fin_z = if is_metric && side_fin_z_raw > 20.0 {
+        // If the board is metric, the fin tail distances (p11, p14) are in cm, so we scale them to inches.
+    let side_fin_z = if is_metric {
         side_fin_z_raw * scale
     } else {
         side_fin_z_raw
     };
 
-    // If the board is metric and the center fin distance p11 is in cm (> 10.0), scale it to inches.
-    let center_fin_z = if is_metric && center_fin_z_raw > 10.0 {
+    let center_fin_z = if is_metric {
         center_fin_z_raw * scale
     } else {
         center_fin_z_raw
@@ -1613,6 +1612,31 @@ mod tests {
         let half_width_at_z = crate::geometry::evaluate_bezier_at_z(model.outline.as_ref().unwrap(), side_fins.z, hint_t).x;
         assert!(side_fins.x < half_width_at_z);
         assert_relative_eq!(side_fins.x, half_width_at_z - 1.3, epsilon = 1e-3);
+    }
+
+        #[test]
+    fn test_mini_simmons_fin_boxes_synthesis() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/brd/5'4-Mini-Simmons.brd");
+
+        if !path.exists() {
+            println!("5'4-Mini-Simmons.brd fixture not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).expect("Failed to read BRD fixture");
+        let model = parse_brd(&bytes).expect("Failed to parse BRD");
+
+        assert!(model.imported_fin_boxes.is_some());
+        let boxes = model.imported_fin_boxes.unwrap();
+
+        // Assert that the fins are placed close to the tail rather than deep into the midsection
+        for b in &boxes {
+            let dist_from_tail = model.length / 2.0 - b.z;
+            println!("Fin {} distance from tail: {}", b.name, dist_from_tail);
+            assert!(dist_from_tail < 7.0, "Fins are placed too far up the board! Distance: {}", dist_from_tail);
+        }
     }
 
     #[test]
