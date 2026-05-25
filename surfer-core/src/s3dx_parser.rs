@@ -68,12 +68,16 @@ pub struct S3dxBoard {
     #[serde(rename = "Couple")]
     pub couples: Option<Vec<S3dxCouplesContainer>>,
 
-    #[serde(rename = "Calque")]
+        #[serde(rename = "Calque")]
     pub calques: Option<Vec<S3dxCalqueContainer>>,
     #[serde(rename = "BoxContainer")]
     pub box_containers: Option<Vec<S3dxBoxContainer>>,
     #[serde(rename = "FinSystemContainer")]
     pub fin_system_containers: Option<Vec<S3dxFinSystemContainer>>,
+    #[serde(rename = "StringerContainer")]
+    pub stringer_containers: Option<Vec<S3dxStringerContainer>>,
+    #[serde(rename = "LogoContainer")]
+    pub logo_containers: Option<Vec<S3dxLogoContainer>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -240,6 +244,99 @@ pub struct S3dxFinSystem {
     pub tilt: Option<f32>,
     #[serde(rename = "Cant")]
     pub cant: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxStringerContainer {
+    #[serde(rename = "StringerD3D")]
+    pub stringer_d3d: Option<S3dxStringerD3D>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxStringerD3D {
+    #[serde(rename = "Name")]
+    pub name: Option<String>,
+    #[serde(rename = "Width")]
+    pub width: Option<f32>,
+    #[serde(rename = "Shift")]
+    pub shift: Option<f32>,
+    #[serde(rename = "Tilt")]
+    pub tilt: Option<f32>,
+    #[serde(rename = "ColorD3D")]
+    pub color_d3d: Option<u32>,
+    #[serde(rename = "MappingD3D")]
+    pub mapping_d3d: Option<u32>,
+    #[serde(rename = "ImageMappedD3D")]
+    pub image_mapped_d3d: Option<String>,
+    #[serde(rename = "DisplayD3D")]
+    pub display_d3d: Option<u32>,
+    #[serde(rename = "SuperpositionOrder")]
+    pub superposition_order: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxLogoContainer {
+    #[serde(rename = "Decoration")]
+    pub decoration: Option<S3dxDecoration>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxDecoration {
+    #[serde(rename = "File")]
+    pub file: Option<String>,
+    #[serde(rename = "FileRel")]
+    pub file_rel: Option<String>,
+    #[serde(rename = "Name")]
+    pub name: Option<String>,
+    #[serde(rename = "Length")]
+    pub length: Option<f32>,
+    #[serde(rename = "Width")]
+    pub width: Option<f32>,
+    #[serde(rename = "ReverseLeftRight")]
+    pub reverse_left_right: Option<u32>,
+    #[serde(rename = "KeepProp")]
+    pub keep_prop: Option<u32>,
+    #[serde(rename = "Tilt")]
+    pub tilt: Option<f32>,
+    #[serde(rename = "Centre")]
+    pub centre: Option<S3dxPoint2dContainer>,
+    #[serde(rename = "DisplayD3D")]
+    pub display_d3d: Option<u32>,
+    #[serde(rename = "Deck")]
+    pub deck: Option<u32>,
+    #[serde(rename = "Bottom")]
+    pub bottom: Option<u32>,
+    #[serde(rename = "ProjectedMapping")]
+    pub projected_mapping: Option<u32>,
+    #[serde(rename = "LimitRail")]
+    pub limit_rail: Option<u32>,
+    #[serde(rename = "LimitApex")]
+    pub limit_apex: Option<u32>,
+    #[serde(rename = "LimitOppositeRail")]
+    pub limit_opposite_rail: Option<u32>,
+    #[serde(rename = "SuperpositionOrder")]
+    pub superposition_order: Option<u32>,
+    #[serde(rename = "Reflexion_coef")]
+    pub reflexion_coef: Option<f32>,
+    #[serde(rename = "Opacity")]
+    pub opacity: Option<f32>,
+    #[serde(rename = "ResizeWithBoard")]
+    pub resize_with_board: Option<u32>,
+    #[serde(rename = "ReplaceWithBoard")]
+    pub replace_with_board: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxPoint2dContainer {
+    #[serde(rename = "Point2d")]
+    pub point2d: Option<S3dxPoint2d>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxPoint2d {
+    pub x: f32,
+    pub y: f32,
+    pub color: Option<u32>,
 }
 
 use crate::model::{BezierCurveData, BoardModel};
@@ -466,12 +563,28 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
                 .replace(&end_tag_box, "</BoxContainer>");
         }
 
-        let start_tag_fin = format!("<Fin_System_{}>", i);
+                let start_tag_fin = format!("<Fin_System_{}>", i);
         let end_tag_fin = format!("</Fin_System_{}>", i);
         if sanitized.contains(&start_tag_fin) {
             sanitized = sanitized
                 .replace(&start_tag_fin, "<FinSystemContainer>")
                 .replace(&end_tag_fin, "</FinSystemContainer>");
+        }
+
+        let start_tag_stringer = format!("<Stringer_{}>", i);
+        let end_tag_stringer = format!("</Stringer_{}>", i);
+        if sanitized.contains(&start_tag_stringer) {
+            sanitized = sanitized
+                .replace(&start_tag_stringer, "<StringerContainer>")
+                .replace(&end_tag_stringer, "</StringerContainer>");
+        }
+
+        let start_tag_logo = format!("<Logo_{}>", i);
+        let end_tag_logo = format!("</Logo_{}>", i);
+        if sanitized.contains(&start_tag_logo) {
+            sanitized = sanitized
+                .replace(&start_tag_logo, "<LogoContainer>")
+                .replace(&end_tag_logo, "</LogoContainer>");
         }
     }
 
@@ -870,16 +983,79 @@ impl From<S3dxBoard> for BoardModel {
             }
         }
 
-        if !imported_fin_boxes.is_empty() {
+                if !imported_fin_boxes.is_empty() {
             model.imported_fin_boxes = Some(imported_fin_boxes);
         }
         let bounds_nose_z = -bl / 2.0 * scale;
 
-        if model.v_concave_tail.abs() < 1e-4 {
+        let mut stringers = Vec::new();
+        if let Some(containers) = s3dx.stringer_containers {
+            for container in containers {
+                if let Some(s) = container.stringer_d3d {
+                    stringers.push(crate::model::StringerConfig {
+                        name: s.name.unwrap_or_default(),
+                        width: s.width.unwrap_or(0.0) * scale,
+                        shift: s.shift.unwrap_or(0.0) * scale,
+                        tilt: s.tilt.unwrap_or(0.0),
+                        color_d3d: s.color_d3d.unwrap_or(0),
+                        mapping_d3d: s.mapping_d3d.unwrap_or(0),
+                        image_mapped_d3d: s.image_mapped_d3d.unwrap_or_default(),
+                        display_d3d: s.display_d3d.unwrap_or(1) != 0,
+                        superposition_order: s.superposition_order.unwrap_or(1),
+                    });
+                }
+            }
+        }
+        if !stringers.is_empty() {
+            model.stringers = Some(stringers);
+        }
+
+        let mut decals = Vec::new();
+        if let Some(containers) = s3dx.logo_containers {
+            for container in containers {
+                if let Some(d) = container.decoration {
+                    let (cx, cy, c_color) = if let Some(centre) = d.centre.and_then(|c| c.point2d) {
+                        (centre.x * scale, centre.y * scale, centre.color.unwrap_or(0))
+                    } else {
+                        (0.0, 0.0, 0)
+                    };
+                    decals.push(crate::model::DecalConfig {
+                        file: d.file.unwrap_or_default(),
+                        file_rel: d.file_rel.unwrap_or_default(),
+                        name: d.name.unwrap_or_default(),
+                        length: d.length.unwrap_or(0.0) * scale,
+                        width: d.width.unwrap_or(0.0) * scale,
+                        reverse_left_right: d.reverse_left_right.unwrap_or(0) != 0,
+                        keep_prop: d.keep_prop.unwrap_or(1) != 0,
+                        tilt: d.tilt.unwrap_or(0.0),
+                        centre_x: cx,
+                        centre_y: cy,
+                        centre_color: c_color,
+                        display_d3d: d.display_d3d.unwrap_or(1) != 0,
+                        deck: d.deck.unwrap_or(1) != 0,
+                        bottom: d.bottom.unwrap_or(0) != 0,
+                        projected_mapping: d.projected_mapping.unwrap_or(0) != 0,
+                        limit_rail: d.limit_rail.unwrap_or(0) != 0,
+                        limit_apex: d.limit_apex.unwrap_or(0) != 0,
+                        limit_opposite_rail: d.limit_opposite_rail.unwrap_or(1) != 0,
+                        superposition_order: d.superposition_order.unwrap_or(1),
+                        reflexion_coef: d.reflexion_coef.unwrap_or(-1.0),
+                        opacity: d.opacity.unwrap_or(1.0),
+                        resize_with_board: d.resize_with_board.unwrap_or(0) != 0,
+                        replace_with_board: d.replace_with_board.unwrap_or(1) != 0,
+                    });
+                }
+            }
+        }
+        if !decals.is_empty() {
+            model.decals = Some(decals);
+        }
+
+        if model.v_concave_tail.abs() < 1e-4 { 
             model.v_concave_tail =
                 extract_concave_from_slices(&model.cross_sections, bounds_tip_z - 12.0);
         }
-        if model.v_concave_nose.abs() < 1e-4 {
+        if model.v_concave_nose.abs() < 1e-4 { 
             model.v_concave_nose =
                 extract_concave_from_slices(&model.cross_sections, bounds_nose_z + 12.0);
         }

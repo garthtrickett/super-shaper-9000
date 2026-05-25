@@ -18,6 +18,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         1.0
     };
     let scale = if model.length > 51.18 { 1.0 / 2.54 } else { 1.0 };
+    let scale = if model.length > 51.18 { 1.0 / 2.54 } else { 1.0 };
 
     let mut xml = String::new();
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
@@ -312,12 +313,64 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         }
     }
 
-    if calque_count > 0 {
+        if calque_count > 0 {
         xml.push_str(&format!(
             "<Number_of_3DLayers>{}</Number_of_3DLayers>\n",
             calque_count
         ));
         xml.push_str(&calques);
+    }
+
+    if let Some(stringers) = &model.stringers {
+        xml.push_str(&format!("<NbStringers>{}</NbStringers>\n", stringers.len()));
+        for (i, s) in stringers.iter().enumerate() { 
+            let unscale = 1.0 / scale;
+            xml.push_str(&format!("<Stringer_{}>\n<StringerD3D>\n", i));
+            xml.push_str(&format!("<Name>{}</Name>\n", s.name));
+            xml.push_str(&format!("<Width>{:.6}</Width>\n", s.width * unscale));
+            xml.push_str(&format!("<Shift>{:.6}</Shift>\n", s.shift * unscale));
+            xml.push_str(&format!("<Tilt>{:.6}</Tilt>\n", s.tilt));
+            xml.push_str(&format!("<ColorD3D>{}</ColorD3D>\n", s.color_d3d));
+            xml.push_str(&format!("<MappingD3D>{}</MappingD3D>\n", s.mapping_d3d));
+            xml.push_str(&format!("<ImageMappedD3D>{}</ImageMappedD3D>\n", s.image_mapped_d3d));
+            xml.push_str(&format!("<DisplayD3D>{}</DisplayD3D>\n", if s.display_d3d { 1 } else { 0 }));
+            xml.push_str(&format!("<SuperpositionOrder>{}</SuperpositionOrder>\n", s.superposition_order));
+            xml.push_str(&format!("</StringerD3D>\n</Stringer_{}>\n", i));
+        }
+    }
+
+    if let Some(decals) = &model.decals {
+        xml.push_str(&format!("<NbLogos>{}</NbLogos>\n", decals.len()));
+        for (i, d) in decals.iter().enumerate() {
+            let unscale = 1.0 / scale;
+            xml.push_str(&format!("<Logo_{}>\n<Decoration>\n", i));
+            xml.push_str("<Version>9.000</Version>\n");
+            xml.push_str(&format!("<File>{}</File>\n", d.file));
+            xml.push_str(&format!("<FileRel>{}</FileRel>\n", d.file_rel));
+            xml.push_str(&format!("<Name>{}</Name>\n", d.name));
+            xml.push_str(&format!("<Length>{:.6}</Length>\n", d.length * unscale));
+            xml.push_str(&format!("<Width>{:.6}</Width>\n", d.width * unscale));
+            xml.push_str(&format!("<ReverseLeftRight>{}</ReverseLeftRight>\n", if d.reverse_left_right { 1 } else { 0 }));
+            xml.push_str(&format!("<KeepProp>{}</KeepProp>\n", if d.keep_prop { 1 } else { 0 }));
+            xml.push_str(&format!("<Tilt>{:.6}</Tilt>\n", d.tilt));
+            xml.push_str(&format!(
+                "<Centre>\n<Point2d>\n<x>{:.6}</x><y>{:.6}</y><color>{}</color>\n</Point2d>\n</Centre>\n",
+                d.centre_x * unscale, d.centre_y * unscale, d.centre_color
+            ));
+            xml.push_str(&format!("<DisplayD3D>{}</DisplayD3D>\n", if d.display_d3d { 1 } else { 0 }));
+            xml.push_str(&format!("<Deck>{}</Deck>\n", if d.deck { 1 } else { 0 }));
+            xml.push_str(&format!("<Bottom>{}</Bottom>\n", if d.bottom { 1 } else { 0 }));
+            xml.push_str(&format!("<ProjectedMapping>{}</ProjectedMapping>\n", if d.projected_mapping { 1 } else { 0 }));
+            xml.push_str(&format!("<LimitRail>{}</LimitRail>\n", if d.limit_rail { 1 } else { 0 }));
+            xml.push_str(&format!("<LimitApex>{}</LimitApex>\n", if d.limit_apex { 1 } else { 0 }));
+            xml.push_str(&format!("<LimitOppositeRail>{}</LimitOppositeRail>\n", if d.limit_opposite_rail { 1 } else { 0 }));
+            xml.push_str(&format!("<SuperpositionOrder>{}</SuperpositionOrder>\n", d.superposition_order));
+            xml.push_str(&format!("<Reflexion_coef>{:.6}</Reflexion_coef>\n", d.reflexion_coef));
+            xml.push_str(&format!("<Opacity>{:.6}</Opacity>\n", d.opacity));
+            xml.push_str(&format!("<ResizeWithBoard>{}</ResizeWithBoard>\n", if d.resize_with_board { 1 } else { 0 }));
+            xml.push_str(&format!("<ReplaceWithBoard>{}</ReplaceWithBoard>\n", if d.replace_with_board { 1 } else { 0 }));
+            xml.push_str(&format!("</Decoration>\n</Logo_{}>\n", i));
+        }
     }
 
     xml.push_str("</Board>\n<Scene></Scene>\n</Shape3d_design>");
@@ -380,10 +433,31 @@ mod tests {
         let model_b =
             crate::s3dx_parser::parse_s3dx(&exported_xml).expect("Failed to parse exported S3DX");
 
-                // 4. Assert Losslessness of primary physical dimensions
+                        // 4. Assert Losslessness of primary physical dimensions
         approx::assert_relative_eq!(model_a.length, model_b.length, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.width, model_b.width, epsilon = 0.1);
         approx::assert_relative_eq!(model_a.thickness, model_b.thickness, epsilon = 0.1);
+
+        if let (Some(sa), Some(sb)) = (&model_a.stringers, &model_b.stringers) {
+            assert_eq!(sa.len(), sb.len());
+            for (a, b) in sa.iter().zip(sb.iter()) {
+                assert_eq!(a.name, b.name);
+                approx::assert_relative_eq!(a.width, b.width, epsilon = 0.01);
+                approx::assert_relative_eq!(a.shift, b.shift, epsilon = 0.01);
+                approx::assert_relative_eq!(a.tilt, b.tilt, epsilon = 0.01);
+            }
+        }
+        if let (Some(da), Some(db)) = (&model_a.decals, &model_b.decals) {
+            assert_eq!(da.len(), db.len());
+            for (a, b) in da.iter().zip(db.iter()) {
+                assert_eq!(a.name, b.name);
+                approx::assert_relative_eq!(a.length, b.length, epsilon = 0.01);
+                approx::assert_relative_eq!(a.width, b.width, epsilon = 0.01);
+                approx::assert_relative_eq!(a.tilt, b.tilt, epsilon = 0.01);
+                approx::assert_relative_eq!(a.centre_x, b.centre_x, epsilon = 0.01);
+                approx::assert_relative_eq!(a.centre_y, b.centre_y, epsilon = 0.01);
+            }
+        }
 
         if let (Some(sa), Some(sb)) = (&model_a.stringers, &model_b.stringers) {
             assert_eq!(sa.len(), sb.len());
