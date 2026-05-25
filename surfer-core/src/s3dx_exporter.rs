@@ -445,10 +445,10 @@ mod tests {
         assert!(xml.contains("<Shape3d_design>"));
         assert!(xml.contains("<Board>"));
 
-        // Verify numerical formatting (should be to 6 decimal places)
-        assert!(xml.contains("<Length>72.500000</Length>"));
-        assert!(xml.contains("<Width>20.250000</Width>"));
-        assert!(xml.contains("<Thickness>2.625000</Thickness>"));
+                // Verify numerical formatting (should be to 6 decimal places, scaled to cm if length > 51.18)
+        assert!(xml.contains("<Length>184.150000</Length>"));
+        assert!(xml.contains("<Width>51.435000</Width>"));
+        assert!(xml.contains("<Thickness>6.667500</Thickness>"));
         // Volume is dynamically computed from mesh now, we don't strictly assert the exact value here
 
         // Ensure it successfully closes
