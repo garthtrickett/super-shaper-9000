@@ -12,6 +12,8 @@ import "../ui/bottom-contour-editor";
 import "../ui/foil-graph";
 import "../ui/export-modal";
 import "../ui/import-modal";
+import "../ui/library-modal";
+import { saveBoardToLibrary } from "../../lib/client/library-store";
 
 @customElement("board-builder-page")
 export class BoardBuilderPage extends LitElement {
@@ -21,8 +23,9 @@ export class BoardBuilderPage extends LitElement {
     onRedo: () => this._proposeAction({ type: "REDO" }),
   });
 
-    @state() private showExportModal = false;
+      @state() private showExportModal = false;
   @state() private showImportModal = false;
+  @state() private showLibraryModal = false;
   @state() private _selectedNodeContinuity: "G0" | "G1" | "G2" = "G1";
   @state() private showContourEditor = false;
   @state() private contourZPosition = 20.0;
@@ -225,10 +228,28 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private _handleNewDesign() {
+    private _handleNewDesign() {
     if (confirm("Are you sure you want to start a new design? All unsaved progress will be lost.")) {
       localStorage.removeItem("super_shaper_saved_board");
       this._proposeAction({ type: "LOAD_DESIGN", state: INITIAL_STATE });
+    }
+  }
+
+  private _handleSaveToLibrary() {
+    const name = prompt('Enter a name for your saved design:');
+    if (name && name.trim()) {
+      const state = this.wasmCtrl.model;
+      if (state) {
+        try {
+          saveBoardToLibrary(name.trim(), state);
+          alert('"' + name + '" successfully saved to your library!');
+        } catch (err) {
+          console.error('Failed to save board to library:', err);
+          alert('Failed to save board to library.');
+        }
+      } else {
+        alert('No active design to save!');
+      }
     }
   }
 
@@ -340,7 +361,7 @@ export class BoardBuilderPage extends LitElement {
     const mesh = (this.wasmCtrl as unknown as { mesh?: import("../3d/board-viewport").RustMesh }).mesh;
     const foilData = (this.wasmCtrl as unknown as { foilData?: Float32Array }).foilData;
 
-    const res = html`
+        const res = html`
       ${this.showExportModal ? html`
         <export-modal 
           .jsonString=${JSON.stringify(state, null, 2)} 
@@ -354,6 +375,12 @@ export class BoardBuilderPage extends LitElement {
           @import-s3dx=${(e: CustomEvent<{xml: string}>) => this._proposeAction({ type: "IMPORT_S3DX", xml: e.detail.xml })}
           @import-brd=${(e: CustomEvent<{bytes: number[]}>) => this._proposeAction({ type: "IMPORT_BRD", bytes: e.detail.bytes })}
         ></import-modal>
+      ` : ''}
+      ${this.showLibraryModal ? html`
+        <library-modal
+          @close=${() => this.showLibraryModal = false}
+          @import-json=${(e: CustomEvent<{state: BoardModel}>) => this._proposeAction({ type: "LOAD_DESIGN", state: e.detail.state })}
+        ></library-modal>
       ` : ''}
       ${this.showContourEditor ? html`
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -436,7 +463,9 @@ export class BoardBuilderPage extends LitElement {
             @export-s3dx=${() => void this._handleExportS3dx()}
             @export-brd=${() => void this._handleExportBrd()}
             @export-obj=${() => void this._handleExportObj()}
-            @import-design=${() => this.showImportModal = true}
+                        @import-design=${() => this.showImportModal = true}
+            @save-to-library=${this._handleSaveToLibrary}
+            @open-library=${() => this.showLibraryModal = true}
             @new-design=${() => this._handleNewDesign()}
             @scale-action=${(e: CustomEvent<{ type: 'SCALE_WIDTH' | 'SCALE_THICKNESS', factor: number }>) => this._proposeAction({ type: e.detail.type, factor: e.detail.factor })}
             @add-outline-layer=${() => this._proposeAction({ type: 'ADD_OUTLINE_LAYER' })}
