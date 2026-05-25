@@ -105,7 +105,7 @@ pub fn translate_absolute_to_parametric_fins(model: &mut BoardModel, boxes: &[Im
         .iter()
         .filter(|b| {
             let name_lower = b.name.to_lowercase();
-            !name_lower.contains("leash") && !(name_lower.contains("plug") && !b.even && !b.central)
+            !(name_lower.contains("leash") || name_lower.contains("plug") && !b.even && !b.central)
         })
         .collect();
 
@@ -173,10 +173,10 @@ pub fn translate_absolute_to_parametric_fins(model: &mut BoardModel, boxes: &[Im
         unique_rows.first()
     };
 
-    if let Some(front_row) = front_row_opt { 
+    if let Some(front_row) = front_row_opt {
         let front_z_avg = front_row.iter().map(|f| f.z).sum::<f32>() / front_row.len() as f32;
         let front_x_avg = front_row.iter().map(|f| f.x.abs()).sum::<f32>() / front_row.len() as f32;
-        let front_toe_avg = 
+        let front_toe_avg =
             front_row.iter().map(|f| f.angle_oz.abs()).sum::<f32>() / front_row.len() as f32;
         let front_cant_avg = front_row
             .iter()
@@ -188,7 +188,7 @@ pub fn translate_absolute_to_parametric_fins(model: &mut BoardModel, boxes: &[Im
 
         // Calculate distance off rail
         let hint_t = ((front_z_avg - bounds.nose_z) / model.length).clamp(0.0, 1.0);
-        let outline_pt = 
+        let outline_pt =
             crate::geometry::evaluate_composite_outline_at_z(model, front_z_avg, hint_t);
         let half_width = outline_pt.x.abs();
         model.front_fin_x = (half_width - front_x_avg).max(0.0);
@@ -201,13 +201,13 @@ pub fn translate_absolute_to_parametric_fins(model: &mut BoardModel, boxes: &[Im
     if setup == "quad" {
         if let Some(rear_row) = unique_rows.first() {
             let rear_z_avg = rear_row.iter().map(|f| f.z).sum::<f32>() / rear_row.len() as f32;
-            let rear_x_avg = 
+            let rear_x_avg =
                 rear_row.iter().map(|f| f.x.abs()).sum::<f32>() / rear_row.len() as f32;
 
             model.rear_fin_z = (bounds.tip_z - rear_z_avg).max(0.0);
 
             let hint_t = ((rear_z_avg - bounds.nose_z) / model.length).clamp(0.0, 1.0);
-            let outline_pt = 
+            let outline_pt =
                 crate::geometry::evaluate_composite_outline_at_z(model, rear_z_avg, hint_t);
             let half_width = outline_pt.x.abs();
             model.rear_fin_x = (half_width - rear_x_avg).max(0.0);
@@ -227,28 +227,28 @@ mod tests {
     use glam::Vec3;
 
     fn create_test_model() -> BoardModel {
-    let mut model = BoardModel::default();
-    model.length = 72.0;
-    model.width = 20.0;
-    model.thickness = 2.5;
-    model.outline = Some(BezierCurveData {
-        control_points: vec![
-            Vec3::new(0.0, 0.0, -36.0),
-            Vec3::new(10.0, 0.0, 0.0),
-            Vec3::new(0.0, 0.0, 36.0),
-        ],
-        tangents1: vec![
-            Vec3::new(0.0, 0.0, -36.0),
-            Vec3::new(10.0, 0.0, -12.0),
-            Vec3::new(15.19, 0.0, 24.0),
-        ],
-        tangents2: vec![
-            Vec3::new(15.19, 0.0, -24.0),
-            Vec3::new(10.0, 0.0, 12.0),
-            Vec3::new(0.0, 0.0, 36.0),
-        ],
-        ..Default::default()
-    });
+        let mut model = BoardModel::default();
+        model.length = 72.0;
+        model.width = 20.0;
+        model.thickness = 2.5;
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -36.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 36.0),
+            ],
+            tangents1: vec![
+                Vec3::new(0.0, 0.0, -36.0),
+                Vec3::new(10.0, 0.0, -12.0),
+                Vec3::new(15.19, 0.0, 24.0),
+            ],
+            tangents2: vec![
+                Vec3::new(15.19, 0.0, -24.0),
+                Vec3::new(10.0, 0.0, 12.0),
+                Vec3::new(0.0, 0.0, 36.0),
+            ],
+            ..Default::default()
+        });
         model.rocker_bottom = Some(BezierCurveData {
             control_points: vec![Vec3::new(0.0, -1.25, -36.0), Vec3::new(0.0, -1.25, 36.0)],
             ..Default::default()

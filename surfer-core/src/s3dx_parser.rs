@@ -731,7 +731,7 @@ impl From<S3dxBoard> for BoardModel {
 
         let mut imported_fin_boxes = Vec::new();
 
-                        if let Some(containers) = &s3dx.box_containers {
+        if let Some(containers) = &s3dx.box_containers {
             for container in containers {
                 if let Some(r_box) = &container.r_box {
                     let ref_p = r_box.ref_point.as_ref().and_then(|rp| rp.point3d.as_ref());
@@ -797,7 +797,7 @@ impl From<S3dxBoard> for BoardModel {
             }
         }
 
-                        if let Some(containers) = &s3dx.fin_system_containers {
+        if let Some(containers) = &s3dx.fin_system_containers {
             for container in containers {
                 if let Some(fin) = &container.fin_system {
                     let ref_p = fin.ref_point.as_ref().and_then(|rp| rp.point3d.as_ref());
@@ -2052,7 +2052,7 @@ mod tests {
         // The absolute array must be perfectly cleared (None) after translation
         assert!(model.imported_fin_boxes.is_none());
 
-                // Native setup must equal "thruster" with calibrated offsets
+        // Native setup must equal "thruster" with calibrated offsets
         assert_eq!(model.fin_setup, "thruster");
         assert!(model.front_fin_z > 4.0);
         assert!(model.rear_fin_z > 2.0);

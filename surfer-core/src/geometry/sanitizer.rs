@@ -110,11 +110,13 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
     if BYPASS_CALIBRATION {
         return;
     }
-    let has_rocker = model.rocker_bottom.as_ref()
+    let has_rocker = model
+        .rocker_bottom
+        .as_ref()
         .map(|r| !r.control_points.is_empty())
         .unwrap_or(false);
 
-    if has_rocker { 
+    if has_rocker {
         let rocker = model.rocker_bottom.as_ref().unwrap();
         let bounds = get_board_bounds(model);
         let table = RockerArcLengthTable::new(rocker, bounds.nose_z, bounds.tip_z);
@@ -163,10 +165,10 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
 
                 let mut int = Some(l.otl_int.clone());
                 warp_curve(&mut int);
-                if let Some(int) = int { 
+                if let Some(int) = int {
                     l.otl_int = int;
                 }
-            } 
+            }
         }
 
         if let Some(channels) = &mut model.bottom_channels {
@@ -191,7 +193,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
                 if let Some(rd) = rd {
                     c.right_depth = rd;
                 }
-            } 
+            }
         }
 
         for cs in &mut model.cross_sections {
@@ -222,7 +224,7 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
 
                 if !fb.central {
                     let hint_t = (fb.z - bounds.nose_z) / model.length;
-                    let outline_pt = 
+                    let outline_pt =
                         crate::geometry::evaluate_composite_outline_at_z(model, fb.z, hint_t);
                     let half_width = outline_pt.x.abs();
 
@@ -234,10 +236,8 @@ pub fn calibrate_model_coordinates(model: &mut BoardModel) {
             }
             crate::geometry::translate_absolute_to_parametric_fins(model, &fin_boxes);
         }
-    } else {
-        if let Some(fin_boxes) = model.imported_fin_boxes.take() {
-            crate::geometry::translate_absolute_to_parametric_fins(model, &fin_boxes);
-        }
+        } else if let Some(fin_boxes) = model.imported_fin_boxes.take() {
+        crate::geometry::translate_absolute_to_parametric_fins(model, &fin_boxes);
     }
 }
 
