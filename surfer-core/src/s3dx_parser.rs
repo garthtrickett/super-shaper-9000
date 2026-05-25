@@ -1761,39 +1761,9 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        assert!(model.imported_fin_boxes.is_some());
-        let boxes = model.imported_fin_boxes.unwrap();
-
-        assert_eq!(boxes.len(), 2);
-
-        let fin_center = boxes
-            .iter()
-            .find(|b| b.name == "Fin_center")
-            .expect("Missing Fin_center");
-        assert_eq!(fin_center.style, 5);
-        assert_eq!(fin_center.even, false);
-        assert_eq!(fin_center.central, true);
-
-        let scale = 1.0 / 2.54;
-        assert_relative_eq!(fin_center.length, 30.5 * scale, epsilon = 1e-4);
-        assert_relative_eq!(fin_center.width, 4.0 * scale, epsilon = 1e-4);
-        assert_relative_eq!(fin_center.height, 2.36 * scale, epsilon = 1e-4);
-
-        assert_relative_eq!(
-            fin_center.z,
-            (213.36 / 2.0 - 7.525309) * scale,
-            epsilon = 0.05
-        );
-        assert_relative_eq!(fin_center.x, 0.0, epsilon = 1e-4);
-        assert_relative_eq!(fin_center.y, 5.689465 * scale, epsilon = 1e-3);
-
-        let leash = boxes
-            .iter()
-            .find(|b| b.name == "Leash")
-            .expect("Missing Leash");
-        assert_eq!(leash.style, 4);
-        assert_eq!(leash.even, false);
-        assert_eq!(leash.central, false);
+                assert!(model.imported_fin_boxes.is_none());
+        assert_eq!(model.fin_setup, "thruster");
+        assert_relative_eq!(model.rear_fin_z, 2.9627, epsilon = 0.1);
     }
 
     #[test]
@@ -1810,42 +1780,10 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        assert!(model.imported_fin_boxes.is_some());
-        let boxes = model.imported_fin_boxes.unwrap();
-
-        assert_eq!(boxes.len(), 4);
-
-        let fin_center = boxes
-            .iter()
-            .find(|b| b.name == "Fin_center")
-            .expect("Missing Fin_center");
-        assert_eq!(fin_center.style, 5);
-        assert_eq!(fin_center.even, false);
-        assert_eq!(fin_center.central, true);
-
-        let fin_twin = boxes
-            .iter()
-            .find(|b| b.name == "Fin_twin")
-            .expect("Missing Fin_twin");
-        assert_eq!(fin_twin.style, 3);
-        assert_eq!(fin_twin.even, true);
-        assert_eq!(fin_twin.central, false);
-
-        let fin_sides = boxes
-            .iter()
-            .find(|b| b.name == "Fin_sides")
-            .expect("Missing Fin_sides");
-        assert_eq!(fin_sides.style, 3);
-        assert_eq!(fin_sides.even, true);
-        assert_eq!(fin_sides.central, false);
-
-        let plug = boxes
-            .iter()
-            .find(|b| b.name == "Plug 0")
-            .expect("Missing Plug 0");
-        assert_eq!(plug.style, 4);
-        assert_eq!(plug.even, false);
-        assert_eq!(plug.central, false);
+                assert!(model.imported_fin_boxes.is_none());
+        assert_eq!(model.fin_setup, "quad");
+        assert!(model.front_fin_z > 0.0);
+        assert!(model.rear_fin_z > 0.0);
     }
 
     #[test]
@@ -1862,42 +1800,10 @@ mod tests {
         let content = String::from_utf8_lossy(&bytes).into_owned();
         let model = parse_s3dx(&content).expect("Failed to parse S3DX");
 
-        assert!(model.imported_fin_boxes.is_some());
-        let boxes = model.imported_fin_boxes.as_ref().unwrap();
-
-        // 3 Fin Systems (Fin center + Symmetrical Fin sides) + 1 legacy box (Leash 1) = exactly 3 parsed structures
-        assert_eq!(boxes.len(), 3);
-
-        let fin_center = boxes
-            .iter()
-            .find(|b| b.name == "Fin center")
-            .expect("Missing Fin center");
-        assert_eq!(fin_center.style, 6);
-        assert_eq!(fin_center.even, false);
-        assert_eq!(fin_center.central, true);
-
-        let fin_sides = boxes
-            .iter()
-            .find(|b| b.name == "Fin sides")
-            .expect("Missing Fin sides");
-        assert_eq!(fin_sides.style, 6);
-        assert_eq!(fin_sides.even, true);
-        assert_eq!(fin_sides.central, false);
-        assert!(fin_sides.cant.is_some());
-
-        let bounds = crate::geometry::get_board_bounds(&model);
-        let hint_t = (fin_sides.z - bounds.nose_z) / model.length;
-        let half_width_at_z =
-            crate::geometry::evaluate_composite_outline_at_z(&model, fin_sides.z, hint_t).x;
-        assert!(fin_sides.x < half_width_at_z - 0.1);
-
-        let leash = boxes
-            .iter()
-            .find(|b| b.name == "Leash 1")
-            .expect("Missing Leash 1");
-        assert_eq!(leash.style, 4);
-        assert_eq!(leash.even, false);
-        assert_eq!(leash.central, false);
+                assert!(model.imported_fin_boxes.is_none());
+        assert_eq!(model.fin_setup, "thruster");
+        assert!(model.front_fin_z > 0.0);
+        assert!(model.rear_fin_z > 0.0);
     }
 
     #[test]
@@ -2123,21 +2029,33 @@ mod tests {
 		</Box_1>
 	</Board>
 </Shape3d_design>"#;
-        let model = parse_s3dx(xml).expect("Failed to parse Wild Winged Pin S3DX");
-        assert!(model.imported_fin_boxes.is_some());
-        let boxes = model.imported_fin_boxes.unwrap();
-        assert_eq!(boxes.len(), 2);
+                let model = parse_s3dx(xml).expect("Failed to parse Wild Winged Pin S3DX");
+        assert!(model.imported_fin_boxes.is_none());
+        assert_eq!(model.fin_setup, "twin");
+        assert!(model.front_fin_z > 0.0);
+    }
 
-        let fin = boxes
-            .iter()
-            .find(|b| b.name == "Fin 2")
-            .expect("Missing Fin 2");
-        let leash = boxes
-            .iter()
-            .find(|b| b.name == "Leash 3")
-            .expect("Missing Leash 3");
+    #[test]
+    fn test_s3dx_import_thruster_clearing_integration() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/rounded-pin-6-1.s3dx");
 
-        assert_ne!(fin.z, leash.z);
-        assert_ne!(fin.x, leash.x);
+        if !path.exists() {
+            println!("rounded-pin-6-1.s3dx not found, skipping integration test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        // The absolute array must be perfectly cleared (None) after translation
+        assert!(model.imported_fin_boxes.is_none());
+
+        // Native setup must equal "thruster" with calibrated offsets
+        assert_eq!(model.fin_setup, "thruster");
+        assert!(model.front_fin_z > 10.0);
+        assert!(model.rear_fin_z > 2.0);
+        assert!(model.front_fin_x > 0.5);
     }
 }

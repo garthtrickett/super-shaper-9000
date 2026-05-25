@@ -1593,43 +1593,11 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-        assert!(model.imported_fin_boxes.is_some());
-        let boxes = model.imported_fin_boxes.unwrap();
-
-        assert_eq!(boxes.len(), 2);
-
-        let side_fins = boxes
-            .iter()
-            .find(|b| b.name == "Fin_sides")
-            .expect("Missing Fin_sides");
-        assert_eq!(side_fins.style, 3);
-        assert_eq!(side_fins.even, true);
-        assert_eq!(side_fins.central, false);
-
-        let center_fin = boxes
-            .iter()
-            .find(|b| b.name == "Fin_center")
-            .expect("Missing Fin_center");
-        assert_eq!(center_fin.style, 5);
-        assert_eq!(center_fin.even, false);
-        assert_eq!(center_fin.central, true);
-
-        // Center fin (p11 = 15.0 cm = 5.9055 inches) is behind, closer to tail
-        assert_relative_eq!(center_fin.z, 76.0 / 2.0 - (15.0 / 2.54), epsilon = 2.5);
-
-        // Side fins (p14 = 28.2 cm = 11.1023 inches) are in front
-        assert_relative_eq!(side_fins.z, 76.0 / 2.0 - (28.2 / 2.54), epsilon = 2.5);
-
-        // Verify side fins are safely placed inside the outline (x < half_width_at_z)
-        let hint_t = (side_fins.z - (-model.length / 2.0)) / model.length;
-        let half_width_at_z = crate::geometry::evaluate_bezier_at_z(
-            model.outline.as_ref().unwrap(),
-            side_fins.z,
-            hint_t,
-        )
-        .x;
-        assert!(side_fins.x < half_width_at_z);
-        assert_relative_eq!(side_fins.x, half_width_at_z - 2.0, epsilon = 0.01);
+                assert!(model.imported_fin_boxes.is_none());
+        assert_eq!(model.fin_setup, "thruster");
+        assert_relative_eq!(model.front_fin_z, 11.1023, epsilon = 0.5);
+        assert_relative_eq!(model.rear_fin_z, 5.9055, epsilon = 0.5);
+        assert_relative_eq!(model.front_fin_x, 2.0, epsilon = 0.1);
     }
 
     #[test]
@@ -1646,19 +1614,14 @@ mod tests {
         let bytes = fs::read(&path).expect("Failed to read BRD fixture");
         let model = parse_brd(&bytes).expect("Failed to parse BRD");
 
-        assert!(model.imported_fin_boxes.is_some());
-        let boxes = model.imported_fin_boxes.unwrap();
-
-        // Assert that the fins are placed close to the tail rather than deep into the midsection
-        for b in &boxes {
-            let dist_from_tail = model.length / 2.0 - b.z;
-            println!("Fin {} distance from tail: {}", b.name, dist_from_tail);
-            assert!(
-                dist_from_tail < 12.0,
-                "Fins are placed too far up the board! Distance: {}",
-                dist_from_tail
-            );
-        }
+                assert!(model.imported_fin_boxes.is_none());
+        let dist_from_tail = model.front_fin_z;
+        println!("Parametric fin distance from tail: {}", dist_from_tail);
+        assert!(
+            dist_from_tail < 12.0,
+            "Fins are placed too far up the board! Distance: {}",
+            dist_from_tail
+        );
     }
 
     #[test]
