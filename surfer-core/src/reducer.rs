@@ -93,7 +93,65 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::AddDecal
         | BoardAction::UpdateDecal { .. }
         | BoardAction::RemoveDecal { .. }) => handle_aesthetic_mutations(model, dirty, act),
+        BoardAction::ApplyComponent { component_type, payload } => {
+            handle_apply_component(model, dirty, component_type, payload)
+        }
     }
+}
+
+fn handle_apply_component(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    _component_type: ComponentType,
+    payload: ComponentPayload,
+) -> Vec<Effect> {
+    dirty.global_rebuild = true;
+    match payload {
+        ComponentPayload::Outline { outline, outline_layers } => {
+            model.outline = Some(outline);
+            model.outline_layers = outline_layers;
+        }
+        ComponentPayload::Rocker {
+            rocker_top,
+            rocker_bottom,
+            apex_rocker,
+        } => {
+            model.rocker_top = Some(rocker_top);
+            model.rocker_bottom = Some(rocker_bottom);
+            model.apex_rocker = apex_rocker;
+        }
+        ComponentPayload::Slices { cross_sections } => {
+            model.cross_sections = cross_sections;
+        }
+        ComponentPayload::Channels { bottom_channels } => {
+            model.bottom_channels = Some(bottom_channels);
+        }
+        ComponentPayload::Fins {
+            fin_setup,
+            front_fin_z,
+            front_fin_x,
+            rear_fin_z,
+            rear_fin_x,
+            toe_angle,
+            cant_angle,
+        } => {
+            model.fin_setup = fin_setup;
+            model.front_fin_z = front_fin_z;
+            model.front_fin_x = front_fin_x;
+            model.rear_fin_z = rear_fin_z;
+            model.rear_fin_x = rear_fin_x;
+            model.toe_angle = toe_angle;
+            model.cant_angle = cant_angle;
+        }
+    }
+
+    crate::geometry::synchronize_board_endpoints(model);
+    crate::geometry::calibrate_model_coordinates(model);
+    push_history(model);
+
+    vec![Effect::LogInfo {
+        message: "Successfully applied partial component".into(),
+    }]
 }
 
 fn handle_aesthetic_mutations(
@@ -224,7 +282,7 @@ mod tests {
     use super::*;
     use crate::model::{BoardAction, BoardModel, StringerConfig};
 
-    #[test]
+        #[test]
     fn test_handle_aesthetic_mutations() {
         let mut model = BoardModel::default();
         model.stringers = Some(vec![StringerConfig {
@@ -260,6 +318,108 @@ mod tests {
         assert!(model.history.is_some());
         assert_eq!(model.history_index, Some(0));
         assert!(dirty.global_rebuild);
+    }
+
+    #[test]
+    fn test_apply_outline_component_preserves_rocker() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        model.width = 20.0;
+        model.thickness = 3.0;
+
+        let custom_rocker = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 5.0, -50.0),
+                Vec3::new(0.0, -2.0, 0.0),
+                Vec3::new(0.0, 4.0, 50.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        };
+        model.rocker_bottom = Some(custom_rocker.clone());
+        model.rocker_top = Some(custom_rocker.clone());
+
+        let mut dirty = DirtyState::default();
+
+        let new_outline = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -50.0),
+                Vec3::new(15.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 50.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        };
+
+        let action = BoardAction::ApplyComponent {
+            component_type: ComponentType::Outline,
+            payload: ComponentPayload::Outline {
+                outline: new_outline,
+                outline_layers: None,
+            },
+        };
+
+        update(&mut model, &mut dirty, action);
+
+        let applied_outline = model.outline.as_ref().unwrap();
+        assert_eq!(applied_outline.control_points[1].x, 15.0);
+
+        let applied_rocker = model.rocker_bottom.as_ref().unwrap();
+        assert_eq!(applied_rocker.control_points[1].y, -2.0);
+    }
+
+    #[test]
+    fn test_apply_shorter_outline_component_scales_to_active_length() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -50.0),
+                Vec3::new(0.0, 0.0, 50.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 2.0, -50.0),
+                Vec3::new(0.0, 2.0, 50.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+
+        let mut dirty = DirtyState::default();
+
+        let short_outline = BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -30.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 30.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        };
+
+        let action = BoardAction::ApplyComponent {
+            component_type: ComponentType::Outline,
+            payload: ComponentPayload::Outline {
+                outline: short_outline,
+                outline_layers: None,
+            },
+        };
+
+        update(&mut model, &mut dirty, action);
+
+        let applied_outline = model.outline.as_ref().unwrap();
+        approx::assert_relative_eq!(applied_outline.control_points[0].z, -50.0, epsilon = 1e-4);
+        approx::assert_relative_eq!(applied_outline.control_points[2].z, 50.0, epsilon = 1e-4);
     }
 }
 
