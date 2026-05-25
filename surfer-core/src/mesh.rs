@@ -480,8 +480,9 @@ pub fn generate_lines_for_view(
     let show_rail_out = (line_mask & (1 << 4)) != 0;
     let show_apex_roc = (line_mask & (1 << 5)) != 0;
     let show_deck = (line_mask & (1 << 6)) != 0;
-    let show_cs = (line_mask & (1 << 7)) != 0;
+        let show_cs = (line_mask & (1 << 7)) != 0;
     let show_extras = (line_mask & (1 << 8)) != 0;
+    let show_fins = (line_mask & (1 << 9)) != 0;
 
     let gizmo_outline = (gizmo_mask & (1 << 0)) != 0;
     let gizmo_rocker_top = (gizmo_mask & (1 << 1)) != 0;
@@ -492,6 +493,7 @@ pub fn generate_lines_for_view(
     let gizmo_deck = (gizmo_mask & (1 << 6)) != 0;
     let gizmo_cs = (gizmo_mask & (1 << 7)) != 0;
     let gizmo_extras = (gizmo_mask & (1 << 8)) != 0;
+    let gizmo_fins = (gizmo_mask & (1 << 9)) != 0;
 
     let add_curve_lines = |curve_opt: &Option<crate::model::BezierCurveData>,
                            color: Vec3,
@@ -966,18 +968,95 @@ pub fn generate_lines_for_view(
                 }
             };
 
-            draw_side(1.0);
-            draw_side(-1.0);
+                            draw_side(1.0);
+                draw_side(-1.0);
+            }
         }
-    }
 
-    (
-        line_vertices,
-        line_colors,
-        tri_vertices,
-        tri_colors,
-        tri_indices,
-    )
+        if show_fins {
+            if let Some(boxes) = &model.imported_fin_boxes {
+                for b in boxes {
+                    let sides = if b.even && b.x.abs() > 1e-4 {
+                        vec![false, true]
+                    } else {
+                        vec![false]
+                    };
+
+                    for mirror in sides {
+                        let mut pt = Vec3::new(b.x, b.y, b.z);
+                        let mut angle = b.angle_oz;
+                        let mut cant_val = b.cant.unwrap_or(0.0);
+                        if mirror {
+                            pt.x = -pt.x;
+                            angle = -angle;
+                            cant_val = -cant_val;
+                        }
+
+                        let yaw = -angle.to_radians();
+                        let cant_rad = cant_val.to_radians();
+
+                        let cos_y = yaw.cos();
+                        let sin_y = yaw.sin();
+                        let cos_z = cant_rad.cos();
+                        let sin_z = cant_rad.sin();
+
+                        let transform = |dx: f32, dy: f32, dz: f32| -> Vec3 {
+                            let r1_x = dx * cos_z - dy * sin_z;
+                            let r1_y = dx * sin_z + dy * cos_z;
+                            let r1_z = dz;
+
+                            let r2_x = r1_x * cos_y + r1_z * sin_y;
+                            let r2_y = r1_y;
+                            let r2_z = -r1_x * sin_y + r1_z * cos_y;
+
+                            Vec3::new(pt.x + r2_x, pt.y + r2_y, pt.z + r2_z)
+                        };
+
+                        let w2 = b.width / 2.0;
+                        let corners = [
+                            transform(-w2, 0.0, -b.length),
+                            transform(w2, 0.0, -b.length),
+                            transform(w2, b.height, -b.length),
+                            transform(-w2, b.height, -b.length),
+                            transform(-w2, 0.0, 0.0),
+                            transform(w2, 0.0, 0.0),
+                            transform(w2, b.height, 0.0),
+                            transform(-w2, b.height, 0.0),
+                        ];
+
+                        let box_color = Vec3::new(0.0, 0.5, 1.0);
+                        let arrow_color = Vec3::new(1.0, 0.6, 0.0);
+
+                        let edges = [
+                            (0, 1), (1, 2), (2, 3), (3, 0),
+                            (4, 5), (5, 6), (6, 7), (7, 4),
+                            (0, 4), (1, 5), (2, 6), (3, 7)
+                        ];
+
+                        for &(u, v) in &edges {
+                            push_line(&mut line_vertices, &mut line_colors, scale, corners[u], corners[v], box_color);
+                        }
+
+                        let center_base = transform(0.0, 0.0, 0.0);
+                        let center_forward = transform(0.0, 0.0, -b.length * 1.5);
+                        push_line(&mut line_vertices, &mut line_colors, scale, center_base, center_forward, arrow_color);
+
+                        let arrow_left = transform(-w2 * 0.5, 0.0, -b.length * 1.3);
+                        let arrow_right = transform(w2 * 0.5, 0.0, -b.length * 1.3);
+                        push_line(&mut line_vertices, &mut line_colors, scale, center_forward, arrow_left, arrow_color);
+                        push_line(&mut line_vertices, &mut line_colors, scale, center_forward, arrow_right, arrow_color);
+                    }
+                }
+            }
+        }
+
+        (
+            line_vertices,
+            line_colors,
+            tri_vertices,
+            tri_colors,
+            tri_indices,
+        )
 }
 
 #[cfg(test)]

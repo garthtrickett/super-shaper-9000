@@ -89,8 +89,30 @@ describe("BoardViewport (3D Component)", () => {
       flipBtn!.click();
       await el.updateComplete;
 
-      // Flipped state
-      expect((el as any).isFlipped).to.be.true;
+              // Flipped state
+        expect((el as any).isFlipped).to.be.true;
+      });
     });
-  });
+
+    it("renders Fins & Plugs option in Top display settings and toggles it", async () => {
+      const el = await fixture<BoardViewport>(html`<board-viewport .boardState=${INITIAL_STATE}></board-viewport>`);
+      (el as any).maximizedView = null;
+      await el.updateComplete;
+
+      const perspectiveCog = el.querySelector('button[title="Display Settings"]') as HTMLButtonElement;
+      expect(perspectiveCog).to.exist;
+      perspectiveCog.click();
+      await el.updateComplete;
+
+      const labels = Array.from(el.querySelectorAll('label'));
+      const finLabel = labels.find(l => l.textContent?.includes("Fins & Plugs"));
+      expect(finLabel).to.exist;
+
+      const checkbox = finLabel!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      expect(checkbox.checked).to.be.true;
+
+      checkbox.click();
+      await el.updateComplete;
+      expect(checkbox.checked).to.be.false;
+    });
 });
