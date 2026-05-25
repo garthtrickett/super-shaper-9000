@@ -1620,8 +1620,8 @@ mod tests {
         // Side fins (p14 = 28.2 cm = 11.1023 inches) are in front
         assert_relative_eq!(side_fins.z, 76.0 / 2.0 - (28.2 / 2.54), epsilon = 2.5);
 
-        // Verify side fins are safely placed inside the outline (x < half_width_at_z)
-        let hint_t = (side_fins.z - (-76.0 / 2.0)) / 76.0;
+                // Verify side fins are safely placed inside the outline (x < half_width_at_z)
+        let hint_t = (side_fins.z - (-model.length / 2.0)) / model.length;
         let half_width_at_z = crate::geometry::evaluate_bezier_at_z(
             model.outline.as_ref().unwrap(),
             side_fins.z,
