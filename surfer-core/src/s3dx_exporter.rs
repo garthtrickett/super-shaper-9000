@@ -17,7 +17,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     } else {
         1.0
     };
-        let scale = if model.length > 51.18 {
+    let scale = if model.length > 51.18 {
         1.0 / 2.54
     } else {
         1.0
@@ -431,7 +431,7 @@ mod tests {
     use super::*;
     use crate::model::BoardModel;
 
-        #[test]
+    #[test]
     fn test_export_s3dx_basic_structure() {
         let mut model = BoardModel::default();
         model.length = 50.0;
