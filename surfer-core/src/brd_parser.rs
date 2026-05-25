@@ -513,8 +513,14 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
         }
     }
 
-        let side_fin_z = side_fin_z_raw; // Fin positions are always in inches in BRD format
-    let side_fin_x_off_rail = side_fin_x_raw * 0.1; // p12 represents tenths of an inch off the rail
+            let side_fin_z = side_fin_z_raw; // Fin positions are always in inches in BRD format
+    // p12 represents distance off the rail. Senders sometimes write it in inches (e.g. 1.25)
+    // and sometimes in tenths of an inch (e.g. 13.0). We use a heuristic threshold to support both.
+    let side_fin_x_off_rail = if side_fin_x_raw < 3.0 {
+        side_fin_x_raw
+    } else {
+        side_fin_x_raw * 0.1
+    };
     let center_fin_z = center_fin_z_raw; // Always in inches
     let side_fin_toe = side_fin_toe_raw;
 
@@ -1583,10 +1589,34 @@ mod tests {
         // Side fins (p14 = 28.2) are in front: z_pos = length / 2.0 - 28.2
         assert_relative_eq!(side_fins.z, 76.0 / 2.0 - 28.2, epsilon = 1e-3);
 
-        // Verify side fins are safely placed inside the outline (x < half_width_at_z)
+                // Verify side fins are safely placed inside the outline (x < half_width_at_z)
         let hint_t = (side_fins.z - (-76.0 / 2.0)) / 76.0;
         let half_width_at_z = crate::geometry::evaluate_bezier_at_z(model.outline.as_ref().unwrap(), side_fins.z, hint_t).x;
         assert!(side_fins.x < half_width_at_z);
         assert_relative_eq!(side_fins.x, half_width_at_z - 1.3, epsilon = 1e-3);
+    }
+
+    #[test]
+    fn test_brd_fin_direct_inch_heuristic() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        
+        let file_text = "\
+p01: 72.0\n\
+p03: 2.5\n\
+p04: 20.0\n\
+p11: 15.0\n\
+p12: 1.25\n\
+p13: 3.0\n\
+p14: 11.0\n\
+p32:\n\
+[0.0 0.0 0.0 0.0 0.0 0.0]\n\
+[72.0 0.0 0.0 0.0 0.0 0.0]\n\
+)\n\
+";
+        let model = parse_aku_shaper(file_text).expect("Failed to parse simulated BRD");
+        let boxes = model.imported_fin_boxes.unwrap();
+        let side_fins = boxes.iter().find(|b| b.name == "Fin_sides").unwrap();
+        
+        assert_relative_eq!(side_fins.x, 10.0 - 1.25, epsilon = 1e-3);
     }
 }
