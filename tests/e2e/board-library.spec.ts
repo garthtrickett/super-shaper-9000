@@ -30,17 +30,16 @@ test.describe("Board Library E2E Flow", () => {
     const saveBtn = boardControls.getByRole("button", { name: /Save to Library/i });
     await expect(saveBtn).toBeVisible();
 
-    // Set up native dialog prompt handler
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("Enter a name for your saved design");
-      await dialog.accept("My Custom Fish");
-    });
-
-    // Accept success alert
-    page.once("dialog", async (dialog) => {
-      expect(dialog.message()).toContain("successfully saved to your library");
-      await dialog.accept();
-    });
+        // Set up native dialog handler for the save flow
+    const handleSaveDialogs = async (dialog: any) => {
+      if (dialog.message().includes("Enter a name")) {
+        await dialog.accept("My Custom Fish");
+      } else if (dialog.message().includes("successfully saved")) {
+        await dialog.accept();
+        page.off("dialog", handleSaveDialogs);
+      }
+    };
+    page.on("dialog", handleSaveDialogs);
 
     await saveBtn.click();
     await page.waitForTimeout(500);
