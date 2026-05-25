@@ -101,21 +101,31 @@ pub fn synthesize_parametric_fins(model: &BoardModel) -> Vec<ImportedFinBox> {
 
 /// Translates absolute fin box coordinates into parametric fields on BoardModel.
 pub fn translate_absolute_to_parametric_fins(model: &mut BoardModel, boxes: &[ImportedFinBox]) {
-    if boxes.is_empty() {
+    let filtered_boxes: Vec<&ImportedFinBox> = boxes
+        .iter()
+        .filter(|b| {
+            let name_lower = b.name.to_lowercase();
+            !name_lower.contains("leash") && !(name_lower.contains("plug") && !b.even && !b.central)
+        })
+        .collect();
+
+    if filtered_boxes.is_empty() {
         return;
     }
 
     let bounds = get_board_bounds(model);
 
     // 1. Identify side fins vs center/central fins
-    let side_fins: Vec<&ImportedFinBox> = boxes
+    let side_fins: Vec<&ImportedFinBox> = filtered_boxes
         .iter()
         .filter(|b| !b.central && b.x.abs() > 1e-3)
+        .copied()
         .collect();
 
-    let center_fins: Vec<&ImportedFinBox> = boxes
+    let center_fins: Vec<&ImportedFinBox> = filtered_boxes
         .iter()
         .filter(|b| b.central || b.x.abs() <= 1e-3)
+        .copied()
         .collect();
 
     // 2. Cluster side fins into rows along Z (using 1.5 inch threshold)

@@ -731,7 +731,7 @@ impl From<S3dxBoard> for BoardModel {
 
         let mut imported_fin_boxes = Vec::new();
 
-                if let Some(containers) = &s3dx.box_containers {
+                        if let Some(containers) = &s3dx.box_containers {
             for container in containers {
                 if let Some(r_box) = &container.r_box {
                     let ref_p = r_box.ref_point.as_ref().and_then(|rp| rp.point3d.as_ref());
@@ -740,8 +740,8 @@ impl From<S3dxBoard> for BoardModel {
                     let y_cad = ref_p.map(|p| p.y).unwrap_or(0.0);
                     let z_cad = ref_p.map(|p| p.z).unwrap_or(0.0);
 
-                    let z_world = (bl / 2.0) * scale - x_cad;
-                    let x_world = y_cad;
+                    let z_world = (bl / 2.0) * scale - x_cad * scale;
+                    let x_world = y_cad * scale;
 
                     let is_deck = r_box.face.unwrap_or(1) == 0;
                     let box_height = r_box.height.unwrap_or(0.0) * scale;
@@ -797,7 +797,7 @@ impl From<S3dxBoard> for BoardModel {
             }
         }
 
-                if let Some(containers) = &s3dx.fin_system_containers {
+                        if let Some(containers) = &s3dx.fin_system_containers {
             for container in containers {
                 if let Some(fin) = &container.fin_system {
                     let ref_p = fin.ref_point.as_ref().and_then(|rp| rp.point3d.as_ref());
@@ -806,8 +806,8 @@ impl From<S3dxBoard> for BoardModel {
                     let y_cad = ref_p.map(|p| p.y).unwrap_or(0.0);
                     let z_cad = ref_p.map(|p| p.z).unwrap_or(0.0);
 
-                    let z_world = (bl / 2.0) * scale - x_cad;
-                    let x_world = y_cad;
+                    let z_world = (bl / 2.0) * scale - x_cad * scale;
+                    let x_world = y_cad * scale;
 
                     let is_deck = fin.face.unwrap_or(1) == 0;
                     let box_height = fin.height.unwrap_or(0.0) * scale;

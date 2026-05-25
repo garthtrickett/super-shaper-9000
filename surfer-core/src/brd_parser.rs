@@ -1595,8 +1595,8 @@ mod tests {
 
         assert!(model.imported_fin_boxes.is_none());
         assert_eq!(model.fin_setup, "thruster");
-        assert_relative_eq!(model.front_fin_z, 11.1023, epsilon = 0.8);
-        assert_relative_eq!(model.rear_fin_z, 5.9055, epsilon = 0.8);
+                assert_relative_eq!(model.front_fin_z, 11.1023, epsilon = 0.8);
+        assert_relative_eq!(model.rear_fin_z, 7.8740, epsilon = 0.8);
         assert_relative_eq!(model.front_fin_x, 2.0, epsilon = 0.1);
     }
 
