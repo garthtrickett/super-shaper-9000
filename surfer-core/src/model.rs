@@ -692,7 +692,7 @@ pub enum BoardAction {
     ToggleOutlineLayer { index: usize },
     #[serde(rename = "ADD_BOTTOM_CHANNEL")]
     AddBottomChannel,
-    #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
+        #[serde(rename = "REMOVE_BOTTOM_CHANNEL")]
     RemoveBottomChannel { index: usize },
     #[serde(rename = "TOGGLE_CHANNEL_SYMMETRY")]
     ToggleChannelSymmetry { index: usize },
@@ -705,6 +705,32 @@ pub enum BoardAction {
     #[serde(rename = "ADD_CROSS_SECTION")]
     #[serde(rename_all = "camelCase")]
     AddCrossSection { z: f32 },
+    #[serde(rename = "ADD_STRINGER")]
+    AddStringer,
+    #[serde(rename = "UPDATE_STRINGER")]
+    #[serde(rename_all = "camelCase")]
+    UpdateStringer {
+        index: usize,
+        width: f32,
+        shift: f32,
+        tilt: f32,
+    },
+    #[serde(rename = "REMOVE_STRINGER")]
+    RemoveStringer { index: usize },
+    #[serde(rename = "ADD_DECAL")]
+    AddDecal,
+    #[serde(rename = "UPDATE_DECAL")]
+    #[serde(rename_all = "camelCase")]
+    UpdateDecal {
+        index: usize,
+        centre_x: f32,
+        centre_y: f32,
+        length: f32,
+        width: f32,
+        deck: bool,
+    },
+    #[serde(rename = "REMOVE_DECAL")]
+    RemoveDecal { index: usize },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

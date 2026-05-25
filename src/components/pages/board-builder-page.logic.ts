@@ -384,11 +384,17 @@ export type BoardAction =
   | { type: "EXPORT_BRD" }
   | { type: "ADD_OUTLINE_LAYER" }
   | { type: "ADD_CROSS_SECTION"; z: number }
-  | { type: "REMOVE_OUTLINE_LAYER"; index: number }
+    | { type: "REMOVE_OUTLINE_LAYER"; index: number }
   | { type: "TOGGLE_OUTLINE_LAYER"; index: number }
   | { type: "ADD_BOTTOM_CHANNEL" }
   | { type: "TOGGLE_CHANNEL_SYMMETRY"; index: number }
-  | { type: "REMOVE_BOTTOM_CHANNEL"; index: number };
+  | { type: "REMOVE_BOTTOM_CHANNEL"; index: number }
+  | { type: "ADD_STRINGER" }
+  | { type: "UPDATE_STRINGER"; index: number; width: number; shift: number; tilt: number }
+  | { type: "REMOVE_STRINGER"; index: number }
+  | { type: "ADD_DECAL" }
+  | { type: "UPDATE_DECAL"; index: number; centreX: number; centreY: number; length: number; width: number; deck: boolean }
+  | { type: "REMOVE_DECAL"; index: number };
 
 export const update = (state: BoardModel, _action: BoardAction): BoardModel => state;
 

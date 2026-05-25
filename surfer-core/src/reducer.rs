@@ -80,13 +80,168 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         act @ (BoardAction::SaveHistorySnapshot | BoardAction::Undo | BoardAction::Redo) => {
             handle_history(model, dirty, act)
         }
-        act @ (BoardAction::AddOutlineLayer
+                act @ (BoardAction::AddOutlineLayer
         | BoardAction::RemoveOutlineLayer { .. }
         | BoardAction::ToggleOutlineLayer { .. }
         | BoardAction::AddBottomChannel
         | BoardAction::RemoveBottomChannel { .. }
         | BoardAction::ToggleChannelSymmetry { .. }
         | BoardAction::AddCrossSection { .. }) => handle_layer_toggles(model, dirty, act),
+        act @ (BoardAction::AddStringer
+        | BoardAction::UpdateStringer { .. }
+        | BoardAction::RemoveStringer { .. }
+        | BoardAction::AddDecal
+        | BoardAction::UpdateDecal { .. }
+        | BoardAction::RemoveDecal { .. }) => handle_aesthetic_mutations(model, dirty, act),
+    }
+}
+
+fn handle_aesthetic_mutations(
+    model: &mut BoardModel,
+    dirty: &mut DirtyState,
+    action: BoardAction,
+) -> Vec<Effect> {
+    dirty.global_rebuild = true;
+    match action {
+        BoardAction::AddStringer => {
+            let mut stringers = model.stringers.take().unwrap_or_default();
+            stringers.push(StringerConfig {
+                name: format!("Stringer {}", stringers.len()),
+                width: 0.25,
+                shift: 0.0,
+                tilt: 0.0,
+                color_d3d: 10320,
+                mapping_d3d: 0,
+                image_mapped_d3d: "Cedar".to_string(),
+                display_d3d: true,
+                superposition_order: 1,
+            });
+            model.stringers = Some(stringers);
+            push_history(model);
+        }
+        BoardAction::UpdateStringer { index, width, shift, tilt } => {
+            if let Some(stringers) = &mut model.stringers {
+                if let Some(s) = stringers.get_mut(index) {
+                    s.width = width;
+                    s.shift = shift;
+                    s.tilt = tilt;
+                }
+            }
+            push_history(model);
+        }
+        BoardAction::RemoveStringer { index } => {
+            if let Some(stringers) = &mut model.stringers {
+                if index < stringers.len() {
+                    stringers.remove(index);
+                }
+            }
+            push_history(model);
+        }
+        BoardAction::AddDecal => {
+            let mut decals = model.decals.take().unwrap_or_default();
+            decals.push(DecalConfig {
+                file: "logo.png".to_string(),
+                file_rel: "logo.png".to_string(),
+                name: format!("Decal {}", decals.len()),
+                length: 4.0,
+                width: 4.0,
+                reverse_left_right: false,
+                keep_prop: true,
+                tilt: 0.0,
+                centre_x: 0.0,
+                centre_y: 0.0,
+                centre_color: 0,
+                display_d3d: true,
+                deck: true,
+                bottom: false,
+                projected_mapping: true,
+                limit_rail: false,
+                limit_apex: false,
+                limit_opposite_rail: true,
+                superposition_order: 1,
+                reflexion_coef: -1.0,
+                opacity: 1.0,
+                resize_with_board: false,
+                replace_with_board: true,
+            });
+            model.decals = Some(decals);
+            push_history(model);
+        }
+        BoardAction::UpdateDecal { index, centre_x, centre_y, length, width, deck } => {
+            if let Some(decals) = &mut model.decals {
+                if let Some(d) = decals.get_mut(index) {
+                    let old_half_l = d.length / 2.0;
+                    dirty.dirty_z_ranges.push((d.centre_x - old_half_l - 1.0, d.centre_x + old_half_l + 1.0));
+                    
+                    d.centre_x = centre_x;
+                    d.centre_y = centre_y;
+                    d.length = length;
+                    d.width = width;
+                    d.deck = deck;
+
+                    let new_half_l = length / 2.0;
+                    dirty.dirty_z_ranges.push((centre_x - new_half_l - 1.0, centre_x + new_half_l + 1.0));
+                }
+            }
+            push_history(model);
+        }
+        BoardAction::RemoveDecal { index } => {
+            if let Some(decals) = &mut model.decals {
+                if index < decals.len() {
+                    let d = &decals[index];
+                    let half_l = d.length / 2.0;
+                    dirty.dirty_z_ranges.push((d.centre_x - half_l - 1.0, d.centre_x + half_l + 1.0));
+                    decals.remove(index);
+                }
+            }
+            push_history(model);
+        }
+        _ => {}
+    }
+    Vec::new() 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{BoardAction, BoardModel, StringerConfig};
+
+    #[test]
+    fn test_handle_aesthetic_mutations() {
+        let mut model = BoardModel::default();
+        model.stringers = Some(vec![StringerConfig {
+            name: "Original".to_string(),
+            width: 0.25,
+            shift: 0.0,
+            tilt: 0.0,
+            color_d3d: 10320,
+            mapping_d3d: 0,
+            image_mapped_d3d: "Cedar".to_string(),
+            display_d3d: true,
+            superposition_order: 1,
+        }]);
+
+        let mut dirty = DirtyState::default();
+        dirty.global_rebuild = false;
+        dirty.dirty_z_ranges.clear();
+
+        let action = BoardAction::UpdateStringer {
+            index: 0,
+            width: 0.5,
+            shift: 2.0,
+            tilt: 1.0,
+        };
+
+        let _effects = update(&mut model, &mut dirty, action);
+
+        let stringers = model.stringers.as_ref().unwrap();
+        assert_eq!(stringers[0].width, 0.5);
+        assert_eq!(stringers[0].shift, 2.0);
+        assert_eq!(stringers[0].tilt, 1.0);
+
+        assert!(model.history.is_some());
+        assert_eq!(model.history_index, Some(0));
+        assert!(dirty.global_rebuild);
     }
 }
 
