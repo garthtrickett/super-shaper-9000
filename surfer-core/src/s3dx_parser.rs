@@ -68,8 +68,12 @@ pub struct S3dxBoard {
     #[serde(rename = "Couple")]
     pub couples: Option<Vec<S3dxCouplesContainer>>,
 
-    #[serde(rename = "Calque")]
+        #[serde(rename = "Calque")]
     pub calques: Option<Vec<S3dxCalqueContainer>>,
+    #[serde(rename = "BoxContainer")]
+    pub box_containers: Option<Vec<S3dxBoxContainer>>,
+    #[serde(rename = "FinSystemContainer")]
+    pub fin_system_containers: Option<Vec<S3dxFinSystemContainer>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,6 +160,78 @@ pub struct S3dxPoint3d {
     pub y: f32,
     pub z: f32,
     pub u: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxPoint3dContainer {
+    #[serde(rename = "Point3d")]
+    pub point3d: Option<S3dxPoint3d>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxBoxContainer {
+    #[serde(rename = "Box")]
+    pub r_box: Option<S3dxBox>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxBox {
+    #[serde(rename = "Name")]
+    pub name: Option<String>,
+    #[serde(rename = "Style")]
+    pub style: Option<i32>,
+    #[serde(rename = "Style2")]
+    pub style2: Option<i32>,
+    #[serde(rename = "Length")]
+    pub length: Option<f32>,
+    #[serde(rename = "Width")]
+    pub width: Option<f32>,
+    #[serde(rename = "Height")]
+    pub height: Option<f32>,
+    #[serde(rename = "Even")]
+    pub even: Option<u32>,
+    #[serde(rename = "Central")]
+    pub central: Option<u32>,
+    #[serde(rename = "Ref_point")]
+    pub ref_point: Option<S3dxPoint3dContainer>,
+    #[serde(rename = "AngleOz")]
+    pub angle_oz: Option<f32>,
+    #[serde(rename = "PtConvergence")]
+    pub pt_convergence: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxFinSystemContainer {
+    #[serde(rename = "Fin_System", alias = "FinSystem")]
+    pub fin_system: Option<S3dxFinSystem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct S3dxFinSystem {
+    #[serde(rename = "Name")]
+    pub name: Option<String>,
+    #[serde(rename = "Type")]
+    pub type_field: Option<i32>,
+    #[serde(rename = "Style")]
+    pub style: Option<i32>,
+    #[serde(rename = "Length")]
+    pub length: Option<f32>,
+    #[serde(rename = "Width")]
+    pub width: Option<f32>,
+    #[serde(rename = "Height")]
+    pub height: Option<f32>,
+    #[serde(rename = "Even")]
+    pub even: Option<u32>,
+    #[serde(rename = "Central")]
+    pub central: Option<u32>,
+    #[serde(rename = "Ref_point")]
+    pub ref_point: Option<S3dxPoint3dContainer>,
+    #[serde(rename = "AngleOz")]
+    pub angle_oz: Option<f32>,
+    #[serde(rename = "Tilt")]
+    pub tilt: Option<f32>,
+    #[serde(rename = "Cant")]
+    pub cant: Option<f32>,
 }
 
 use crate::model::{BezierCurveData, BoardModel};
@@ -350,14 +426,30 @@ pub fn parse_s3dx(xml: &str) -> Result<BoardModel, String> {
                 .replace(&end_tag, "</Couple>");
         }
 
-        let start_tag_calque = format!("<Calque_{}>", i);
-        let end_tag_calque = format!("</Calque_{}>", i);
-        if sanitized.contains(&start_tag_calque) {
-            sanitized = sanitized
-                .replace(&start_tag_calque, "<Calque>")
-                .replace(&end_tag_calque, "</Calque>");
+                    let start_tag_calque = format!("<Calque_{}>", i);
+            let end_tag_calque = format!("</Calque_{}>", i);
+            if sanitized.contains(&start_tag_calque) {
+                sanitized = sanitized
+                    .replace(&start_tag_calque, "<Calque>")
+                    .replace(&end_tag_calque, "</Calque>");
+            }
+
+            let start_tag_box = format!("<Box_{}>", i);
+            let end_tag_box = format!("</Box_{}>", i);
+            if sanitized.contains(&start_tag_box) {
+                sanitized = sanitized
+                    .replace(&start_tag_box, "<BoxContainer>")
+                    .replace(&end_tag_box, "</BoxContainer>");
+            }
+
+            let start_tag_fin = format!("<Fin_System_{}>", i);
+            let end_tag_fin = format!("</Fin_System_{}>", i);
+            if sanitized.contains(&start_tag_fin) {
+                sanitized = sanitized
+                    .replace(&start_tag_fin, "<FinSystemContainer>")
+                    .replace(&end_tag_fin, "</FinSystemContainer>");
+            }
         }
-    }
 
     // Preprocess the XML to safely isolate the thickness Bezier curve from the float scalar
     sanitized = preprocess_xml_thickness(&sanitized);
@@ -606,8 +698,82 @@ impl From<S3dxBoard> for BoardModel {
         if !outline_layers.is_empty() {
             model.outline_layers = Some(outline_layers);
         }
-        if !bottom_channels.is_empty() {
+                if !bottom_channels.is_empty() {
             model.bottom_channels = Some(bottom_channels);
+        }
+
+        let mut imported_fin_boxes = Vec::new();
+
+        if let Some(containers) = &s3dx.box_containers {
+            for container in containers {
+                if let Some(r_box) = &container.r_box {
+                    let ref_p = r_box.ref_point.as_ref()
+                        .and_then(|rp| rp.point3d.as_ref());
+                    
+                    let x_cad = ref_p.map(|p| p.x).unwrap_or(0.0);
+                    let y_cad = ref_p.map(|p| p.y).unwrap_or(0.0);
+                    let z_cad = ref_p.map(|p| p.z).unwrap_or(0.0);
+
+                    let z_world = (bl / 2.0 - x_cad) * scale;
+                    let x_world = y_cad * scale;
+                    let y_world = z_cad * scale;
+
+                    imported_fin_boxes.push(crate::model::ImportedFinBox {
+                        name: r_box.name.clone().unwrap_or_else(|| "Box".to_string()),
+                        style: r_box.style2.or(r_box.style).unwrap_or(0),
+                        length: r_box.length.unwrap_or(0.0) * scale,
+                        width: r_box.width.unwrap_or(0.0) * scale,
+                        height: r_box.height.unwrap_or(0.0) * scale,
+                        x: x_world,
+                        y: y_world,
+                        z: z_world,
+                        angle_oz: r_box.angle_oz.unwrap_or(0.0),
+                        even: r_box.even.unwrap_or(0) != 0,
+                        central: r_box.central.unwrap_or(0) != 0,
+                        tilt: None,
+                        cant: None,
+                        pt_convergence: r_box.pt_convergence.map(|pt| pt * scale),
+                    });
+                }
+            }
+        }
+
+        if let Some(containers) = &s3dx.fin_system_containers {
+            for container in containers {
+                if let Some(fin) = &container.fin_system {
+                    let ref_p = fin.ref_point.as_ref()
+                        .and_then(|rp| rp.point3d.as_ref());
+                    
+                    let x_cad = ref_p.map(|p| p.x).unwrap_or(0.0);
+                    let y_cad = ref_p.map(|p| p.y).unwrap_or(0.0);
+                    let z_cad = ref_p.map(|p| p.z).unwrap_or(0.0);
+
+                    let z_world = (bl / 2.0 - x_cad) * scale;
+                    let x_world = y_cad * scale;
+                    let y_world = z_cad * scale;
+
+                    imported_fin_boxes.push(crate::model::ImportedFinBox {
+                        name: fin.name.clone().unwrap_or_else(|| "FinSystem".to_string()),
+                        style: fin.style.or(fin.type_field).unwrap_or(0),
+                        length: fin.length.unwrap_or(0.0) * scale,
+                        width: fin.width.unwrap_or(0.0) * scale,
+                        height: fin.height.unwrap_or(0.0) * scale,
+                        x: x_world,
+                        y: y_world,
+                        z: z_world,
+                        angle_oz: fin.angle_oz.unwrap_or(0.0),
+                        even: fin.even.unwrap_or(0) != 0,
+                        central: fin.central.unwrap_or(0) != 0,
+                        tilt: fin.tilt,
+                        cant: fin.cant,
+                        pt_convergence: None,
+                    });
+                }
+            }
+        }
+
+        if !imported_fin_boxes.is_empty() {
+            model.imported_fin_boxes = Some(imported_fin_boxes);
         }
 
         let bounds_tip_z = bl / 2.0 * scale;
@@ -1483,6 +1649,85 @@ mod tests {
             "BUG: Wing is smooth/tapered with no sharp step-in! Expected drop > 0.25, got {:.4}",
             step_drop
         );
+    }
+
+        #[test]
+    fn test_single_channels_fin_boxes_parsing() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/Single Channels.s3dx");
+
+        if !path.exists() {
+            println!("Single Channels.s3dx not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        assert!(model.imported_fin_boxes.is_some());
+        let boxes = model.imported_fin_boxes.unwrap();
+        
+        assert_eq!(boxes.len(), 2);
+
+        let fin_center = boxes.iter().find(|b| b.name == "Fin_center").expect("Missing Fin_center");
+        assert_eq!(fin_center.style, 5);
+        assert_eq!(fin_center.even, false);
+        assert_eq!(fin_center.central, true);
+        
+        let scale = 1.0 / 2.54;
+        assert_relative_eq!(fin_center.length, 30.5 * scale, epsilon = 1e-4);
+        assert_relative_eq!(fin_center.width, 4.0 * scale, epsilon = 1e-4);
+        assert_relative_eq!(fin_center.height, 2.36 * scale, epsilon = 1e-4);
+        
+        assert_relative_eq!(fin_center.z, (213.36 / 2.0 - 7.525309) * scale, epsilon = 1e-3);
+        assert_relative_eq!(fin_center.x, 0.0, epsilon = 1e-4);
+        assert_relative_eq!(fin_center.y, 5.689465 * scale, epsilon = 1e-3);
+
+        let leash = boxes.iter().find(|b| b.name == "Leash").expect("Missing Leash");
+        assert_eq!(leash.style, 4);
+        assert_eq!(leash.even, false);
+        assert_eq!(leash.central, false);
+    }
+
+    #[test]
+    fn test_mid_bevel_fin_boxes_parsing() {
+        let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        path.push("../src/assets/fixtures/s3dx/Mid Bevel.s3dx");
+
+        if !path.exists() {
+            println!("Mid Bevel.s3dx not found, skipping test.");
+            return;
+        }
+
+        let bytes = fs::read(&path).unwrap();
+        let content = String::from_utf8_lossy(&bytes).into_owned();
+        let model = parse_s3dx(&content).expect("Failed to parse S3DX");
+
+        assert!(model.imported_fin_boxes.is_some());
+        let boxes = model.imported_fin_boxes.unwrap();
+        
+        assert_eq!(boxes.len(), 4);
+
+        let fin_center = boxes.iter().find(|b| b.name == "Fin_center").expect("Missing Fin_center");
+        assert_eq!(fin_center.style, 5);
+        assert_eq!(fin_center.even, false);
+        assert_eq!(fin_center.central, true);
+
+        let fin_twin = boxes.iter().find(|b| b.name == "Fin_twin").expect("Missing Fin_twin");
+        assert_eq!(fin_twin.style, 3);
+        assert_eq!(fin_twin.even, true);
+        assert_eq!(fin_twin.central, false);
+
+        let fin_sides = boxes.iter().find(|b| b.name == "Fin_sides").expect("Missing Fin_sides");
+        assert_eq!(fin_sides.style, 3);
+        assert_eq!(fin_sides.even, true);
+        assert_eq!(fin_sides.central, false);
+
+        let plug = boxes.iter().find(|b| b.name == "Plug 0").expect("Missing Plug 0");
+        assert_eq!(plug.style, 4);
+        assert_eq!(plug.even, false);
+        assert_eq!(plug.central, false);
     }
 
     #[test]
