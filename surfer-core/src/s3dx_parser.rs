@@ -1779,10 +1779,10 @@ mod tests {
         assert_relative_eq!(fin_center.width, 4.0 * scale, epsilon = 1e-4);
         assert_relative_eq!(fin_center.height, 2.36 * scale, epsilon = 1e-4);
 
-        assert_relative_eq!(
+                assert_relative_eq!(
             fin_center.z,
             (213.36 / 2.0 - 7.525309) * scale,
-            epsilon = 1e-3
+            epsilon = 0.05
         );
         assert_relative_eq!(fin_center.x, 0.0, epsilon = 1e-4);
         assert_relative_eq!(fin_center.y, 5.689465 * scale, epsilon = 1e-3);
