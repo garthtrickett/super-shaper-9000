@@ -1678,7 +1678,7 @@ mod tests {
             assert!(cache[3].is_some());
         }
 
-                // Change active profile slice
+        // Change active profile slice
         engine.set_active_profile_slice(1);
 
         // Verify that the view-projection and camera parameter caches are invalidated (None).
