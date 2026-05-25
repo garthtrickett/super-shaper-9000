@@ -218,9 +218,9 @@ pub struct BoardBounds {
 
 pub fn get_board_bounds(model: &BoardModel) -> BoardBounds {
     let default_bounds = BoardBounds {
-        nose_z: 0.0,
-        tip_z: 0.0,
-        notch_z: 0.0,
+        nose_z: -model.length / 2.0,
+        tip_z: model.length / 2.0,
+        notch_z: model.length / 2.0,
         tip_t: 1.0,
     };
     let outline = match &model.outline {
