@@ -496,8 +496,8 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
                                 "p35" => {
                     model.cross_sections = parse_aku_slices(&mut lines, unscaled_length, scale);
                 }
-                "p11" => {
-                    side_fin_z_raw = value.parse::<f32>().unwrap_or(0.0);
+                                "p11" => {
+                    center_fin_z_raw = value.parse::<f32>().unwrap_or(0.0);
                 }
                 "p12" => {
                     side_fin_x_raw = value.parse::<f32>().unwrap_or(0.0);
@@ -506,7 +506,7 @@ fn parse_aku_shaper(text: &str) -> Result<BoardModel, String> {
                     side_fin_toe_raw = value.parse::<f32>().unwrap_or(0.0);
                 }
                 "p14" => {
-                    center_fin_z_raw = value.parse::<f32>().unwrap_or(0.0);
+                    side_fin_z_raw = value.parse::<f32>().unwrap_or(0.0);
                 }
                 _ => {}
             }
@@ -1531,7 +1531,7 @@ mod tests {
         );
     }
 
-    #[test]
+        #[test]
     fn test_brd_fin_boxes_synthesis() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -1554,5 +1554,14 @@ mod tests {
         assert_eq!(center_fin.style, 5);
         assert_eq!(center_fin.even, false);
         assert_eq!(center_fin.central, true);
+
+        // Assert exact, rocker-aligned scaled Z-positions (scale = 1/2.54)
+        let scale = 1.0 / 2.54;
+        
+        // Center fin (p11 = 15.0) is behind, closer to tail
+        assert_relative_eq!(center_fin.z, (193.04 / 2.0 - 15.0) * scale, epsilon = 1e-3);
+        
+        // Side fins (p14 = 28.2) are in front
+        assert_relative_eq!(side_fins.z, (193.04 / 2.0 - 28.2) * scale, epsilon = 1e-3);
     }
 }
