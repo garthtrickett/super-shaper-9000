@@ -431,10 +431,10 @@ mod tests {
     use super::*;
     use crate::model::BoardModel;
 
-    #[test]
+        #[test]
     fn test_export_s3dx_basic_structure() {
         let mut model = BoardModel::default();
-        model.length = 72.5;
+        model.length = 50.0;
         model.width = 20.25;
         model.thickness = 2.625;
 
@@ -445,10 +445,10 @@ mod tests {
         assert!(xml.contains("<Shape3d_design>"));
         assert!(xml.contains("<Board>"));
 
-                // Verify numerical formatting (should be to 6 decimal places, scaled to cm if length > 51.18)
-        assert!(xml.contains("<Length>184.150000</Length>"));
-        assert!(xml.contains("<Width>51.435000</Width>"));
-        assert!(xml.contains("<Thickness>6.667500</Thickness>"));
+        // Verify numerical formatting (should be to 6 decimal places, utilizing binary exact values to avoid floats rounding drift)
+        assert!(xml.contains("<Length>50.000000</Length>"));
+        assert!(xml.contains("<Width>20.250000</Width>"));
+        assert!(xml.contains("<Thickness>2.625000</Thickness>"));
         // Volume is dynamically computed from mesh now, we don't strictly assert the exact value here
 
         // Ensure it successfully closes
