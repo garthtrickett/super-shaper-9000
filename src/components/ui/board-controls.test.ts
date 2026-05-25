@@ -67,6 +67,32 @@ describe("BoardControls (UI Component)", () => {
       expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "finSetup", value: "thruster" });
     });
 
+        it("should emit save-to-library event when Save to Library button is clicked", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("save-to-library", spy);
+
+      const buttons = Array.from(el.querySelectorAll("button"));
+      const btn = buttons.find(b => b.textContent?.includes("Save to Library"));
+      expect(btn).to.exist;
+
+      btn!.click();
+      expect(spy.calledOnce).to.be.true;
+    });
+
+    it("should emit open-library event when My Library button is clicked", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("open-library", spy);
+
+      const buttons = Array.from(el.querySelectorAll("button"));
+      const btn = buttons.find(b => b.textContent?.includes("My Library"));
+      expect(btn).to.exist;
+
+      btn!.click();
+      expect(spy.calledOnce).to.be.true;
+    });
+
     it("should emit import-design event when Import JSON button is clicked", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();

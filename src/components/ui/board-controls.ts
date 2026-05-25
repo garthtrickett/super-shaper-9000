@@ -244,9 +244,13 @@ export class BoardControls extends LitElement {
     console.info("[BoardControls] Entering render...");
     const res = html`
       <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar relative">
-        <!-- Import / Export Actions -->
+                <!-- Import / Export Actions -->
         <div class="mb-2">
           <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('new-design', { bubbles: true, composed: true }))} class="w-full bg-red-900/40 hover:bg-red-800/60 text-[10px] font-bold text-red-200 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer border border-red-900/50">Start New Design</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('save-to-library', { bubbles: true, composed: true }))} class="w-full bg-blue-900/40 hover:bg-blue-800/60 text-[10px] font-bold text-blue-200 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer border border-blue-900/50">Save to Library</button>
+          <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('open-library', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">My Library</button>
         </div>
         <div class="grid grid-cols-2 gap-2 mb-2">
           <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('import-design', { bubbles: true, composed: true }))} class="bg-zinc-800 hover:bg-zinc-700 text-[10px] font-bold text-zinc-300 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer">Import Design</button>
