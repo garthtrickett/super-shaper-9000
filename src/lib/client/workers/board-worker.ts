@@ -27,7 +27,7 @@ const isGeometryAltering = (action: any): boolean => {
 init().then(async (wasmInstance) => {
     console.info("[BoardWorker] WASM module init() promise resolved. wasmInstance details:", wasmInstance);
     
-    const concurrency = navigator.hardwareConcurrency || 4;
+    const concurrency = 4;
     console.info(`[BoardWorker] Initializing Rayon thread pool with concurrency: ${concurrency}`);
     try {
         await initThreadPool(concurrency); 

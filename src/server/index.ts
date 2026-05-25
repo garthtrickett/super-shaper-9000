@@ -1,12 +1,27 @@
+// File: src/server/index.ts
 import { Elysia, t } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { staticPlugin } from "@elysiajs/static";
 import { computeBoardMesh } from "./services/rhino-compute";
 
 export const app = new Elysia({ aot: false })
-  .onRequest(({ set }) => {
+  .onRequest(({ request, set }) => {
     set.headers["Cross-Origin-Opener-Policy"] = "same-origin";
     set.headers["Cross-Origin-Embedder-Policy"] = "require-corp";
+
+    // Set aggressive caching for static immutable assets (JS, CSS, WASM)
+    const url = new URL(request.url);
+    const path = url.pathname;
+    if (
+      path.endsWith(".wasm") ||
+      path.endsWith(".js") ||
+      path.endsWith(".css") ||
+      path.includes("/assets/")
+    ) {
+      set.headers["Cache-Control"] = "public, max-age=31536000, immutable";
+    } else if (path.endsWith(".html") || path === "/" || path === "/index.html" || path === "/health") {
+      set.headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    }
   })
   .use(cors())
   // Simple health check for keep-alive pings
