@@ -9,13 +9,19 @@ pub fn synthesize_parametric_fins(model: &BoardModel) -> Vec<ImportedFinBox> {
     // Front/Side fins: twin, thruster, and quad setups all feature front side fins.
     let has_front_fins =
         model.fin_setup == "twin" || model.fin_setup == "thruster" || model.fin_setup == "quad";
-     if has_front_fins {
+      if has_front_fins {
  let z_pos = bounds.tip_z - model.front_fin_z;
  let ctx = ZRingContext::new(model, z_pos);
  let x_pos = (ctx.profile.half_width - model.front_fin_x).max(0.0);
  let t_apex = ctx.blend.as_ref().map(|b| b.t_apex).unwrap_or(0.5);
  let u = if ctx.profile.half_width > 1e-4 {
- ((x_pos / ctx.profile.half_width) * t_apex).clamp(0.0, t_apex)
+ crate::geometry::solve_u_for_target_x(
+ |u_val| ctx.get_point_at_uv_base(u_val, 1.0).x - x_pos,
+ 0.0,
+ t_apex,
+ 1e-4,
+ 15,
+ )
  } else {
  0.0
  };
@@ -67,13 +73,19 @@ pub fn synthesize_parametric_fins(model: &BoardModel) -> Vec<ImportedFinBox> {
             pt_convergence: None,
         });
     } else if model.fin_setup == "quad" {
-         // Rear side fins at rear_fin_z offset off the rail
+          // Rear side fins at rear_fin_z offset off the rail
  let z_pos = bounds.tip_z - model.rear_fin_z;
  let ctx = ZRingContext::new(model, z_pos);
  let x_pos = (ctx.profile.half_width - model.rear_fin_x).max(0.0);
  let t_apex = ctx.blend.as_ref().map(|b| b.t_apex).unwrap_or(0.5);
  let u = if ctx.profile.half_width > 1e-4 {
- ((x_pos / ctx.profile.half_width) * t_apex).clamp(0.0, t_apex)
+ crate::geometry::solve_u_for_target_x(
+ |u_val| ctx.get_point_at_uv_base(u_val, 1.0).x - x_pos,
+ 0.0,
+ t_apex,
+ 1e-4,
+ 15,
+ )
  } else {
  0.0
  };
