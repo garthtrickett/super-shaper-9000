@@ -93,40 +93,105 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::AddDecal
         | BoardAction::UpdateDecal { .. }
         | BoardAction::RemoveDecal { .. }) => handle_aesthetic_mutations(model, dirty, act),
-        BoardAction::ApplyComponent { component_type, payload } => {
-            handle_apply_component(model, dirty, component_type, payload)
-        }
-    }
-}
-
-fn handle_apply_component(
+        BoardAction::ApplyComponent {
+            component_type,
+            payload,
+        } => fn handle_apply_component(
     model: &mut BoardModel,
     dirty: &mut DirtyState,
     _component_type: ComponentType,
     payload: ComponentPayload,
 ) -> Vec<Effect> {
     dirty.global_rebuild = true;
+    
+    fn scale_curve_z_to_length(curve: &mut BezierCurveData, target_length: f32) {
+        if curve.control_points.is_empty() {
+            return;
+        }
+        let min_z = curve.control_points.first().unwrap().z;
+        let max_z = curve.control_points.last().unwrap().z;
+        let orig_span = max_z - min_z;
+        if orig_span.abs() > 1e-5 { 
+            let target_min = -target_length / 2.0;
+            let target_max = target_length / 2.0;
+            for p in &mut curve.control_points {
+                p.z = target_min + (p.z - min_z) * (target_max - target_min) / orig_span;
+            }
+            for t in &mut curve.tangents1 {
+                t.z = target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
+            }
+            for t in &mut curve.tangents2 {
+                t.z = target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
+            }
+        }
+    }
+
     match payload {
-        ComponentPayload::Outline { outline, outline_layers } => {
+        ComponentPayload::Outline {
+            mut outline,
+            outline_layers,
+        } => {
+            scale_curve_z_to_length(&mut outline, model.length);
             model.outline = Some(outline);
-            model.outline_layers = outline_layers;
+            if let Some(mut layers) = outline_layers {
+                for layer in &mut layers {
+                    scale_curve_z_to_length(&mut layer.otl_ext, model.length);
+                    scale_curve_z_to_length(&mut layer.otl_int, model.length);
+                }
+                model.outline_layers = Some(layers);
+            } else {
+                model.outline_layers = None;
+            }
         }
         ComponentPayload::Rocker {
-            rocker_top,
-            rocker_bottom,
+            mut rocker_top,
+            mut rocker_bottom,
             apex_rocker,
         } => {
+            scale_curve_z_to_length(&mut rocker_top, model.length);
+            scale_curve_z_to_length(&mut rocker_bottom, model.length);
             model.rocker_top = Some(rocker_top);
             model.rocker_bottom = Some(rocker_bottom);
-            model.apex_rocker = apex_rocker;
+            if let Some(mut ar) = apex_rocker {
+                scale_curve_z_to_length(&mut ar, model.length);
+                model.apex_rocker = Some(ar);
+            } else { 
+                model.apex_rocker = None;
+            }
         }
-        ComponentPayload::Slices { cross_sections } => {
+        ComponentPayload::Slices { mut cross_sections } => {
+            if !cross_sections.is_empty() {
+                let min_z = cross_sections.first().and_then(|cs| cs.control_points.first()).map(|p| p.z).unwrap_or(-model.length / 2.0);
+                let max_z = cross_sections.last().and_then(|cs| cs.control_points.first()).map(|p| p.z).unwrap_or(model.length / 2.0);
+                let orig_span = max_z - min_z;
+                if orig_span.abs() > 1e-5 {
+                    let target_min = -model.length / 2.0;
+                    let target_max = model.length / 2.0;
+                    for cs in &mut cross_sections {
+                        for p in &mut cs.control_points {
+                            p.z = target_min + (p.z - min_z) * (target_max - target_min) / orig_span;
+                        } 
+                        for t in &mut cs.tangents1 {
+                            t.z = target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
+                        }
+                        for t in &mut cs.tangents2 {
+                            t.z = target_min + (t.z - min_z) * (target_max - target_min) / orig_span;
+                        }
+                    }
+                }
+            }
             model.cross_sections = cross_sections;
         }
-        ComponentPayload::Channels { bottom_channels } => {
+        ComponentPayload::Channels { mut bottom_channels } => {
+            for ch in &mut bottom_channels {
+                scale_curve_z_to_length(&mut ch.left_outline, model.length);
+                scale_curve_z_to_length(&mut ch.right_outline, model.length);
+                scale_curve_z_to_length(&mut ch.left_depth, model.length);
+                scale_curve_z_to_length(&mut ch.right_depth, model.length);
+            }
             model.bottom_channels = Some(bottom_channels);
         }
-        ComponentPayload::Fins {
+        ComponentPayload::Fins { 
             fin_setup,
             front_fin_z,
             front_fin_x,
@@ -282,7 +347,7 @@ mod tests {
     use super::*;
     use crate::model::{BoardAction, BoardModel, StringerConfig};
 
-        #[test]
+    #[test]
     fn test_handle_aesthetic_mutations() {
         let mut model = BoardModel::default();
         model.stringers = Some(vec![StringerConfig {
@@ -376,19 +441,13 @@ mod tests {
         model.length = 100.0;
 
         model.rocker_bottom = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 0.0, -50.0),
-                Vec3::new(0.0, 0.0, 50.0),
-            ],
+            control_points: vec![Vec3::new(0.0, 0.0, -50.0), Vec3::new(0.0, 0.0, 50.0)],
             tangents1: vec![Vec3::ZERO; 2],
             tangents2: vec![Vec3::ZERO; 2],
             ..Default::default()
         });
         model.rocker_top = Some(BezierCurveData {
-            control_points: vec![
-                Vec3::new(0.0, 2.0, -50.0),
-                Vec3::new(0.0, 2.0, 50.0),
-            ],
+            control_points: vec![Vec3::new(0.0, 2.0, -50.0), Vec3::new(0.0, 2.0, 50.0)],
             tangents1: vec![Vec3::ZERO; 2],
             tangents2: vec![Vec3::ZERO; 2],
             ..Default::default()
