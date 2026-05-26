@@ -1793,9 +1793,17 @@ mod tests {
         if let Ok(cache) = engine.cached_view_projs.lock() {
             assert!(cache[3].is_none());
         }
-        if let Ok(cache) = engine.cached_cam_params.lock() {
+                if let Ok(cache) = engine.cached_cam_params.lock() {
             assert!(cache[3].is_none());
         };
+    }
+
+    #[test]
+    fn test_background_texture_allocation_stub() {
+        // Test that we can invoke update_background_image API stub on WasmEngine without panic.
+        let mut engine = WasmEngine::new();
+        assert!(engine.renderer.is_none());
+        engine.update_background_image(&[255, 255, 255, 255], 1, 1);
     }
 
     #[test]
