@@ -60,7 +60,49 @@ fn get_curve_mut<'a>(
     }
 }
 
+pub fn recalculate_global_dimensions(model: &mut BoardModel) {
+    let bounds = crate::geometry::get_board_bounds(model);
+    let computed_length = (bounds.tip_z - bounds.nose_z).abs();
+    if computed_length > 0.01 {
+        model.length = computed_length;
+    }
+
+    if let Some(outline) = &model.outline {
+        let mut max_half_width = 0.0_f32;
+        let steps = 100;
+        for i in 0..=steps {
+            let t = i as f32 / steps as f32;
+            let p = crate::geometry::evaluate_curve(outline, t);
+            if p.x > max_half_width {
+                max_half_width = p.x;
+            }
+        }
+        if max_half_width > 0.01 {
+            model.width = max_half_width * 2.0;
+        }
+    }
+
+    if let (Some(r_top), Some(r_bot)) = (&model.rocker_top, &model.rocker_bottom) {
+        let mut max_thickness = 0.0_f32;
+        let steps = 100;
+        for i in 0..=steps {
+            let f = i as f32 / steps as f32;
+            let z = bounds.nose_z + (bounds.tip_z - bounds.nose_z) * f;
+            let top_y = crate::geometry::evaluate_bezier_at_z(r_top, z, f).y;
+            let bot_y = crate::geometry::evaluate_bezier_at_z(r_bot, z, f).y;
+            let thick = top_y - bot_y;
+            if thick > max_thickness {
+                max_thickness = thick;
+            }
+        }
+        if max_thickness > 0.01 {
+            model.thickness = max_thickness;
+        }
+    }
+}
+
 pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
+    let is_geo = action.is_geometry_altering();
     match action {
         act @ (BoardAction::UpdateNumber { .. }
         | BoardAction::UpdateString { .. }
@@ -93,12 +135,19 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::AddDecal
         | BoardAction::UpdateDecal { .. }
         | BoardAction::RemoveDecal { .. }) => handle_aesthetic_mutations(model, dirty, act),
-        BoardAction::ApplyComponent {
-            component_type,
-            payload,
-        } => handle_apply_component(model, dirty, component_type, payload),
-    }
-}
+                        BoardAction::ApplyComponent {
+                    component_type,
+                    payload,
+                } => handle_apply_component(model, dirty, component_type, payload),
+            };
+
+            if is_geo {
+                crate::geometry::synchronize_board_endpoints(model);
+                recalculate_global_dimensions(model);
+            }
+
+            effects
+        }
 
 fn handle_apply_component(
     model: &mut BoardModel,
@@ -496,6 +545,61 @@ mod tests {
         let applied_outline = model.outline.as_ref().unwrap();
         approx::assert_relative_eq!(applied_outline.control_points[0].z, -50.0, epsilon = 1e-4);
         approx::assert_relative_eq!(applied_outline.control_points[2].z, 50.0, epsilon = 1e-4);
+    }
+
+        #[test]
+    fn test_node_dragging_updates_global_dimensions() {
+        let mut model = BoardModel::default();
+        model.length = 100.0;
+        model.width = 20.0;
+        model.thickness = 3.0;
+
+        model.outline = Some(BezierCurveData {
+            control_points: vec![
+                Vec3::new(0.0, 0.0, -50.0),
+                Vec3::new(10.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 50.0),
+            ],
+            tangents1: vec![Vec3::ZERO; 3],
+            tangents2: vec![Vec3::ZERO; 3],
+            ..Default::default()
+        });
+        model.rocker_top = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, 1.5, -50.0), Vec3::new(0.0, 1.5, 50.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+        model.rocker_bottom = Some(BezierCurveData {
+            control_points: vec![Vec3::new(0.0, -1.5, -50.0), Vec3::new(0.0, -1.5, 50.0)],
+            tangents1: vec![Vec3::ZERO; 2],
+            tangents2: vec![Vec3::ZERO; 2],
+            ..Default::default()
+        });
+
+        let mut dirty = DirtyState::default();
+
+        // Drag tail node out to Z = 60.0 (extending overall bounds)
+        let action = BoardAction::UpdateNodePosition {
+            curve: "outline".to_string(),
+            index: 2,
+            node_type: "anchor".to_string(),
+            position: [0.0, 0.0, 60.0],
+        };
+        update(&mut model, &mut dirty, action);
+
+        // The synchronized curves span from -50.0 to 60.0, making length 110.0
+        assert!((model.length - 110.0).abs() < 1e-4);
+
+        // Drag wide point out to X = 12.0
+        let action_width = BoardAction::UpdateNodePosition {
+            curve: "outline".to_string(),
+            index: 1,
+            node_type: "anchor".to_string(),
+            position: [12.0, 0.0, 0.0],
+        };
+        update(&mut model, &mut dirty, action_width);
+        assert!((model.width - 24.0).abs() < 1e-4);
     }
 
     #[test]
