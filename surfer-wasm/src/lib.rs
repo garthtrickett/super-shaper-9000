@@ -1141,8 +1141,20 @@ impl WasmEngine {
             uniforms.push(uniform_data);
         }
 
-        let show_solid_mesh = self.show_solid_mesh;
+                let show_solid_mesh = self.show_solid_mesh;
         let view_mode = self.view_mode.clone();
+
+        let (bg_visible, bg_scale, bg_offset_x, bg_offset_z, bg_opacity, bg_aspect_ratio) = {
+            let m = self.engine.get_model();
+            (
+                m.bg_image_visible,
+                m.bg_image_scale,
+                m.bg_image_offset_x,
+                m.bg_image_offset_z,
+                m.bg_image_opacity,
+                m.bg_image_aspect_ratio,
+            )
+        };
 
         if let Some(renderer) = &mut self.renderer {
             for (i, uniform_data) in uniforms.iter().enumerate() {
@@ -1209,15 +1221,15 @@ impl WasmEngine {
 
                                         rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
 
-                    let draw_bg = q == "top" && model.bg_image_visible;
+                                        let draw_bg = q == "top" && bg_visible;
                     if draw_bg {
                         let bg_uniforms = BgUniforms {
-                            scale: model.bg_image_scale,
-                            offset_x: model.bg_image_offset_x,
-                            offset_z: model.bg_image_offset_z,
-                            opacity: model.bg_image_opacity,
+                            scale: bg_scale,
+                            offset_x: bg_offset_x,
+                            offset_z: bg_offset_z,
+                            opacity: bg_opacity,
                             visible: 1.0,
-                            aspect_ratio: model.bg_image_aspect_ratio,
+                            aspect_ratio: bg_aspect_ratio,
                             padding: [0.0; 2],
                         };
                         renderer.queue.write_buffer(&renderer.bg_uniform_buffer, 0, bytemuck::cast_slice(&[bg_uniforms]));
