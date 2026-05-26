@@ -1,5 +1,6 @@
 use js_sys::{Float32Array, Object, Reflect};
 use serde::Serialize;
+use wgpu::util::DeviceExt;
 use surfer_core::model::{BoardAction, RawGeometryData};
 use surfer_core::SurferEngine;
 use wasm_bindgen::prelude::*;
