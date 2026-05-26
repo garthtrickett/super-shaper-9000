@@ -1,4 +1,6 @@
 import { test, expect } from "./utils/base-test";
+import fs from "fs";
+import path from "path";
 
 test.describe("Board Builder E2E: The Golden Path", () => {
   test.setTimeout(120000);
@@ -1094,11 +1096,73 @@ test.describe("Board Builder E2E: The Golden Path", () => {
         // Release mouse to trigger final high-fidelity lofting
         await page.mouse.up();
 
-                // After mouse release, the 3D solid must be computed and the volume updated
+                        // After mouse release, the 3D solid must be computed and the volume updated
         await expect(boardControls.locator('div.text-2xl.font-black.text-blue-500')).not.toHaveText(initialVolumeText!);
       });
 
-            test("Parametric Fin Configuration and Viewport Rendering", async ({ page }) => {
+      test("Background Image Overlay and Transformation", async ({ page }) => {
+        await page.goto("/");
+        await expect(page.locator("app-shell")).toBeVisible();
+
+        const boardControls = page.locator("board-controls");
+        await expect(boardControls).toBeVisible();
+
+        const bgAccordion = boardControls.locator('details').filter({
+          has: page.locator('summary', { hasText: "Background Image Template" })
+        });
+        await expect(bgAccordion).toBeVisible();
+        
+        const isOpen = await bgAccordion.getAttribute('open');
+        if (isOpen === null) {
+          await bgAccordion.locator('summary').click();
+        }
+
+        const fileChooserPromise = page.waitForEvent('filechooser');
+        await bgAccordion.locator('label:has-text("Select Image")').click();
+        const fileChooser = await fileChooserPromise;
+        
+        const tempFilePath = path.join(__dirname, 'temp_test_image.jpg');
+        const miniJpg = Buffer.from(
+          '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
+          'base64'
+        );
+        fs.writeFileSync(tempFilePath, miniJpg);
+
+        await fileChooser.setFiles(tempFilePath);
+
+        const visibleCheckbox = bgAccordion.locator('input[type="checkbox"]');
+        await expect(visibleCheckbox).toBeChecked();
+
+        const scaleContainer = bgAccordion.locator('.mb-4').filter({ hasText: /Image Width\/Scale/i }).first();
+        const scaleSlider = scaleContainer.locator('input[type="range"]');
+        const scaleInput = scaleContainer.locator('input[type="text"]');
+
+        await scaleSlider.fill('85');
+        await scaleSlider.dispatchEvent('input');
+        await scaleSlider.dispatchEvent('pointerup');
+
+        await page.waitForTimeout(600);
+        await expect(scaleInput).toHaveValue('85.00"');
+
+        const opacityContainer = bgAccordion.locator('.mb-4').filter({ hasText: /Opacity/i }).first();
+        const opacitySlider = opacityContainer.locator('input[type="range"]');
+        const opacityInput = opacityContainer.locator('input[type="text"]');
+
+        await opacitySlider.fill('0.35');
+        await opacitySlider.dispatchEvent('input');
+        await opacitySlider.dispatchEvent('pointerup');
+
+        await page.waitForTimeout(600);
+        await expect(opacityInput).toHaveValue('0.35');
+
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+
+        await expect(page.locator("board-viewport canvas")).toBeVisible();
+      });
+
+      test("Parametric Fin Configuration and Viewport Rendering", async ({ page }) => {
         const errors: string[] = [];
         page.on('console', msg => {
           if (msg.type() === 'error') errors.push(msg.text());
