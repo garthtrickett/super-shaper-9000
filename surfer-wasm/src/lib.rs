@@ -5,6 +5,7 @@ use surfer_core::SurferEngine;
 use wasm_bindgen::prelude::*;
 pub use wasm_bindgen_rayon::init_thread_pool;
 use web_sys::OffscreenCanvas;
+use wgpu::util::DeviceExt;
 
 #[derive(Serialize)]
 pub struct WasmUpdateResult<'a> {
@@ -40,9 +41,87 @@ pub struct RenderState {
     gizmo_color_buffers: Vec<wgpu::Buffer>,
     gizmo_index_buffers: Vec<wgpu::Buffer>,
     num_gizmo_indices: [u32; 4],
+    bg_pipeline: wgpu::RenderPipeline,
+    bg_uniform_buffer: wgpu::Buffer,
+    bg_texture: wgpu::Texture,
+    bg_texture_view: wgpu::TextureView,
+    bg_sampler: wgpu::Sampler,
+    bg_bind_group_layout: wgpu::BindGroupLayout,
+    bg_bind_group: wgpu::BindGroup,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct BgUniforms {
+    scale: f32,
+    offset_x: f32,
+    offset_z: f32,
+    opacity: f32,
+    visible: f32,
+    aspect_ratio: f32,
+    padding: [f32; 2],
 }
 
 impl RenderState {
+    pub fn update_background_texture(&mut self, rgba_data: &[u8], width: u32, height: u32) {
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Background Texture"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        self.queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            rgba_data,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * width),
+                rows_per_image: Some(height),
+            },
+            size,
+        );
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.bg_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.bg_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&self.bg_sampler),
+                },
+            ],
+            label: Some("Background Bind Group"),
+        });
+
+        self.bg_texture = texture;
+        self.bg_texture_view = view;
+        self.bg_bind_group = bind_group;
+    }
+
     pub fn create_depth_texture(
         device: &wgpu::Device,
         width: u32,
@@ -798,6 +877,13 @@ impl WasmEngine {
         }
     }
 
+        #[wasm_bindgen]
+    pub fn update_background_image(&mut self, rgba_data: &[u8], width: u32, height: u32) {
+        if let Some(renderer) = &mut self.renderer {
+            renderer.update_background_texture(rgba_data, width, height);
+        }
+    }
+
     #[wasm_bindgen]
     pub fn flip_camera(&mut self) {
         self.camera_ctrl.is_flipped = !self.camera_ctrl.is_flipped;
@@ -1121,10 +1207,30 @@ impl WasmEngine {
                         (0.0, 0.0, full_w, full_h)
                     };
 
-                    rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
+                                        rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
+
+                    let draw_bg = q == "top" && model.bg_image_visible;
+                    if draw_bg {
+                        let bg_uniforms = BgUniforms {
+                            scale: model.bg_image_scale,
+                            offset_x: model.bg_image_offset_x,
+                            offset_z: model.bg_image_offset_z,
+                            opacity: model.bg_image_opacity,
+                            visible: 1.0,
+                            aspect_ratio: model.bg_image_aspect_ratio,
+                            padding: [0.0; 2],
+                        };
+                        renderer.queue.write_buffer(&renderer.bg_uniform_buffer, 0, bytemuck::cast_slice(&[bg_uniforms]));
+
+                        rpass.set_pipeline(&renderer.bg_pipeline);
+                        rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
+                        rpass.set_bind_group(1, &renderer.bg_bind_group, &[]);
+                        rpass.draw(0..4, 0..1);
+                    }
 
                     let draw_solid = (q == "perspective"
-                        || (view_mode != "quad"
+                        ||
+                        (view_mode != "quad"
                             && view_mode != "top"
                             && view_mode != "side"
                             && view_mode != "profile"))
@@ -2149,6 +2255,233 @@ pub async fn create_wgpu_renderer(
             multiview: None,
         });
 
+                // --- BACKGROUND REFERENCE IMAGE PIPELINE ---
+        let bg_texture_size = wgpu::Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        };
+        let bg_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Default Background Texture"),
+            size: bg_texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &bg_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &[255, 255, 255, 255],
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(4),
+                rows_per_image: Some(1),
+            },
+            bg_texture_size,
+        );
+        let bg_texture_view = bg_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let bg_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let bg_uniforms = BgUniforms {
+            scale: 1.0,
+            offset_x: 0.0,
+            offset_z: 0.0,
+            opacity: 0.5,
+            visible: 0.0,
+            aspect_ratio: 1.0,
+            padding: [0.0; 2],
+        };
+        let bg_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Background Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[bg_uniforms]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bg_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: Some("Background Bind Group Layout"),
+        });
+
+        let bg_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bg_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: bg_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&bg_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&bg_sampler),
+                },
+            ],
+            label: Some("Background Bind Group"),
+        });
+
+        let bg_shader_src = r#"
+            struct CameraUniform {
+                view_proj: mat4x4<f32>,
+                camera_pos: vec4<f32>,
+                display_settings: vec4<f32>,
+                display_settings_2: vec4<f32>,
+            };
+            @group(0) @binding(0)
+            var<uniform> camera: CameraUniform;
+
+            struct BgUniforms {
+                scale: f32,
+                offset_x: f32,
+                offset_z: f32,
+                opacity: f32,
+                visible: f32,
+                aspect_ratio: f32,
+                padding: vec2<f32>,
+            };
+            @group(1) @binding(0)
+            var<uniform> bg: BgUniforms;
+            @group(1) @binding(1)
+            var t_diffuse: texture_2d<f32>;
+            @group(1) @binding(2)
+            var s_diffuse: sampler;
+
+            struct VertexOutput {
+                @builtin(position) clip_position: vec4<f32>,
+                @location(0) tex_coords: vec2<f32>,
+            };
+
+            @vertex
+            fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
+                var out: VertexOutput;
+                var pos = vec3<f32>(0.0);
+                var uv = vec2<f32>(0.0);
+
+                switch (in_vertex_index) {
+                    case 0u: { pos = vec3<f32>(-0.5, 0.0, -0.5); uv = vec2<f32>(0.0, 1.0); }
+                    case 1u: { pos = vec3<f32>(0.5, 0.0, -0.5); uv = vec2<f32>(1.0, 1.0); }
+                    case 2u: { pos = vec3<f32>(-0.5, 0.0, 0.5); uv = vec2<f32>(0.0, 0.0); }
+                    case 3u: { pos = vec3<f32>(0.5, 0.0, 0.5); uv = vec2<f32>(1.0, 0.0); }
+                    default: {}
+                }
+
+                let scale_inches = 1.0 / 12.0;
+                let world_pos = vec3<f32>(
+                    (pos.x * bg.scale * bg.aspect_ratio + bg.offset_x) * scale_inches,
+                    -0.01,
+                    (pos.z * bg.scale + bg.offset_z) * scale_inches
+                );
+
+                out.tex_coords = uv;
+                out.clip_position = camera.view_proj * vec4<f32>(world_pos, 1.0);
+                return out;
+            }
+
+            @fragment
+            fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+                if (bg.visible < 0.5) {
+                    discard;
+                }
+                let color = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+                return vec4<f32>(color.rgb, color.a * bg.opacity);
+            }
+        "#;
+        let bg_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Background Shader"),
+            source: wgpu::ShaderSource::Wgsl(bg_shader_src.into()),
+        });
+
+        let bg_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Background Pipeline Layout"),
+            bind_group_layouts: &[&camera_bind_group_layout, &bg_bind_group_layout],
+            push_constant_ranges: &[],
+        });
+        let bg_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Background Render Pipeline"),
+            layout: Some(&bg_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &bg_shader,
+                entry_point: "vs_main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                buffers: &[],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &bg_shader,
+                entry_point: "fs_main",
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth24Plus,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 4,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
         let depth_texture = RenderState::create_depth_texture(&device, width, height);
         let msaa_texture = RenderState::create_msaa_texture(&device, &config, width, height);
 
@@ -2215,7 +2548,7 @@ pub async fn create_wgpu_renderer(
             }));
         }
 
-        Ok(WgpuRenderer(RenderState {
+                Ok(WgpuRenderer(RenderState {
             line_pipeline,
             line_vertex_buffers,
             line_color_buffers,
@@ -2239,6 +2572,13 @@ pub async fn create_wgpu_renderer(
             camera_bind_groups,
             depth_texture,
             msaa_texture,
+            bg_pipeline,
+            bg_uniform_buffer,
+            bg_texture,
+            bg_texture_view,
+            bg_sampler,
+            bg_bind_group_layout,
+            bg_bind_group,
         }))
     }
     #[cfg(not(target_arch = "wasm32"))]
