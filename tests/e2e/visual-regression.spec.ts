@@ -1,4 +1,6 @@
 import { test, expect } from './utils/base-test';
+import fs from "fs";
+import path from "path";
 
 test.describe('Visual Regression', () => {
   test.setTimeout(120000);
