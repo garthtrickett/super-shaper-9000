@@ -478,8 +478,8 @@ export class BoardBuilderPage extends LitElement {
           </div>
         </div>
       ` : ''}
-      <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
-        <div class="w-80 shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl">
+            <div class="flex h-full w-full bg-zinc-950 text-zinc-50 relative">
+        <div class="w-80 shrink-0 flex flex-col border-r border-zinc-800 bg-zinc-900 z-10 h-full shadow-2xl overflow-y-auto custom-scrollbar">
           ${state.selectedNode ? html`
             <node-inspector
               class="block shrink-0 w-full z-20 shadow-md"
@@ -492,8 +492,8 @@ export class BoardBuilderPage extends LitElement {
               @close-inspector=${() => this._proposeAction({ type: "SELECT_NODE", node: null })}
             ></node-inspector>
           ` : ''}
-                    <board-controls
-            class="flex-1 min-h-0 w-full flex flex-col"
+          <board-controls
+            class="w-full flex flex-col"
             .length=${state.length}
             .width=${state.width}
             .thickness=${state.thickness}

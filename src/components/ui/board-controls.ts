@@ -262,10 +262,10 @@ export class BoardControls extends LitElement {
     `;
   }
 
-      override render() {
+        override render() {
     console.info("[BoardControls] Entering render...");
     const res = html`
-      <div class="p-6 flex flex-col h-full bg-zinc-900 overflow-y-auto custom-scrollbar relative">
+      <div class="p-6 flex flex-col bg-zinc-900 relative">
                 <!-- Import / Export Actions -->
         <div class="mb-2">
           <button type="button" @click=${() => this.dispatchEvent(new CustomEvent('new-design', { bubbles: true, composed: true }))} class="w-full bg-red-900/40 hover:bg-red-800/60 text-[10px] font-bold text-red-200 py-2 rounded transition-colors uppercase tracking-wider cursor-pointer border border-red-900/50">Start New Design</button>
