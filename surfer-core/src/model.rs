@@ -118,6 +118,12 @@ pub struct ManualSnapshot {
     pub imported_fin_boxes: Option<Vec<ImportedFinBox>>,
     pub stringers: Option<Vec<StringerConfig>>,
     pub decals: Option<Vec<DecalConfig>>,
+    pub bg_image_visible: Option<bool>,
+    pub bg_image_scale: Option<f32>,
+    pub bg_image_offset_x: Option<f32>,
+    pub bg_image_offset_z: Option<f32>,
+    pub bg_image_opacity: Option<f32>,
+    pub bg_image_aspect_ratio: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -155,8 +161,20 @@ pub struct BoardModel {
     pub rail_coefficient_tail: f32,
     #[serde(default = "default_one")]
     pub rail_coefficient_nose: f32,
-    #[serde(default = "default_one")]
+        #[serde(default = "default_one")]
     pub thickness_z_stretch: f32,
+    #[serde(default)]
+    pub bg_image_visible: bool,
+    #[serde(default)]
+    pub bg_image_scale: f32,
+    #[serde(default)]
+    pub bg_image_offset_x: f32,
+    #[serde(default)]
+    pub bg_image_offset_z: f32,
+    #[serde(default)]
+    pub bg_image_opacity: f32,
+    #[serde(default)]
+    pub bg_image_aspect_ratio: f32,
     pub show_heatmap: Option<bool>,
     pub show_topography: Option<bool>,
     pub show_zebra: Option<bool>,
@@ -421,11 +439,17 @@ impl approx::AbsDiffEq for BoardModel {
     fn default_epsilon() -> f32 {
         f32::EPSILON
     }
-    fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
+        fn abs_diff_eq(&self, other: &Self, epsilon: f32) -> bool {
         f32::abs_diff_eq(&self.length, &other.length, epsilon)
             && f32::abs_diff_eq(&self.width, &other.width, epsilon)
             && f32::abs_diff_eq(&self.thickness, &other.thickness, epsilon)
             && self.fin_setup == other.fin_setup
+            && self.bg_image_visible == other.bg_image_visible
+            && f32::abs_diff_eq(&self.bg_image_scale, &other.bg_image_scale, epsilon)
+            && f32::abs_diff_eq(&self.bg_image_offset_x, &other.bg_image_offset_x, epsilon)
+            && f32::abs_diff_eq(&self.bg_image_offset_z, &other.bg_image_offset_z, epsilon)
+            && f32::abs_diff_eq(&self.bg_image_opacity, &other.bg_image_opacity, epsilon)
+            && f32::abs_diff_eq(&self.bg_image_aspect_ratio, &other.bg_image_aspect_ratio, epsilon)
             && f32::abs_diff_eq(&self.front_fin_z, &other.front_fin_z, epsilon)
             && f32::abs_diff_eq(&self.front_fin_x, &other.front_fin_x, epsilon)
             && f32::abs_diff_eq(&self.rear_fin_z, &other.rear_fin_z, epsilon)
@@ -567,6 +591,12 @@ impl Default for BoardModel {
             width: 0.0,
             thickness: 0.0,
             fin_setup: String::new(),
+            bg_image_visible: false,
+            bg_image_scale: 1.0,
+            bg_image_offset_x: 0.0,
+            bg_image_offset_z: 0.0,
+            bg_image_opacity: 0.5,
+            bg_image_aspect_ratio: 1.0,
             front_fin_z: 0.0,
             front_fin_x: 0.0,
             rear_fin_z: 0.0,
@@ -868,7 +898,12 @@ impl BoardAction {
             BoardAction::SelectNode { .. } => false,
             BoardAction::SaveHistorySnapshot => false,
             BoardAction::UpdateBoolean { .. } => false,
-            BoardAction::UpdateNumber { param, .. } if param == "mriSlicePosition" => false,
+            BoardAction::UpdateNumber { param, .. } if param == "mriSlicePosition"
+                || param == "bgImageScale"
+                || param == "bgImageOffsetX"
+                || param == "bgImageOffsetZ"
+                || param == "bgImageOpacity"
+                || param == "bgImageAspectRatio" => false,
             _ => true,
         }
     }
