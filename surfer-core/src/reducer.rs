@@ -103,7 +103,7 @@ pub fn recalculate_global_dimensions(model: &mut BoardModel) {
 
 pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardAction) -> Vec<Effect> {
     let is_geo = action.is_geometry_altering();
-    match action {
+    let effects = match action {
         act @ (BoardAction::UpdateNumber { .. }
         | BoardAction::UpdateString { .. }
         | BoardAction::UpdateBoolean { .. }
