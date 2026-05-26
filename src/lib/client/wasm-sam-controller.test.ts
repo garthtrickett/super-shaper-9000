@@ -89,6 +89,48 @@ describe("WasmSamController (FFI Integration)", () => {
     controller.hostDisconnected();
   });
 
+    it("processes UPLOAD_BG_IMAGE and updates the parametric aspect ratio", async () => {
+    const host = new MockHost();
+    const controller = new WasmSamController(host);
+
+    for (let i = 0; i < 200; i++) {
+      if (controller.model) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    const width = 2;
+    const height = 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "red";
+    ctx.fillRect(0, 0, width, height);
+
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob(b => resolve(b!)));
+    const arrayBuffer = await blob.arrayBuffer();
+
+    const worker = (controller as any).worker as Worker;
+    controller.currentSequence++;
+
+    worker.postMessage({
+      type: "UPLOAD_BG_IMAGE",
+      buffer: arrayBuffer,
+      seq: controller.currentSequence
+    }, [arrayBuffer]);
+
+    for (let i = 0; i < 200; i++) {
+      if (controller.model!.bgImageAspectRatio === 2.0) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    expect(controller.model!.bgImageAspectRatio).to.equal(2.0);
+    const mainState = controller.mathEngine!.get_state() as unknown as BoardModel;
+    expect(mainState.bgImageAspectRatio).to.equal(2.0);
+
+    controller.hostDisconnected();
+  });
+
   it("initializes and receives the shadow state from the Rust worker", async () => {
         const host = new MockHost();
     const controller = new WasmSamController(host);

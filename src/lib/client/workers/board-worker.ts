@@ -7,6 +7,7 @@ let engine: WasmEngine | null = null;
 let isRendererReady = false;
 let isWasmInitialized = false;
 const messageQueue: MessageEvent<any>[] = [];
+let lastProcessedSeq = -1;
 
 let cachedStats: any = null;
 let cachedFoilData: Float32Array | null = null;
@@ -142,6 +143,57 @@ async function handleWorkerMessage(e: MessageEvent<any>) {
     const msg = e.data;
     const msgType = msg?.type;
     if (!engine) return;
+
+    if (msgType === "UPLOAD_BG_IMAGE") {
+        console.info("[BoardWorker] Processing background image upload...");
+        try {
+            const blob = new Blob([msg.buffer]);
+            const imgBitmap = await createImageBitmap(blob);
+            const { width, height } = imgBitmap;
+            
+            const offscreen = new OffscreenCanvas(width, height);
+            const ctx = offscreen.getContext("2d");
+            if (!ctx) {
+                throw new Error("Failed to get 2D context on OffscreenCanvas");
+            }
+            ctx.drawImage(imgBitmap, 0, 0);
+            const imgData = ctx.getImageData(0, 0, width, height);
+            const rgbaData = imgData.data;
+            
+            // Pass the raw RGBA pixels through the FFI boundary to the WASM engine
+            engine.update_background_image(new Uint8Array(rgbaData.buffer), width, height);
+            imgBitmap.close();
+
+            const aspect = width / height;
+            const action = {
+                type: "UPDATE_NUMBER",
+                param: "bgImageAspectRatio",
+                value: aspect
+            };
+            engine.propose(action);
+
+            const state = engine.get_state() as BoardModel;
+            const stats = engine.get_stats();
+            const foilData = engine.get_foil_stats() as Float32Array;
+
+            const transferList = [];
+            if (foilData && foilData.buffer && typeof SharedArrayBuffer !== "undefined" && !(foilData.buffer instanceof SharedArrayBuffer)) {
+                transferList.push(foilData.buffer);
+            }
+
+            (self as unknown as Worker).postMessage({
+                type: "STATE_UPDATED",
+                seq: msg.seq,
+                state,
+                stats,
+                foilData
+            }, transferList);
+        } catch (err) {
+            console.error("[BoardWorker] Failed to decode and upload background image:", err);
+            (self as unknown as Worker).postMessage({ type: "ERROR", error: String(err) });
+        }
+        return;
+    }
 
     if (msgType === "INIT_RENDERER") {
         console.info("[BoardWorker] Initializing WGPU renderer with OffscreenCanvas...", {
@@ -300,7 +352,14 @@ async function handleWorkerMessage(e: MessageEvent<any>) {
         return;
     }
 
-    if (msgType === "PROPOSE" && msg.action) {
+        if (msgType === "PROPOSE" && msg.action) {
+        if (msg.seq !== undefined && msg.seq < lastProcessedSeq) {
+            console.warn(`[BoardWorker] Dropping stale propose sequence: ${msg.seq}`);
+            return;
+        }
+        if (msg.seq !== undefined) {
+            lastProcessedSeq = msg.seq;
+        }
         if (msg.action.type !== "LOAD_DESIGN") {
             console.info(`[BoardWorker] Processing action proposal: ${msg.action.type}`);
         }
