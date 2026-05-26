@@ -138,12 +138,12 @@ test.describe('Visual Regression', () => {
     await bgAccordion.locator('label:has-text("Select Image")').click();
     const fileChooser = await fileChooserPromise;
 
-    const tempFilePath = path.join(import.meta.dirname, 'temp_trace_template.jpg');
-    const miniJpg = Buffer.from(
-      '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
+        const tempFilePath = path.join(import.meta.dirname, 'temp_trace_template.png');
+    const miniPng = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
       'base64'
     );
-    fs.writeFileSync(tempFilePath, miniJpg);
+    fs.writeFileSync(tempFilePath, miniPng);
 
     await fileChooser.setFiles(tempFilePath);
     await page.waitForTimeout(1000); 
