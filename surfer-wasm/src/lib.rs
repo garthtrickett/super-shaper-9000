@@ -1,11 +1,12 @@
 use js_sys::{Float32Array, Object, Reflect};
 use serde::Serialize;
-use wgpu::util::DeviceExt;
 use surfer_core::model::{BoardAction, RawGeometryData};
 use surfer_core::SurferEngine;
 use wasm_bindgen::prelude::*;
 pub use wasm_bindgen_rayon::init_thread_pool;
 use web_sys::OffscreenCanvas;
+#[cfg(target_arch = "wasm32")]
+use wgpu::util::DeviceExt;
 
 #[derive(Serialize)]
 pub struct WasmUpdateResult<'a> {
