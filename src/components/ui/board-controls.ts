@@ -21,11 +21,17 @@ export class BoardControls extends LitElement {
   @property({ type: Number }) cantAngle = 6.0;
   @property({ type: String }) coreMaterial = "pu";
             @property({ type: String }) glassingSchedule = "heavy";
-          @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];
-        @property({ type: Array }) bottomChannels: { name: string, isSymmetric?: boolean }[] =[];
-      @property({ type: Array }) stringers: StringerConfig[] = [];
-      @property({ type: Array }) decals: DecalConfig[] = [];
-      @property({ type: Object }) foilData?: Float32Array;
+            @property({ type: Array }) outlineLayers: { name: string, active?: boolean }[] =[];
+  @property({ type: Array }) bottomChannels: { name: string, isSymmetric?: boolean }[] =[];
+  @property({ type: Array }) stringers: StringerConfig[] = [];
+  @property({ type: Array }) decals: DecalConfig[] = [];
+  @property({ type: Object }) foilData?: Float32Array;
+  @property({ type: Boolean }) bgImageVisible = false;
+  @property({ type: Number }) bgImageScale = 70.0;
+  @property({ type: Number }) bgImageOffsetX = 0.0;
+  @property({ type: Number }) bgImageOffsetZ = 0.0;
+  @property({ type: Number }) bgImageOpacity = 0.5;
+  @property({ type: Number }) bgImageAspectRatio = 1.0;
 
     // Physics Engine: Calculate weight based on volume, core density, and glassing weight
   get estimatedWeight() {
@@ -321,16 +327,52 @@ export class BoardControls extends LitElement {
               ${((this.meshData?.vertexCount ?? 0) / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
             </div>
           </div>
-          <!-- Triangles -->
-          <div class="flex flex-col items-center pt-2 border-t border-zinc-800">
-            <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Triangles</span>
-            <div class="text-xl font-black text-zinc-400 tracking-tighter">
-              ${((this.meshData?.triangleCount ?? 0) / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
-            </div>
-          </div>
-        </div>
+                            <!-- Triangles -->
+                  <div class="flex flex-col items-center pt-2 border-t border-zinc-800">
+                    <span class="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Triangles</span>
+                    <div class="text-xl font-black text-zinc-400 tracking-tighter">
+                      ${((this.meshData?.triangleCount ?? 0) / 1000).toFixed(1)}<span class="text-xs text-zinc-500 ml-1">k</span>
+                    </div>
+                  </div>
+                </div>
 
-                                                                                                                                ${this._renderAccordion("Structure & Layers", html`
+                ${this._renderAccordion("Background Image Template", html`
+                  <div class="mb-4">
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Upload Reference Image (.jpg, .png)</label>
+                    <label class="w-full flex items-center justify-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-300 py-2.5 rounded transition-colors uppercase tracking-wider cursor-pointer border border-zinc-700">
+                      <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                      </svg>
+                      Select Image
+                      <input type="file" accept=".jpg,.jpeg,.png" class="hidden" @change=${async (e: Event) => {
+                        const input = e.target as HTMLInputElement;
+                        const file = input.files?.[0];
+                        if (file) {
+                          const buffer = await file.arrayBuffer();
+                          this.dispatchEvent(new CustomEvent("upload-bg-image", {
+                            detail: { buffer },
+                            bubbles: true,
+                            composed: true
+                          }));
+                          this._dispatchBoolean("bgImageVisible", true);
+                        }
+                        input.value = "";
+                      }} />
+                    </label>
+                  </div>
+                  
+                  <div class="mb-4 flex items-center justify-between">
+                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Enable Overlay</span>
+                    <input type="checkbox" .checked=${this.bgImageVisible} @change=${(e: Event) => this._dispatchBoolean("bgImageVisible", (e.target as HTMLInputElement).checked)} class="w-4 h-4 accent-blue-500 cursor-pointer" />
+                  </div>
+
+                  ${this._renderSlider("Image Width/Scale", "bgImageScale", 10, 150, 0.5, this.bgImageScale, "\"")}
+                  ${this._renderSlider("Shift X (Lateral)", "bgImageOffsetX", -50, 50, 0.1, this.bgImageOffsetX, "\"")}
+                  ${this._renderSlider("Shift Z (Longitudinal)", "bgImageOffsetZ", -100, 100, 0.1, this.bgImageOffsetZ, "\"")}
+                  ${this._renderSlider("Opacity", "bgImageOpacity", 0, 1, 0.05, this.bgImageOpacity, "")}
+                `, false)}
+
+                                                                                                                                        ${this._renderAccordion("Structure & Layers", html`
           <div>
                         <div class='flex items-center justify-between mb-2'>
               <label class='text-xs font-semibold text-zinc-300 uppercase tracking-wider'>Outline Layers</label>

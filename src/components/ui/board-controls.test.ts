@@ -106,7 +106,7 @@ describe("BoardControls (UI Component)", () => {
       expect(spy.calledOnce).to.be.true;
     });
 
-    it("should emit export-design event when Export JSON button is clicked", async () => {
+        it("should emit export-design event when Export JSON button is clicked", async () => {
       const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
       const spy = sinon.spy();
       el.addEventListener("export-design", spy);
@@ -117,6 +117,41 @@ describe("BoardControls (UI Component)", () => {
 
       btn!.click();
       expect(spy.calledOnce).to.be.true;
+    });
+
+    it("should emit boolean-changed event when Enable Overlay checkbox is toggled", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("boolean-changed", spy);
+
+      const checkbox = el.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event("change"));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail).to.deep.equal({ param: "bgImageVisible", value: true });
+    });
+
+    it("should emit upload-bg-image event when a file is selected", async () => {
+      const el = await fixture<BoardControls>(html`<board-controls></board-controls>`);
+      const spy = sinon.spy();
+      el.addEventListener("upload-bg-image", spy);
+
+      const fileInput = el.querySelector('input[type="file"]') as HTMLInputElement;
+      expect(fileInput).to.exist;
+
+      const file = new File(["mock-image-bytes"], "template.jpg", { type: "image/jpeg" });
+      
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        writable: true
+      });
+
+      fileInput.dispatchEvent(new Event("change"));
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(spy.calledOnce).to.be.true;
+      expect(spy.firstCall.args[0].detail.buffer).to.be.instanceOf(ArrayBuffer);
     });
 
             it("should emit export-s3dx event when Export .s3dx button is clicked", async () => {

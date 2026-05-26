@@ -48,9 +48,9 @@ export class BoardViewport extends LitElement {
   override firstUpdated() {
     const views: ViewportId[] = ['top', 'perspective', 'side', 'profile'];
     
-        const defaultLineMasks: Record<ViewportId, number> = {
+            const defaultLineMasks: Record<ViewportId, number> = {
     perspective: 0x7FF,
-    top: (1<<0) | (1<<3) | (1<<4) | (1<<6) | (1<<7) | (1<<8) | (1<<9) | (1<<10),
+    top: (1<<0) | (1<<3) | (1<<4) | (1<<6) | (1<<7) | (1<<8) | (1<<9) | (1<<10) | (1<<11),
     side: (1<<1) | (1<<2) | (1<<5) | (1<<8) | (1<<10),
     profile: (1<<7)
 };
@@ -838,8 +838,9 @@ export class BoardViewport extends LitElement {
     };
 
     const renderQuadrantOverlay = (id: ViewportId, label: string) => {
-                        const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
+                              const CURVES_FOR_VIEW: Record<ViewportId, {label: string, mask: number, key: string}[]> = {
           top: [
+              { label: "Background Image", mask: 1 << 11, key: "backgroundImage" },
               { label: "Outline", mask: 1 << 0, key: "outline" },
               { label: "Apex Outline", mask: 1 << 3, key: "apexOutline" },
               { label: "Rail (Tuck)", mask: 1 << 4, key: "railOutline" },

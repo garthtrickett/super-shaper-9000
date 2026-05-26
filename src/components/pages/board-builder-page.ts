@@ -494,13 +494,19 @@ export class BoardBuilderPage extends LitElement {
               @close-inspector=${() => this._proposeAction({ type: "SELECT_NODE", node: null })}
             ></node-inspector>
           ` : ''}
-          <board-controls
+                    <board-controls
             class="flex-1 min-h-0 w-full flex flex-col"
             .length=${state.length}
             .width=${state.width}
             .thickness=${state.thickness}
             .meshData=${mesh}
             .tailType=${state.tailType ?? 'squash'}
+            .bgImageVisible=${state.bgImageVisible}
+            .bgImageScale=${state.bgImageScale}
+            .bgImageOffsetX=${state.bgImageOffsetX}
+            .bgImageOffsetZ=${state.bgImageOffsetZ}
+            .bgImageOpacity=${state.bgImageOpacity}
+            .bgImageAspectRatio=${state.bgImageAspectRatio}
             .swallowDepth=${state.swallowDepth ?? 4.0}
             .finSetup=${state.finSetup}
             .frontFinZ=${state.frontFinZ}
@@ -530,8 +536,20 @@ export class BoardBuilderPage extends LitElement {
               @remove-stringer=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: "REMOVE_STRINGER", index: e.detail.index })}
               @add-decal=${() => this._proposeAction({ type: "ADD_DECAL" })}
               @update-decal=${(e: CustomEvent<{ index: number, centreX: number, centreY: number, length: number, width: number, deck: boolean }>) => this._proposeAction({ type: "UPDATE_DECAL", ...e.detail })}
-              @remove-decal=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: "REMOVE_DECAL", index: e.detail.index })}
+                            @remove-decal=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: "REMOVE_DECAL", index: e.detail.index })}
               @export-design=${() => this.showExportModal = true}
+              @upload-bg-image=${async (e: CustomEvent<{ buffer: ArrayBuffer }>) => {
+                this.isProcessing = true;
+                const worker = (this.wasmCtrl as any).worker;
+                if (worker) {
+                  this.wasmCtrl.currentSequence++;
+                  worker.postMessage({
+                    type: "UPLOAD_BG_IMAGE",
+                    buffer: e.detail.buffer,
+                    seq: this.wasmCtrl.currentSequence
+                  }, [e.detail.buffer]);
+                }
+              }}
             @export-s3dx=${() => void this._handleExportS3dx()}
             @export-brd=${() => void this._handleExportBrd()}
             @export-obj=${() => void this._handleExportObj()}
