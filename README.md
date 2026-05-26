@@ -25,7 +25,7 @@ Unlike traditional web apps that perform heavy math in JavaScript, Super Shaper 
 ## 🚀 Quick Start
 
 ### For Shapers
-You can use the hosted version immediately at: **[Your-Render-URL-Here]**
+You can use the hosted version immediately at: **https://super-shaper-9000.onrender.com/**
 
 ### For Developers
 This project uses **Nix** to ensure a perfectly reproducible build environment.

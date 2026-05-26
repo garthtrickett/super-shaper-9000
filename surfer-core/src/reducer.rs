@@ -135,19 +135,19 @@ pub fn update(model: &mut BoardModel, dirty: &mut DirtyState, action: BoardActio
         | BoardAction::AddDecal
         | BoardAction::UpdateDecal { .. }
         | BoardAction::RemoveDecal { .. }) => handle_aesthetic_mutations(model, dirty, act),
-                        BoardAction::ApplyComponent {
-                    component_type,
-                    payload,
-                } => handle_apply_component(model, dirty, component_type, payload),
-            };
+        BoardAction::ApplyComponent {
+            component_type,
+            payload,
+        } => handle_apply_component(model, dirty, component_type, payload),
+    };
 
-            if is_geo {
-                crate::geometry::synchronize_board_endpoints(model);
-                recalculate_global_dimensions(model);
-            }
+    if is_geo {
+        crate::geometry::synchronize_board_endpoints(model);
+        recalculate_global_dimensions(model);
+    }
 
-            effects
-        }
+    effects
+}
 
 fn handle_apply_component(
     model: &mut BoardModel,
@@ -547,7 +547,7 @@ mod tests {
         approx::assert_relative_eq!(applied_outline.control_points[2].z, 50.0, epsilon = 1e-4);
     }
 
-        #[test]
+    #[test]
     fn test_node_dragging_updates_global_dimensions() {
         let mut model = BoardModel::default();
         model.length = 100.0;
