@@ -26,6 +26,199 @@ const isGeometryAltering = (action: any): boolean => {
     return true;
 };
 
+/**
+ * Estimates the board's main orientation using central image moments and rotates/aligns
+ * the image vertically (90 degrees relative to horizontal) on a new, non-clipping canvas.
+ */
+async function processAndAlignBackgroundImage(imgBitmap: ImageBitmap): Promise<{ rgbaData: Uint8Array, width: number, height: number }> {
+    const width = imgBitmap.width;
+    const height = imgBitmap.height;
+
+    let finalWidth = width;
+    let finalHeight = height;
+    let rotationAngle = 0;
+    let bgR = 255, bgG = 255, bgB = 255;
+    let hasAlpha = false;
+
+    try {
+        // 1. Downsample for fast moment analysis (prevent blocking the background thread)
+        const maxDim = 150;
+        let downWidth = width;
+        let downHeight = height;
+        if (width > maxDim || height > maxDim) {
+            if (width > height) {
+                downWidth = maxDim;
+                downHeight = Math.round((height / width) * maxDim);
+            } else {
+                downHeight = maxDim;
+                downWidth = Math.round((width / height) * maxDim);
+            }
+        }
+
+        const tempCanvas = new OffscreenCanvas(downWidth, downHeight);
+        const tempCtx = tempCanvas.getContext("2d");
+        if (tempCtx) {
+            tempCtx.drawImage(imgBitmap, 0, 0, downWidth, downHeight);
+            const tempImgData = tempCtx.getImageData(0, 0, downWidth, downHeight);
+            const data = tempImgData.data;
+
+            // 2. Check for alpha transparency
+            for (let i = 3; i < data.length; i += 4) {
+                if ((data[i] || 0) < 200) {
+                    hasAlpha = true;
+                    break;
+                }
+            }
+
+            // 3. Sample corners to estimate background color
+            const corners = [
+                [0, 0],
+                [downWidth - 1, 0],
+                [0, downHeight - 1],
+                [downWidth - 1, downHeight - 1]
+            ];
+            let sumR = 0, sumG = 0, sumB = 0;
+            for (const [cx, cy] of corners) {
+                const idx = ((cy || 0) * downWidth + (cx || 0)) * 4;
+                sumR += data[idx] || 0;
+                sumG += data[idx + 1] || 0;
+                sumB += data[idx + 2] || 0;
+            }
+            bgR = sumR / 4;
+            bgG = sumG / 4;
+            bgB = sumB / 4;
+
+            // 4. Compute first-order moments (centroid)
+            let m00 = 0;
+            let m10 = 0;
+            let m01 = 0;
+
+            for (let y = 0; y < downHeight; y++) {
+                for (let x = 0; x < downWidth; x++) {
+                    const idx = (y * downWidth + x) * 4;
+                    const r = data[idx] || 0;
+                    const g = data[idx + 1] || 0;
+                    const b = data[idx + 2] || 0;
+                    const a = data[idx + 3] || 0;
+
+                    let isForeground = false;
+                    if (hasAlpha) {
+                        isForeground = a > 50;
+                    } else {
+                        const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+                        isForeground = dist > 40;
+                    }
+
+                    if (isForeground) {
+                        m00 += 1;
+                        m10 += x;
+                        m01 += y;
+                    }
+                } 
+            }
+
+            // If we found a significant foreground object (at least 1% of downsampled pixels)
+            if (m00 > (downWidth * downHeight) * 0.01) {
+                const centerX = m10 / m00;
+                const centerY = m01 / m00;
+
+                // 5. Compute second-order central moments
+                let mu20 = 0.0;
+                let mu02 = 0.0;
+                let mu11 = 0.0;
+
+                for (let y = 0; y < downHeight; y++) {
+                    for (let x = 0; x < downWidth; x++) {
+                        const idx = (y * downWidth + x) * 4;
+                        const r = data[idx] || 0;
+                        const g = data[idx + 1] || 0;
+                        const b = data[idx + 2] || 0;
+                        const a = data[idx + 3] || 0;
+
+                        let isForeground = false;
+                        if (hasAlpha) {
+                            isForeground = a > 50;
+                        } else {
+                            const dist = Math.sqrt((r - bgR) ** 2 + (g - bgG) ** 2 + (b - bgB) ** 2);
+                            isForeground = dist > 40;
+                        }
+
+                        if (isForeground) {
+                            const dx = x - centerX;
+                            const dy = y - centerY;
+                            mu20 += dx * dx;
+                            mu02 += dy * dy;
+                            mu11 += dx * dy;
+                        }
+                    } 
+                }
+
+                // 6. Calculate angle of major principal axis (inertia)
+                const denominator = mu20 - mu02;
+                const numerator = 2.0 * mu11;
+
+                if (Math.abs(numerator) > 1e-4 || Math.abs(denominator) > 1e-4) {
+                    const theta = 0.5 * Math.atan2(numerator, denominator);
+                    
+                    // Align the principal axis vertically (Math.PI / 2.0 - theta)
+                    let targetRotation = Math.PI / 2.0 - theta;
+
+                    // Normalize to [-pi/2, pi/2] to minimize rotation angle
+                    if (targetRotation > Math.PI / 2.0) {
+                        targetRotation -= Math.PI;
+                    } else if (targetRotation < -Math.PI / 2.0) {
+                        targetRotation += Math.PI;
+                    }
+
+                    rotationAngle = targetRotation;
+                    
+                    // 7. Calculate new bounding box to prevent clipping
+                    const cosVal = Math.abs(Math.cos(rotationAngle));
+                    const sinVal = Math.abs(Math.sin(rotationAngle));
+                    finalWidth = Math.round(width * cosVal + height * sinVal);
+                    finalHeight = Math.round(width * sinVal + height * cosVal);
+
+                    console.info(`[BoardWorker] Auto-alignment computed: theta=${(theta * 180 / Math.PI).toFixed(1)}deg, rotation=${(rotationAngle * 180 / Math.PI).toFixed(1)}deg`);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("[BoardWorker] Auto-alignment failed, falling back to original orientation:", e);
+        finalWidth = width;
+        finalHeight = height;
+        rotationAngle = 0;
+    }
+
+    // Draw final oriented image onto canvas
+    const finalCanvas = new OffscreenCanvas(finalWidth, finalHeight);
+    const finalCtx = finalCanvas.getContext("2d");
+    if (!finalCtx) {
+        throw new Error("Failed to get 2D context on final OffscreenCanvas");
+    }
+
+    if (hasAlpha) {
+        finalCtx.clearRect(0, 0, finalWidth, finalHeight);
+    } else {
+        finalCtx.fillStyle = `rgb(${Math.round(bgR)}, ${Math.round(bgG)}, ${Math.round(bgB)})`;
+        finalCtx.fillRect(0, 0, finalWidth, finalHeight);
+    }
+
+    if (Math.abs(rotationAngle) > 1e-4) {
+        finalCtx.translate(finalWidth / 2, finalHeight / 2);
+        finalCtx.rotate(rotationAngle);
+        finalCtx.drawImage(imgBitmap, -width / 2, -height / 2);
+    } else {
+        finalCtx.drawImage(imgBitmap, 0, 0);
+    }
+
+    const imgData = finalCtx.getImageData(0, 0, finalWidth, finalHeight);
+    return {
+        rgbaData: new Uint8Array(imgData.data.buffer),
+        width: finalWidth,
+        height: finalHeight
+    };
+}
+
 let renderLoopActive = false;
 
 const startRenderLoop = () => {
@@ -144,24 +337,17 @@ async function handleWorkerMessage(e: MessageEvent<any>) {
     const msgType = msg?.type;
     if (!engine) return;
 
-    if (msgType === "UPLOAD_BG_IMAGE") {
+        if (msgType === "UPLOAD_BG_IMAGE") {
         console.info("[BoardWorker] Processing background image upload...");
         try {
             const blob = new Blob([msg.buffer]);
             const imgBitmap = await createImageBitmap(blob);
-            const { width, height } = imgBitmap;
             
-            const offscreen = new OffscreenCanvas(width, height);
-            const ctx = offscreen.getContext("2d");
-            if (!ctx) {
-                throw new Error("Failed to get 2D context on OffscreenCanvas");
-            }
-            ctx.drawImage(imgBitmap, 0, 0);
-            const imgData = ctx.getImageData(0, 0, width, height);
-            const rgbaData = imgData.data;
+            // Align and process the image so the surfboard is aligned nose-to-tail vertically (90 degrees)
+            const { rgbaData, width, height } = await processAndAlignBackgroundImage(imgBitmap);
             
             // Pass the raw RGBA pixels through the FFI boundary to the WASM engine
-            engine.update_background_image(new Uint8Array(rgbaData.buffer), width, height);
+            engine.update_background_image(rgbaData, width, height);
             imgBitmap.close();
 
             const aspect = width / height;
