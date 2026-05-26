@@ -103,12 +103,78 @@ test.describe('Visual Regression', () => {
     // Let the canvas render the frozen frame
     await page.waitForTimeout(500);
 
-        // 6. Screenshot the viewport
+                // 6. Screenshot the viewport
                 await expect(viewport).toHaveScreenshot('zebra-flow-smart-filter.png', {
       maxDiffPixels: 150000, 
       threshold: 0.5,
       timeout: 15000,
       mask: [viewport.locator('button')]
     });
+  });
+
+  test('Top view background template rendering visual regression', async ({ page }) => {
+    page.on('console', msg => {
+      if (msg.type() === 'error') console.info(`[Browser Error] ${msg.text()}`);
+    });
+
+    await page.goto('/');
+
+    const viewport = page.locator('board-viewport');
+    await expect(viewport.locator('canvas')).toBeVisible();
+
+    const boardControls = page.locator('board-controls');
+    await expect(boardControls).toBeVisible();
+
+    const bgAccordion = boardControls.locator('details').filter({
+      has: page.locator('summary', { hasText: "Background Image Template" })
+    });
+    await expect(bgAccordion).toBeVisible();
+    const isOpen = await bgAccordion.getAttribute('open');
+    if (isOpen === null) {
+      await bgAccordion.locator('summary').click();
+    }
+
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await bgAccordion.locator('label:has-text("Select Image")').click();
+    const fileChooser = await fileChooserPromise;
+
+    const tempFilePath = path.join(__dirname, 'temp_trace_template.jpg');
+    const miniJpg = Buffer.from(
+      '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
+      'base64'
+    );
+    fs.writeFileSync(tempFilePath, miniJpg);
+
+    await fileChooser.setFiles(tempFilePath);
+    await page.waitForTimeout(1000); 
+
+    const scaleContainer = bgAccordion.locator('.mb-4').filter({ hasText: /Image Width\/Scale/i }).first();
+    await scaleContainer.locator('input[type="range"]').fill('95');
+    await scaleContainer.locator('input[type="range"]').dispatchEvent('input');
+    await scaleContainer.locator('input[type="range"]').dispatchEvent('pointerup');
+
+    const opacityContainer = bgAccordion.locator('.mb-4').filter({ hasText: /Opacity/i }).first();
+    await opacityContainer.locator('input[type="range"]').fill('0.8');
+    await opacityContainer.locator('input[type="range"]').dispatchEvent('input');
+    await opacityContainer.locator('input[type="range"]').dispatchEvent('pointerup');
+
+    await page.waitForTimeout(1000);
+
+    const maximizeBtn = viewport.locator('button[title="Maximize Top"]');
+    if (await maximizeBtn.isVisible()) {
+      await maximizeBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    await expect(viewport).toHaveScreenshot('background-template-top-ortho.png', {
+      maxDiffPixels: 150000,
+      threshold: 0.5,
+      timeout: 15000,
+      mask: [viewport.locator('button')]
+    });
+
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
   });
 });
