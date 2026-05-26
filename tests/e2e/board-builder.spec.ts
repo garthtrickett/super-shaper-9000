@@ -1117,11 +1117,11 @@ test.describe("Board Builder E2E: The Golden Path", () => {
           await bgAccordion.locator('summary').click();
         }
 
-        const fileChooserPromise = page.waitForEvent('filechooser');
+                const fileChooserPromise = page.waitForEvent('filechooser');
         await bgAccordion.locator('label:has-text("Select Image")').click();
         const fileChooser = await fileChooserPromise;
         
-        const tempFilePath = path.join(__dirname, 'temp_test_image.jpg');
+        const tempFilePath = path.join(import.meta.dirname, 'temp_test_image.jpg');
         const miniJpg = Buffer.from(
           '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
           'base64'
