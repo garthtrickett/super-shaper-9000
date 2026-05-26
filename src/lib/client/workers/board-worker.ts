@@ -30,7 +30,7 @@ const isGeometryAltering = (action: any): boolean => {
  * Estimates the board's main orientation using central image moments and rotates/aligns
  * the image vertically (90 degrees relative to horizontal) on a new, non-clipping canvas.
  */
-async function processAndAlignBackgroundImage(imgBitmap: ImageBitmap): Promise<{ rgbaData: Uint8Array, width: number, height: number }> {
+function processAndAlignBackgroundImage(imgBitmap: ImageBitmap): { rgbaData: Uint8Array, width: number, height: number } {
     const width = imgBitmap.width;
     const height = imgBitmap.height;
 
@@ -343,8 +343,8 @@ async function handleWorkerMessage(e: MessageEvent<any>) {
             const blob = new Blob([msg.buffer]);
             const imgBitmap = await createImageBitmap(blob);
             
-            // Align and process the image so the surfboard is aligned nose-to-tail vertically (90 degrees)
-            const { rgbaData, width, height } = await processAndAlignBackgroundImage(imgBitmap);
+                        // Align and process the image so the surfboard is aligned nose-to-tail vertically (90 degrees)
+            const { rgbaData, width, height } = processAndAlignBackgroundImage(imgBitmap);
             
             // Pass the raw RGBA pixels through the FFI boundary to the WASM engine
             engine.update_background_image(rgbaData, width, height);
