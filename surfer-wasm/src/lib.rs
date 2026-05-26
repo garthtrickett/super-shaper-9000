@@ -5,7 +5,6 @@ use surfer_core::SurferEngine;
 use wasm_bindgen::prelude::*;
 pub use wasm_bindgen_rayon::init_thread_pool;
 use web_sys::OffscreenCanvas;
-use wgpu::util::DeviceExt;
 
 #[derive(Serialize)]
 pub struct WasmUpdateResult<'a> {
@@ -877,7 +876,7 @@ impl WasmEngine {
         }
     }
 
-        #[wasm_bindgen]
+    #[wasm_bindgen]
     pub fn update_background_image(&mut self, rgba_data: &[u8], width: u32, height: u32) {
         if let Some(renderer) = &mut self.renderer {
             renderer.update_background_texture(rgba_data, width, height);
@@ -1141,7 +1140,7 @@ impl WasmEngine {
             uniforms.push(uniform_data);
         }
 
-                let show_solid_mesh = self.show_solid_mesh;
+        let show_solid_mesh = self.show_solid_mesh;
         let view_mode = self.view_mode.clone();
 
         let (bg_visible, bg_scale, bg_offset_x, bg_offset_z, bg_opacity, bg_aspect_ratio) = {
@@ -1219,9 +1218,9 @@ impl WasmEngine {
                         (0.0, 0.0, full_w, full_h)
                     };
 
-                                        rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
+                    rpass.set_viewport(vp_x, vp_y, vp_w, vp_h, 0.0, 1.0);
 
-                                        let draw_bg = q == "top" && bg_visible;
+                    let draw_bg = q == "top" && bg_visible;
                     if draw_bg {
                         let bg_uniforms = BgUniforms {
                             scale: bg_scale,
@@ -1232,7 +1231,11 @@ impl WasmEngine {
                             aspect_ratio: bg_aspect_ratio,
                             padding: [0.0; 2],
                         };
-                        renderer.queue.write_buffer(&renderer.bg_uniform_buffer, 0, bytemuck::cast_slice(&[bg_uniforms]));
+                        renderer.queue.write_buffer(
+                            &renderer.bg_uniform_buffer,
+                            0,
+                            bytemuck::cast_slice(&[bg_uniforms]),
+                        );
 
                         rpass.set_pipeline(&renderer.bg_pipeline);
                         rpass.set_bind_group(0, &renderer.camera_bind_groups[i], &[]);
@@ -1241,8 +1244,7 @@ impl WasmEngine {
                     }
 
                     let draw_solid = (q == "perspective"
-                        ||
-                        (view_mode != "quad"
+                        || (view_mode != "quad"
                             && view_mode != "top"
                             && view_mode != "side"
                             && view_mode != "profile"))
@@ -1805,7 +1807,7 @@ mod tests {
         if let Ok(cache) = engine.cached_view_projs.lock() {
             assert!(cache[3].is_none());
         }
-                if let Ok(cache) = engine.cached_cam_params.lock() {
+        if let Ok(cache) = engine.cached_cam_params.lock() {
             assert!(cache[3].is_none());
         };
     }
@@ -2275,7 +2277,7 @@ pub async fn create_wgpu_renderer(
             multiview: None,
         });
 
-                // --- BACKGROUND REFERENCE IMAGE PIPELINE ---
+        // --- BACKGROUND REFERENCE IMAGE PIPELINE ---
         let bg_texture_size = wgpu::Extent3d {
             width: 1,
             height: 1,
@@ -2332,37 +2334,38 @@ pub async fn create_wgpu_renderer(
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let bg_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
+        let bg_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture {
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                        multisampled: false,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
                     },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                    count: None,
-                },
-            ],
-            label: Some("Background Bind Group Layout"),
-        });
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("Background Bind Group Layout"),
+            });
 
         let bg_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bg_bind_group_layout,
@@ -2568,7 +2571,7 @@ pub async fn create_wgpu_renderer(
             }));
         }
 
-                Ok(WgpuRenderer(RenderState {
+        Ok(WgpuRenderer(RenderState {
             line_pipeline,
             line_vertex_buffers,
             line_color_buffers,

@@ -452,7 +452,7 @@ mod tests {
         assert_eq!(applied_rocker.control_points[1].y, -2.0);
     }
 
-        #[test]
+    #[test]
     fn test_apply_shorter_outline_component_scales_to_active_length() {
         let mut model = BoardModel::default();
         model.length = 100.0;
@@ -518,20 +518,29 @@ mod tests {
 
         assert_eq!(model.bg_image_scale, 2.5);
         assert!(!dirty.global_rebuild, "Should NOT trigger global rebuild");
-        assert!(!dirty.dirty_z_ranges.is_empty(), "Should mark Z range dirty for viewport redraw");
+        assert!(
+            !dirty.dirty_z_ranges.is_empty(),
+            "Should mark Z range dirty for viewport redraw"
+        );
 
         // Verify is_geometry_altering
         let act_scale = BoardAction::UpdateNumber {
             param: "bgImageScale".to_string(),
             value: 2.5,
         };
-        assert!(!act_scale.is_geometry_altering(), "bgImageScale should not be geometry altering");
+        assert!(
+            !act_scale.is_geometry_altering(),
+            "bgImageScale should not be geometry altering"
+        );
 
         let act_visible = BoardAction::UpdateBoolean {
             param: "bgImageVisible".to_string(),
             value: true,
         };
-        assert!(!act_visible.is_geometry_altering(), "bgImageVisible should not be geometry altering");
+        assert!(
+            !act_visible.is_geometry_altering(),
+            "bgImageVisible should not be geometry altering"
+        );
     }
 }
 
@@ -790,7 +799,7 @@ fn handle_history(
         BoardAction::SaveHistorySnapshot => {
             push_history(model);
         }
-                BoardAction::Undo => {
+        BoardAction::Undo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx > 0 {
                     idx -= 1;
@@ -818,7 +827,7 @@ fn handle_history(
                 }
             }
         }
-                BoardAction::Redo => {
+        BoardAction::Redo => {
             if let (Some(history), Some(mut idx)) = (&model.history, model.history_index) {
                 if idx + 1 < history.len() {
                     idx += 1;
@@ -1505,7 +1514,7 @@ fn handle_parametric_scaling(
                 model.rail_coefficient_nose = value;
                 dirty.global_rebuild = true;
             }
-                        "thicknessZStretch" => {
+            "thicknessZStretch" => {
                 model.thickness_z_stretch = value;
                 dirty.global_rebuild = true;
             }
@@ -1513,27 +1522,37 @@ fn handle_parametric_scaling(
             "bgImageScale" => {
                 model.bg_image_scale = value;
                 let bounds = crate::geometry::get_board_bounds(model);
-                dirty.dirty_z_ranges.push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
+                dirty
+                    .dirty_z_ranges
+                    .push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
             }
             "bgImageOffsetX" => {
                 model.bg_image_offset_x = value;
                 let bounds = crate::geometry::get_board_bounds(model);
-                dirty.dirty_z_ranges.push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
+                dirty
+                    .dirty_z_ranges
+                    .push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
             }
             "bgImageOffsetZ" => {
                 model.bg_image_offset_z = value;
                 let bounds = crate::geometry::get_board_bounds(model);
-                dirty.dirty_z_ranges.push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
+                dirty
+                    .dirty_z_ranges
+                    .push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
             }
             "bgImageOpacity" => {
                 model.bg_image_opacity = value;
                 let bounds = crate::geometry::get_board_bounds(model);
-                dirty.dirty_z_ranges.push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
+                dirty
+                    .dirty_z_ranges
+                    .push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
             }
             "bgImageAspectRatio" => {
                 model.bg_image_aspect_ratio = value;
                 let bounds = crate::geometry::get_board_bounds(model);
-                dirty.dirty_z_ranges.push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
+                dirty
+                    .dirty_z_ranges
+                    .push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
             }
             _ => {}
         },
@@ -1579,7 +1598,7 @@ fn handle_parametric_scaling(
             "showApexRocker" => model.show_apex_rocker = Some(value),
             "showDeckShoulder" => model.show_deck_shoulder = Some(value),
             "showCrossSections" => model.show_cross_sections = Some(value),
-                        "showMriView" => {
+            "showMriView" => {
                 model.show_mri_view = Some(value);
                 if value {
                     model.show_zebra = Some(false);
@@ -1589,7 +1608,9 @@ fn handle_parametric_scaling(
             "bgImageVisible" => {
                 model.bg_image_visible = value;
                 let bounds = crate::geometry::get_board_bounds(model);
-                dirty.dirty_z_ranges.push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
+                dirty
+                    .dirty_z_ranges
+                    .push((bounds.nose_z - 1.0, bounds.tip_z + 1.0));
             }
             _ => {}
         },
