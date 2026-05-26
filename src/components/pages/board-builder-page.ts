@@ -138,9 +138,9 @@ export class BoardBuilderPage extends LitElement {
         viewport.boardState = state;
       }
 
-      // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly
+            // For fast pure-uniform updates, we can send to worker directly so the 3D view updates instantly
       if (action.type === "UPDATE_NUMBER" && action.param === "mriSlicePosition") {
-          const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+          const worker = this.wasmCtrl.worker;
           if (worker) {
               worker.postMessage({ type: "PROPOSE", action, seq: this.wasmCtrl.currentSequence });
           }
@@ -150,13 +150,12 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private requestSliceProfile() {
+    private requestSliceProfile() {
     if (!this.showContourEditor) return;
     this.isProcessing = true;
-    const ctrl = this.wasmCtrl as unknown as { worker?: Worker; currentSequence?: number };
-    const worker = ctrl.worker;
+    const worker = this.wasmCtrl.worker;
     if (worker) {
-      worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor", seq: ctrl.currentSequence });
+      worker.postMessage({ type: "GET_SLICE_PROFILE", z: this.contourZPosition, id: "contour-editor", seq: this.wasmCtrl.currentSequence });
     }
   }
 
@@ -179,9 +178,8 @@ export class BoardBuilderPage extends LitElement {
       this.contourSliceData = data.profile;
       this.isProcessing = false;
     }
-    if (data.type === "STATE_UPDATED" || data.type === "EXPORT_OBJ_RESULT" || data.type === "EXPORT_S3DX_RESULT" || data.type === "EXPORT_BRD_RESULT" || data.type === "ERROR") {
-      const ctrl = this.wasmCtrl as unknown as { currentSequence?: number };
-      if (data.seq === undefined || data.seq === ctrl.currentSequence) {
+        if (data.type === "STATE_UPDATED" || data.type === "EXPORT_OBJ_RESULT" || data.type === "EXPORT_S3DX_RESULT" || data.type === "EXPORT_BRD_RESULT" || data.type === "ERROR") {
+      if (data.seq === undefined || data.seq === this.wasmCtrl.currentSequence) {
         this.isProcessing = false;
       }
     }
@@ -189,10 +187,10 @@ export class BoardBuilderPage extends LitElement {
 
   protected override createRenderRoot() { return this; }
 
-  private async _handleExportObj() {
+    private async _handleExportObj() {
     try {
       this.isProcessing = true;
-      const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+      const worker = this.wasmCtrl.worker;
       if (!worker) { this.isProcessing = false; return; }
       
       const objText = await new Promise<string>((resolve) => {
@@ -224,10 +222,10 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private async _handleExportS3dx() {
+    private async _handleExportS3dx() {
     try {
       this.isProcessing = true;
-      const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+      const worker = this.wasmCtrl.worker;
       if (!worker) { this.isProcessing = false; return; }
       
       const xml = await new Promise<string>((resolve) => {
@@ -259,10 +257,10 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-  private async _handleExportBrd() {
+    private async _handleExportBrd() {
     try {
       this.isProcessing = true;
-      const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+      const worker = this.wasmCtrl.worker;
       if (!worker) { this.isProcessing = false; return; }
       
       const brdBytes = await new Promise<Uint8Array>((resolve) => {
@@ -322,16 +320,16 @@ export class BoardBuilderPage extends LitElement {
     override connectedCallback() {
     super.connectedCallback();
 
-    setTimeout(() => {
-      const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+        setTimeout(() => {
+      const worker = this.wasmCtrl.worker;
       if (worker) {
         worker.addEventListener("message", this._handleWorkerMessage);
       }
     }, 100);
   }
 
-  override disconnectedCallback() {
-    const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker;
+    override disconnectedCallback() {
+    const worker = this.wasmCtrl.worker;
     if (worker) {
       worker.removeEventListener("message", this._handleWorkerMessage);
     }
@@ -371,9 +369,9 @@ export class BoardBuilderPage extends LitElement {
     }
   }
 
-    private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }) { 
+        private _sendGizmoDragToWorker(detail: { userData: { type: 'anchor' | 'tangent1' | 'tangent2', curve: string, index: number }, position: [number, number, number], quad: string }) { 
     this._workerBusyWithDrag = true;
-    const worker = (this.wasmCtrl as unknown as { worker?: Worker }).worker; 
+    const worker = this.wasmCtrl.worker; 
     if (worker) {
       worker.postMessage({
         type: "DRAG_GIZMO",
@@ -538,17 +536,15 @@ export class BoardBuilderPage extends LitElement {
               @update-decal=${(e: CustomEvent<{ index: number, centreX: number, centreY: number, length: number, width: number, deck: boolean }>) => this._proposeAction({ type: "UPDATE_DECAL", ...e.detail })}
                             @remove-decal=${(e: CustomEvent<{ index: number }>) => this._proposeAction({ type: "REMOVE_DECAL", index: e.detail.index })}
               @export-design=${() => this.showExportModal = true}
-              @upload-bg-image=${async (e: CustomEvent<{ buffer: ArrayBuffer }>) => {
+                            @upload-bg-image=${(e: CustomEvent<{ buffer: ArrayBuffer }>) => {
                 this.isProcessing = true;
-                const worker = (this.wasmCtrl as any).worker;
-                if (worker) {
-                  this.wasmCtrl.currentSequence++;
-                  worker.postMessage({
-                    type: "UPLOAD_BG_IMAGE",
-                    buffer: e.detail.buffer,
-                    seq: this.wasmCtrl.currentSequence
-                  }, [e.detail.buffer]);
-                }
+                const worker = this.wasmCtrl.worker;
+                this.wasmCtrl.currentSequence++;
+                worker.postMessage({
+                  type: "UPLOAD_BG_IMAGE",
+                  buffer: e.detail.buffer,
+                  seq: this.wasmCtrl.currentSequence
+                }, [e.detail.buffer]);
               }}
             @export-s3dx=${() => void this._handleExportS3dx()}
             @export-brd=${() => void this._handleExportBrd()}
