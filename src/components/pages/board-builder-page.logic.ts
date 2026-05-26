@@ -88,6 +88,58 @@ export const ImportedFinBoxSchema = S.Struct({
   ptConvergence: S.optional(S.Number),
 });
 
+export type BoardAction =
+  | { type: "UPDATE_NUMBER"; param: string; value: number }
+  | { type: "UPDATE_STRING"; param: string; value: string }
+  | { type: "UPDATE_BOOLEAN"; param: string; value: boolean }
+  | { type: "LOAD_DESIGN"; state: BoardModel }
+  | {
+      type: "SET_CURVES";
+      outline?: BezierCurveData;
+      railOutline?: BezierCurveData;
+      apexOutline?: BezierCurveData;
+      rockerTop?: BezierCurveData;
+      rockerBottom?: BezierCurveData;
+      apexRocker?: BezierCurveData;
+      deckShoulder?: BezierCurveData;
+      crossSections?: BezierCurveData[];
+    }
+  | { type: "UPDATE_NODE_POSITION"; curve: string; index: number; nodeType: string; position: [number, number, number] }
+  | { type: "SELECT_NODE"; node: SelectedNode | null }
+  | {
+      type: "UPDATE_NODE_EXACT";
+      curve: string;
+      index: number;
+      anchor?: [number, number, number];
+      tangent1?: [number, number, number];
+      tangent2?: [number, number, number];
+      weight?: number;
+    }
+  | { type: "INSERT_NODE"; curve: string; t: number }
+  | { type: "APPLY_CONTINUITY"; curve: string; index: number; level: string; master?: string }
+  | { type: "REMOVE_NODE"; curve: string; index: number }
+  | { type: "SAVE_HISTORY_SNAPSHOT" }
+  | { type: "UNDO" }
+  | { type: "REDO" }
+  | { type: "SCALE_WIDTH"; factor: number }
+  | { type: "SCALE_THICKNESS"; factor: number }
+  | { type: "ADD_OUTLINE_LAYER" }
+  | { type: "REMOVE_OUTLINE_LAYER"; index: number }
+  | { type: "TOGGLE_OUTLINE_LAYER"; index: number }
+  | { type: "ADD_BOTTOM_CHANNEL" }
+  | { type: "REMOVE_BOTTOM_CHANNEL"; index: number }
+  | { type: "TOGGLE_CHANNEL_SYMMETRY"; index: number }
+  | { type: "IMPORT_S3DX"; xml: string }
+  | { type: "IMPORT_BRD"; bytes: number[] }
+  | { type: "ADD_CROSS_SECTION"; z: number }
+  | { type: "ADD_STRINGER" }
+  | { type: "UPDATE_STRINGER"; index: number; width: number; shift: number; tilt: number }
+  | { type: "REMOVE_STRINGER"; index: number }
+  | { type: "ADD_DECAL" }
+  | { type: "UPDATE_DECAL"; index: number; centreX: number; centreY: number; length: number; width: number; deck: boolean }
+  | { type: "REMOVE_DECAL"; index: number }
+  | { type: "APPLY_COMPONENT"; componentType: ComponentType; payload: ComponentPayload };
+
 export const BoardModelSchema = S.Struct({
   showHeatmap: S.optional(S.Boolean),
   showTopography: S.optional(S.Boolean),
@@ -339,12 +391,12 @@ export interface BoardModel {
   width: number;
   thickness: number;
   finSetup: FinSetup;
-  frontFinZ: number; 
-  frontFinX: number; 
-  rearFinZ: number; 
-  rearFinX: number; 
-  toeAngle: number; 
-  cantAngle: number; 
+  frontFinZ: number;
+  frontFinX: number;
+  rearFinZ: number;
+  rearFinX: number;
+  toeAngle: number;
+  cantAngle: number;
   tailType: TailType;
   swallowDepth: number;
   vConcaveTail?: number;
@@ -405,7 +457,7 @@ export const INITIAL_STATE: BoardModel = {
   showMriView: false,
   mriSlicePosition: 50.0,
   selectedNode: null,
-  length: 70, 
+  length: 70,
   width: 18.75,
   thickness: 2.5,
   outline: basicOutline,
@@ -413,12 +465,12 @@ export const INITIAL_STATE: BoardModel = {
   rockerBottom: basicRockerBottom,
   crossSections: [basicCrossSection],
   finSetup: "quad",
-  frontFinZ: 11.0, 
-  frontFinX: 1.25, 
-  rearFinZ: 6.0, 
-  rearFinX: 1.5, 
-  toeAngle: 3.0, 
-  cantAngle: 6.0, 
+  frontFinZ: 11.0,
+  frontFinX: 1.25,
+  rearFinZ: 6.0,
+  rearFinX: 1.5,
+  toeAngle: 3.0,
+  cantAngle: 6.0,
   tailType: "squash",
   swallowDepth: 4.0,
   vConcaveTail: 0.0,
@@ -426,8 +478,8 @@ export const INITIAL_STATE: BoardModel = {
   railCoefficientTail: 1.0,
   railCoefficientNose: 1.0,
   thicknessZStretch: 1.0,
-  coreMaterial: "pu",  
-  glassingSchedule: "heavy", 
+  coreMaterial: "pu",
+  glassingSchedule: "heavy",
   importedFinBoxes: undefined,
   stringers: undefined,
   decals: undefined,
@@ -438,480 +490,6 @@ export const INITIAL_STATE: BoardModel = {
   bgImageOpacity: 0.5,
   bgImageAspectRatio: 1.0,
 };
-
-export const update = (state: BoardModel, _action: BoardAction): BoardModel => state;
-
-export const handleAction = (
-  action: BoardAction,
-  _state: BoardModel,
-  _dispatch: (a: BoardAction) => void,
-): Effect.Effect<void, never, FullClientContext> =>
-  Effect.gen(function* () {
-    yield* clientLog("debug", "[BoardBuilder] State Action processed", action);
-    if (action.type === "IMPORT_S3DX") {
-      yield* clientLog("info", "[BoardBuilder] Sent S3DX XML to Rust Core for parsing", {
-        xmlLength: action.xml.length
-      });
-    }
-    if (action.type === "SET_CURVES") {
-      yield* clientLog("info", "[BoardBuilder] Curves have been baked into state");
-    }
-  });
-import { clientLog } from "../../lib/client/clientLog";
-import type { FullClientContext } from "../../lib/client/runtime";
-
-export type TailType = "squash" | "pin" | "swallow";
-export type FinSetup = "thruster" | "quad" | "twin";
-export type CoreMaterial = "pu" | "eps";
-export type GlassingSchedule = "light" | "standard" | "heavy";
-
-export const Point3DSchema = S.Tuple(S.Number, S.Number, S.Number);
-export const BezierCurveSchema = S.Struct({
-  controlPoints: S.Array(Point3DSchema),
-  tangents1: S.Array(Point3DSchema),
-  tangents2: S.Array(Point3DSchema),
-  weights: S.optional(S.Array(S.Number)),
-  apexRatio: S.optional(S.Number),
-  tuckRatio: S.optional(S.Number),
-});
-
-export const ChannelLayerSchema = S.Struct({
-  name: S.String,
-  isSymmetric: S.Boolean,
-  leftOutline: BezierCurveSchema,
-  rightOutline: BezierCurveSchema,
-  leftDepth: BezierCurveSchema,
-  rightDepth: BezierCurveSchema,
-});
-
-export const StringerConfigSchema = S.Struct({
-  name: S.String,
-  width: S.Number,
-  shift: S.Number,
-  tilt: S.Number,
-  colorD3d: S.Number,
-  mappingD3d: S.Number,
-  imageMappedD3d: S.String,
-  displayD3d: S.Boolean,
-  superpositionOrder: S.Number,
-});
-
-export const DecalConfigSchema = S.Struct({
-  file: S.String,
-  fileRel: S.String,
-  name: S.String,
-  length: S.Number,
-  width: S.Number,
-  reverseLeftRight: S.Boolean,
-  keepProp: S.Boolean,
-  tilt: S.Number,
-  centreX: S.Number,
-  centreY: S.Number,
-  centreColor: S.Number,
-  displayD3d: S.Boolean,
-  deck: S.Boolean,
-  bottom: S.Boolean,
-  projectedMapping: S.Boolean,
-  limitRail: S.Boolean,
-  limitApex: S.Boolean,
-  limitOppositeRail: S.Boolean,
-  superpositionOrder: S.Number,
-  reflexionCoef: S.Number,
-  opacity: S.Number,
-  resizeWithBoard: S.Boolean,
-  replaceWithBoard: S.Boolean,
-});
-
-export const SelectedNodeSchema = S.Struct({
-  curve: S.String,
-  index: S.Number,
-  type: S.Literal("anchor", "tangent1", "tangent2")
-});
-
-export const ImportedFinBoxSchema = S.Struct({
-  name: S.String,
-  style: S.Number,
-  length: S.Number,
-  width: S.Number,
-  height: S.Number,
-  x: S.Number,
-  y: S.Number,
-  z: S.Number,
-  angleOz: S.Number,
-  even: S.Boolean,
-  central: S.Boolean,
-  tilt: S.optional(S.Number),
-  cant: S.optional(S.Number),
-  ptConvergence: S.optional(S.Number),
-});
-
-export const BoardModelSchema = S.Struct({
-  showHeatmap: S.optional(S.Boolean),
-  showTopography: S.optional(S.Boolean),
-    showZebra: S.optional(S.Boolean),
-  showOutline: S.optional(S.Boolean),
-  showRockerTop: S.optional(S.Boolean),
-  showRockerBottom: S.optional(S.Boolean),
-  showApexOutline: S.optional(S.Boolean),
-  showRailOutline: S.optional(S.Boolean),
-    showApexRocker: S.optional(S.Boolean),
-  showDeckShoulder: S.optional(S.Boolean),
-        showCrossSections: S.optional(S.Boolean),
-  showMriView: S.optional(S.Boolean),
-  mriSlicePosition: S.optional(S.Number),
-  selectedNode: S.optional(S.NullOr(SelectedNodeSchema)),
-  history: S.optional(S.Array(S.Unknown)),
-    historyIndex: S.optional(S.Number),
-    outline: BezierCurveSchema,
-  importedFinBoxes: S.optional(S.Array(ImportedFinBoxSchema)),
-  stringers: S.optional(S.Array(StringerConfigSchema)),
-  decals: S.optional(S.Array(DecalConfigSchema)),
-  outlineLayers: S.optional(S.Array(S.Struct({
-    name: S.String,
-    active: S.optional(S.Boolean),
-    otlExt: BezierCurveSchema,
-    otlInt: BezierCurveSchema
-  }))),
-  bottomChannels: S.optional(S.Array(ChannelLayerSchema)),
-  railOutline: S.optional(BezierCurveSchema),
-  apexOutline: S.optional(BezierCurveSchema),
-  rockerTop: BezierCurveSchema,
-  rockerBottom: BezierCurveSchema,
-    apexRocker: S.optional(BezierCurveSchema),
-  deckShoulder: S.optional(BezierCurveSchema),
-  crossSections: S.Array(BezierCurveSchema),
-    length: S.Number,
-  width: S.Number,
-  thickness: S.Number,
-  finSetup: S.Literal("thruster", "quad", "twin"),
-  frontFinZ: S.Number,
-  frontFinX: S.Number,
-  rearFinZ: S.Number,
-  rearFinX: S.Number,
-  toeAngle: S.Number,
-  cantAngle: S.Number,
-    tailType: S.Literal("squash", "pin", "swallow"),
-  swallowDepth: S.Number,
-  vConcaveTail: S.optional(S.Number),
-  vConcaveNose: S.optional(S.Number),
-  railCoefficientTail: S.optional(S.Number),
-  railCoefficientNose: S.optional(S.Number),
-      thicknessZStretch: S.optional(S.Number),
-  coreMaterial: S.Literal("pu", "eps"),
-  glassingSchedule: S.Literal("light", "standard", "heavy"),
-});
-
-export const ComponentTypeSchema = S.Literal("outline", "rocker", "slices", "channels", "fins");
-export type ComponentType = S.Schema.Type<typeof ComponentTypeSchema>;
-
-export const ComponentEntrySchema = S.Struct({
-  id: S.String,
-  name: S.String,
-  type: ComponentTypeSchema,
-  updatedAt: S.String,
-});
-export type ComponentEntry = S.Schema.Type<typeof ComponentEntrySchema>;
-
-export const OutlineComponentSchema = S.Struct({
-  outline: BezierCurveSchema,
-  outlineLayers: S.optional(S.Array(S.Struct({
-    name: S.String,
-    active: S.optional(S.Boolean),
-    otlExt: BezierCurveSchema,
-    otlInt: BezierCurveSchema
-  }))),
-});
-export type OutlineComponent = S.Schema.Type<typeof OutlineComponentSchema>;
-
-export const RockerComponentSchema = S.Struct({
-  rockerTop: BezierCurveSchema,
-  rockerBottom: BezierCurveSchema,
-  apexRocker: S.optional(BezierCurveSchema),
-});
-export type RockerComponent = S.Schema.Type<typeof RockerComponentSchema>;
-
-export const SlicesComponentSchema = S.Struct({
-  crossSections: S.Array(BezierCurveSchema),
-});
-export type SlicesComponent = S.Schema.Type<typeof SlicesComponentSchema>;
-
-export const ChannelsComponentSchema = S.Struct({
-  bottomChannels: S.Array(ChannelLayerSchema),
-});
-export type ChannelsComponent = S.Schema.Type<typeof ChannelsComponentSchema>;
-
-export const FinsComponentSchema = S.Struct({
-  finSetup: S.Literal("thruster", "quad", "twin"),
-  frontFinZ: S.Number,
-  frontFinX: S.Number,
-  rearFinZ: S.Number,
-  rearFinX: S.Number,
-  toeAngle: S.Number,
-  cantAngle: S.Number,
-});
-export type FinsComponent = S.Schema.Type<typeof FinsComponentSchema>;
-
-export const ComponentPayloadSchema = S.Union(
-  OutlineComponentSchema,
-  RockerComponentSchema,
-  SlicesComponentSchema,
-  ChannelsComponentSchema,
-  FinsComponentSchema
-);
-export type ComponentPayload = S.Schema.Type<typeof ComponentPayloadSchema>;
-
-export type Point3D = [number, number, number];
-export interface BezierCurveData {
-  controlPoints: Point3D[];
-  tangents1: Point3D[];
-  tangents2: Point3D[];
-  weights?: number[];
-  apexRatio?: number;
-  tuckRatio?: number;
-}
-
-export interface ChannelLayer {
-  name: string;
-  isSymmetric: boolean;
-  leftOutline: BezierCurveData;
-  rightOutline: BezierCurveData;
-  leftDepth: BezierCurveData;
-  rightDepth: BezierCurveData;
-}
-
-export interface ImportedFinBox {
-  name: string;
-  style: number;
-  length: number;
-  width: number;
-  height: number;
-  x: number;
-  y: number;
-  z: number;
-  angleOz: number;
-  even: boolean;
-  central: boolean;
-  tilt?: number;
-  cant?: number;
-  ptConvergence?: number;
-}
-
-export interface StringerConfig {
-  name: string;
-  width: number;
-  shift: number;
-  tilt: number;
-  colorD3d: number;
-  mappingD3d: number;
-  imageMappedD3d: string;
-  displayD3d: boolean;
-  superpositionOrder: number;
-}
-
-export interface DecalConfig {
-  file: string;
-  fileRel: string;
-  name: string;
-  length: number;
-  width: number;
-  reverseLeftRight: boolean;
-  keepProp: boolean;
-  tilt: number;
-  centreX: number;
-  centreY: number;
-  centreColor: number;
-  displayD3d: boolean;
-  deck: boolean;
-  bottom: boolean;
-  projectedMapping: boolean;
-  limitRail: boolean;
-  limitApex: boolean;
-  limitOppositeRail: boolean;
-  superpositionOrder: number;
-  reflexionCoef: number;
-  opacity: number;
-  resizeWithBoard: boolean;
-  replaceWithBoard: boolean;
-}
-
-export type SelectedNode = {
-  curve: string;
-  index: number;
-  type: "anchor" | "tangent1" | "tangent2";
-};
-
-export interface ManualSnapshot {
-  outline: BezierCurveData;
-  outlineLayers?: { name: string; active?: boolean; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
-  bottomChannels?: ChannelLayer[];
-  railOutline?: BezierCurveData;
-  apexOutline?: BezierCurveData;
-  rockerTop: BezierCurveData;
-  rockerBottom: BezierCurveData;
-  apexRocker?: BezierCurveData;
-  deckShoulder?: BezierCurveData;
-  crossSections: BezierCurveData[];
-  importedFinBoxes?: ImportedFinBox[];
-  stringers?: StringerConfig[];
-  decals?: DecalConfig[];
-}
-
-export interface BoardModel {
-  showHeatmap?: boolean;
-  showTopography?: boolean;
-  showZebra?: boolean;
-  showOutline?: boolean;
-  showRockerTop?: boolean;
-  showRockerBottom?: boolean;
-  showApexOutline?: boolean;
-  showRailOutline?: boolean;
-  showApexRocker?: boolean;
-  showDeckShoulder?: boolean;
-  showCrossSections?: boolean;
-  showMriView?: boolean;
-  mriSlicePosition?: number;
-  selectedNode?: SelectedNode | null;
-  history?: ManualSnapshot[];
-  historyIndex?: number;
-  outline: BezierCurveData;
-  outlineLayers?: { name: string; active?: boolean; otlExt: BezierCurveData; otlInt: BezierCurveData }[];
-  bottomChannels?: ChannelLayer[];
-  railOutline?: BezierCurveData;
-  apexOutline?: BezierCurveData;
-  rockerTop: BezierCurveData;
-  rockerBottom: BezierCurveData;
-  apexRocker?: BezierCurveData;
-  deckShoulder?: BezierCurveData;
-  crossSections: BezierCurveData[];
-  importedFinBoxes?: ImportedFinBox[];
-  stringers?: StringerConfig[];
-  decals?: DecalConfig[];
-  length: number;
-  width: number;
-  thickness: number;
-  finSetup: FinSetup;
-  frontFinZ: number;
-  frontFinX: number;
-  rearFinZ: number;
-  rearFinX: number;
-  toeAngle: number;
-  cantAngle: number;
-    tailType: TailType;
-  swallowDepth: number;
-  vConcaveTail?: number;
-  vConcaveNose?: number;
-  railCoefficientTail?: number;
-  railCoefficientNose?: number;
-      thicknessZStretch?: number;
-  coreMaterial: CoreMaterial;
-  glassingSchedule: GlassingSchedule;
-}
-
-const basicOutline: BezierCurveData = {
-  controlPoints: [[0, 0, -35],[9.375, 0, 0],[0, 0, 35]],
-  tangents1: [[0, 0, -45],[9.375, 0, -10], [0, 0, 25]],
-  tangents2: [[0, 0, -25],[9.375, 0, 10],[0, 0, 45]],
-  weights: [1, 1, 1]
-};
-
-const basicRockerTop: BezierCurveData = {
-  controlPoints: [[0, 1.25, -35],[0, 1.25, 0],[0, 1.25, 35]],
-  tangents1: [[0, 1.25, -45], [0, 1.25, -10],[0, 1.25, 25]],
-  tangents2: [[0, 1.25, -25],[0, 1.25, 10],[0, 1.25, 45]],
-  weights: [1, 1, 1]
-};
-
-const basicRockerBottom: BezierCurveData = {
-  controlPoints: [[0, -1.25, -35],[0, -1.25, 0],[0, -1.25, 35]],
-  tangents1: [[0, -1.25, -45],[0, -1.25, -10], [0, -1.25, 25]],
-  tangents2: [[0, -1.25, -25],[0, -1.25, 10],[0, -1.25, 45]],
-  weights: [1, 1, 1]
-};
-
-const basicCrossSection: BezierCurveData = {
-  controlPoints: [[0, -1.25, 0],[6, -1.25, 0],[9.375, 0, 0],[6, 1.25, 0],[0, 1.25, 0]],
-  tangents1: [[-2, -1.25, 0],[4, -1.25, 0],[9.375, -0.5, 0],[8, 1.25, 0],[2, 1.25, 0]],
-  tangents2: [[2, -1.25, 0],[8, -1.25, 0],[9.375, 0.5, 0],[4, 1.25, 0],[-2, 1.25, 0]],
-  weights:[1, 1, 1, 1, 1]
-};
-
-export const INITIAL_STATE: BoardModel = {
-  showHeatmap: false,
-  showTopography: false,
-    showZebra: false,
-  showOutline: true,
-  showRockerTop: true,
-  showRockerBottom: true,
-  showApexOutline: true,
-  showRailOutline: true,
-    showApexRocker: true,
-  showDeckShoulder: true,
-        showCrossSections: true,
-  showMriView: false,
-  mriSlicePosition: 50.0,
-  selectedNode: null,
-    length: 70, 
-  width: 18.75,
-  thickness: 2.5,
-  outline: basicOutline,
-  rockerTop: basicRockerTop,
-  rockerBottom: basicRockerBottom,
-  crossSections: [basicCrossSection],
-  finSetup: "quad",
-  frontFinZ: 11.0, 
-  frontFinX: 1.25, 
-  rearFinZ: 6.0, 
-  rearFinX: 1.5, 
-  toeAngle: 3.0, 
-  cantAngle: 6.0, 
-    tailType: "squash",
-  swallowDepth: 4.0,
-  vConcaveTail: 0.0,
-  vConcaveNose: 0.0,
-  railCoefficientTail: 1.0,
-    railCoefficientNose: 1.0,
-  thicknessZStretch: 1.0,
-      coreMaterial: "pu",  
-  glassingSchedule: "heavy", 
-  importedFinBoxes: undefined,
-  stringers: undefined,
-  decals: undefined,
-};
-
-export type BoardAction =
-  | { type: "UPDATE_NUMBER"; param: keyof BoardModel; value: number }
-  | { type: "UPDATE_STRING"; param: keyof BoardModel; value: string }
-    | { type: "UPDATE_BOOLEAN"; param: keyof BoardModel; value: boolean }
-  | { type: "LOAD_DESIGN"; state: BoardModel }
-    | { type: "SET_CURVES"; outline?: BezierCurveData; railOutline?: BezierCurveData; apexOutline?: BezierCurveData; deckShoulder?: BezierCurveData; rockerTop?: BezierCurveData; rockerBottom?: BezierCurveData; apexRocker?: BezierCurveData; crossSections?: BezierCurveData[] }
-  | { type: "UPDATE_NODE_POSITION"; curve: string; index: number; nodeType: "anchor" | "tangent1" | "tangent2"; position: [number, number, number] }
-  | { type: "SELECT_NODE"; node: SelectedNode | null }
-    | { type: "UPDATE_NODE_EXACT"; curve: string; index: number; anchor?: Point3D; tangent1?: Point3D; tangent2?: Point3D; weight?: number }
-  | { type: "INSERT_NODE"; curve: string; t: number }
-    | { type: "APPLY_CONTINUITY"; curve: string; index: number; level: "G0" | "G1" | "G2"; master?: string }
-  | { type: "REMOVE_NODE"; curve: string; index: number }
-  | { type: "SAVE_HISTORY_SNAPSHOT" }
-  | { type: "UNDO" }
-  | { type: "REDO" }
-  | { type: "SCALE_WIDTH"; factor: number }
-  | { type: "SCALE_THICKNESS"; factor: number }
-                  | { type: "IMPORT_S3DX"; xml: string }
-  | { type: "IMPORT_BRD"; bytes: number[] }
-  | { type: "EXPORT_BRD" }
-  | { type: "ADD_OUTLINE_LAYER" }
-  | { type: "ADD_CROSS_SECTION"; z: number }
-    | { type: "REMOVE_OUTLINE_LAYER"; index: number }
-  | { type: "TOGGLE_OUTLINE_LAYER"; index: number }
-  | { type: "ADD_BOTTOM_CHANNEL" }
-  | { type: "TOGGLE_CHANNEL_SYMMETRY"; index: number }
-  | { type: "REMOVE_BOTTOM_CHANNEL"; index: number }
-  | { type: "ADD_STRINGER" }
-  | { type: "UPDATE_STRINGER"; index: number; width: number; shift: number; tilt: number }
-  | { type: "REMOVE_STRINGER"; index: number }
-  | { type: "ADD_DECAL" }
-    | { type: "UPDATE_DECAL"; index: number; centreX: number; centreY: number; length: number; width: number; deck: boolean }
-  | { type: "REMOVE_DECAL"; index: number }
-  | { type: "APPLY_COMPONENT"; componentType: ComponentType; payload: ComponentPayload };
 
 export const update = (state: BoardModel, _action: BoardAction): BoardModel => state;
 
