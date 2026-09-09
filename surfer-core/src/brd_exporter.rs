@@ -2,6 +2,12 @@ use crate::model::{BezierCurveData, BoardModel};
 use cbc::cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
 use md5::{Digest, Md5};
 
+/// The model works in inches, but AkuShaper's `.brd` format stores every
+/// dimension and coordinate in centimetres (its parser always reads `p01` &
+/// coordinates as cm). Multiply all positional output by this so AkuShaper
+/// shows true size; dimensionless values (apex/tuck ratios) are NOT scaled.
+const IN_TO_CM: f32 = 2.54;
+
 type DesCbcEnc = cbc::Encryptor<des::Des>;
 
 fn format_aku_curve(
@@ -59,7 +65,12 @@ fn format_aku_curve(
             // (smooth) loads and renders correctly.
             out.push_str(&format!(
                 "(cp [{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}] false false)\n",
-                px, py, t1x, t1y, t2x, t2y
+                px * IN_TO_CM,
+                py * IN_TO_CM,
+                t1x * IN_TO_CM,
+                t1y * IN_TO_CM,
+                t2x * IN_TO_CM,
+                t2y * IN_TO_CM
             ));
         }
         out.push_str(")\n");
@@ -88,9 +99,9 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
 
     let mut out = String::new();
     // Params use `key : value` spacing to match AkuShaper's .brd format.
-    out.push_str(&format!("p01 : {:.6}\n", model.length));
-    out.push_str(&format!("p04 : {:.6}\n", model.width));
-    out.push_str(&format!("p03 : {:.6}\n", model.thickness));
+    out.push_str(&format!("p01 : {:.6}\n", model.length * IN_TO_CM));
+    out.push_str(&format!("p04 : {:.6}\n", model.width * IN_TO_CM));
+    out.push_str(&format!("p03 : {:.6}\n", model.thickness * IN_TO_CM));
 
     // Fins (p50) MUST be present: AkuShaper's BoardIO calls `new Fins(dArray, ..)`
     // unconditionally after the read loop and indexes dArray[0..8], so an absent
@@ -105,7 +116,7 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     // NPEs and aborts the load. They position the board on the foam blank for
     // CNC, not the board shape, so values only need to be non-null and
     // non-degenerate; length-scaled keeps the machine transform well-formed.
-    let half_len = model.length * 0.5;
+    let half_len = model.length * IN_TO_CM * 0.5;
     out.push_str(&format!("p30 : [{:.6},0.0,40.0]\n", half_len)); // blankTailPos
     out.push_str(&format!("p31 : [{:.6},0.0,34.0]\n", half_len)); // boardStartPos
 
@@ -145,20 +156,23 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
             let tuck_ratio = cs
                 .tuck_ratio
                 .unwrap_or_else(|| 0.01_f32.max(apex_ratio * 0.5));
+            // Slice position is a coordinate (scaled); apex/tuck are ratios (not).
             out.push_str(&format!(
                 "(p36 {:.6} {:.6} {:.6}\n",
-                px, apex_ratio, tuck_ratio
+                px * IN_TO_CM,
+                apex_ratio,
+                tuck_ratio
             ));
 
             for i in 0..cs.control_points.len() {
                 out.push_str(&format!(
                     "(cp [{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}] false false)\n",
-                    cs.control_points[i].x,
-                    cs.control_points[i].y,
-                    cs.tangents1[i].x,
-                    cs.tangents1[i].y,
-                    cs.tangents2[i].x,
-                    cs.tangents2[i].y
+                    cs.control_points[i].x * IN_TO_CM,
+                    cs.control_points[i].y * IN_TO_CM,
+                    cs.tangents1[i].x * IN_TO_CM,
+                    cs.tangents1[i].y * IN_TO_CM,
+                    cs.tangents2[i].x * IN_TO_CM,
+                    cs.tangents2[i].y * IN_TO_CM
                 ));
             }
             out.push_str(")\n");
