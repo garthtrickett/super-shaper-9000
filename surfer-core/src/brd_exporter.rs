@@ -52,8 +52,13 @@ fn format_aku_curve(
             };
             let t2y = if is_thickness { t2[i].y } else { t2[i].x };
 
+            // AkuShaper BoardIO requires each control point wrapped as
+            // `(cp [comma,separated,values] flag flag)`; bare `[a b c]` lines
+            // are rejected as "Unrecognized BoardIO property" and the curve is
+            // dropped. The two trailing booleans are corner flags; false/false
+            // (smooth) loads and renders correctly.
             out.push_str(&format!(
-                "[{:.6} {:.6} {:.6} {:.6} {:.6} {:.6}]\n",
+                "(cp [{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}] false false)\n",
                 px, py, t1x, t1y, t2x, t2y
             ));
         }
@@ -82,27 +87,30 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     };
 
     let mut out = String::new();
-    out.push_str(&format!("p01: {:.6}\n", model.length));
-    out.push_str(&format!("p04: {:.6}\n", model.width));
-    out.push_str(&format!("p03: {:.6}\n", model.thickness));
+    // Params use `key : value` spacing to match AkuShaper's .brd format.
+    out.push_str(&format!("p01 : {:.6}\n", model.length));
+    out.push_str(&format!("p04 : {:.6}\n", model.width));
+    out.push_str(&format!("p03 : {:.6}\n", model.thickness));
 
+    // Curve sections open with `pNN : (` and are closed by the `)` that
+    // format_aku_curve appends.
     let p32 = format_aku_curve(&model.outline, false, &table, scale_factor);
     if !p32.is_empty() {
-        out.push_str(&format!("p32:\n{}", p32));
+        out.push_str(&format!("p32 : (\n{}", p32));
     }
 
     let p33 = format_aku_curve(&model.rocker_bottom, true, &table, scale_factor);
     if !p33.is_empty() {
-        out.push_str(&format!("p33:\n{}", p33));
+        out.push_str(&format!("p33 : (\n{}", p33));
     }
 
     let p34 = format_aku_curve(&model.rocker_top, true, &table, scale_factor);
     if !p34.is_empty() {
-        out.push_str(&format!("p34:\n{}", p34));
+        out.push_str(&format!("p34 : (\n{}", p34));
     }
 
     if !model.cross_sections.is_empty() {
-        out.push_str("p35:\n");
+        out.push_str("p35 : (\n");
         for cs in &model.cross_sections {
             if cs.control_points.is_empty() {
                 continue;
@@ -127,7 +135,7 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
 
             for i in 0..cs.control_points.len() {
                 out.push_str(&format!(
-                    "[{:.6} {:.6} {:.6} {:.6} {:.6} {:.6}]\n",
+                    "(cp [{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}] false false)\n",
                     cs.control_points[i].x,
                     cs.control_points[i].y,
                     cs.tangents1[i].x,
