@@ -92,6 +92,23 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
     out.push_str(&format!("p04 : {:.6}\n", model.width));
     out.push_str(&format!("p03 : {:.6}\n", model.thickness));
 
+    // Fins (p50) MUST be present: AkuShaper's BoardIO calls `new Fins(dArray, ..)`
+    // unconditionally after the read loop and indexes dArray[0..8], so an absent
+    // p50 leaves it an empty array and throws in Fins.<init>, aborting the whole
+    // load (board never appears). 9 zeros is the "no fins" default every real
+    // Aku fixture ships; staying at length 9 avoids the length>17 cluster branch.
+    out.push_str("p50 : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]\n");
+
+    // Blank/machine placement arrays. Like fins, AkuShaper dereferences these
+    // unconditionally after the read loop: blankTailPos (p30) is `.clone()`d and
+    // boardStartPos (p31) is indexed at [0] and [2], so an absent (null) value
+    // NPEs and aborts the load. They position the board on the foam blank for
+    // CNC, not the board shape, so values only need to be non-null and
+    // non-degenerate; length-scaled keeps the machine transform well-formed.
+    let half_len = model.length * 0.5;
+    out.push_str(&format!("p30 : [{:.6},0.0,40.0]\n", half_len)); // blankTailPos
+    out.push_str(&format!("p31 : [{:.6},0.0,34.0]\n", half_len)); // boardStartPos
+
     // Curve sections open with `pNN : (` and are closed by the `)` that
     // format_aku_curve appends.
     let p32 = format_aku_curve(&model.outline, false, &table, scale_factor);
