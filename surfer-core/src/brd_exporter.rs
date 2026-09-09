@@ -21,7 +21,16 @@ fn format_aku_curve(
             return String::new();
         }
 
-        let injected = crate::geometry::inject_export_caps(c.clone(), is_thickness);
+        // Only the outline tapers to zero at the tips, so only it gets 0-caps.
+        // Rocker/deck curves (is_thickness) keep their nonzero nose/tail heights;
+        // forcing a y=0 cap there makes the curve dive to 0 at the tip (via the
+        // endpoint's beyond-the-tip Bezier handle), producing a hook in the
+        // rocker profile.
+        let injected = if is_thickness {
+            c.clone()
+        } else {
+            crate::geometry::inject_export_caps(c.clone(), is_thickness)
+        };
         let mut pts = injected.control_points;
         let mut t1 = injected.tangents1;
         let mut t2 = injected.tangents2;
@@ -78,6 +87,25 @@ fn format_aku_curve(
     } else {
         String::new()
     }
+}
+
+/// Number of cross-section stations to sample along the board for .brd export.
+const EXPORT_SLICE_STATIONS: usize = 12;
+
+/// Build one rail cross-section (in slice-local coords: x = half-width from the
+/// stringer, y = height above the bottom) by sampling the lofted board profile
+/// at longitudinal position `z`. Points run bottom-center -> tuck -> apex ->
+/// shoulder -> deck-center, matching the control-point order AkuShaper expects.
+fn sample_rail_points(model: &BoardModel, z: f32, hint_t: f32) -> Vec<(f32, f32)> {
+    let p = crate::geometry::get_board_profile_at_z(model, z, hint_t);
+    let base = p.bot_y; // make the bottom of the slice y = 0
+    vec![
+        (0.0, 0.0),
+        (p.tuck_x, p.tuck_y - base),
+        (p.apex_x, p.apex_y - base),
+        (p.shoulder_x, p.shoulder_y - base),
+        (0.0, p.top_y - base),
+    ]
 }
 
 pub fn serialize_aku_shaper(model: &BoardModel) -> String {
@@ -137,42 +165,63 @@ pub fn serialize_aku_shaper(model: &BoardModel) -> String {
         out.push_str(&format!("p34 : (\n{}", p34));
     }
 
-    if !model.cross_sections.is_empty() {
+    // Cross-section slices (p35). AkuShaper builds its 3D surface by lofting
+    // between the explicit slices in the file — it does NOT blend a single
+    // template across the board the way our mesh does. A board whose model has
+    // only one (or zero) rail cross-sections therefore renders as just the
+    // stringer. So instead of dumping model.cross_sections, sample the lofted
+    // board profile at several stations and emit each as a p36 slice, giving
+    // AkuShaper enough rings to reconstruct the shape we display.
+    if model.outline.is_some()
+        && model.rocker_bottom.is_some()
+        && model.rocker_top.is_some()
+        && EXPORT_SLICE_STATIONS >= 2
+    {
+        let bounds = crate::geometry::get_board_bounds(model);
         out.push_str("p35 : (\n");
-        for cs in &model.cross_sections {
-            if cs.control_points.is_empty() {
-                continue;
-            }
-            let slice_z = cs.control_points[0].z;
-            let s_slice_from_tail = table.map_z_to_s(slice_z);
+        for i in 0..EXPORT_SLICE_STATIONS {
+            let f = i as f32 / (EXPORT_SLICE_STATIONS - 1) as f32;
+            let z = bounds.nose_z + f * (bounds.tip_z - bounds.nose_z);
+
+            // Position along the rocker arc from the tail (AkuShaper's px space).
             let px = if scale_factor > 0.0 {
-                (s_slice_from_tail / scale_factor).max(0.0)
+                (table.map_z_to_s(z) / scale_factor).max(0.0)
             } else {
                 0.0
             };
-            let apex_ratio = cs
-                .apex_ratio
-                .unwrap_or_else(|| crate::geometry::find_apex_t(cs));
-            let tuck_ratio = cs
-                .tuck_ratio
-                .unwrap_or_else(|| 0.01_f32.max(apex_ratio * 0.5));
-            // Slice position is a coordinate (scaled); apex/tuck are ratios (not).
-            out.push_str(&format!(
-                "(p36 {:.6} {:.6} {:.6}\n",
-                px * IN_TO_CM,
-                apex_ratio,
-                tuck_ratio
-            ));
 
-            for i in 0..cs.control_points.len() {
+            // The extreme nose/tail stations are caps: a near-zero-width ring
+            // lofts into a spike, so emit a single stringer-center point with the
+            // -1 "undefined ratio" sentinel, exactly as real Aku fixtures do.
+            if i == 0 || i == EXPORT_SLICE_STATIONS - 1 {
+                out.push_str(&format!("(p36 {:.6} -1.000000 -1.000000\n", px * IN_TO_CM));
+                out.push_str("(cp [0.000000,0.000000,0.000000,0.000000,0.000000,0.000000] false false)\n");
+                out.push_str(")\n");
+                continue;
+            }
+
+            let pts = sample_rail_points(model, z, f);
+            // apex is the 3rd of 5 points (~0.5), tuck the 2nd (~0.25).
+            out.push_str(&format!("(p36 {:.6} 0.500000 0.250000\n", px * IN_TO_CM));
+
+            // Catmull-Rom tangent handles for a smooth rail through the points.
+            let n = pts.len();
+            for j in 0..n {
+                let p = pts[j];
+                let prev = pts[j.saturating_sub(1)];
+                let next = pts[(j + 1).min(n - 1)];
+                let tx = (next.0 - prev.0) / 6.0;
+                let ty = (next.1 - prev.1) / 6.0;
+                let (h1x, h1y) = (p.0 - tx, p.1 - ty); // incoming handle
+                let (h2x, h2y) = (p.0 + tx, p.1 + ty); // outgoing handle
                 out.push_str(&format!(
                     "(cp [{:.6},{:.6},{:.6},{:.6},{:.6},{:.6}] false false)\n",
-                    cs.control_points[i].x * IN_TO_CM,
-                    cs.control_points[i].y * IN_TO_CM,
-                    cs.tangents1[i].x * IN_TO_CM,
-                    cs.tangents1[i].y * IN_TO_CM,
-                    cs.tangents2[i].x * IN_TO_CM,
-                    cs.tangents2[i].y * IN_TO_CM
+                    p.0 * IN_TO_CM,
+                    p.1 * IN_TO_CM,
+                    h1x * IN_TO_CM,
+                    h1y * IN_TO_CM,
+                    h2x * IN_TO_CM,
+                    h2y * IN_TO_CM
                 ));
             }
             out.push_str(")\n");
