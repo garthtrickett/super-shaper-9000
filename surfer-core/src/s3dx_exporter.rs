@@ -1,6 +1,62 @@
 use crate::model::{BezierCurveData, BoardModel};
 use glam::Vec3;
 
+/// Sample cross-sections along the board for the .s3dx `Couples` slices,
+/// mirroring the .brd slice sampling. AkuShaper lofts its surface from these
+/// explicit slices; a board's sparse model.cross_sections (often one real rail
+/// plus degenerate caps) makes AkuShaper's mesher hang or render only the
+/// stringer. Each slice is bottom-center -> tuck -> apex -> shoulder -> deck in
+/// (x = half-width, y = height above the slice bottom, z = slice position);
+/// coords are converted to cm by format_poly at emit time. Interior stations
+/// only — the Otl/StrBot/StrDeck curves already carry the shape to the tips.
+fn sample_s3dx_cross_sections(model: &BoardModel, n_stations: usize) -> Vec<BezierCurveData> {
+    let mut out = Vec::new();
+    if model.outline.is_none()
+        || model.rocker_bottom.is_none()
+        || model.rocker_top.is_none()
+        || n_stations < 3
+    {
+        return out;
+    }
+    let bounds = crate::geometry::get_board_bounds(model);
+    for i in 1..(n_stations - 1) {
+        let f = i as f32 / (n_stations - 1) as f32;
+        let z = bounds.nose_z + f * (bounds.tip_z - bounds.nose_z);
+        let p = crate::geometry::get_board_profile_at_z(model, z, f);
+        let base = p.bot_y;
+        let pts2d = [
+            (0.0f32, 0.0f32),
+            (p.tuck_x, p.tuck_y - base),
+            (p.apex_x, p.apex_y - base),
+            (p.shoulder_x, p.shoulder_y - base),
+            (0.0, p.top_y - base),
+        ];
+        let m = pts2d.len();
+        let mut cps = Vec::with_capacity(m);
+        let mut t1 = Vec::with_capacity(m);
+        let mut t2 = Vec::with_capacity(m);
+        for j in 0..m {
+            let (px, py) = pts2d[j];
+            let (prx, pry) = pts2d[j.saturating_sub(1)];
+            let (nx, ny) = pts2d[(j + 1).min(m - 1)];
+            let tx = (nx - prx) / 6.0;
+            let ty = (ny - pry) / 6.0;
+            cps.push(Vec3::new(px, py, z));
+            t1.push(Vec3::new(px - tx, py - ty, z));
+            t2.push(Vec3::new(px + tx, py + ty, z));
+        }
+        out.push(BezierCurveData {
+            control_points: cps,
+            tangents1: t1,
+            tangents2: t2,
+            weights: None,
+            apex_ratio: None,
+            tuck_ratio: None,
+        });
+    }
+    out
+}
+
 pub fn export_s3dx(model: &BoardModel) -> String {
     let rocker = model.rocker_bottom.as_ref();
     let bounds = crate::geometry::get_board_bounds(model);
@@ -28,6 +84,31 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     xml.push_str("<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>\n<Shape3d_design>\n<Board>\n");
     xml.push_str("<Version>9</Version>\n<VersionNumber>9.1.0.4</VersionNumber>\n");
     xml.push_str(&format!("<Name>Super Shaper Export</Name>\n<Length>{:.6}</Length>\n<Width>{:.6}</Width>\n<Thickness>{:.6}</Thickness>\n", model.length * unscale, model.width * unscale, model.thickness * unscale));
+
+    // Nose_rocker, Tail_rocker and Author are REQUIRED by AkuShaper's 2023 s3dx
+    // reader (readS3dFile calls the throwing getFirstChild for each) — without
+    // them the import fails with IndexOutOfBounds. The rocker shape itself comes
+    // from the StrBot curve; these scalars are the nose/tail heights above the
+    // board's lowest bottom point (its "flat"), emitted in cm like everything else.
+    let (nose_rocker, tail_rocker) = if let Some(rb) = model.rocker_bottom.as_ref() {
+        let n = 64;
+        let mut min_y = f32::INFINITY;
+        for i in 0..=n {
+            let f = i as f32 / n as f32;
+            let z = bounds.nose_z + f * (bounds.tip_z - bounds.nose_z);
+            min_y = min_y.min(crate::geometry::evaluate_bezier_at_z(rb, z, f).y);
+        }
+        let y_nose = crate::geometry::evaluate_bezier_at_z(rb, bounds.nose_z, 0.0).y;
+        let y_tail = crate::geometry::evaluate_bezier_at_z(rb, bounds.tip_z, 1.0).y;
+        ((y_nose - min_y).max(0.0), (y_tail - min_y).max(0.0))
+    } else {
+        (0.0, 0.0)
+    };
+    xml.push_str(&format!(
+        "<Nose_rocker>{:.6}</Nose_rocker>\n<Tail_rocker>{:.6}</Tail_rocker>\n<Author>Super Shaper</Author>\n",
+        nose_rocker * unscale,
+        tail_rocker * unscale
+    ));
     let mut dirty = crate::model::DirtyState::default();
     let mut cache = crate::mesh::MeshCache::default();
     let mesh = crate::mesh::generate_mesh(model, &mut dirty, &mut cache);
@@ -116,7 +197,9 @@ pub fn export_s3dx(model: &BoardModel) -> String {
                             }
                         }
                     }
-                    p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>{:.6}</u><color>0</color>\n</Point3d>\n", s3dx_x, p.x, p.y, u));
+                    // Coordinates are stored in centimetres in .s3dx (like Length/
+                    // Width above), but the model works in inches — scale by unscale.
+                    p_str.push_str(&format!("<Point3d>\n<x>{:.6}</x><y>{:.6}</y><z>{:.6}</z><u>{:.6}</u><color>0</color>\n</Point3d>\n", s3dx_x * unscale, p.x * unscale, p.y * unscale, u));
                 }
                 p_str.push_str(&format!("</Polygone3d>\n</{}>\n", tag));
                 p_str
@@ -249,7 +332,10 @@ pub fn export_s3dx(model: &BoardModel) -> String {
         2,
     ));
 
-    for (i, cs) in model.cross_sections.iter().enumerate() {
+    // Sampled slices instead of the sparse model.cross_sections (which lofted
+    // into a hang / stringer-only shape in AkuShaper).
+    let export_slices = sample_s3dx_cross_sections(model, 12);
+    for (i, cs) in export_slices.iter().enumerate() {
         let b = format_bezier("cpl", "", &Some(cs.clone()), 6, 3);
         xml.push_str(&format!(
             "<Couples_{}>\n<Dessus>1</Dessus>\n<Dessous>1</Dessous>\n{}\n</Couples_{}>\n",
@@ -258,7 +344,7 @@ pub fn export_s3dx(model: &BoardModel) -> String {
     }
     xml.push_str(&format!(
         "<Number_of_slices>{}</Number_of_slices>\n",
-        model.cross_sections.len()
+        export_slices.len()
     ));
 
     let mut calques = String::new();
